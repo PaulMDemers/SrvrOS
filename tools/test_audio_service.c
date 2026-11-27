@@ -40,6 +40,19 @@ int main(void) {
     assert(peak==1200);for(unsigned i=TONE_FRAMES*2;i<PCM_BYTES/2;i++)assert(!pcm[i]);
     clock_us+=750000;dma_position=TONE_FRAMES*4+4096;service();
     assert(status.tests_started==1 && status.tests_completed==1 && status.state==SRV_AUDIO_READY);silent();
+    setup();codec.pro81=true;
+    assert(!audio_request(SRV_AUDIO_TEST,0));service();
+    for(unsigned i=0;i<PRO81_TONE_LEAD_FRAMES*2;i++) assert(!pcm[i]);
+    for(unsigned pulse=0;pulse<3;pulse++) {
+        unsigned start=PRO81_TONE_LEAD_FRAMES+pulse*PRO81_TONE_STEP_FRAMES;
+        unsigned sample=(start+480)*2;
+        assert(pcm[sample]==(pulse==1?0:-1200));
+        assert(pcm[sample+1]==(pulse==0?0:-1200));
+        unsigned gap=(start+TONE_FRAMES)*2;
+        assert(!pcm[gap] && !pcm[gap+1]);
+    }
+    clock_us+=3350000;dma_position=PRO81_TONE_FRAMES*4+4096;service();
+    assert(status.tests_started==1 && status.tests_completed==1 && status.state==SRV_AUDIO_READY);silent();
     assert(!audio_request(SRV_AUDIO_TEST,0));service();
     assert(!audio_request(SRV_AUDIO_VOLUME,0));service();assert(!controller.playing && status.volume==0);silent();
     assert(!audio_request(SRV_AUDIO_TEST,0));service();assert(controller.playing);silent();

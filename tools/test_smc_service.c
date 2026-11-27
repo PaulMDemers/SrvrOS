@@ -24,6 +24,9 @@ bool laptop_pro_display_match(uint16_t gpu,uint16_t pch,const uint8_t *data,size
 bool laptop_air61_display_match(uint16_t gpu,uint16_t pch,const uint8_t *data,size_t size) {
     assert(data==(uint8_t*)&table && size==35034);return firmware && gpu==0x0a26 && pch==0x9c43;
 }
+bool laptop_pro81_firmware_match(uint16_t gpu,uint16_t pch,const uint8_t *data,size_t size) {
+    assert(data==(uint8_t*)&table && size==35034);return firmware && gpu==0x0126 && pch==0x1c49;
+}
 bool scheduler_spawn_io_service(const char *name,scheduler_thread_fn fn,void *arg,scheduler_wait_condition_fn eligible) { assert(!strcmp(name,"smc") && fn==worker && !arg && eligible==ready);return spawn_ok; }
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg) { (void)q;(void)fn;(void)arg;assert(0);return false; }
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t deadline) { (void)q;(void)fn;(void)arg;(void)deadline;assert(0);return false; }
@@ -34,7 +37,16 @@ static void reply(const uint8_t *data,unsigned length) {
     transport.io=(struct smc_io){&m,model_status,model_read,model_command,model_argument};
     step();assert(m.commands==1 && m.args==5 && m.reads==length);
 }
-static void init(void) { initialized=false;stage=0;snapshot=(struct srv_smc_status){.version=SRV_SMC_VERSION};smc_init(); }
+static void init(void) { initialized=stopping=false;stage=0;snapshot=(struct srv_smc_status){.version=SRV_SMC_VERSION};smc_init(); }
+static void battery_sample(const uint16_t words[AC_END+1]) {
+    clock_us+=1500000;
+    for(unsigned i=0;i<=AC_END;i++) {
+        uint8_t data[2]={(uint8_t)words[i],0};
+        if(battery_keys[i].size==2) { data[0]=(uint8_t)(words[i]>>8);data[1]=(uint8_t)words[i]; }
+        reply(data,battery_keys[i].size);
+        assert(m.command==0x10 && !memcmp(m.key,battery_keys[i].name,4));
+    }
+}
 int main(void) {
     chipset=false;init();assert(snapshot.state==SRV_SMC_UNAVAILABLE);
     chipset=true;firmware=false;init();assert(snapshot.state==SRV_SMC_UNAVAILABLE);
@@ -85,5 +97,40 @@ int main(void) {
     assert(cached.samples==1 && m.commands==commands);
     clock_us+=1000000;reply(fan,2);assert(snapshot.samples==2 && !memcmp(m.key,"F0Ac",4));
     init();count[0]=2;reply(count_info,6);reply(count,1);assert(snapshot.state==SRV_SMC_FAULT && snapshot.error==0x102);
+    devices[0].device_id=0x0126;devices[1].device_id=0x1c49;
+    firmware=false;init();assert(snapshot.state==SRV_SMC_UNAVAILABLE && !expected_fans);
+    firmware=true;init();assert(expected_fans==1 && snapshot.state==SRV_SMC_STARTING);
+    count[0]=1;reply(count_info,6);reply(count,1);reply(fan_info,6);
+    assert(stage==4 && !memcmp(m.key,"F0Ac",4));
+    fan[0]=0x1f;fan[1]=0x48;reply(fan,2);
+    assert(snapshot.state==SRV_SMC_ACTIVE && snapshot.fan_count==1 && snapshot.fan_millirpm==2002000);
+    commands=m.commands;
+    stopping=true;step();
+    assert(!working && transaction_boundary() && m.commands==commands && snapshot.samples==1);
+    initialized=stopping=false;smc_battery_init();
+    assert(working && battery.value.state==BATTERY_SERVICE_STARTING);
+    for(unsigned i=0;i<AC_END;i++) {
+        uint8_t info[6]={battery_keys[i].size,0,0,0,0,0x80};
+        memcpy(info+1,battery_keys[i].type,4);
+        reply(info,6);assert(m.command==0x13 && !memcmp(m.key,battery_keys[i].name,4));
+    }
+    uint16_t words[AC_END+1]={1,1,0,12435,5276,5401,98,1};
+    battery_sample(words);
+    struct battery_service_status power;
+    smc_battery_status(&power);
+    assert(power.flags==(BATTERY_CACHE_VALID|BATTERY_CACHE_FRESH|BATTERY_CACHE_AC_PRESENT));
+    assert(power.sample.voltage_uv==12435000 && power.sample.current_ua==0 && power.sample.relative_soc==98);
+    assert(power.sample.remaining_capacity==5276000 && power.sample.full_capacity==5401000);
+    words[AC_END]=0;battery_sample(words);
+    smc_battery_status(&power);
+    assert(power.error==BATTERY_SERVICE_AC_CHANGED && power.rejected==1 && (power.flags&BATTERY_CACHE_STALE));
+    words[AC_BEGIN]=0;words[CURRENT]=0xf8f0;battery_sample(words);
+    smc_battery_status(&power);
+    assert(power.sample.current_ua==-1808000 && power.sample.generation==3);
+    assert(power.flags==(BATTERY_CACHE_VALID|BATTERY_CACHE_FRESH));
+    stopping=true;step();
+    assert(!working && transaction_boundary());
+    initialized=stopping=false;devices[1].device_id=0x9c43;smc_battery_init();
+    assert(!working && battery.value.state==BATTERY_SERVICE_UNAVAILABLE);
     puts("smc-service: PASS exact-target gate, worker failure, metadata/count checks, cached fan samples, zero RPM and fault invalidation without control writes");
 }

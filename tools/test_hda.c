@@ -21,22 +21,31 @@ static uint32_t rd(void *ctx,unsigned off,unsigned n) { return get(ctx,off,n); }
 static uint32_t response(struct model *m,uint32_t cmd) {
     unsigned node=(cmd>>20)&127,op=(cmd>>8)&0xfff,value=cmd&255;
     bool apple=m->vendor==0x10134208;
+    bool pro81=m->vendor==0x10134206;
     if((op&0x700)!=0x700) { op&=0xf00;value=cmd&65535; }
     if(op==0xf00) {
-        if(node==0) { if(value==0) return m->vendor;if(value==2) return m->bad_revision?0:0x100300;if(value==4) return 0x10001; }
-        if(node==1) { if(value==5) return 1; }
+        if(node==0) { if(value==0) return m->vendor;if(value==2) return m->bad_revision?0:pro81?0x100302:0x100300;if(value==4) return 0x10001; }
+        if(node==1) { if(value==5) return 1;if(value==0x11 && pro81) return 4; }
         if(value==9) {
+            if(pro81) {
+                if(node==0x11) return 0xf00040;
+                if(node==0x0a || node==0x09) return 0x410581;
+                if(node==0x0b) return 0x410101;
+                return 0xd041d;
+            }
             if(apple) return node==0x10?0x40058d:(node==0x12||node==0x13)?0x400501:0xd043d&~(m->no_stereo?1u:0);
             return node==3?0x40010d:0x1d;
         }
-        if(value==12) return apple&&(node==0x12||node==0x13)?0x50:0x1c;
+        if(value==12) return pro81 && node==0x0b?0x50:pro81 && node==0x0a?0x54:apple&&(node==0x12||node==0x13)?0x50:0x1c;
         if(value==14) return 1;
         if(value==10) return apple?0x001e07f0:(1<<17)|(1<<6);
         if(value==11) return m->no_pcm?2:apple?3:1;
-        if(value==18) return apple?(node==0x10?0x80034242:0x80017f7f):0x80034a4a;
+        if(value==18) return pro81?0x80017f73:apple?(node==0x10?0x80034242:0x80017f7f):0x80034a4a;
     }
     if(op==0xf20) return m->subsystem;
-    if(op==0xf02) return m->bad_connection||(m->bad_bass&&node==0x13)?7:(node==0x12?3:node==0x13?4:2);
+    if(op==0xf02) return m->bad_connection||(m->bad_bass&&(node==0x13||node==0x0a))?7:
+        (node==0x12 || node==0x0a?3:node==0x13 || node==0x0b?4:2);
+    if(op==0xf1c && pro81) return m->bad_pin?0:node==0x0b?0x90100120:node==0x0a?0x90100121:0x0e2b4030;
     if(op==0xf1c && m->subsystem==0x106b7100) return m->bad_pin?0:
         node==0x12?(m->firmware_pins?0x90100110:0x90170011):
         (m->firmware_pins||m->mixed_pins?0x002b4020:0x032b401f);
@@ -54,8 +63,9 @@ static uint32_t response(struct model *m,uint32_t cmd) {
     if(op==0x300) { assert(node<32);m->amp[node]=value; }
     if(op==0x707) { assert(node<32);m->pin_control[node]=value; }
     if(op==0x706) { assert(node<32);m->stream[node]=value; }
-    if(op==0x500) { assert(node==0x24&&value<64);m->coefficient_index=value; }
-    if(op==0x400) { assert(node==0x24);m->coefficient[m->coefficient_index]=value; }
+    if(op==0x500) { assert(node==(pro81?0x11:0x24)&&value<64);m->coefficient_index=value; }
+    if(op==0x400) { assert(node==(pro81?0x11:0x24));m->coefficient[m->coefficient_index]=value; }
+    if(op==0xc00) return m->coefficient[m->coefficient_index];
     if(op<0x800) { m->mutations++;if(op>=0x715&&op<=0x717) m->gpio_writes++; }
     return 0;
 }
@@ -93,6 +103,27 @@ static void init(struct model *m) {
     memset(m,0,sizeof(*m));put(m,0,2,0x2201);put(m,8,4,1);put(m,14,2,1);
     m->vendor=0x1af40012;m->subsystem=m->vendor;
     m->gpio_mask=m->gpio_direction=0x30;m->gpio_data=0x20;
+}
+static void pro81_speakers(void) {
+    struct model m;struct hda_core h;struct hda_codec c;
+    init(&m);m.vendor=0x10134206;m.subsystem=0x106b1c00;
+    assert(hda_core_reset(&h,io(&m)) && hda_codec_discover(&c,&h,HDA_PRO8_1));
+    assert(c.pro81 && !c.apple && c.routes==3 && c.muted);
+    assert(m.coefficient[3]==0x146a && !m.coefficient[0x33]);
+    assert(m.pin_control[0x0b]==0x40 && m.pin_control[0x0a]==0x40 && !m.pin_control[0x09]);
+    assert(m.stream[3]==0x10 && m.stream[4]==0x10 && !m.stream[2]);
+    assert(m.gpio_mask==0x3a && m.gpio_direction==0x3a && m.gpio_data==0x20);
+    assert(hda_codec_pro81_quiet(&c));
+    assert(hda_codec_mute(&c,false) && m.gpio_data==0x28 && !hda_codec_pro81_quiet(&c));
+    assert(m.amp[3]==0xb073 && m.amp[4]==0xb073 && m.amp[2]==0xb0f3);
+    assert(hda_codec_mute(&c,true) && hda_codec_pro81_quiet(&c) && m.gpio_data==0x20);
+    assert(!hda_codec_route(&c,HDA_HEADPHONES));
+    for(unsigned fault=0;fault<5;fault++) {
+        init(&m);m.vendor=0x10134206;m.subsystem=fault==0?0x106b5b00:0x106b1c00;
+        m.bad_revision=fault==1;m.bad_pin=fault==2;m.bad_bass=fault==3;
+        assert(hda_core_reset(&h,io(&m)));
+        assert(!hda_codec_discover(&c,&h,fault==4?HDA_GENERIC:HDA_PRO8_1) && !m.mutations);
+    }
 }
 int main(void) {
     struct model m;struct hda_core h;struct hda_codec c;uint32_t v;
@@ -204,5 +235,6 @@ int main(void) {
     m.stop_stuck=true;assert(!hda_core_stop(&h)&&h.playing&&!h.ready);
     init(&m);assert(hda_core_reset(&h,io(&m)));assert(hda_core_start(&h,4096,4096,2));
     put(&m,0xc3,1,0x10);assert(!hda_core_position(&h,&v)&&h.error==HDA_STREAM_ERROR&&!h.playing);
+    pro81_speakers();
     puts("hda: reset timing, codec profiles, stale responses, DMA and bounded fault paths passed");
 }

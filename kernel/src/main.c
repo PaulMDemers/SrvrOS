@@ -17,8 +17,10 @@
 #include <srvros/workspace_image.h>
 #include <srvros/workspace_log.h>
 #include <srvros/battery_diagnostic.h>
+#include <srvros/battery_service.h>
 #include <srvros/desktop_session.h>
 #include <srvros/laptop_probe.h>
+#include <srvros/backlight.h>
 #include <srvros/audio.h>
 #include <srvros/capture_write_timing.h>
 #include <srvros/audio_abi.h>
@@ -34,6 +36,7 @@
 #include <srvros/bootlog.h>
 #include <srvros/console.h>
 #include <srvros/e1000.h>
+#include <srvros/ehci.h>
 #include <srvros/exfat.h>
 #include <srvros/heap.h>
 #include <srvros/halt.h>
@@ -1084,10 +1087,278 @@ static void retina_desktop_trial(const char *cmdline) {
     halt_forever();
 }
 
+static bool ehci_trial_release(const char *cmdline, char release[17], const char *mode, char log_volume[9]) {
+    const char *prefix[] = { "srvros.storage=ram srvros.ehci=", mode, " srvros.ehci-release=" };
+    for (unsigned i = 0; i < sizeof(prefix) / sizeof(prefix[0]); i++) {
+        for (const char *p = prefix[i]; *p; p++) {
+            if (*cmdline++ != *p) return false;
+        }
+    }
+    for (unsigned i = 0; i < 16; i++) {
+        char c = *cmdline++;
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
+        release[i] = c;
+    }
+    release[16] = '\0';
+    if (!*cmdline) return true;
+    if (!log_volume) return false;
+    for (const char *p = " srvros.ehci-log-volume="; *p; p++) {
+        if (*cmdline++ != *p) return false;
+    }
+    for (unsigned i = 0; i < 8; i++) {
+        char c = *cmdline++;
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
+        log_volume[i] = c;
+    }
+    log_volume[8] = '\0';
+    return !*cmdline;
+}
+
+/* Leave interrupts masked for the caller's pre-userspace storage work. */
+static void ehci_desktop_startup_trace(const char *release, bool trackpad_ready) {
+    console_write("Capturing topcase queues and saving a startup report before opening the desktop...\n");
+    console_sync();
+    uint64_t start = timer_monotonic_us();
+    while (trackpad_ready && timer_monotonic_us() - start < 1200000u) scheduler_yield();
+    __asm__ volatile ("cli" : : : "memory");
+    console_printf("ehci-desktop-startup: release=%s phase=startup\n", release);
+    ehci_desktop_trackpad_print_trace("startup");
+}
+
+static void ehci_desktop_return(bool report_saved, bool checkpoint_saved) {
+    if (report_saved) {
+        console_write("USB report saved. Restarting into Ubuntu.\n");
+        console_sync();
+        arch_reboot_unattended();
+    }
+    if (checkpoint_saved) console_write("The startup report is on the flash drive.\n");
+    console_write("USB report save could not be verified. Photograph this screen before restarting.\n");
+    console_sync();
+    halt_forever();
+}
+
+static void ehci_desktop_trial(const char *release, const char *volume, bool trackpad_ready, bool timer_running,
+    bool trace) {
+    boot_set_framebuffer_quiet(false);
+    bool checkpoint_saved = false;
+    if (trace) {
+        ehci_desktop_startup_trace(release, trackpad_ready);
+        checkpoint_saved = ehci_desktop_trackpad_checkpoint(release, volume);
+        __asm__ volatile ("sti" : : : "memory");
+        console_printf("ehci-desktop-startup: USB checkpoint=%s\n", checkpoint_saved ? "saved" : "unverified");
+    }
+    console_printf("ehci-desktop: opening desktop release=%s\n", release);
+    console_sync();
+    bool desktop_passed = timer_running && process_run_elf_args("/fat/bin/deskd",
+        trace ? "--ehci-topcase-trial" : "--ehci-trackpad-trial");
+    bool retired = ehci_desktop_trackpad_stop();
+    bool passed = trackpad_ready && desktop_passed && retired && ehci_desktop_trackpad_verified();
+    console_printf("ehci-desktop: release=%s result=%s desktop=%s retirement=%s\n", release,
+        passed ? "PASS" : "INCOMPLETE", desktop_passed ? "passed" : "unverified", retired ? "safe" : "unverified");
+    console_write("Saving desktop trial to the USB workspace...\n");
+    console_sync();
+    __asm__ volatile ("cli" : : : "memory");
+    if (trace) ehci_desktop_trackpad_print_trace("final");
+    ehci_desktop_return(retired && ehci_desktop_trackpad_save(release, volume), checkpoint_saved);
+}
+
+static bool ehci_saved_document(const char *path, const uint8_t *seed, uint64_t seed_size) {
+    static const char expected[] = "Ehci-42";
+    const struct vfs_node *node = vfs_lookup(path);
+    const uint8_t *data;
+    uint64_t size;
+    if (!node || node->size != seed_size + sizeof(expected) - 1 || !vfs_read_all(node, &data, &size)) return false;
+    bool exact = size == seed_size + sizeof(expected) - 1;
+    for (uint64_t i = 0; exact && i < seed_size; i++) exact = data[i] == seed[i];
+    for (unsigned i = 0; exact && i < sizeof(expected) - 1; i++) exact = data[seed_size + i] == (uint8_t)expected[i];
+    vfs_release_data(node, data);
+    return exact;
+}
+
+enum ehci_workspace_trial {
+    EHCI_WORKSPACE_FILE, EHCI_WORKSPACE_BRIGHTNESS, EHCI_WORKSPACE_AUDIO, EHCI_WORKSPACE_TELEMETRY, EHCI_WORKSPACE_BATTERY
+};
+
+static bool ehci_battery_report(const char *phase) {
+    struct battery_service_status status;
+    smc_battery_status(&status);
+    bool fresh=(status.flags&BATTERY_CACHE_FRESH)!=0,ac=(status.flags&BATTERY_CACHE_AC_PRESENT)!=0;
+    console_printf("pro81-battery: phase=%s state=%u fresh=%u ac=%u generation=%u soc=%u voltage_uv=%u current_ua=%d remaining_uah=%u full_uah=%u attempts=%u rejected=%u error=%u\n",
+        phase,(uint64_t)status.state,(uint64_t)fresh,(uint64_t)ac,status.sample.generation,
+        (uint64_t)status.sample.relative_soc,status.sample.voltage_uv,status.sample.current_ua,
+        status.sample.remaining_capacity,status.sample.full_capacity,status.attempts,status.rejected,(uint64_t)status.error);
+    return fresh && ac && status.sample.current_ua>=0;
+}
+
+struct ehci_telemetry_sample {
+    uint64_t cpu_samples, fan_samples;
+    bool fresh;
+};
+
+static struct ehci_telemetry_sample ehci_telemetry_report(const char *phase) {
+    struct srv_thermal_status cpu;
+    struct srv_smc_status fan;
+    thermal_status(&cpu);
+    smc_status(&fan);
+    uint64_t now=timer_monotonic_us();
+    uint64_t cpu_age=now>=cpu.sampled_us?now-cpu.sampled_us:UINT64_MAX;
+    uint64_t fan_age=now>=fan.sampled_us?now-fan.sampled_us:UINT64_MAX;
+    unsigned temperature_flags=SRV_THERMAL_CORE_VALID|SRV_THERMAL_PACKAGE_VALID|SRV_THERMAL_TARGET_VALID;
+    bool cpu_fresh=cpu.state==SRV_THERMAL_ACTIVE && (cpu.flags&temperature_flags)==temperature_flags &&
+        cpu.samples && cpu_age<=3000000;
+    bool fan_fresh=fan.state==SRV_SMC_ACTIVE && (fan.flags&SRV_SMC_FAN_VALID) &&
+        fan.fan_count==1 && !fan.failures && fan.samples && fan_age<=3000000;
+    console_printf("pro81-telemetry: phase=%s cpu_state=%u cpu_fresh=%u core_mc=%d package_mc=%d target_mc=%d cpu_samples=%u cpu_age_us=%u\n",
+        phase,(uint64_t)cpu.state,(uint64_t)cpu_fresh,(int64_t)cpu.core_mc,(int64_t)cpu.package_mc,
+        (int64_t)cpu.target_mc,cpu.samples,cpu.samples?cpu_age:0);
+    console_printf("pro81-telemetry: phase=%s fan_state=%u fan_fresh=%u fans=%u fan_millirpm=%u fan_samples=%u fan_age_us=%u smc_failures=%u smc_error=%u\n",
+        phase,(uint64_t)fan.state,(uint64_t)fan_fresh,(uint64_t)fan.fan_count,(uint64_t)fan.fan_millirpm,
+        fan.samples,fan.samples?fan_age:0,fan.failures,(uint64_t)fan.error);
+    return (struct ehci_telemetry_sample){cpu.samples,fan.samples,cpu_fresh && fan_fresh};
+}
+
+static void ehci_desktop_workspace_trial(const char *release, const char *volume, bool trackpad_ready,
+    bool timer_running, enum ehci_workspace_trial kind) {
+    char args[] = "--ehci-file-trial /work/srvros-work/ehci-desktop-0000000000000000.txt";
+    char *path = args + sizeof("--ehci-file-trial ") - 1;
+    for (unsigned i = 0; i < 16; i++) path[sizeof("/work/srvros-work/ehci-desktop-") - 1 + i] = release[i];
+    boot_set_framebuffer_quiet(false);
+    bool file_trial=kind==EHCI_WORKSPACE_FILE, audio_trial=kind==EHCI_WORKSPACE_AUDIO;
+    bool telemetry_trial=kind==EHCI_WORKSPACE_TELEMETRY,battery_trial=kind==EHCI_WORKSPACE_BATTERY;
+    if (!file_trial && !telemetry_trial && !battery_trial) laptop_pro81_brightness_init();
+    if (audio_trial) {
+        audio_init_pro81();
+        struct srv_audio_status audio;
+        audio_status(&audio);
+        console_printf("pro81-audio: phase=startup provider=%s volume=%u\n",
+            audio.state==SRV_AUDIO_READY?"ready":"unavailable",(uint64_t)audio.volume);
+    }
+    struct ehci_telemetry_sample first={0};
+    if (telemetry_trial) {
+        console_write("Starting read-only CPU and fan telemetry. Keep the flash drive connected.\n");
+        console_sync();
+        thermal_init();
+        smc_init();
+        uint64_t start=timer_monotonic_us();
+        struct srv_smc_status fan;
+        smc_status(&fan);
+        while(fan.state==SRV_SMC_STARTING && timer_monotonic_us()-start<2000000) {
+            scheduler_yield();
+            smc_status(&fan);
+        }
+        first=ehci_telemetry_report("startup");
+    }
+    if (battery_trial) {
+        console_write("Starting the battery and charger trial. Keep the charger and flash drive connected until prompted.\n");
+        console_sync();
+        smc_battery_init();
+        uint64_t start=timer_monotonic_us();
+        struct battery_service_status status;
+        smc_battery_status(&status);
+        while(status.state==BATTERY_SERVICE_STARTING && timer_monotonic_us()-start<2000000) {
+            scheduler_yield();
+            smc_battery_status(&status);
+        }
+        ehci_battery_report("startup");
+    }
+    ehci_desktop_startup_trace(release, trackpad_ready);
+    bool mounted = ehci_desktop_workspace_start(volume);
+    bool checkpoint_saved = mounted && ehci_desktop_workspace_report(release, true);
+    console_printf("ehci-desktop-startup: USB checkpoint=%s\n", checkpoint_saved ? "saved" : "unverified");
+    const struct vfs_node *checklist = vfs_lookup("/fat/share/Trackpad trial.txt");
+    const uint8_t *seed = NULL;
+    uint64_t seed_size = 0;
+    bool seeded = file_trial && checkpoint_saved && checklist && checklist->size <= 1024 && !vfs_lookup(path) &&
+        vfs_read_all(checklist, &seed, &seed_size) && exfat_write_file(path, seed, seed_size) && workspace_flush_committed();
+    __asm__ volatile ("sti" : : : "memory");
+    console_printf("ehci-desktop: opening desktop release=%s\n", release);
+    const char *desktop_args=battery_trial?"--ehci-battery-trial":telemetry_trial?"--ehci-telemetry-trial":audio_trial?"--ehci-audio-trial":
+        file_trial?args:"--ehci-brightness-trial";
+    bool desktop_passed = (!file_trial || seeded) && timer_running &&
+        process_run_elf_args("/fat/bin/deskd",desktop_args);
+    bool sound_quiet = audio_trial && audio_listen_control(SRV_AUDIO_STOP,0) && audio_pro81_quiet();
+    bool smc_stopped = (telemetry_trial || battery_trial) && smc_quiesce();
+    bool retired = ehci_desktop_trackpad_stop();
+    __asm__ volatile ("cli" : : : "memory");
+    bool checked=false;
+    if (battery_trial) {
+        bool reconnected=ehci_battery_report("final");
+        checked=desktop_passed && reconnected && smc_stopped;
+        console_printf("pro81-battery: result=%s smc_quiesced=%u\n",checked?"PASS":"INCOMPLETE",(uint64_t)smc_stopped);
+    } else if (telemetry_trial) {
+        struct ehci_telemetry_sample last=ehci_telemetry_report("final");
+        checked=first.fresh && last.fresh && last.cpu_samples>=first.cpu_samples+10 &&
+            last.fan_samples>=first.fan_samples+10 && smc_stopped;
+        console_printf("pro81-telemetry: result=%s smc_quiesced=%u\n",
+            checked?"PASS":"INCOMPLETE",(uint64_t)smc_stopped);
+        smc_print_status();
+    } else if (!file_trial) {
+        struct backlight_trial result=backlight_pro81_finish();
+        checked=result.low && result.high && result.restored;
+        console_printf("pro81-backlight: result=%s initial_duty=%u last_duty=%u writes=%u low=%u high=%u restored=%u\n",
+            checked ? "PASS" : "INCOMPLETE", (uint64_t)result.initial_duty, (uint64_t)result.final_duty,
+            (uint64_t)result.writes, (uint64_t)result.low, (uint64_t)result.high, (uint64_t)result.restored);
+    } else {
+        checked = seeded && vmm_diagnostic_sole_kernel_root(vmm_kernel_address_space()) &&
+            ehci_saved_document(path, seed, seed_size);
+        if (seed) vfs_release_data(checklist, seed);
+        console_printf("ehci-desktop-file: release=%s path=%s seeded=%u exact=%u\n", release, path,
+            (uint64_t)seeded, (uint64_t)checked);
+    }
+    if (audio_trial) {
+        struct srv_audio_status audio;
+        audio_status(&audio);
+        checked=audio.tests_completed>0 && sound_quiet && audio.state==SRV_AUDIO_READY && !audio.error;
+        console_printf("pro81-audio: phase=final result=%s started=%u completed=%u position=%u quiet=%u error=%u\n",
+            checked?"PASS":"INCOMPLETE",audio.tests_started,audio.tests_completed,(uint64_t)audio.last_position,
+            (uint64_t)sound_quiet,(uint64_t)audio.error);
+    }
+    bool input_checked = telemetry_trial || battery_trial || (trackpad_ready && ehci_desktop_trackpad_verified());
+    bool passed = checkpoint_saved && input_checked && desktop_passed && retired && checked;
+    console_printf("ehci-desktop: release=%s result=%s desktop=%s retirement=%s\n", release,
+        passed ? "PASS" : "INCOMPLETE", desktop_passed ? "passed" : "unverified", retired ? "safe" : "unverified");
+    ehci_desktop_trackpad_print_trace("final");
+    bool saved = mounted && vmm_diagnostic_sole_kernel_root(vmm_kernel_address_space()) &&
+        ehci_desktop_workspace_report(release, false);
+    bool flash_retired = ehci_desktop_workspace_stop();
+    console_printf("ehci-desktop-%s: report=%s flash-retirement=%s\n",
+        battery_trial?"battery":telemetry_trial?"telemetry":audio_trial?"audio":file_trial?"file":"brightness",
+        saved ? "saved" : "unverified",
+        flash_retired ? "safe" : "unverified");
+    ehci_desktop_return(saved && retired && flash_retired, checkpoint_saved);
+}
+
 void kmain(void) {
     serial_init();
     console_write("\n\nsrvros: entering kernel\n");
     const char *cmdline = kernel_cmdline();
+    bool ehci_keyboard_trial = cmdline_has_token(cmdline, "srvros.ehci=keyboard-trial");
+    bool ehci_keyboard_monitor = cmdline_has_token(cmdline, "srvros.ehci=keyboard-monitor");
+    bool ehci_trackpad_trial = cmdline_has_token(cmdline, "srvros.ehci=trackpad-trial");
+    bool ehci_file_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-file");
+    bool ehci_brightness_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-brightness");
+    bool ehci_audio_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-audio");
+    bool ehci_telemetry_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-telemetry");
+    bool ehci_battery_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-battery");
+    const char *ehci_workspace_mode = ehci_battery_trial ? "desktop-battery" : ehci_telemetry_trial ? "desktop-telemetry" :
+        ehci_audio_trial ? "desktop-audio" : ehci_brightness_trial ? "desktop-brightness" :
+        ehci_file_trial ? "desktop-file" : NULL;
+    bool ehci_desktop_trace = ehci_workspace_mode || cmdline_has_token(cmdline, "srvros.ehci=topcase-desktop");
+    bool ehci_trackpad_desktop_trial = ehci_desktop_trace || cmdline_has_token(cmdline, "srvros.ehci=trackpad-desktop");
+    bool ehci_desktop_input = ehci_trackpad_desktop_trial || cmdline_has_token(cmdline, "srvros.ehci=trackpad");
+    const char *ehci_trial_mode = ehci_trackpad_trial ? "trackpad-trial" :
+        ehci_keyboard_monitor ? "keyboard-monitor" : ehci_keyboard_trial ? "keyboard-trial" :
+        cmdline_has_token(cmdline, "srvros.ehci=split-trial") ? "split-trial" : NULL;
+    bool ehci_trial = ehci_trial_mode != NULL;
+    char trial_release[17];
+    char ehci_log_volume[9] = {0};
+    if (ehci_trackpad_desktop_trial && (!ehci_trial_release(cmdline, trial_release,
+            ehci_workspace_mode ? ehci_workspace_mode : ehci_desktop_trace ? "topcase-desktop" : "trackpad-desktop", ehci_log_volume) ||
+            !ehci_log_volume[0])) {
+        console_write("ehci-desktop: invalid boot profile\n");
+        halt_forever();
+    }
+    if (ehci_trackpad_desktop_trial) bootlog_extend_capture();
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
@@ -1105,10 +1376,12 @@ void kmain(void) {
     if (framebuffer_request.response != NULL &&
         framebuffer_request.response->framebuffer_count > 0) {
         struct limine_framebuffer *console_fb=framebuffer_request.response->framebuffers[0];
-        bool readable_capture=startup_journal_requested || cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1") ||
+        bool readable_capture=ehci_trial || startup_journal_requested || cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1") ||
             cmdline_has_token(cmdline,"srvros.desktop=retina-trial");
+        uint64_t readable_width = ehci_trial ? 1280 : 1920;
+        uint64_t readable_height = ehci_trial ? 800 : 960;
         uint64_t console_scale=readable_capture && console_fb->width>=2880 && console_fb->height>=1440?3:
-            readable_capture && console_fb->width>=1920 && console_fb->height>=960?2:1;
+            readable_capture && console_fb->width>=readable_width && console_fb->height>=readable_height?2:1;
         console_init_scaled(console_fb,console_scale);
         if(readable_capture)console_printf("diagnostic-console: version=1 scale=%u cell_width=%u cell_height=%u\n",
             console_scale,8*console_scale,16*console_scale);
@@ -1116,6 +1389,21 @@ void kmain(void) {
         if (!boot_verbose) {
             boot_status("srvros: booting (quiet mode)\n");
         }
+    }
+
+    if (ehci_trial) {
+        bool valid = ehci_trial_release(cmdline, trial_release, ehci_trial_mode,
+            ehci_trackpad_trial ? ehci_log_volume : NULL);
+        if (ehci_keyboard_monitor || ehci_trackpad_trial) boot_set_framebuffer_quiet(false);
+        else ehci_trial_screen(valid ? trial_release : "invalid", ehci_keyboard_trial);
+        if (!valid) {
+            console_write("ehci-trial: invalid boot profile. Photograph the screen and return to Ubuntu.\n");
+            console_sync();
+            halt_forever();
+        }
+        console_write("Preparing the RAM-only EHCI diagnostic...\n");
+        console_sync();
+        boot_set_framebuffer_quiet(true);
     }
 
 #ifdef SRVROS_AIR61_READ_QUALIFICATION
@@ -1173,7 +1461,7 @@ void kmain(void) {
     timer_wall_init();
     lapic_init();
     lapic_timer_init(32, 10000000);
-    bool keyboard_ready = keyboard_init();
+    bool keyboard_ready = !ehci_keyboard_trial && !ehci_keyboard_monitor && !ehci_trackpad_trial && keyboard_init();
     bool mouse_ready = keyboard_ready ? mouse_init() : false;
     ioapic_init();
     if (keyboard_ready) {
@@ -1229,6 +1517,54 @@ void kmain(void) {
     if (ssd_capture && !ssd_discovery) {
         air61_ssd_trial(cmdline, false);
         halt_forever();
+    }
+    if (ehci_keyboard_monitor) {
+        boot_set_framebuffer_quiet(false);
+        console_clear();
+        console_printf("SrvrOS MacBookPro8,1 keyboard monitor\nRelease %s\n", trial_release);
+        console_write("1. With the built-in keyboard, type echo p P q Q g G y Y and press Return.\n"
+                      "2. Press Up to recall it. Use Left and Delete to edit, then press Return.\n"
+                      "3. Type reboot to return to Ubuntu. Photograph the EHCI release line.\n"
+                      "   If stuck, photograph the screen and power off to return to Ubuntu.\n\n"
+                      "Scanning for the built-in keyboard...\n");
+        console_sync();
+        arch_enable_interrupts();
+        if (timer_wait_ticks_bounded(5, 100000000)) {
+            scheduler_enable_io_services();
+            /* The EHCI MMIO window requires the sole kernel root with IRQs masked. */
+            __asm__ volatile ("cli" : : : "memory");
+            ehci_monitor_start();
+            __asm__ volatile ("sti" : : : "memory");
+        } else {
+            console_write("ehci-monitor: keyboard unavailable (scheduler timer)\n");
+        }
+        monitor_run();
+        halt_forever();
+    }
+    if (ehci_trial) {
+        if (ehci_trackpad_trial) {
+            if (ehci_boot_trackpad_trial(trial_release, ehci_log_volume[0] ? ehci_log_volume : NULL)) {
+                console_sync();
+                arch_reboot_unattended();
+            }
+        } else ehci_boot_trial(trial_release, ehci_keyboard_trial);
+        console_sync();
+        __asm__ volatile("cli" ::: "memory");
+        halt_forever();
+    }
+    bool ehci_split = cmdline_has_token(cmdline, "srvros.ehci=split");
+    bool ehci_enumerate = cmdline_has_token(cmdline, "srvros.ehci=enumerate");
+    bool ehci_probe = cmdline_has_token(cmdline, "srvros.ehci=probe");
+    if (ehci_split || ehci_enumerate || ehci_probe) {
+        if (!cmdline_has_token(cmdline, "srvros.storage=ram")) {
+            console_write("ehci: probe requires RAM-only boot\n");
+        } else if (ehci_split + ehci_enumerate + ehci_probe > 1) {
+            console_write("ehci: conflicting boot options\n");
+        } else if (ehci_split) {
+            ehci_boot_probe(EHCI_BOOT_SPLIT);
+        } else {
+            ehci_boot_probe(ehci_enumerate ? EHCI_BOOT_ENUMERATE : EHCI_BOOT_PROBE);
+        }
     }
     if(startup_journal_requested) {
         boot_set_framebuffer_quiet(false);
@@ -1424,6 +1760,12 @@ void kmain(void) {
     } else {
         console_printf("timer: no ticks observed yet ticks=%u\n", timer_ticks());
     }
+    bool ehci_trackpad_ready = false;
+    if (ehci_desktop_input && timer_running) {
+        __asm__ volatile ("cli" : : : "memory");
+        ehci_trackpad_ready = ehci_desktop_trackpad_start(ehci_desktop_trace);
+        __asm__ volatile ("sti" : : : "memory");
+    }
     keyboard_print_status();
     xhci_print_input_summary();
     if (cmdline_has_token(cmdline, "srvros.inputprobe=1")) {
@@ -1449,6 +1791,12 @@ void kmain(void) {
     }
 
     console_write("srvros: kernel bootstrap complete\n");
+    if (ehci_workspace_mode)
+        ehci_desktop_workspace_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running,
+            ehci_battery_trial?EHCI_WORKSPACE_BATTERY:ehci_telemetry_trial?EHCI_WORKSPACE_TELEMETRY:ehci_audio_trial?EHCI_WORKSPACE_AUDIO:
+            ehci_brightness_trial?EHCI_WORKSPACE_BRIGHTNESS:EHCI_WORKSPACE_FILE);
+    if (ehci_trackpad_desktop_trial)
+        ehci_desktop_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running, ehci_desktop_trace);
     if (auth_mode == LOCAL_AUTH_SIGNIN) {
         boot_set_framebuffer_quiet(false);
         console_clear();

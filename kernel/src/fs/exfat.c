@@ -917,24 +917,27 @@ static bool register_directory(struct exfat_mount *mount,
 
 /* This driver can mutate only the basic stream + ASCII name entry set.
  * Refuse extensions rather than silently discard their metadata on rename. */
-static bool valid_import_entry_set(const uint8_t *entry, uint64_t available) {
+static const char *import_entry_error(const uint8_t *entry, uint64_t available) {
     uint64_t count = (uint64_t)entry[1] + 1;
-    if (count < 3 || count > EXFAT_MAX_FILE_ENTRIES ||
-        count * EXFAT_ENTRY_SIZE > available ||
-        read_u16(entry + 2) != entry_set_checksum(entry, count)) return false;
+    if (count < 3 || count > EXFAT_MAX_FILE_ENTRIES || count * EXFAT_ENTRY_SIZE > available)
+        return "file entry set size";
+    if (read_u16(entry + 2) != entry_set_checksum(entry, count)) return "file entry set checksum";
     const struct exfat_stream_entry *stream = (const void *)(entry + EXFAT_ENTRY_SIZE);
     uint64_t names = ((uint64_t)stream->name_length + 14) / 15;
-    if (stream->entry_type != EXFAT_ENTRY_STREAM || !stream->name_length ||
-        count != 2 + names || !(stream->flags & 1) ||
-        (!stream->data_length && (stream->first_cluster || (stream->flags & 2)))) return false;
+    if (stream->entry_type != EXFAT_ENTRY_STREAM || !stream->name_length || !(stream->flags & 1))
+        return "file stream header";
+    if (count != 2 + names) return "unsupported file entry set layout";
+    if (!stream->data_length && (stream->first_cluster || (stream->flags & 2)))
+        return "empty stream allocation";
     uint16_t hash = 0;
     for (uint64_t i = 0; i < names; i++) {
         const uint8_t *name = entry + (2 + i) * EXFAT_ENTRY_SIZE;
-        if (name[0] != EXFAT_ENTRY_NAME || (name[1] & 3)) return false;
+        if (name[0] != EXFAT_ENTRY_NAME || (name[1] & 3)) return "file name entry layout";
         for (uint64_t j = 0; j < 15 && i * 15 + j < stream->name_length; j++) {
             uint16_t c = read_u16(name + 2 + j * 2);
             if (c < 0x20 || c >= 0x7f || c == '"' || c == '*' || c == '/' ||
-                c == ':' || c == '<' || c == '>' || c == '?' || c == '\\' || c == '|') return false;
+                c == ':' || c == '<' || c == '>' || c == '?' || c == '\\' || c == '|')
+                return "unsupported file name character";
             uint16_t upper = c >= 'a' && c <= 'z' ? c - ('a' - 'A') : c;
             hash = (uint16_t)(((hash >> 1) | ((hash & 1u) << 15)) + upper);
             hash = (uint16_t)((hash >> 1) | ((hash & 1u) << 15));
@@ -942,8 +945,16 @@ static bool valid_import_entry_set(const uint8_t *entry, uint64_t available) {
     }
     if (read_u16(entry + 2 * EXFAT_ENTRY_SIZE + 2) == '.' &&
         (stream->name_length == 1 || (stream->name_length == 2 &&
-         read_u16(entry + 2 * EXFAT_ENTRY_SIZE + 4) == '.'))) return false;
-    return hash == stream->name_hash;
+         read_u16(entry + 2 * EXFAT_ENTRY_SIZE + 4) == '.'))) return "reserved file name";
+    return hash == stream->name_hash ? NULL : "file name hash";
+}
+
+static void directory_scan_error(const char *reason, uint64_t depth, uint32_t cluster, uint64_t entry_offset) {
+    console_write("exfat: directory scan failed during ");
+    console_write(reason);
+    console_write("\n");
+    console_printf("exfat: directory depth=%u cluster=%u entry_offset=%u\n",
+        depth, (uint64_t)cluster, entry_offset);
 }
 
 static bool scan_directory(const char *path,
@@ -953,6 +964,7 @@ static bool scan_directory(const char *path,
     uint64_t data_length,
     uint64_t depth) {
     if (depth > 8) {
+        directory_scan_error("depth check", depth, first_cluster, 0);
         return false;
     }
 
@@ -964,17 +976,22 @@ static bool scan_directory(const char *path,
     uint32_t chain_anchor = first_cluster;
     uint64_t chain_power = 1, chain_distance = 0;
     bool ok = true;
+    const char *failure = NULL;
+    uint64_t entry_offset = 0;
     uint8_t *cluster_buffer = kmalloc(volume->cluster_size);
 
     if (cluster_buffer == NULL) {
+        directory_scan_error("cluster buffer allocation", depth, cluster, 0);
         return false;
     }
 
     while (cluster >= 2 && cluster < EXFAT_FAT_CHAIN_END && visited++ < volume->cluster_count) {
+        entry_offset = 0;
         uint64_t offset;
         if (!cluster_offset(volume, cluster, &offset)) {
             ok = false;
-            break;
+            failure = "cluster bounds check";
+            goto out;
         }
 
         uint64_t cluster_limit = volume->cluster_size;
@@ -984,17 +1001,20 @@ static bool scan_directory(const char *path,
 
         if (!volume_read(volume, offset, cluster_buffer, cluster_limit)) {
             ok = false;
-            break;
+            failure = "directory cluster read";
+            goto out;
         }
 
-        for (uint64_t entry_offset = 0; entry_offset + EXFAT_ENTRY_SIZE <= cluster_limit; entry_offset += EXFAT_ENTRY_SIZE) {
+        for (; entry_offset + EXFAT_ENTRY_SIZE <= cluster_limit; entry_offset += EXFAT_ENTRY_SIZE) {
             const uint8_t *entry = cluster_buffer + entry_offset;
             if (entry[0] == EXFAT_ENTRY_END) {
                 goto out;
             }
 
             if (entry[0] == EXFAT_ENTRY_BITMAP) {
-                if (depth || volume->bitmap_seen || (entry[1] & 1)) { ok=false;goto out; }
+                if (depth || volume->bitmap_seen || (entry[1] & 1)) {
+                    ok = false; failure = "allocation bitmap entry"; goto out;
+                }
                 volume->bitmap_seen = true;
                 volume->allocation_bitmap_cluster = read_u32(entry + 20);
                 volume->allocation_bitmap_size = read_u64(entry + 24);
@@ -1002,7 +1022,7 @@ static bool scan_directory(const char *path,
             }
 
             if (entry[0] == EXFAT_ENTRY_UPCASE) {
-                if (depth || volume->upcase_seen) { ok=false;goto out; }
+                if (depth || volume->upcase_seen) { ok = false; failure = "up-case table entry"; goto out; }
                 volume->upcase_seen = true;
                 volume->upcase_table_checksum = read_u32(entry + 4);
                 volume->upcase_table_cluster = read_u32(entry + 20);
@@ -1014,12 +1034,13 @@ static bool scan_directory(const char *path,
                 /* Unknown active critical entries may own storage or alter
                  * interpretation. Only benign extensions can be skipped. */
                 if ((entry[0] & 0x80) && !(entry[0] & 0x20) &&
-                    (entry[0] != 0x83 || depth)) { ok=false;goto out; }
+                    (entry[0] != 0x83 || depth)) { ok = false; failure = "unsupported critical entry"; goto out; }
                 continue;
             }
 
             const struct exfat_file_entry *file_entry = (const struct exfat_file_entry *)entry;
-            if (!valid_import_entry_set(entry, cluster_limit - entry_offset)) {
+            failure = import_entry_error(entry, cluster_limit - entry_offset);
+            if (failure) {
                 ok = false;
                 goto out;
             }
@@ -1039,20 +1060,22 @@ static bool scan_directory(const char *path,
                         stream->first_cluster >= volume->cluster_count + 2 ||
                         ((stream->flags & 2) && clusters_for_size(volume, stream->data_length) >
                             (uint64_t)volume->cluster_count + 2 - stream->first_cluster)))) {
-                    ok = false; goto out;
+                    ok = false; failure = "stream geometry"; goto out;
                 }
                 uint64_t absolute_file_entry_offset = offset + entry_offset;
                 uint64_t absolute_stream_entry_offset = (const uint8_t *)stream - cluster_buffer + offset;
                 if ((file_entry->file_attributes & EXFAT_ATTR_DIRECTORY) != 0) {
                     char child_path[EXFAT_MAX_PATH];
-                    if(!build_child_path(child_path, sizeof(child_path), path, stream, names, name_entry_count)) { ok=false;goto out; }
+                    if (!build_child_path(child_path, sizeof(child_path), path, stream, names, name_entry_count)) {
+                        ok = false; failure = "directory path"; goto out;
+                    }
                     if (!register_directory(mount,
                         child_path,
                         stream->first_cluster,
                         (stream->flags & 0x02) != 0,
                         stream->data_length,
                         absolute_file_entry_offset,
-                        file_entry->secondary_count)) { ok = false; goto out; }
+                        file_entry->secondary_count)) { ok = false; failure = "directory registration"; goto out; }
                     if (!scan_directory(child_path,
                             mount,
                             stream->first_cluster,
@@ -1070,7 +1093,7 @@ static bool scan_directory(const char *path,
                         names,
                         name_entry_count,
                         absolute_file_entry_offset,
-                        absolute_stream_entry_offset)) { ok = false; goto out; }
+                        absolute_stream_entry_offset)) { ok = false; failure = "file registration"; goto out; }
                 }
             }
 
@@ -1085,13 +1108,14 @@ static bool scan_directory(const char *path,
         if (no_fat_chain) {
             cluster++;
         } else {
-            if (!next_cluster(volume, cluster, &cluster)) { ok = false; goto out; }
+            if (!next_cluster(volume, cluster, &cluster)) { ok = false; failure = "directory FAT read"; goto out; }
             if (cluster >= EXFAT_FAT_CHAIN_END) {
                 ok = data_length == 0; /* Otherwise the declared directory was short. */
+                if (!ok) failure = "short directory chain";
                 goto out;
             }
             if (cluster < 2 || cluster >= volume->cluster_count + 2 ||
-                cluster == chain_anchor) { ok = false; goto out; }
+                cluster == chain_anchor) { ok = false; failure = "invalid directory chain"; goto out; }
             if (++chain_distance == chain_power) {
                 chain_anchor = cluster;
                 chain_power *= 2;
@@ -1100,8 +1124,10 @@ static bool scan_directory(const char *path,
         }
     }
     ok = false; /* Invalid start or exhausted traversal budget is not an EOF. */
+    failure = "directory traversal bounds";
 
 out:
+    if (failure) directory_scan_error(failure, depth, cluster, entry_offset);
     kfree(cluster_buffer);
     return ok;
 }
@@ -1152,10 +1178,25 @@ static bool validate_system_stream(struct exfat_volume *volume, uint32_t cluster
 }
 
 static bool validate_system_streams(struct exfat_volume *volume) {
-    return volume->bitmap_seen && volume->upcase_seen &&
-        volume->allocation_bitmap_size == ((uint64_t)volume->cluster_count+7)/8 &&
-        validate_system_stream(volume,volume->allocation_bitmap_cluster,volume->allocation_bitmap_size,false) &&
-        validate_system_stream(volume,volume->upcase_table_cluster,volume->upcase_table_size,true);
+    if (!volume->bitmap_seen || !volume->upcase_seen) {
+        console_write("exfat: missing allocation bitmap or up-case table entry\n");
+        return false;
+    }
+    /* exFAT 7.1.5 reserves the bits beyond ClusterCount. Validate the
+     * declared stream and use only the bits corresponding to real clusters. */
+    if (volume->allocation_bitmap_size < ((uint64_t)volume->cluster_count + 7) / 8) {
+        console_write("exfat: allocation bitmap is shorter than the cluster count requires\n");
+        return false;
+    }
+    if (!validate_system_stream(volume, volume->allocation_bitmap_cluster, volume->allocation_bitmap_size, false)) {
+        console_write("exfat: allocation bitmap FAT chain failed validation\n");
+        return false;
+    }
+    if (!validate_system_stream(volume, volume->upcase_table_cluster, volume->upcase_table_size, true)) {
+        console_write("exfat: up-case table contents or FAT chain failed validation\n");
+        return false;
+    }
+    return true;
 }
 
 static bool scan_root_directory(struct exfat_mount *mount) {
@@ -1167,9 +1208,13 @@ static bool scan_root_directory(struct exfat_mount *mount) {
         root_path[root_length] = '\0';
     }
 
-    if (!register_directory(mount, root_path, mount->volume.root_directory_cluster, false, 0, 0, 0)) return false;
-    return scan_directory(root_path, mount, mount->volume.root_directory_cluster, false, 0, 0) &&
-        validate_system_streams(&mount->volume);
+    uint32_t root = mount->volume.root_directory_cluster;
+    if (!register_directory(mount, root_path, root, false, 0, 0, 0)) {
+        directory_scan_error("root registration", 0, root, 0);
+        return false;
+    }
+    if (!scan_directory(root_path, mount, root, false, 0, 0)) return false;
+    return validate_system_streams(&mount->volume);
 }
 
 static void remember_mountpoint(struct exfat_mount *mount, const char *mountpoint) {
@@ -3676,7 +3721,7 @@ static bool check_mount(struct exfat_mount *mount, struct exfat_check_result *re
         seen_bytes,
         "/allocation-bitmap",
         volume->allocation_bitmap_cluster,
-        bitmap_bytes);
+        volume->allocation_bitmap_size);
     check_system_cluster_range(result,
         mount,
         bitmap,
@@ -4518,9 +4563,8 @@ static bool mount_block_device(const char *mountpoint, struct block_device *devi
         clear_mount(mount);
         return false;
     }
-    uint64_t bitmap_needed = ((uint64_t)mount->volume.cluster_count + 7) / 8;
-    if (mount->volume.allocation_bitmap_size != bitmap_needed ||
-        bitmap_needed > mount->volume.cluster_size) mount->volume.write_blocked = true;
+    if (mount->volume.allocation_bitmap_size > mount->volume.cluster_size)
+        mount->volume.write_blocked = true;
     /* Before sidecar recovery or any user mutation, establish allocation
      * ownership. Unsupported or inconsistent media remains available read-only. */
     if (!mount->volume.write_blocked) {

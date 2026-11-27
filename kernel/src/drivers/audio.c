@@ -14,6 +14,9 @@
 #define PCM_BYTES (192000u*4u)
 #define PCM_PAGES ((PCM_BYTES+4095)/4096)
 #define TONE_FRAMES 24000u
+#define PRO81_TONE_LEAD_FRAMES 28800u
+#define PRO81_TONE_STEP_FRAMES 48000u
+#define PRO81_TONE_FRAMES (PRO81_TONE_LEAD_FRAMES+PRO81_TONE_STEP_FRAMES*2+TONE_FRAMES)
 struct bdl_entry { uint64_t address; uint32_t length, flags; };
 static struct hda_core controller;
 static struct hda_codec codec;
@@ -78,19 +81,25 @@ static bool stop(void) {
     return stopped && muted;
 }
 #include "audio_stream.inc"
-static bool test_tone(void) {
-    if(!stop() || !controller.ready) return false;
-    silence();
-    unsigned volume=status.volume;
-    /* 500 Hz triangle, half a second, 10 ms attack/release, stereo. Integer
-     * synthesis avoids touching task FPU state in the service worker. */
+static void tone_pulse(unsigned first,unsigned channels,unsigned period,unsigned volume) {
+    /* Half-second triangle with 10 ms attack and release. */
     for(unsigned frame=0;frame<TONE_FRAMES;frame++) {
-        unsigned phase=frame%96;
+        unsigned phase=(frame%period)*96/period;
         int sample=phase<48?(int)phase-24:72-(int)phase;
         int envelope=frame<480?(int)frame:(frame>TONE_FRAMES-480?(int)(TONE_FRAMES-frame):480);
         int16_t value=(int16_t)(sample*200*(int)volume/100*envelope/480);
-        pcm[frame*2]=value;pcm[frame*2+1]=value;
+        pcm[(first+frame)*2]=(channels&1)?value:0;
+        pcm[(first+frame)*2+1]=(channels&2)?value:0;
     }
+}
+static bool test_tone(void) {
+    if(!stop() || !controller.ready) return false;
+    if(codec.pro81) {
+        /* Give the external amplifier time to settle before the left cue. */
+        tone_pulse(PRO81_TONE_LEAD_FRAMES,1,80,status.volume); /* 600 Hz */
+        tone_pulse(PRO81_TONE_LEAD_FRAMES+PRO81_TONE_STEP_FRAMES,2,60,status.volume); /* 800 Hz */
+        tone_pulse(PRO81_TONE_LEAD_FRAMES+PRO81_TONE_STEP_FRAMES*2,3,48,status.volume); /* 1000 Hz */
+    } else tone_pulse(0,3,96,status.volume);
     __asm__ volatile("mfence":::"memory");
     if(!hda_codec_mute(&codec,false) || !hda_core_start(&controller,bdl_phys,PCM_BYTES,2)) { silence();return false; }
     started_us=timer_monotonic_us();status.tests_started++;return true;
@@ -123,8 +132,8 @@ static void service(void) {
     else if(ok && controller.playing) {
         uint32_t position;ok=hda_core_position(&controller,&position);
         uint64_t elapsed=timer_monotonic_us()-started_us;
-        if(ok && elapsed>=750000) {
-            bool progressed=position>=TONE_FRAMES*4 && position<PCM_BYTES;
+        if(ok && elapsed>=(codec.pro81?3350000u:750000u)) {
+            bool progressed=position>=(codec.pro81?PRO81_TONE_FRAMES:TONE_FRAMES)*4 && position<PCM_BYTES;
             ok=stop() && progressed;
             if(ok) status.tests_completed++;
             else if(controller.error==HDA_OK) controller.error=HDA_STREAM_TIMEOUT;
@@ -149,15 +158,20 @@ static void worker(void *arg) {
         else scheduler_yield();
     }
 }
-void audio_init(void) {
+static void audio_init_profile(bool pro81) {
     if(initialized) return;
     initialized=true;status.state=SRV_AUDIO_UNAVAILABLE;
     const struct pci_device *device=NULL;
     for(uint64_t i=0;i<pci_device_count();i++) {
         const struct pci_device *d=pci_device_at(i);
-        if(d->class_code==4 && d->subclass==3 && d->vendor_id==0x8086 &&
-           (d->device_id==0x9c20||d->device_id==0x8c20||d->device_id==0x9ca0||d->device_id==0x2668||d->device_id==0x293e)) { device=d;break; }
+        if(d->class_code!=4 || d->subclass!=3 || d->vendor_id!=0x8086) continue;
+        if(pro81 ? (d->device_id==0x1c20 && !d->bus && d->device==0x1b && !d->function && d->revision==5 &&
+                     pci_read_config16(d,0x2c)==0x8086 && pci_read_config16(d,0x2e)==0x7270) :
+           (d->device_id==0x9c20||d->device_id==0x8c20||d->device_id==0x9ca0||d->device_id==0x2668||d->device_id==0x293e)) {
+            device=d;break;
+        }
     }
+    if(pro81 && !device) console_write("pro81-audio: provider=unavailable controller identity mismatch\n");
     if(!device || !timer_reference_ready()) { audio_print_status();return; }
     if(!pci_power_d0(device)) { status.error=HDA_POWER;audio_print_status();return; }
     uint32_t bar=device->bar[0];
@@ -171,7 +185,7 @@ void audio_init(void) {
         }
     uint16_t command=pci_read_config16(device,4);
     pci_write_config16(device,4,command|6|0x400); /* DMA, MMIO; polling, no INTx. */
-    if(device->device_id==0x9c20 || device->device_id==0x9ca0 || device->device_id==0x8c20) {
+    if(pro81 || device->device_id==0x9c20 || device->device_id==0x9ca0 || device->device_id==0x8c20) {
         /* Intel PCH: class zero DMA and coherent (snooped) sample accesses.
          * Touch only the documented fields, with native-width PCI writes. */
         uint8_t traffic=pci_read_config8(device,0x44);
@@ -183,8 +197,10 @@ void audio_init(void) {
         }
     }
     console_printf("audio: controller=%x bar=%x\n",(uint64_t)device->device_id,physical);
+    enum hda_profile profile=pro81?HDA_PRO8_1:device->device_id==0x9c20?HDA_AIR6_1:
+        device->device_id==0x8c20?HDA_PRO11_2:device->device_id==0x9ca0?HDA_AIR7_2:HDA_GENERIC;
     bool ok=hda_core_reset(&controller,(struct hda_io){NULL,read_reg,write_reg,now,relax}) &&
-        hda_codec_discover(&codec,&controller,device->device_id==0x9c20?HDA_AIR6_1:device->device_id==0x8c20?HDA_PRO11_2:device->device_id==0x9ca0?HDA_AIR7_2:HDA_GENERIC);
+        hda_codec_discover(&codec,&controller,profile);
     if(!ok) { if(controller.error==HDA_OK) controller.error=HDA_UNSUPPORTED_CODEC;publish();audio_print_status();return; }
     bdl_phys=pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     pcm_phys=pmm_alloc_frames_tagged(PCM_PAGES,PMM_FRAME_DMA);
@@ -201,6 +217,9 @@ void audio_init(void) {
     if(!worker_started) { controller.error=HDA_WORKER;codec.available=false; }
     publish();audio_print_status();
 }
+void audio_init(void) { audio_init_profile(false); }
+void audio_init_pro81(void) { audio_init_profile(true); }
+bool audio_pro81_quiet(void) { return hda_codec_pro81_quiet(&codec); }
 void audio_status(struct srv_audio_status *out) { if(out) { uint64_t f=lock();*out=status;if(stream_owner)out->capabilities|=SRV_AUDIO_CAP_PCM_BUSY;out->pending=pending_op?pending_op:active_op;unlock(f); } }
 int audio_request(unsigned op,unsigned value) {
     if(op<SRV_AUDIO_TEST||op>SRV_AUDIO_OUTPUT||

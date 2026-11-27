@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the staged GRUB -> Limine -> kernel path on a disposable QEMU ESP."""
 import argparse
+from contextlib import ExitStack
 import shutil
 import json
 import binascii
@@ -226,17 +227,38 @@ def main():
     parser.add_argument("--probe-missing-workspace", action="store_true")
     parser.add_argument("--probe-network", action="store_true", help="Attach ECM to v26 idle capture and require bounded network-worker activity")
     parser.add_argument("--console-check", action="store_true")
+    ehci_modes = parser.add_mutually_exclusive_group()
+    ehci_modes.add_argument("--ehci-probe", action="store_true", help="Probe two EHCI controllers without USB input or DMA schedules")
+    ehci_modes.add_argument("--ehci-enumerate", action="store_true", help="Enumerate high-speed devices using the EHCI control schedule")
+    ehci_modes.add_argument("--ehci-hub", action="store_true", help="Enumerate a synthetic high-speed hub over USB redirection")
+    ehci_modes.add_argument("--ehci-split", action="store_true", help="Rehearse split-mode boot with high-speed devices")
     parser.add_argument("--kernel-check", action="store_true")
     parser.add_argument("--responsiveness-check", action="store_true")
     parser.add_argument("--ovmf", default=default_ovmf_path())
     args = parser.parse_args()
     logs = boot.ROOT / "build/review"
     logs.mkdir(parents=True, exist_ok=True)
-    (logs/"hardware-grub-result.json").unlink(missing_ok=True)
-    (logs/"hardware-grub-pcm.json").unlink(missing_ok=True)
+    ehci_hub = args.ehci_hub or args.ehci_split
+    ehci_enumerate = args.ehci_enumerate or ehci_hub
+    ehci_mode = "enumerate" if ehci_enumerate else "probe" if args.ehci_probe else None
+    if args.ehci_split:
+        ehci_mode = "split"
+    log_prefix = "hardware-grub"
+    if ehci_mode:
+        log_prefix += "-ehci"
+        if ehci_enumerate:
+            log_prefix += f"-{'hub' if args.ehci_hub else ehci_mode}"
+    if ehci_mode:
+        (logs / f"{log_prefix}-result.json").unlink(missing_ok=True)
+    else:
+        (logs/"hardware-grub-result.json").unlink(missing_ok=True)
+        (logs/"hardware-grub-pcm.json").unlink(missing_ok=True)
     release = (boot.STAGE / "latest").read_text().strip()
     source = boot.STAGE / release
     manifest=boot.verify(source)
+    if ehci_mode and (manifest["config_version"] != boot.CONFIG_VERSION or
+            args.console_check or args.kernel_check or args.responsiveness_check):
+        parser.error("EHCI rehearsals require a plain console stage without keyboard checks")
     desktop=boot.DESKTOP_RE.fullmatch(manifest.get("config_version", ""))
     if bool(desktop) != args.desktop_check:
         parser.error("Native desktop stages require --desktop-check; other stages cannot use it")
@@ -349,9 +371,9 @@ def main():
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
     scaled_desktop=retina_desktop or bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-")))
     workspace=desktop or probe
-    serial = logs / "hardware-grub-serial.log"
+    serial = logs / f"{log_prefix}-serial.log"
     serial.unlink(missing_ok=True)
-    with tempfile.TemporaryDirectory(prefix="srvros-grub-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="srvros-grub-") as tmp, ExitStack() as fixtures:
         temp = Path(tmp)
         cfg = temp / "grub.cfg"
         cfg.write_text("serial --unit=0 --speed=115200\nterminal_output console serial\n"
@@ -371,14 +393,38 @@ def main():
                 p=vm_source/name;marker="srvros.ap=c3-test" if coord_capture else "srvros.capture=ap-ownership"
                 extra=(" srvros.ap-protocol=simulate" if args.ap_c3_sim else "")+(f" srvros.ap-inject={args.ap_inject}" if args.ap_inject else "")
                 p.write_text(p.read_text().replace(marker,marker+extra))
+        if ehci_mode:
+            vm_source = temp / "ehci-payload"
+            shutil.copytree(source, vm_source)
+            for name in ("limine.conf", "loader/limine.conf"):
+                config = vm_source / name
+                text = config.read_text()
+                marker = "    cmdline: srvros.storage=ram\n"
+                assert text.count(marker) == 1
+                config.write_text(text.replace(marker, f"    cmdline: srvros.storage=ram srvros.ehci={ehci_mode}\n"))
         make_disk(disk, loader, vm_source, release)
         qmp_path = temp / "qmp.sock"
-        command = [args.qemu, "-M", "q35", "-m", "2G",
+        machine = "q35,usb=off,i8042=off" if ehci_mode else "q35"
+        command = [args.qemu, "-M", machine, "-m", "2G",
                    "-drive", f"if=pflash,format=raw,readonly=on,file={args.ovmf}",
                    "-drive", f"format=raw,file={disk}",
-                   "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
+        if ehci_mode:
+            command += ["-device", "ich9-usb-ehci1,id=ehci1", "-device", "ich9-usb-ehci2,id=ehci2", "-nic", "none"]
+            if ehci_hub:
+                from ehci_hub_fixture import HubFixture
+
+                endpoint = temp / "ehci-hub.sock"
+                hub = fixtures.enter_context(HubFixture(endpoint))
+                command += ["-chardev", f"socket,id=hub,path={endpoint}",
+                            "-device", "usb-redir,bus=ehci1.0,port=1,chardev=hub",
+                            "-device", "usb-tablet,usb_version=2,bus=ehci1.0,port=2"]
+            elif ehci_enumerate:
+                command += ["-device", "usb-tablet,usb_version=2,bus=ehci1.0,port=1",
+                            "-device", "usb-tablet,usb_version=2,bus=ehci1.0,port=2"]
+        else:
+            command += ["-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0"]
         if hfw_capture or hsw_capture or ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
         if scaled_desktop:
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
@@ -446,9 +492,55 @@ def main():
             else:
                 with stick.open("wb") as stream: stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
             command += ["-drive",f"if=none,id=stick,format=raw,file={stick}","-device","usb-storage,drive=stick,bus=xhci.0"]
-        with (logs / "hardware-grub-qemu.log").open("wb") as errors:
+        with (logs / f"{log_prefix}-qemu.log").open("wb") as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
+                if ehci_mode:
+                    text = wait_for(serial, lambda s: s.endswith("srv> "), process, args.boot_wait)
+                    assert f"cmdline: srvros.storage=ram srvros.ehci={ehci_mode}" in text
+                    assert "storage: RAM-only mode; AHCI disabled" in text and not has_fatal_exception(text)
+                    assert "xhci: no controller" in text
+                    assert "input: ps2_keyboard=no ps2_mouse=no usb_keyboards=0 usb_mice=0 usb_devices=0" in text
+                    rows = [line for line in text.splitlines() if line.startswith("ehci: bus=")]
+                    assert len(rows) == 2, rows
+                    controllers = set()
+                    for row in rows:
+                        match = re.fullmatch(
+                            r"ehci: bus=(\d+) dev=(\d+) fn=(\d+) vendor=0x0*8086 device=0x0*(293a|293c) "
+                            r"version=0x0*100 ports=[1-9]\d? handoff=(?:no-legacy|os-owned) "
+                            r"result=reset-halted was_running=[01] mapping=released", row)
+                        assert match, row
+                        controllers.add(match[4])
+                    assert controllers == {"293a", "293c"}
+                    result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source / "manifest.json"),
+                                  boot_option=f"srvros.ehci={ehci_mode}", controllers=rows)
+                    if ehci_enumerate:
+                        devices = [line for line in text.splitlines() if line.startswith("ehci: device ")]
+                        assert len(devices) == 2, devices
+                        for address, line in enumerate(devices, 1):
+                            identity = (r"vendor=0x0*424 product=0x0*2513 class=0x0*9" if ehci_hub and address == 1
+                                        else r"vendor=0x0*627 product=0x0*1 class=0x0+")
+                            assert re.fullmatch(
+                                rf"ehci: device address={address} parent=0 port={address} {identity} configuration=1", line), line
+                        summaries = [line for line in text.splitlines() if line.startswith("ehci: enumeration ")]
+                        hubs = int(ehci_hub)
+                        assert sorted(summaries) == [
+                            "ehci: enumeration complete=1 devices=0 hubs=0 deferred=0 dma=released",
+                            f"ehci: enumeration complete=1 devices=2 hubs={hubs} deferred=0 dma=released"], summaries
+                        result.update(devices=devices, enumeration=summaries)
+                    if ehci_hub:
+                        assert "ehci: hub address=1 ports=3" in text
+                        assert hub.powered == hub.status_ports == {1, 2, 3} and hub.hub_descriptors == 1
+                        result.update(synthetic_hub="USB redirection", hub_ports=sorted(hub.status_ports))
+                    if args.ehci_split:
+                        split_summaries = [line for line in text.splitlines() if line.startswith("ehci: split devices=")]
+                        assert split_summaries == ["ehci: split devices=0"] * 2, split_summaries
+                        result.update(split_devices=0, coverage="high-speed regression under split opt-in")
+                    (logs / f"{log_prefix}-result.json").write_text(json.dumps(result, indent=2) + "\n")
+                    test_mode = "hub" if args.ehci_hub else ehci_mode
+                    print(f"ehci-{test_mode}-smoke: PASS ({release}); {len(rows)} controllers")
+                    print(f"Serial log: {serial}")
+                    return
                 work = boot.AIR61_WORK_RE.fullmatch(manifest["config_version"])
                 if work or boot.AIR61_SSD_RE.fullmatch(manifest["config_version"]):
                     marker = ("air61-scratch: REFUSED platform or invalid profile" if work else

@@ -1935,6 +1935,20 @@ hardware-smoke: hardware-stage test-core
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_boot.py
 	$(PYTHON) tools/hardware_boot_smoke.py --qemu $(QEMU) --console-check --responsiveness-check
 
+.PHONY: test-ehci
+test-core: test-ehci
+test-ehci: build/tests/ehci-host$(HOST_EXE) build/tests/ehci-enumeration-host$(HOST_EXE)
+	$<
+	build/tests/ehci-enumeration-host$(HOST_EXE)
+
+build/tests/ehci-host$(HOST_EXE): tools/test_ehci.c kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/ehci.c kernel/src/drivers/ehci_keyboard.inc kernel/src/drivers/ehci_trackpad.inc kernel/src/drivers/ehci_desktop.inc kernel/src/drivers/ehci_storage.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $(filter-out kernel/src/drivers/ehci.c,$(filter %.c,$^)) -Wl,--gc-sections -o $@
+
+build/tests/ehci-enumeration-host$(HOST_EXE): tools/test_ehci_enumeration.c kernel/src/drivers/ehci_enumeration.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $(filter %.c,$^) -o $@
+
 .PHONY: test-xhci
 test-xhci: build/tests/xhci-host$(HOST_EXE)
 	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin tools/fixtures/apple-05ac-0290-config.bin
@@ -3521,9 +3535,9 @@ test-smc: build/tests/smc-host$(HOST_EXE) build/tests/smc-service-host$(HOST_EXE
 build/tests/smc-host$(HOST_EXE): tools/test_smc.c tools/smc_model.h kernel/src/drivers/smc_transport.c kernel/include/srvros/smc_transport.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_smc.c kernel/src/drivers/smc_transport.c -o $@
-build/tests/smc-service-host$(HOST_EXE): tools/test_smc_service.c tools/smc_model.h kernel/src/drivers/smc.c kernel/src/drivers/smc_transport.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/smc-service-host$(HOST_EXE): tools/test_smc_service.c tools/smc_model.h kernel/src/drivers/smc.c kernel/src/drivers/smc_transport.c kernel/src/drivers/battery_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_smc_service.c kernel/src/drivers/smc_transport.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_smc_service.c kernel/src/drivers/smc_transport.c kernel/src/drivers/battery_cache.c -Wl,--gc-sections -o $@
 
 $(USER_PLAYWAV): $(ZIG) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o build/userspace/playwav/convert.c.o build/userspace/playwav/io_stress.c.o $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)

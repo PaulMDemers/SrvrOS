@@ -922,6 +922,45 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(config.replace(" srvros.wifi-channel-observe=1",""),previous)
         with self.assertRaises(ValueError):boot.stage(wifi_channel_observe=True)
 
+    def test_ehci_split_trial_stages_exact_ram_only_payload(self):
+        for name in ("limine-binary/BOOTX64.EFI", "kernel/srvros.elf"):
+            path = self.root / "build" / name
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"fixture")
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                side_effect=["test-revision\n", ""]):
+            release = boot.stage(ehci_split_trial=True)
+        payload = self.stage / release
+        self.assertEqual(boot.verify(payload, release)["config_version"], boot.EHCI_TRIAL_VERSION)
+        config = (payload / "limine.conf").read_text()
+        self.assertEqual(config, (payload / "loader/limine.conf").read_text())
+        self.assertIn(f"cmdline: srvros.storage=ram srvros.ehci=split-trial srvros.ehci-release={release}\n", config)
+        self.assertEqual((payload / "initramfs.tar").read_bytes(), bytes(1024))
+        with self.assertRaises(ValueError):
+            boot.stage(diagnostic=True, ehci_split_trial=True)
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                side_effect=["test-revision\n", ""]):
+            keyboard = boot.stage(ehci_keyboard_trial=True)
+        keyboard_payload = self.stage / keyboard
+        self.assertNotEqual(release, keyboard)
+        self.assertEqual(boot.verify(keyboard_payload, keyboard)["config_version"], boot.EHCI_KEYBOARD_VERSION)
+        self.assertEqual((keyboard_payload / "initramfs.tar").read_bytes(), bytes(1024))
+        self.assertIn(f"cmdline: srvros.storage=ram srvros.ehci=keyboard-trial srvros.ehci-release={keyboard}\n",
+                      (keyboard_payload / "limine.conf").read_text())
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_split_trial=True, ehci_keyboard_trial=True)
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                side_effect=["test-revision\n", ""]):
+            trackpad = boot.stage(ehci_trackpad_trial=True)
+        trackpad_payload = self.stage / trackpad
+        self.assertNotIn(trackpad, (release, keyboard))
+        self.assertEqual(boot.verify(trackpad_payload, trackpad)["config_version"], boot.EHCI_TRACKPAD_VERSION)
+        self.assertEqual((trackpad_payload / "initramfs.tar").read_bytes(), bytes(1024))
+        self.assertIn(f"cmdline: srvros.storage=ram srvros.ehci=trackpad-trial srvros.ehci-release={trackpad}\n",
+                      (trackpad_payload / "limine.conf").read_text())
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_keyboard_monitor=True, ehci_trackpad_trial=True)
+
     def test_wifi_channel_state_profile(self):
         v="ram-usb-wifi-fw-v75-laptop-probe-0e535900-auto-return"
         config=boot.limine_config("0123456789abcdef",v)

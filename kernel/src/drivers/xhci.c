@@ -1,3 +1,4 @@
+#include <srvros/usb_control.h>
 #include <srvros/device_abi.h>
 #include <srvros/wifi_service.h>
 #include <srvros/heap.h>
@@ -130,34 +131,12 @@
 #define XHCI_DATA_DIR_IN (1u << 16)
 #define XHCI_STATUS_DIR_IN (1u << 16)
 
-#define USB_REQ_GET_DESCRIPTOR 6
-#define USB_REQ_GET_STATUS 0
-#define USB_REQ_SET_FEATURE 3
-#define USB_REQ_CLEAR_FEATURE 1
-#define USB_REQ_SET_CONFIGURATION 9
 #define USB_REQ_SET_PROTOCOL 11
-#define USB_DESC_DEVICE 1
-#define USB_DESC_CONFIGURATION 2
-#define USB_DESC_INTERFACE 4
-#define USB_DESC_ENDPOINT 5
-#define USB_DESC_HUB 0x29
 #define USB_CLASS_HID 3
-#define USB_CLASS_HUB 9
-#define USB_FEATURE_PORT_ENABLE 1
-#define USB_FEATURE_PORT_RESET 4
-#define USB_FEATURE_PORT_POWER 8
-#define USB_FEATURE_C_PORT_CONNECTION 16
-#define USB_FEATURE_C_PORT_ENABLE 17
-#define USB_FEATURE_C_PORT_RESET 20
-#define USB_HUB_PORT_CONNECTION 0x0001u
-#define USB_HUB_PORT_ENABLE 0x0002u
-#define USB_HUB_PORT_LOW_SPEED 0x0200u
-#define USB_HUB_PORT_HIGH_SPEED 0x0400u
 #define USB_HUB_STATUS_CHANGE_MASK 0xffff0000u
 #define USB_HID_SUBCLASS_BOOT 1
 #define USB_HID_PROTOCOL_KEYBOARD 1
 #define USB_HID_PROTOCOL_MOUSE 2
-#define USB_ENDPOINT_IN 0x80
 #define USB_ENDPOINT_INTERRUPT 3
 
 struct xhci_trb {
@@ -191,14 +170,6 @@ struct xhci_protocol {
     uint16_t revision;
     char name[5];
 };
-
-struct usb_setup_packet {
-    uint8_t request_type;
-    uint8_t request;
-    uint16_t value;
-    uint16_t index;
-    uint16_t length;
-} __attribute__((packed));
 
 struct xhci_bulk_endpoint {
     uint8_t dci, burst;

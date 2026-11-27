@@ -36,8 +36,8 @@ git rev-parse HEAD
 git switch -c device/macbookpro11-2/bringup
 ```
 
-Use `macbookair6-1`, `macbookair7-1`, `macbookpro11-2`, `macbookpro11-3`, `macmini7-1`, or
-`macbookair7-2` as the machine slug. Distinguish multiple physical units with a
+Use the slug in the [machine records](machines/README.md), such as
+`macbookpro8-1` for MacBookPro8,1. Distinguish multiple physical units with a
 local label. Do not run concurrent builds/staging from two agents in one checkout:
 `build/hardware-boot/latest`, generated images and many VM logs are shared paths.
 
@@ -863,6 +863,50 @@ USB workspace mounted, collect the evidence into a private directory under
 ```sh
 tools/trial collect "$RUN_DIR" --save
 ```
+
+The MacBookPro8,1 EHCI topcase diagnostic uses release-bound files directly
+under `srvros-work`. It saves `ehci-trackpad-<release>-startup.txt` before
+opening Text and attempts `ehci-trackpad-<release>.txt` on exit. Keep the
+flash drive connected. If the pointer fails, press Control+Alt+Escape or
+allow the 90-second deadline to end the trial. On Ubuntu, verify both files
+against the run record and preserve a startup-only result as incomplete
+evidence. Use the final report to verify desktop input and teardown.
+
+The MacBookPro8,1 saved-file variant stages with
+`--ehci-desktop-trial UUID --ehci-desktop-file`. It keeps the selected
+workspace mounted while Text edits and reopens `ehci-desktop-<release>.txt`.
+The instructions open in the file. After Ubuntu returns, compare the edited
+document and both reports with the run record, and run the offline allocation
+check. The final report includes the Text write and reopen receipts.
+
+The MacBookPro8,1 built-in speaker variant stages with
+`--ehci-desktop-trial UUID --ehci-desktop-audio`. Text opens the checklist
+automatically. In Settings, scroll to Sound and click Test sound at 25%.
+Listen for a low tone on the left, a middle tone on the right and a high
+tone on both. Return to console from the SrvrOS menu, press
+Control+Alt+Escape, or wait for the 150-second automatic exit. Keep the
+flash drive connected until Ubuntu returns. Compare the startup and final
+reports against the release and run the read-only allocation check.
+Pair the final stream completion and amplifier stop results with the
+operator's observations for each speaker.
+
+The MacBookPro8,1 telemetry variant stages with
+`--ehci-desktop-trial UUID --ehci-desktop-telemetry`. It opens System on
+Sensors, shows a 25-second countdown, saves both flash reports, and
+returns automatically to Ubuntu. Keep the flash drive connected.
+The release-matched reports include boot-CPU and package temperatures,
+fan RPM, sample age and count, and the SMC transaction outcome. Verify
+both providers are fresh at startup and exit, the counts advance, and
+the read-only allocation check passes.
+
+The MacBookPro8,1 charger variant stages with
+`--ehci-desktop-trial UUID --ehci-desktop-battery`. Start with the charger
+connected and keep the flash drive connected throughout. System opens on
+Sensors and prompts when to unplug and reconnect the charger. It requires
+three fresh readings in each phase, saves both reports and returns to
+Ubuntu automatically. Check the release, AC sequence, signed current,
+SMC retirement and read-only allocation result. The percentage comes
+from the SMC gauge on this profile.
 
 Omit `--save` for a JSON report on stdout. The command reads the recorded
 model and volume UUID, checks the marker, excludes pre-existing sessions,

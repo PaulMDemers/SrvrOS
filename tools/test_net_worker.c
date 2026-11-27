@@ -10,6 +10,13 @@ bool net_device_rx_wake_ready(void) { return wake_ready; }
 uint64_t timer_ticks(void) { return clock_ticks; }
 void scheduler_yield(void) { assert(fallback);longjmp(done,1); }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { assert(q==&rx_wait_queue); }
+bool scheduler_wait(struct scheduler_wait_queue *queue, scheduler_wait_condition_fn ready, void *arg) {
+    assert(queue == &normal_worker_wait && !ready(arg));
+    assert(polls == 0 && waits == 0);
+    worker_started = true;
+    assert(ready(arg));
+    return true;
+}
 uint64_t net_device_poll(uint64_t budget,bool verbose) {
     assert(budget==32 && !verbose);polls++;
     if(missed && polls==4) { assert(clock_ticks==150);longjmp(done,2); }

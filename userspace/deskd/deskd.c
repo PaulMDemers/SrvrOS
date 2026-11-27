@@ -2419,6 +2419,13 @@ int main(int argc,char **argv) {
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int retina_screenshot=argc==2 && !strcmp(argv[1],"--retina-screenshot");
     int retina_trial=retina_screenshot || (argc==2 && !strcmp(argv[1],"--retina-trial"));
+    int ehci_file_trial=argc==3 && !strcmp(argv[1],"--ehci-file-trial");
+    int ehci_battery_trial=argc==2 && !strcmp(argv[1],"--ehci-battery-trial");
+    int ehci_telemetry_trial=argc==2 && !strcmp(argv[1],"--ehci-telemetry-trial");
+    int ehci_settings_trial=argc==2 && (!strcmp(argv[1],"--ehci-brightness-trial") || !strcmp(argv[1],"--ehci-audio-trial"));
+    int ehci_topcase_trial=ehci_file_trial || ehci_settings_trial || ehci_telemetry_trial || ehci_battery_trial ||
+        (argc==2 && !strcmp(argv[1],"--ehci-topcase-trial"));
+    int ehci_trial=ehci_topcase_trial || (argc==2 && !strcmp(argv[1],"--ehci-trackpad-trial"));
     int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
     int navigation_trial=argc==2 && !strcmp(argv[1],"--navigation-trial");
@@ -2431,7 +2438,7 @@ int main(int argc,char **argv) {
     int growth=argc==2 && !strcmp(argv[1],"--window-growth-smoke");
     int multiwindow=growth || (argc==2 && !strcmp(argv[1],"--multiwindow-smoke"));
     int dialog_refusal=argc==2 && !strcmp(argv[1],"--dialog-refusal-test");
-    int apps=session_child || profile_home || choose_profile || apps_trace || dialog_refusal || pool_wait || multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--registry-pressure-test")));
+    int apps=session_child || profile_home || choose_profile || apps_trace || dialog_refusal || pool_wait || multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || ehci_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--registry-pressure-test")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
@@ -2454,7 +2461,7 @@ int main(int argc,char **argv) {
     if(stress_volume<0){ui_puts("audio-io: result=FAIL reason=volume-override\n");return 1;}
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.session_child=session_child,.dynamic=1,.refuse_dialogs=dialog_refusal,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
-        .trace=retina_trial || wifi_trial || pointer_trace || apps_trace || audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && !strcmp(argv[1],"--registry-pressure-test"))};
+        .trace=ehci_trial || retina_trial || wifi_trial || pointer_trace || apps_trace || audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && !strcmp(argv[1],"--registry-pressure-test"))};
     if(profile_home) {
         s.profile=selected_profile;s.home=s.profile.home;
         desk_log("deskd: profile id=%s home=%s credentials=unchanged\n",s.profile.id,s.home);
@@ -2514,10 +2521,13 @@ int main(int argc,char **argv) {
     else if(audio_io || capacity_capture) { /* Launch serially after each rendered admission below. */ }
     else if(navigation_trial) spawn_app(&s,DESK_APP_HELP,"window-navigation-trial");
     else if(lifecycle_trial) spawn_app(&s,DESK_APP_HELP,"lifecycle-trial");
+    else if(ehci_telemetry_trial || ehci_battery_trial) spawn_app(&s,DESK_APP_SYSTEM,"--sensors");
+    else if(ehci_trial) spawn_app(&s,DESK_APP_TEXT,ehci_file_trial?argv[2]:"/fat/share/Trackpad trial.txt");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(battery_work)strcpy(s.scene.notice,"5-minute test: type, save NEW file, reopen, use Files. Keep AC/USB connected.");
     if(battery_guided)strcpy(s.scene.notice,"1/3 Keep AC and USB connected. Waiting for three fresh battery readings.");
+    if(ehci_battery_trial)strcpy(s.scene.notice,"1/3 Keep the charger and USB connected. Battery percentage is from the SMC.");
     if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
     /* Diagnostic: no app menus, preferences, Home or screenshot jobs.
      * The study client exercises independent IPC/surface publication. Generated
@@ -2565,6 +2575,12 @@ int main(int argc,char **argv) {
     struct srv_scheduler_status idle_before={0};
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
+    uint64_t ehci_deadline=ehci_trial?(uint64_t)srv_monotonic_us()+
+        (ehci_telemetry_trial?25000000u:ehci_settings_trial?150000000u:90000000u):0;
+    unsigned telemetry_seconds=0;
+    unsigned ehci_axes=0,ehci_zoom_clicks=0,ehci_pointer_exit=0,ehci_timeout=0;
+    const char ehci_expected[]="Ehci-42";
+    unsigned ehci_typed=0,ehci_find_open=0,ehci_keyboard=0;
     uint64_t drag_identity=0,resize_identity=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
     unsigned resize_edges=0;struct desk_rect resize_start={0},resize_last={0},drag_last={0},drag_restore={0};int resize_x=0,resize_y=0,drag_x=0,drag_y=0,drag_placed=0,drag_moved=0;
@@ -2579,6 +2595,20 @@ int main(int argc,char **argv) {
     if(!failed) ui_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
         uint64_t loop_now=(uint64_t)srv_monotonic_us();
+        if(ehci_telemetry_trial && !s.exiting && loop_now<ehci_deadline) {
+            unsigned remaining=(unsigned)((ehci_deadline-loop_now+999999)/1000000);
+            if(remaining!=telemetry_seconds) {
+                telemetry_seconds=remaining;
+                snprintf(s.scene.notice,sizeof(s.scene.notice),"Sampling CPU and fan for %u more seconds. Leave USB connected.",remaining);
+                desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
+            }
+        }
+        if(ehci_trial && !ehci_battery_trial && (!s.exiting || (ehci_topcase_trial && !ehci_telemetry_trial)) && loop_now>=ehci_deadline) {
+            ehci_timeout=1;
+            /* Only this RAM trial may force cleanup of an unresponsive checklist. */
+            if(ehci_topcase_trial && !ehci_telemetry_trial) { quit=1;break; }
+            global_menu_action(&s,GLOBAL_EXIT);
+        }
         if(audio_io && (audio_io_pid || audio_io_finished)) {
             uint64_t gap=loop_sample(&loop_last,&loop_max,loop_now);
             loop_trace_end(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
@@ -2928,6 +2958,7 @@ int main(int argc,char **argv) {
             s.modifiers=key.flags&SRV_KEY_CANCEL?0:key.modifiers;
             if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_CTRL) &&
                 (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_ESCAPE) {
+                if(ehci_topcase_trial) desk_log("ehci-desktop-ui: keyboard-exit=1\n");
                 if(s.session_child)global_menu_action(&s,GLOBAL_EXIT);else quit=1;
                 break;
             }
@@ -3001,6 +3032,22 @@ int main(int argc,char **argv) {
             if(s.scene.focus>=0) {
                 struct desk_packet p=desk_packet_new(DESK_KEY);memcpy(p.text,&key,sizeof(key));
                 queue_input(&s,s.scene.focus,p);
+                if(ehci_trial && !ehci_file_trial && !ehci_keyboard && desktop_window_at(&s.scene,s.scene.focus)->application==DESK_APP_TEXT &&
+                    (key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT)) {
+                    if(key.usage==0x09 && (key.modifiers&SRV_KEY_CTRL)) {
+                        ehci_find_open=1;
+                        ehci_typed=0;
+                    } else if(key.usage==SRV_KEY_ESCAPE) {
+                        ehci_find_open=0;
+                    } else if(ehci_find_open && key.usage==SRV_KEY_BACKSPACE) {
+                        if(ehci_typed) ehci_typed--;
+                    } else if(ehci_find_open && key.codepoint) {
+                        ehci_typed=key.codepoint==(unsigned char)ehci_expected[ehci_typed]?ehci_typed+1:
+                            key.codepoint==(unsigned char)ehci_expected[0];
+                        ehci_keyboard=ehci_typed==sizeof(ehci_expected)-1;
+                        if(ehci_keyboard) desk_log("ehci-desktop-ui: keyboard-checklist=matched\n");
+                    }
+                }
             }
         }
         if(apps && s.exiting) {
@@ -3050,6 +3097,7 @@ int main(int argc,char **argv) {
              * wheel report must not count as motion or insert client HOVER. */
             int motion=!(e.flags&MOUSE_CANCEL) && ((e.flags&MOUSE_ABSOLUTE)?
                 (x!=previous_x || y!=previous_y):(e.dx || e.dy));
+            if(ehci_trial && motion) ehci_axes|=(x!=previous_x?1u:0u)|(y!=previous_y?2u:0u);
             if(hardware_trial) {
                 long now=srv_monotonic_us();
                 desktop_timing_input(&timing,poll_time,now>0?(uint64_t)now:0,motion);
@@ -3122,6 +3170,7 @@ int main(int argc,char **argv) {
                 struct desk_menu_result result=desk_menu_pointer(&s.scene.menu,(struct desk_widget_event){
                     .type=DESK_WIDGET_POINTER,.x=x,.y=y,.down=(e.buttons&MOUSE_LEFT)!=0,
                     .pressed=(e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT)});
+                if(ehci_trial && result.action==GLOBAL_EXIT) ehci_pointer_exit=1;
                 global_menu_result(&s,result);
                 if(result.consumed) {
                     s.pointer_blocked=(e.buttons&MOUSE_LEFT)!=0;buttons=s.pointer_buttons=e.buttons;
@@ -3148,7 +3197,13 @@ int main(int argc,char **argv) {
                     focus(&s,i); struct desk_rect w=desktop_window_at(&s.scene,i)->frame;
                     unsigned control=desktop_titlebar_hit(w,apps,x,y);
                     if (control==DESKTOP_CLOSE) request_close(&s,i);
-                    else if (control==DESKTOP_MAXIMIZE) { maximize(&s,i);s.pointer_blocked=1; }
+                    else if (control==DESKTOP_MAXIMIZE) {
+                        struct desktop_window *window=desktop_window_at(&s.scene,i);
+                        int was_maximized=window->maximized;
+                        maximize(&s,i);s.pointer_blocked=1;
+                        if(ehci_trial && window->application==DESK_APP_TEXT && was_maximized!=window->maximized)
+                            ehci_zoom_clicks++;
+                    }
                     else if (control==DESKTOP_MINIMIZE) { minimize(&s,i);s.pointer_blocked=1; }
                     else if (edge) { resize=i;resize_identity=session_client(&s,i)->identity;
                         resize_edges=edge;resize_start=resize_last=w;resize_x=x;resize_y=y; }
@@ -3417,7 +3472,7 @@ int main(int argc,char **argv) {
                 } else if(now>=work_due)failed=1;
             }
         }
-        if(battery_guided && !failed) {
+        if((battery_guided || (ehci_battery_trial && !s.exiting)) && !failed) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(battery_saving) {
                 if(s.capture_finished>battery_shot_serial) {
@@ -3437,7 +3492,13 @@ int main(int argc,char **argv) {
                 } else if(now>=battery_shot_due)failed=1;
             } else {
                 int ready=desk_battery_trial_step(&battery_trial,s.battery_result?NULL:&s.battery_status,now);
-                if(ready<0) {desk_log("desktop-ac: timeout-or-invalid phase=%u\n",battery_trial.phase);failed=1;}
+                int unavailable=ehci_battery_trial && now-battery_trial.began>=5000000u &&
+                    (s.battery_status.state==SRV_BATTERY_UNAVAILABLE || s.battery_status.state==SRV_BATTERY_FAULTED);
+                if(ready<0 || unavailable) {
+                    desk_log("desktop-ac: %s phase=%u\n",unavailable?"provider-unavailable":"timeout-or-invalid",battery_trial.phase);
+                    failed=1;
+                    if(ehci_battery_trial)global_menu_action(&s,GLOBAL_EXIT);
+                }
                 else if(ready) {
                     const struct srv_battery_status *v=&s.battery_status;
                     desk_log("desktop-ac: accepted=%u stable=3 epoch=%llu first_gen=%llu last_gen=%llu ac=%u soc=%u current_ua=%lld voltage_uv=%llu remaining=%llu full=%llu unit=%u ac_us=%llu sampled_us=%llu age_us=%llu label=%s\n",
@@ -3446,11 +3507,22 @@ int main(int argc,char **argv) {
                         (long long)v->current_ua,(unsigned long long)v->voltage_uv,(unsigned long long)v->remaining_capacity,
                         (unsigned long long)v->full_capacity,v->capacity_unit,(unsigned long long)v->ac_sampled_us,
                         (unsigned long long)v->sampled_us,(unsigned long long)v->age_us,s.scene.battery);
-                    strcpy(s.scene.notice,battery_trial.phase==1?"Battery confirmed. Saving screenshot; keep AC unplugged until the next instruction.":
-                        "AC confirmed. Saving screenshot; keep AC connected until the next instruction.");
+                    if(ehci_battery_trial) {
+                        desk_battery_trial_advance(&battery_trial,now);
+                        if(battery_trial.phase==3)global_menu_action(&s,GLOBAL_EXIT);
+                        else {
+                            strcpy(s.scene.notice,battery_trial.phase==1?
+                                "2/3 Unplug the charger now. Leave USB connected and wait for the reconnect prompt.":
+                                "3/3 Reconnect the charger now. Wait for the reports and automatic reboot.");
+                            desk_log("desktop-ac: prompt phase=%u\n",battery_trial.phase);
+                        }
+                    } else {
+                        strcpy(s.scene.notice,battery_trial.phase==1?"Battery confirmed. Saving screenshot; keep AC unplugged until the next instruction.":
+                            "AC confirmed. Saving screenshot; keep AC connected until the next instruction.");
+                        battery_saving=1;battery_shot_serial=s.capture_finished;battery_shot_due=now+30000000;
+                        capture_request(&s);
+                    }
                     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
-                    battery_saving=1;battery_shot_serial=s.capture_finished;battery_shot_due=now+30000000;
-                    capture_request(&s);
                 }
             }
         }
@@ -3499,7 +3571,7 @@ int main(int argc,char **argv) {
             if(srv_sched_trace(SRV_SCHED_TRACE_BEGIN,&wait->scheduler))loop_trace.invalid++;
             else wait->valid=1;
         }
-        int sleep=!apps || coexist || control_capture || battery_guided || hardware_trial ||
+        int sleep=!apps || coexist || control_capture || battery_guided || hardware_trial || ehci_trial ||
             quit || painted || buttons || drag>=0 || resize>=0 || pending_key || !session_quiescent(&s);
         if(!sleep) {
             if(wait)wait->gui_begin=(uint64_t)srv_monotonic_us();
@@ -3690,6 +3762,17 @@ int main(int argc,char **argv) {
     }
     if(retina_screenshot)desk_log("retina-screenshot: result=%s scale=%u completed=%u\n",
         !failed && s.capture_success?"PASS":"FAIL",session_output_scale(&s),s.capture_finished);
+    if(ehci_battery_trial) {
+        if(battery_trial.phase!=3 || s.child_errors)failed=1;
+        desk_log("ehci-desktop-battery-ui: result=%s phases=%u\n",failed?"INCOMPLETE":"PASS",battery_trial.phase);
+    } else if(ehci_telemetry_trial) {
+        if(!ehci_timeout || s.child_errors)failed=1;
+        desk_log("ehci-desktop-telemetry-ui: result=%s planned-exit=%u\n",failed?"INCOMPLETE":"PASS",ehci_timeout);
+    } else if(ehci_trial) {
+        if(ehci_axes!=3 || ehci_zoom_clicks<2 || !ehci_pointer_exit || (!ehci_file_trial && !ehci_keyboard) || ehci_timeout || s.child_errors)failed=1;
+        desk_log("ehci-desktop-ui: result=%s axes=%u checklist-zoom-clicks=%u pointer-exit=%u timeout=%u\n",
+            failed?"INCOMPLETE":"PASS",ehci_axes,ehci_zoom_clicks,ehci_pointer_exit,ehci_timeout);
+    }
     desk_log("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
         (unsigned long long)frames,(unsigned long long)bytes);
     return failed?1:s.session_child && s.end_committed?s.end_action:0;

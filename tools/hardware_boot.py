@@ -2,12 +2,14 @@
 """Stage a RAM-backed hardware boot, then install it alongside Ubuntu's EFI loader."""
 import argparse
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
+import tarfile
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +22,133 @@ MARKER = "# Managed by SrvrOS tools/hardware_boot.py"
 FILES = ("loader/BOOTX64.EFI", "srvros.elf", "initramfs.tar", "limine.conf", "loader/limine.conf")
 CONFIG_VERSION = "ram-usb-v4-console"
 DIAGNOSTIC_VERSION = "ram-usb-v4-diagnostic"
+EHCI_TRIAL_VERSION = "ram-usb-v1-macbookpro8-1-ehci-split"
+EHCI_KEYBOARD_VERSION = "ram-usb-v1-macbookpro8-1-ehci-keyboard"
+EHCI_MONITOR_VERSION = "ram-usb-v1-macbookpro8-1-ehci-monitor"
+EHCI_TRACKPAD_VERSION = "ram-usb-v1-macbookpro8-1-ehci-trackpad"
+EHCI_TRACKPAD_LOG_RE = re.compile(re.escape(EHCI_TRACKPAD_VERSION) + r"-log-([0-9a-f]{8})")
+EHCI_DESKTOP_V2_VERSION = "ram-usb-v2-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_VERSION = "ram-usb-v3-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_FILE_V4_VERSION = "ram-usb-v4-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_FILE_VERSION = "ram-usb-v5-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_BRIGHTNESS_VERSION = "ram-usb-v6-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_AUDIO_V7_VERSION = "ram-usb-v7-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_AUDIO_VERSION = "ram-usb-v8-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_TELEMETRY_VERSION = "ram-usb-v9-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_BATTERY_VERSION = "ram-usb-v10-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_RE = re.compile(r"ram-usb-v(?:[1-9]|10)-macbookpro8-1-ehci-desktop-log-([0-9a-f]{8})(?:-run-[0-9a-f]{16})?")
+EHCI_DESKTOP_FILES = ("fat/bin/deskd", "fat/bin/desktools", "fat/bin/deskclient", "fat/bin/deskfs",
+                      "fat/share/Trackpad trial.txt")
+EHCI_DESKTOP_V1_CHECKLIST = b"""Built-in trackpad trial
+
+Move the pointer across the window and back using one finger.
+Check that it moves horizontally and vertically.
+If the pointer pauses on first touch, keep moving briefly.
+
+Physically click this window's maximize button, then click it
+again to restore the window. Lift your finger between clicks.
+
+Click SrvrOS at the top left and choose Return to console.
+Leave the flash drive connected for the report and restart.
+The trial will end after 90 seconds if you cannot finish.
+"""
+EHCI_DESKTOP_V2_CHECKLIST = b"""Built-in keyboard and trackpad trial
+
+Move the pointer across the window with the built-in trackpad.
+Check that it moves horizontally and vertically.
+
+In Text, press Control+F on the built-in keyboard.
+Type Ehci-42 and check that it appears in the Find field.
+Press Escape to close Find.
+
+Click this window's maximize button with the trackpad.
+Lift your finger, then click again to restore the window.
+
+Click SrvrOS at the top left and choose Return to console.
+Leave the flash drive connected for the report and restart.
+The trial will end after 90 seconds if you cannot finish.
+"""
+EHCI_DESKTOP_CHECKLIST = b"""Built-in keyboard and trackpad trial
+
+Move the pointer horizontally and vertically with the trackpad.
+
+Press Control+F in Text and type Ehci-42 on the built-in keyboard.
+Check that it appears in Find, then press Escape to close Find.
+
+With the trackpad, click maximize, lift, then click again to restore.
+Click SrvrOS at the top left and choose Return to console.
+
+If the pointer fails, press Control+Alt+Escape to finish the trial.
+If neither input works, wait 90 seconds for the automatic exit.
+Leave the flash drive connected for the reports and restart.
+"""
+EHCI_DESKTOP_FILE_V4_CHECKLIST = b"""Flash-drive document trial
+
+With the trackpad, click maximize, then click again to restore.
+In Text, press Control+End and type Ehci-42 on the last line.
+Press Control+S and wait for Saved and verified on disk.
+Press Control+L, then Return to reopen this same file.
+Check for Document opened, then use Control+End to check Ehci-42.
+
+Click SrvrOS at the top left and choose Return to console.
+If the pointer fails, press Control+Alt+Escape or wait 90 seconds.
+Keep the flash drive connected until Ubuntu returns.
+
+Verification text goes here:
+"""
+EHCI_DESKTOP_FILE_CHECKLIST = b"""Flash-drive document trial
+
+With the trackpad, click maximize, then click again to restore.
+Click the blank line below Verification text and type Ehci-42.
+Press Control+S and wait for Saved and verified on disk.
+Press Control+L, then Return to reopen this same file.
+Check for Document opened and look for Ehci-42 on the last line.
+
+Click SrvrOS at the top left and choose Return to console.
+If the pointer fails, press Control+Alt+Escape or wait 90 seconds.
+Keep the flash drive connected until Ubuntu returns.
+
+Verification text goes here:
+"""
+EHCI_DESKTOP_BRIGHTNESS_CHECKLIST = b"""MacBook display brightness trial
+
+1. Click maximize, then click again to restore this window.
+2. In Text, press Control+F, type Ehci-42, then press Escape.
+3. Open Settings from the SrvrOS menu at the top left.
+4. In Settings, scroll down to Display brightness.
+   Drag the slider to about 35%, then about 75%.
+   Watch the panel dim and brighten. Note what you see.
+   If it says unavailable, return to console to save the report.
+5. Click SrvrOS and choose Return to console.
+   If the pointer fails, press Control+Alt+Escape or wait 150 seconds.
+   Keep the flash drive connected until Ubuntu returns.
+"""
+EHCI_DESKTOP_AUDIO_V7_CHECKLIST = b"""MacBook built-in speaker trial
+
+1. Keep headphones unplugged.
+2. Click maximize, then click again to restore this window.
+3. In Text, press Control+F, type Ehci-42, then press Escape.
+4. Open Settings from the SrvrOS menu at the top left.
+5. Scroll down past Display brightness to Sound.
+   At 25% volume, click Test sound and wait three seconds.
+   Listen for three short tones: left, right, then both.
+   If needed, try again at 40%. Note which tones you heard.
+6. Click SrvrOS and choose Return to console to save the report.
+   If the pointer fails, press Control+Alt+Escape or wait 150 seconds.
+   Keep the flash drive connected until Ubuntu returns.
+"""
+EHCI_DESKTOP_AUDIO_CHECKLIST = EHCI_DESKTOP_AUDIO_V7_CHECKLIST.replace(
+    b"wait three seconds.\n   Listen for three short tones: left, right, then both.",
+    b"wait four seconds.\n   Listen for a low tone on the left, a middle tone on the right,\n   and a high tone on both sides.")
+EHCI_TRIAL_MODES = {
+    EHCI_TRIAL_VERSION: "split-trial",
+    EHCI_KEYBOARD_VERSION: "keyboard-trial",
+    EHCI_MONITOR_VERSION: "keyboard-monitor",
+    EHCI_TRACKPAD_VERSION: "trackpad-trial",
+}
+EHCI_TRIAL_VERSIONS = tuple(EHCI_TRIAL_MODES)
+# The trial stops before userspace. An empty tar needs only two zero blocks.
+EHCI_TRIAL_INITRAMFS = bytes(1024)
 CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOSTIC_VERSION)
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
@@ -554,6 +683,25 @@ def limine_config(release, version=CONFIG_VERSION, *, legacy_wifi_calibration=Fa
         cmdline = f"srvros.storage=ram srvros.workspace-volume={workspace[1]}"
     elif version == CONFIG_VERSION:
         cmdline = "srvros.storage=ram"
+    elif logfile := EHCI_TRACKPAD_LOG_RE.fullmatch(version):
+        cmdline = f"srvros.storage=ram srvros.ehci=trackpad-trial srvros.ehci-release={release} srvros.ehci-log-volume={logfile[1]}"
+    elif logfile := EHCI_DESKTOP_RE.fullmatch(version):
+        if version.startswith(EHCI_DESKTOP_BATTERY_VERSION):
+            mode = "desktop-battery"
+        elif version.startswith(EHCI_DESKTOP_TELEMETRY_VERSION):
+            mode = "desktop-telemetry"
+        elif version.startswith((EHCI_DESKTOP_AUDIO_VERSION, EHCI_DESKTOP_AUDIO_V7_VERSION)):
+            mode = "desktop-audio"
+        elif version.startswith(EHCI_DESKTOP_BRIGHTNESS_VERSION):
+            mode = "desktop-brightness"
+        elif version.startswith((EHCI_DESKTOP_FILE_VERSION, EHCI_DESKTOP_FILE_V4_VERSION)):
+            mode = "desktop-file"
+        else:
+            mode = "topcase-desktop" if version.startswith(EHCI_DESKTOP_VERSION) else "trackpad-desktop"
+        cmdline = f"srvros.storage=ram srvros.ehci={mode} srvros.ehci-release={release} srvros.ehci-log-volume={logfile[1]}"
+    elif version in EHCI_TRIAL_VERSIONS:
+        mode = EHCI_TRIAL_MODES[version]
+        cmdline = f"srvros.storage=ram srvros.ehci={mode} srvros.ehci-release={release}"
     elif version == DIAGNOSTIC_VERSION:
         cmdline = "srvros.log=debug srvros.storage=ram srvros.inputdiag=1 srvros.inputprobe=1"
     else:
@@ -561,6 +709,8 @@ def limine_config(release, version=CONFIG_VERSION, *, legacy_wifi_calibration=Fa
         if version == "ram-usb-v3-inputdiag":
             cmdline += " srvros.inputdiag=1"
     resolution="    resolution: 2880x1800\n" if desktop and version.startswith(("ram-usb-v1-retina-","ram-usb-v29-","ram-usb-v30-","ram-usb-v31-","ram-usb-v36-","ram-usb-v37-")) else ""
+    if EHCI_DESKTOP_RE.fullmatch(version):
+        resolution = "    resolution: 1280x800\n"
     return f"""timeout: 0
 serial: yes
 
@@ -610,8 +760,11 @@ def verify(directory, expected_release=None):
     version = manifest.get("config_version")
     if version is None:
         version = next((v for v in CONFIG_VERSIONS if release_id(payload, v) == manifest["release"]), None)
-    if version not in CONFIG_VERSIONS and not (isinstance(version, str) and
-            (AIR61_SSD_RE.fullmatch(version) or AIR61_WORK_RE.fullmatch(version) or AUTOTEST_RE.fullmatch(version) or WORKSPACE_RE.fullmatch(version) or TRACKPAD_RE.fullmatch(version) or DESKTOP_RE.fullmatch(version) or LAPTOP_PROBE_RE.fullmatch(version))):
+    ehci_profile = version in EHCI_TRIAL_VERSIONS or (isinstance(version, str) and EHCI_TRACKPAD_LOG_RE.fullmatch(version))
+    ehci_desktop = isinstance(version, str) and EHCI_DESKTOP_RE.fullmatch(version)
+    if not ehci_profile and not ehci_desktop and version not in CONFIG_VERSIONS and not (isinstance(version, str) and
+            (AIR61_SSD_RE.fullmatch(version) or AIR61_WORK_RE.fullmatch(version) or
+             AUTOTEST_RE.fullmatch(version) or WORKSPACE_RE.fullmatch(version) or TRACKPAD_RE.fullmatch(version) or DESKTOP_RE.fullmatch(version) or LAPTOP_PROBE_RE.fullmatch(version))):
         raise ValueError("Unknown boot configuration version")
     release = release_id(payload, version)
     expected = [limine_config(release, version)]
@@ -623,6 +776,34 @@ def verify(directory, expected_release=None):
     config = (directory / "limine.conf").read_text()
     if manifest["release"] != release or config not in expected or (directory / "loader/limine.conf").read_text() != config:
         raise ValueError("Boot configuration or release identity mismatch")
+    if ehci_profile and (directory / "initramfs.tar").read_bytes() != EHCI_TRIAL_INITRAMFS:
+        raise ValueError("EHCI trial requires an empty initramfs")
+    if ehci_desktop:
+        opens_system = version.startswith((EHCI_DESKTOP_TELEMETRY_VERSION, EHCI_DESKTOP_BATTERY_VERSION))
+        files = EHCI_DESKTOP_FILES[:-1] if opens_system else EHCI_DESKTOP_FILES
+        with tarfile.open(directory / "initramfs.tar", "r:") as image:
+            if tuple(image.getnames()) != files or not all(item.isfile() for item in image):
+                raise ValueError("Unexpected EHCI desktop boot files")
+            if opens_system:
+                checklist = None
+            elif version.startswith(EHCI_DESKTOP_AUDIO_VERSION):
+                checklist = EHCI_DESKTOP_AUDIO_CHECKLIST
+            elif version.startswith(EHCI_DESKTOP_AUDIO_V7_VERSION):
+                checklist = EHCI_DESKTOP_AUDIO_V7_CHECKLIST
+            elif version.startswith(EHCI_DESKTOP_BRIGHTNESS_VERSION):
+                checklist = EHCI_DESKTOP_BRIGHTNESS_CHECKLIST
+            elif version.startswith(EHCI_DESKTOP_FILE_VERSION):
+                checklist = EHCI_DESKTOP_FILE_CHECKLIST
+            elif version.startswith(EHCI_DESKTOP_FILE_V4_VERSION):
+                checklist = EHCI_DESKTOP_FILE_V4_CHECKLIST
+            elif version.startswith(EHCI_DESKTOP_VERSION):
+                checklist = EHCI_DESKTOP_CHECKLIST
+            elif version.startswith(EHCI_DESKTOP_V2_VERSION):
+                checklist = EHCI_DESKTOP_V2_CHECKLIST
+            else:
+                checklist = EHCI_DESKTOP_V1_CHECKLIST
+            if checklist is not None and image.extractfile(EHCI_DESKTOP_FILES[-1]).read() != checklist:
+                raise ValueError("Missing EHCI desktop checklist")
     if AIR61_SSD_RE.fullmatch(version) or AIR61_WORK_RE.fullmatch(version):
         archive = directory / "initramfs.tar"
         if archive.stat().st_size != len(EMPTY_INITRAMFS) or archive.read_bytes() != EMPTY_INITRAMFS:
@@ -650,7 +831,7 @@ def verify(directory, expected_release=None):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, wifi_capture=False, wifi_calibration=False, wifi_firmware_package=None, wifi_mac_startup=False, wifi_mcu_probe=False, wifi_radio_reset=False, wifi_write_probe=False, wifi_pair_probe=False, wifi_timing_probe=False, wifi_mac_basics=False, wifi_mac_format=False, wifi_bbp_ready=False, wifi_bbp_core=False, wifi_bbp_front=False, wifi_bbp_agc=False, wifi_bbp_batch=False, wifi_compact=False, wifi_agc_more=False, wifi_agc_next=False, wifi_agc_tail=False, wifi_rxc_start=False, wifi_rxc_tail=False, wifi_txbe_start=False, wifi_txbe_next=False, wifi_txbe_observe=False, wifi_txbe_first=False, wifi_txbe_second=False, wifi_txbe_access=False, wifi_txbe_direct=False, wifi_clock=False, wifi_clock_direct=False, wifi_clock_pair=False, wifi_bbp_table=False, wifi_mac_snapshot=False, wifi_mac_raw=False, wifi_mac_route=False, wifi_mac_policy=False, wifi_mac_policy_observe=False, wifi_mac_policy_validate=False, wifi_mac_protect=False, wifi_mac_contention=False, wifi_mac_txsw=False, wifi_mac_beacon=False, wifi_mac_vht=False, wifi_mac_buffer=False, wifi_mac_fce_observe=False, wifi_mac_fce_validate=False, wifi_mac_ampdu=False, wifi_bbp_after_mac=False, wifi_bbp_switch=False, wifi_dcoc=False, wifi_skey=False, wifi_wcid=False, wifi_mac_tail=False, wifi_mac_fixed=False, wifi_efuse_map=False, wifi_mac_address=False, wifi_mac_address_validate=False, wifi_mac_board=False, wifi_ant_snapshot=False, wifi_ant_init=False, wifi_rf_probe=False,wifi_rf_central=False,wifi_rf_six=False,wifi_rf_csr=False,wifi_rf_write=False, wifi_rf_state=False, wifi_rf_table=False, wifi_rf_bank5=False, wifi_rf_bank6=False, wifi_rf_vga=False, wifi_rf_g20=False, wifi_rf_trim=False, wifi_rf_cal=False, wifi_rf_wait=False, wifi_path=False, wifi_channel_state=False, wifi_channel_observe=False, wifi_vco_ready=False, wifi_usb_cycle=False, wifi_bw_observe=False, wifi_bbp20=False, wifi_channel_probe=False, wifi_band2g=False, wifi_synth1=False, wifi_post=False, wifi_gain=False, wifi_channel_bbp=False, wifi_post_vco=False, wifi_agc_state=False, wifi_rx_lifecycle=False, wifi_mac_cycle=False, wifi_cal_probe=False,wifi_poweron=False,wifi_passive=False,wifi_window=False,wifi_window_long=False,wifi_discovery=False,wifi_channel_preview=False, wifi_channel_tune=False, wifi_channel_receive=False,wifi_scan=False,wifi_scan_retry=False,wifi_scan_batch=False,wifi_desktop_trial=False,wifi_log_isolation=False,wifi_desktop_input=False,wifi_desktop_empty=False,wifi_channel_diagnosis=False, battery_home_desktop=False, battery_home_transitions=False, battery_home_work=False, tap_typing=False, desktop_basic=False, desktop_battery=False, desktop_services=False, desktop_device_checks=False, battery_preflight=False, battery_air61=False, storage_wait_capture=False,desktop_reopen_test=False,posix_capture=False,desktop_capacity_test=False,desktop_lifecycle_trial=False,desktop_audio_io_test=False,desktop_audio_io_attended=False,desktop_navigation_trial=False,desktop_power_test=False,mwait_wakeup_test=False,mwait_deep_test=False,ap_ownership_test=False, ap_coordinated_c3=False, ap_package_audit=False, ap_platform_audit=False, wifi_5ghz_prereq=False, wifi_5ghz_band=False,wifi_5ghz_channel=False,wifi_a20_inventory=False,wifi_a20_cycle=False,wifi_frontend=False,wifi_pa5_cycle=False,wifi_bbp5_cycle=False, wifi_held_channel=False, wifi_trim5_channel=False, haswell_backing_capture=False, wifi_dac5=False,wifi_vco5=False,haswell_tilectl=False,wifi_channel_vco5=False,wifi_cal5=False,wifi_discovery5=False,haswell_linux_fences=False,haswell_firmware_capture=False,wifi_power5=False,haswell_cache_context=False,wifi_handoff5=False,haswell_alias_context=False,haswell_alias_preinit=False,wifi_peer5=False,wifi_tx5_owner=False,wifi_join5=False,wifi_eapol5=False,haswell_ecam_boot=False,haswell_window=False,wifi_wpa5=False,wifi_wpa5_pmk=None,wifi_data5=False,wifi_provider5=False,wifi_reuse5=False,wifi_nop5=False,haswell_read_qualification=False,haswell_register_sample=False,audio_listen=False,desktop_capture_write_timing=False,wifi_stream5=False,wifi_stream5_dhcp=False,wifi_stack5=False,wifi_cal5_cleanup=False,wifi_http5=False,wifi_reconnect5=False,startup_journal=None,wifi_reconnect5_journal=False, wifi_reconnect5_http=False,wifi_early5=False,wifi_early5_timing=None,wifi_cal5_prime=False, storage_only_capture=False,storage_command_trace=False, wifi_survey5=False,wifi_first_auth5=False,storage_metadata_trace=False,wifi_desktop_owner=False,wifi_desktop_reconnect=False,wifi_desktop_reattach=False,wifi_desktop_replug=False,wifi_desktop_active_remove=False, desktop_retina=False, desktop_retina_screenshot=False, air61_ssd_probe_volume=None, air61_ssd_port_state=False, air61_ssd_reset=False, air61_ssd_partition_read=False, air61_ssd_discovery=False, air61_work_proof=None):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, wifi_capture=False, wifi_calibration=False, wifi_firmware_package=None, wifi_mac_startup=False, wifi_mcu_probe=False, wifi_radio_reset=False, wifi_write_probe=False, wifi_pair_probe=False, wifi_timing_probe=False, wifi_mac_basics=False, wifi_mac_format=False, wifi_bbp_ready=False, wifi_bbp_core=False, wifi_bbp_front=False, wifi_bbp_agc=False, wifi_bbp_batch=False, wifi_compact=False, wifi_agc_more=False, wifi_agc_next=False, wifi_agc_tail=False, wifi_rxc_start=False, wifi_rxc_tail=False, wifi_txbe_start=False, wifi_txbe_next=False, wifi_txbe_observe=False, wifi_txbe_first=False, wifi_txbe_second=False, wifi_txbe_access=False, wifi_txbe_direct=False, wifi_clock=False, wifi_clock_direct=False, wifi_clock_pair=False, wifi_bbp_table=False, wifi_mac_snapshot=False, wifi_mac_raw=False, wifi_mac_route=False, wifi_mac_policy=False, wifi_mac_policy_observe=False, wifi_mac_policy_validate=False, wifi_mac_protect=False, wifi_mac_contention=False, wifi_mac_txsw=False, wifi_mac_beacon=False, wifi_mac_vht=False, wifi_mac_buffer=False, wifi_mac_fce_observe=False, wifi_mac_fce_validate=False, wifi_mac_ampdu=False, wifi_bbp_after_mac=False, wifi_bbp_switch=False, wifi_dcoc=False, wifi_skey=False, wifi_wcid=False, wifi_mac_tail=False, wifi_mac_fixed=False, wifi_efuse_map=False, wifi_mac_address=False, wifi_mac_address_validate=False, wifi_mac_board=False, wifi_ant_snapshot=False, wifi_ant_init=False, wifi_rf_probe=False,wifi_rf_central=False,wifi_rf_six=False,wifi_rf_csr=False,wifi_rf_write=False, wifi_rf_state=False, wifi_rf_table=False, wifi_rf_bank5=False, wifi_rf_bank6=False, wifi_rf_vga=False, wifi_rf_g20=False, wifi_rf_trim=False, wifi_rf_cal=False, wifi_rf_wait=False, wifi_path=False, wifi_channel_state=False, wifi_channel_observe=False, wifi_vco_ready=False, wifi_usb_cycle=False, wifi_bw_observe=False, wifi_bbp20=False, wifi_channel_probe=False, wifi_band2g=False, wifi_synth1=False, wifi_post=False, wifi_gain=False, wifi_channel_bbp=False, wifi_post_vco=False, wifi_agc_state=False, wifi_rx_lifecycle=False, wifi_mac_cycle=False, wifi_cal_probe=False,wifi_poweron=False,wifi_passive=False,wifi_window=False,wifi_window_long=False,wifi_discovery=False,wifi_channel_preview=False, wifi_channel_tune=False, wifi_channel_receive=False,wifi_scan=False,wifi_scan_retry=False,wifi_scan_batch=False,wifi_desktop_trial=False,wifi_log_isolation=False,wifi_desktop_input=False,wifi_desktop_empty=False,wifi_channel_diagnosis=False, battery_home_desktop=False, battery_home_transitions=False, battery_home_work=False, tap_typing=False, desktop_basic=False, desktop_battery=False, desktop_services=False, desktop_device_checks=False, battery_preflight=False, battery_air61=False, storage_wait_capture=False,desktop_reopen_test=False,posix_capture=False,desktop_capacity_test=False,desktop_lifecycle_trial=False,desktop_audio_io_test=False,desktop_audio_io_attended=False,desktop_navigation_trial=False,desktop_power_test=False,mwait_wakeup_test=False,mwait_deep_test=False,ap_ownership_test=False, ap_coordinated_c3=False, ap_package_audit=False, ap_platform_audit=False, wifi_5ghz_prereq=False, wifi_5ghz_band=False,wifi_5ghz_channel=False,wifi_a20_inventory=False,wifi_a20_cycle=False,wifi_frontend=False,wifi_pa5_cycle=False,wifi_bbp5_cycle=False, wifi_held_channel=False, wifi_trim5_channel=False, haswell_backing_capture=False, wifi_dac5=False,wifi_vco5=False,haswell_tilectl=False,wifi_channel_vco5=False,wifi_cal5=False,wifi_discovery5=False,haswell_linux_fences=False,haswell_firmware_capture=False,wifi_power5=False,haswell_cache_context=False,wifi_handoff5=False,haswell_alias_context=False,haswell_alias_preinit=False,wifi_peer5=False,wifi_tx5_owner=False,wifi_join5=False,wifi_eapol5=False,haswell_ecam_boot=False,haswell_window=False,wifi_wpa5=False,wifi_wpa5_pmk=None,wifi_data5=False,wifi_provider5=False,wifi_reuse5=False,wifi_nop5=False,haswell_read_qualification=False,haswell_register_sample=False,audio_listen=False,desktop_capture_write_timing=False,wifi_stream5=False,wifi_stream5_dhcp=False,wifi_stack5=False,wifi_cal5_cleanup=False,wifi_http5=False,wifi_reconnect5=False,startup_journal=None,wifi_reconnect5_journal=False, wifi_reconnect5_http=False,wifi_early5=False,wifi_early5_timing=None,wifi_cal5_prime=False, storage_only_capture=False,storage_command_trace=False, wifi_survey5=False,wifi_first_auth5=False,storage_metadata_trace=False,wifi_desktop_owner=False,wifi_desktop_reconnect=False,wifi_desktop_reattach=False,wifi_desktop_replug=False,wifi_desktop_active_remove=False, desktop_retina=False, desktop_retina_screenshot=False, air61_ssd_probe_volume=None, air61_ssd_port_state=False, air61_ssd_reset=False, air61_ssd_partition_read=False, air61_ssd_discovery=False, air61_work_proof=None, *, ehci_split_trial=False, ehci_keyboard_trial=False, ehci_keyboard_monitor=False, ehci_trackpad_trial=False, ehci_trackpad_log_volume=None, ehci_desktop_volume=None, ehci_desktop_run=None, ehci_desktop_file=False, ehci_desktop_brightness=False, ehci_desktop_audio=False, ehci_desktop_telemetry=False, ehci_desktop_battery=False):
     if desktop_retina or desktop_retina_screenshot:
         if desktop_retina and desktop_retina_screenshot:
             raise ValueError("Choose one Retina trial")
@@ -1014,6 +1195,41 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if not hold_on_failure and (not battery_transitions or battery_air61) and not keyboard_capture and not cpu_load_capture: version += "-auto-return"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
+    if ehci_trackpad_log_volume is not None:
+        if not ehci_trackpad_trial or not re.fullmatch(r"[0-9a-f]{8}", ehci_trackpad_log_volume):
+            raise ValueError("Specify an eight-digit exFAT volume ID with the EHCI trackpad trial")
+    ehci_profiles = [
+        profile for selected, profile in (
+            (ehci_split_trial, EHCI_TRIAL_VERSION),
+            (ehci_keyboard_trial, EHCI_KEYBOARD_VERSION),
+            (ehci_keyboard_monitor, EHCI_MONITOR_VERSION),
+            (ehci_trackpad_trial, EHCI_TRACKPAD_VERSION),
+        ) if selected
+    ]
+    if ehci_profiles:
+        if version != CONFIG_VERSION or len(ehci_profiles) != 1:
+            raise ValueError("Choose one EHCI RAM-only trial profile")
+        version = ehci_profiles[0]
+        if ehci_trackpad_log_volume is not None:
+            version += f"-log-{ehci_trackpad_log_volume}"
+    if ehci_desktop_run is not None and (ehci_desktop_volume is None or not RELEASE_RE.fullmatch(ehci_desktop_run)):
+        raise ValueError("Specify a 16-digit lowercase hexadecimal run ID with the EHCI desktop trial")
+    workspace_trials = (ehci_desktop_file, ehci_desktop_brightness, ehci_desktop_audio, ehci_desktop_telemetry, ehci_desktop_battery)
+    if any(workspace_trials) and ehci_desktop_volume is None:
+        raise ValueError("The EHCI desktop trial requires its workspace volume")
+    if sum(workspace_trials) > 1:
+        raise ValueError("Choose one EHCI desktop trial")
+    if ehci_desktop_volume is not None:
+        if version != CONFIG_VERSION or not re.fullmatch(r"[0-9a-f]{8}", ehci_desktop_volume):
+            raise ValueError("Specify one EHCI desktop profile and its eight-digit exFAT volume ID")
+        profile = EHCI_DESKTOP_BATTERY_VERSION if ehci_desktop_battery else (
+            EHCI_DESKTOP_TELEMETRY_VERSION if ehci_desktop_telemetry else
+            EHCI_DESKTOP_AUDIO_VERSION if ehci_desktop_audio else
+            EHCI_DESKTOP_BRIGHTNESS_VERSION if ehci_desktop_brightness else
+            EHCI_DESKTOP_FILE_VERSION if ehci_desktop_file else EHCI_DESKTOP_VERSION)
+        version = f"{profile}-log-{ehci_desktop_volume}"
+        if ehci_desktop_run is not None:
+            version += f"-run-{ehci_desktop_run}"
     if air61_ssd_discovery and not air61_ssd_partition_read:
         raise ValueError("Air6,1 normal discovery requires the partition-read profile")
     if air61_ssd_partition_read and not air61_ssd_reset:
@@ -1043,7 +1259,24 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         target = Path(tmp)
         (target / "loader").mkdir()
         for name, source in sources.items():
-            if name == "initramfs.tar" and air61_ssd_probe_volume is not None:
+            if ehci_profiles and name == "initramfs.tar":
+                (target / name).write_bytes(EHCI_TRIAL_INITRAMFS)
+            elif ehci_desktop_volume is not None and name == "initramfs.tar":
+                with tarfile.open(target / name, "w", format=tarfile.USTAR_FORMAT) as image:
+                    executables = tuple((ROOT / "build/userspace" / f"{Path(member).name}.elf").read_bytes()
+                                        for member in EHCI_DESKTOP_FILES[:-1])
+                    checklist = EHCI_DESKTOP_AUDIO_CHECKLIST if ehci_desktop_audio else (
+                        EHCI_DESKTOP_BRIGHTNESS_CHECKLIST if ehci_desktop_brightness else
+                        EHCI_DESKTOP_FILE_CHECKLIST if ehci_desktop_file else EHCI_DESKTOP_CHECKLIST)
+                    opens_system = ehci_desktop_telemetry or ehci_desktop_battery
+                    files = EHCI_DESKTOP_FILES[:-1] if opens_system else EHCI_DESKTOP_FILES
+                    items = executables if opens_system else (*executables, checklist)
+                    for member, data in zip(files, items):
+                        item = tarfile.TarInfo(member)
+                        item.mode = 0o755 if member.startswith("fat/bin/") else 0o644
+                        item.size = len(data)
+                        image.addfile(item, io.BytesIO(data))
+            elif name == "initramfs.tar" and air61_ssd_probe_volume is not None:
                 (target / name).write_bytes(EMPTY_INITRAMFS)
             else:
                 shutil.copyfile(source, target / name)
@@ -1282,6 +1515,18 @@ def main():
     parser.add_argument("--air61-ssd-discovery", action="store_true",
                         help="run the read-only partition trial at normal AHCI discovery")
     parser.add_argument("--diagnostic", action="store_true", help="stage verbose input-probe boot")
+    parser.add_argument("--ehci-split-trial", action="store_true", help="stage the attended MacBookPro8,1 EHCI split trial")
+    parser.add_argument("--ehci-trackpad-log-volume", metavar="UUID", help="save the EHCI trackpad result to this prepared exFAT workspace")
+    parser.add_argument("--ehci-trackpad-trial", action="store_true", help="stage the attended MacBookPro8,1 EHCI trackpad trial")
+    parser.add_argument("--ehci-desktop-trial", metavar="UUID", help="stage the attended MacBookPro8,1 desktop input trial with USB logging")
+    parser.add_argument("--ehci-desktop-file", action="store_true", help="keep the EHCI trial workspace mounted for the Text file round trip")
+    parser.add_argument("--ehci-desktop-brightness", action="store_true", help="stage the MacBookPro8,1 Settings brightness trial")
+    parser.add_argument("--ehci-desktop-audio", action="store_true", help="stage the MacBookPro8,1 built-in speaker trial")
+    parser.add_argument("--ehci-desktop-telemetry", action="store_true", help="stage the automatic MacBookPro8,1 CPU and fan trial")
+    parser.add_argument("--ehci-desktop-battery", action="store_true", help="stage the MacBookPro8,1 charger transition trial")
+    parser.add_argument("--ehci-desktop-run", metavar="ID", help="give a repeated EHCI desktop trial distinct USB report names")
+    parser.add_argument("--ehci-keyboard-monitor", action="store_true", help="stage the RAM-only MacBookPro8,1 keyboard monitor")
+    parser.add_argument("--ehci-keyboard-trial", action="store_true", help="stage the attended MacBookPro8,1 EHCI keyboard trial")
     parser.add_argument("--release", help="install this exact staged release")
     parser.add_argument("--keep-previous", action="store_true", help="retain the verified existing recovery entry during install")
     parser.add_argument("--desktop-navigation-trial",action="store_true",help="attended window/dock/keyboard checklist; opens Help automatically, no timed exit")
@@ -1787,9 +2032,33 @@ def main():
         parser.error("--desktop-volume applies only to stage")
     if args.diagnostic and args.action != "stage":
         parser.error("--diagnostic applies only to stage")
+    if args.ehci_split_trial and args.action != "stage":
+        parser.error("--ehci-split-trial applies only to stage")
+    if args.ehci_trackpad_log_volume is not None and args.action != "stage":
+        parser.error("--ehci-trackpad-log-volume applies only to stage")
+    if args.ehci_trackpad_trial and args.action != "stage":
+        parser.error("--ehci-trackpad-trial applies only to stage")
+    if args.ehci_desktop_trial is not None and args.action != "stage":
+        parser.error("--ehci-desktop-trial applies only to stage")
+    if args.ehci_desktop_file and (args.action != "stage" or args.ehci_desktop_trial is None):
+        parser.error("--ehci-desktop-file requires staging --ehci-desktop-trial UUID")
+    if args.ehci_desktop_brightness and (args.action != "stage" or args.ehci_desktop_trial is None):
+        parser.error("--ehci-desktop-brightness requires staging --ehci-desktop-trial UUID")
+    if args.ehci_desktop_audio and (args.action != "stage" or args.ehci_desktop_trial is None):
+        parser.error("--ehci-desktop-audio requires staging --ehci-desktop-trial UUID")
+    if args.ehci_desktop_telemetry and (args.action != "stage" or args.ehci_desktop_trial is None):
+        parser.error("--ehci-desktop-telemetry requires staging --ehci-desktop-trial UUID")
+    if args.ehci_desktop_battery and (args.action != "stage" or args.ehci_desktop_trial is None):
+        parser.error("--ehci-desktop-battery requires staging --ehci-desktop-trial UUID")
+    if args.ehci_desktop_run is not None and args.action != "stage":
+        parser.error("--ehci-desktop-run applies only to stage")
+    if args.ehci_keyboard_monitor and args.action != "stage":
+        parser.error("--ehci-keyboard-monitor applies only to stage")
+    if args.ehci_keyboard_trial and args.action != "stage":
+        parser.error("--ehci-keyboard-trial applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic, desktop_retina=args.desktop_retina, desktop_retina_screenshot=args.desktop_retina_screenshot, wifi_desktop_active_remove=args.wifi_desktop_active_remove, wifi_desktop_replug=args.wifi_desktop_replug, wifi_desktop_reattach=args.wifi_desktop_reattach, wifi_desktop_reconnect=args.wifi_desktop_reconnect, wifi_desktop_owner=args.wifi_desktop_owner, wifi_first_auth5=args.wifi_first_auth5, wifi_survey5=args.wifi_survey5, storage_only_capture=args.storage_only_capture,storage_command_trace=args.storage_command_trace,storage_metadata_trace=args.storage_metadata_trace, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, battery_controls=args.battery_controls, battery_query=args.battery_query, battery_smbus=args.battery_smbus, battery_smbus_files=args.battery_smbus_files, battery_home=args.battery_home,battery_home_session=args.battery_home_session,battery_home_desktop=args.battery_home_desktop,battery_home_transitions=args.battery_home_transitions,battery_home_work=args.battery_home_work, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, desktop_basic=args.desktop_basic, desktop_battery=args.desktop_battery, desktop_services=args.desktop_services, desktop_device_checks=args.desktop_device_checks,battery_preflight=args.battery_preflight,battery_air61=args.battery_air61,storage_wait_capture=args.storage_wait_capture, wifi_capture=args.wifi_capture, wifi_calibration=args.wifi_calibration, wifi_firmware_package=args.wifi_firmware_package, wifi_mac_startup=args.wifi_mac_startup, wifi_mcu_probe=args.wifi_mcu_probe, wifi_radio_reset=args.wifi_radio_reset, wifi_write_probe=args.wifi_write_probe, wifi_pair_probe=args.wifi_pair_probe, wifi_timing_probe=args.wifi_timing_probe, wifi_mac_basics=args.wifi_mac_basics, wifi_mac_format=args.wifi_mac_format, wifi_bbp_ready=args.wifi_bbp_ready, wifi_bbp_core=args.wifi_bbp_core, wifi_bbp_front=args.wifi_bbp_front, wifi_bbp_agc=args.wifi_bbp_agc, wifi_bbp_batch=args.wifi_bbp_batch, wifi_compact=args.wifi_compact, wifi_agc_more=args.wifi_agc_more, wifi_agc_next=args.wifi_agc_next, wifi_agc_tail=args.wifi_agc_tail, wifi_rxc_start=args.wifi_rxc_start, wifi_rxc_tail=args.wifi_rxc_tail, wifi_txbe_start=args.wifi_txbe_start, wifi_txbe_next=args.wifi_txbe_next, wifi_txbe_observe=args.wifi_txbe_observe, wifi_txbe_first=args.wifi_txbe_first, wifi_txbe_second=args.wifi_txbe_second, wifi_txbe_access=args.wifi_txbe_access, wifi_txbe_direct=args.wifi_txbe_direct, wifi_clock=args.wifi_clock, wifi_clock_direct=args.wifi_clock_direct, wifi_clock_pair=args.wifi_clock_pair, wifi_bbp_table=args.wifi_bbp_table, wifi_mac_snapshot=args.wifi_mac_snapshot, wifi_mac_raw=args.wifi_mac_raw, wifi_mac_route=args.wifi_mac_route, wifi_mac_policy=args.wifi_mac_policy, wifi_mac_policy_observe=args.wifi_mac_policy_observe, wifi_mac_policy_validate=args.wifi_mac_policy_validate, wifi_mac_protect=args.wifi_mac_protect, wifi_mac_contention=args.wifi_mac_contention, wifi_mac_txsw=args.wifi_mac_txsw, wifi_mac_beacon=args.wifi_mac_beacon, wifi_mac_vht=args.wifi_mac_vht, wifi_mac_buffer=args.wifi_mac_buffer, wifi_mac_fce_observe=args.wifi_mac_fce_observe, wifi_mac_fce_validate=args.wifi_mac_fce_validate, wifi_mac_ampdu=args.wifi_mac_ampdu, wifi_bbp_after_mac=args.wifi_bbp_after_mac, wifi_bbp_switch=args.wifi_bbp_switch, wifi_dcoc=args.wifi_dcoc, wifi_skey=args.wifi_skey, wifi_wcid=args.wifi_wcid, wifi_mac_tail=args.wifi_mac_tail, wifi_mac_fixed=args.wifi_mac_fixed, wifi_efuse_map=args.wifi_efuse_map, wifi_mac_address=args.wifi_mac_address, wifi_mac_address_validate=args.wifi_mac_address_validate, wifi_mac_board=args.wifi_mac_board, wifi_ant_snapshot=args.wifi_ant_snapshot, wifi_ant_init=args.wifi_ant_init, wifi_rf_probe=args.wifi_rf_probe,wifi_rf_central=args.wifi_rf_central,wifi_rf_six=args.wifi_rf_six,wifi_rf_csr=args.wifi_rf_csr,wifi_rf_write=args.wifi_rf_write,wifi_rf_state=args.wifi_rf_state,wifi_rf_table=args.wifi_rf_table,wifi_rf_bank5=args.wifi_rf_bank5,wifi_rf_bank6=args.wifi_rf_bank6,wifi_rf_vga=args.wifi_rf_vga,wifi_rf_g20=args.wifi_rf_g20,wifi_rf_trim=args.wifi_rf_trim,wifi_rf_cal=args.wifi_rf_cal,wifi_rf_wait=args.wifi_rf_wait,wifi_path=args.wifi_path,wifi_channel_state=args.wifi_channel_state,wifi_channel_observe=args.wifi_channel_observe,wifi_vco_ready=args.wifi_vco_ready,wifi_usb_cycle=args.wifi_usb_cycle,wifi_bw_observe=args.wifi_bw_observe,wifi_bbp20=args.wifi_bbp20,wifi_channel_probe=args.wifi_channel_probe,wifi_band2g=args.wifi_band2g,wifi_synth1=args.wifi_synth1,wifi_post=args.wifi_post,wifi_gain=args.wifi_gain,wifi_channel_bbp=args.wifi_channel_bbp,wifi_post_vco=args.wifi_post_vco,wifi_agc_state=args.wifi_agc_state,wifi_rx_lifecycle=args.wifi_rx_lifecycle,wifi_mac_cycle=args.wifi_mac_cycle,wifi_cal_probe=args.wifi_cal_probe,wifi_poweron=args.wifi_poweron,wifi_passive=args.wifi_passive,wifi_window=args.wifi_window,wifi_window_long=args.wifi_window_long,wifi_discovery=args.wifi_discovery,wifi_channel_preview=args.wifi_channel_preview,wifi_channel_tune=args.wifi_channel_tune,wifi_channel_receive=args.wifi_channel_receive,wifi_scan=args.wifi_scan,wifi_scan_retry=args.wifi_scan_retry,wifi_scan_batch=args.wifi_scan_batch,wifi_desktop_trial=args.wifi_desktop_trial,wifi_log_isolation=args.wifi_log_isolation,wifi_desktop_input=args.wifi_desktop_input,wifi_desktop_empty=args.wifi_desktop_empty,wifi_channel_diagnosis=args.wifi_channel_diagnosis,desktop_reopen_test=args.desktop_reopen_test,posix_capture=args.posix_capture,desktop_capacity_test=args.desktop_capacity_test,desktop_lifecycle_trial=args.desktop_lifecycle_trial,desktop_audio_io_test=args.desktop_audio_io_test,desktop_audio_io_attended=args.desktop_audio_io_attended,desktop_navigation_trial=args.desktop_navigation_trial,desktop_power_test=args.desktop_power_test,mwait_wakeup_test=args.mwait_wakeup_test,mwait_deep_test=args.mwait_deep_test,ap_ownership_test=args.ap_ownership_test, ap_coordinated_c3=args.ap_coordinated_c3, ap_package_audit=args.ap_package_audit, ap_platform_audit=args.ap_platform_audit,wifi_5ghz_prereq=args.wifi_5ghz_prereq,wifi_5ghz_band=args.wifi_5ghz_band,wifi_5ghz_channel=args.wifi_5ghz_channel,wifi_a20_inventory=args.wifi_a20_inventory,wifi_a20_cycle=args.wifi_a20_cycle,wifi_frontend=args.wifi_frontend,wifi_pa5_cycle=args.wifi_pa5_cycle,wifi_bbp5_cycle=args.wifi_bbp5_cycle,wifi_held_channel=args.wifi_held_channel,wifi_trim5_channel=args.wifi_trim5_channel,haswell_backing_capture=args.haswell_backing_capture,wifi_dac5=args.wifi_dac5,wifi_vco5=args.wifi_vco5,haswell_tilectl=args.haswell_tilectl,wifi_channel_vco5=args.wifi_channel_vco5,wifi_cal5=args.wifi_cal5,wifi_discovery5=args.wifi_discovery5,haswell_linux_fences=args.haswell_linux_fences,haswell_firmware_capture=args.haswell_firmware_capture,wifi_power5=args.wifi_power5,haswell_cache_context=args.haswell_cache_context,wifi_handoff5=args.wifi_handoff5,haswell_alias_context=args.haswell_alias_context,haswell_alias_preinit=args.haswell_alias_preinit,wifi_peer5=args.wifi_peer5,wifi_tx5_owner=args.wifi_tx5_owner,wifi_join5=args.wifi_join5,wifi_eapol5=args.wifi_eapol5,wifi_wpa5=args.wifi_wpa5,wifi_wpa5_pmk=args.wifi_wpa5_pmk,wifi_data5=args.wifi_data5,wifi_provider5=args.wifi_provider5,wifi_reuse5=args.wifi_reuse5,wifi_nop5=args.wifi_nop5,wifi_stream5=args.wifi_stream5,wifi_stream5_dhcp=args.wifi_stream5_dhcp,wifi_stack5=args.wifi_stack5, wifi_cal5_cleanup=args.wifi_cal5_cleanup,wifi_http5=args.wifi_http5,wifi_reconnect5=args.wifi_reconnect5,startup_journal=args.startup_journal,wifi_reconnect5_journal=args.wifi_reconnect5_journal,wifi_reconnect5_http=args.wifi_reconnect5_http,wifi_early5=args.wifi_early5,wifi_early5_timing=args.wifi_early5_timing,wifi_cal5_prime=args.wifi_cal5_prime,haswell_ecam_boot=args.haswell_ecam_boot,haswell_window=args.haswell_window,haswell_read_qualification=args.haswell_read_qualification,haswell_register_sample=args.haswell_register_sample,audio_listen=args.audio_listen,desktop_capture_write_timing=args.capture_write_timing)
+            stage(args.diagnostic, ehci_desktop_battery=args.ehci_desktop_battery, ehci_desktop_telemetry=args.ehci_desktop_telemetry, ehci_desktop_audio=args.ehci_desktop_audio, ehci_desktop_brightness=args.ehci_desktop_brightness, ehci_desktop_file=args.ehci_desktop_file, ehci_desktop_run=args.ehci_desktop_run, ehci_desktop_volume=args.ehci_desktop_trial.lower().replace("-", "") if args.ehci_desktop_trial is not None else None, ehci_split_trial=args.ehci_split_trial, ehci_keyboard_trial=args.ehci_keyboard_trial, ehci_keyboard_monitor=args.ehci_keyboard_monitor, ehci_trackpad_trial=args.ehci_trackpad_trial, ehci_trackpad_log_volume=args.ehci_trackpad_log_volume.lower().replace("-", "") if args.ehci_trackpad_log_volume is not None else None, desktop_retina=args.desktop_retina, desktop_retina_screenshot=args.desktop_retina_screenshot, wifi_desktop_active_remove=args.wifi_desktop_active_remove, wifi_desktop_replug=args.wifi_desktop_replug, wifi_desktop_reattach=args.wifi_desktop_reattach, wifi_desktop_reconnect=args.wifi_desktop_reconnect, wifi_desktop_owner=args.wifi_desktop_owner, wifi_first_auth5=args.wifi_first_auth5, wifi_survey5=args.wifi_survey5, storage_only_capture=args.storage_only_capture,storage_command_trace=args.storage_command_trace,storage_metadata_trace=args.storage_metadata_trace, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, battery_controls=args.battery_controls, battery_query=args.battery_query, battery_smbus=args.battery_smbus, battery_smbus_files=args.battery_smbus_files, battery_home=args.battery_home,battery_home_session=args.battery_home_session,battery_home_desktop=args.battery_home_desktop,battery_home_transitions=args.battery_home_transitions,battery_home_work=args.battery_home_work, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, desktop_basic=args.desktop_basic, desktop_battery=args.desktop_battery, desktop_services=args.desktop_services, desktop_device_checks=args.desktop_device_checks,battery_preflight=args.battery_preflight,battery_air61=args.battery_air61,storage_wait_capture=args.storage_wait_capture, wifi_capture=args.wifi_capture, wifi_calibration=args.wifi_calibration, wifi_firmware_package=args.wifi_firmware_package, wifi_mac_startup=args.wifi_mac_startup, wifi_mcu_probe=args.wifi_mcu_probe, wifi_radio_reset=args.wifi_radio_reset, wifi_write_probe=args.wifi_write_probe, wifi_pair_probe=args.wifi_pair_probe, wifi_timing_probe=args.wifi_timing_probe, wifi_mac_basics=args.wifi_mac_basics, wifi_mac_format=args.wifi_mac_format, wifi_bbp_ready=args.wifi_bbp_ready, wifi_bbp_core=args.wifi_bbp_core, wifi_bbp_front=args.wifi_bbp_front, wifi_bbp_agc=args.wifi_bbp_agc, wifi_bbp_batch=args.wifi_bbp_batch, wifi_compact=args.wifi_compact, wifi_agc_more=args.wifi_agc_more, wifi_agc_next=args.wifi_agc_next, wifi_agc_tail=args.wifi_agc_tail, wifi_rxc_start=args.wifi_rxc_start, wifi_rxc_tail=args.wifi_rxc_tail, wifi_txbe_start=args.wifi_txbe_start, wifi_txbe_next=args.wifi_txbe_next, wifi_txbe_observe=args.wifi_txbe_observe, wifi_txbe_first=args.wifi_txbe_first, wifi_txbe_second=args.wifi_txbe_second, wifi_txbe_access=args.wifi_txbe_access, wifi_txbe_direct=args.wifi_txbe_direct, wifi_clock=args.wifi_clock, wifi_clock_direct=args.wifi_clock_direct, wifi_clock_pair=args.wifi_clock_pair, wifi_bbp_table=args.wifi_bbp_table, wifi_mac_snapshot=args.wifi_mac_snapshot, wifi_mac_raw=args.wifi_mac_raw, wifi_mac_route=args.wifi_mac_route, wifi_mac_policy=args.wifi_mac_policy, wifi_mac_policy_observe=args.wifi_mac_policy_observe, wifi_mac_policy_validate=args.wifi_mac_policy_validate, wifi_mac_protect=args.wifi_mac_protect, wifi_mac_contention=args.wifi_mac_contention, wifi_mac_txsw=args.wifi_mac_txsw, wifi_mac_beacon=args.wifi_mac_beacon, wifi_mac_vht=args.wifi_mac_vht, wifi_mac_buffer=args.wifi_mac_buffer, wifi_mac_fce_observe=args.wifi_mac_fce_observe, wifi_mac_fce_validate=args.wifi_mac_fce_validate, wifi_mac_ampdu=args.wifi_mac_ampdu, wifi_bbp_after_mac=args.wifi_bbp_after_mac, wifi_bbp_switch=args.wifi_bbp_switch, wifi_dcoc=args.wifi_dcoc, wifi_skey=args.wifi_skey, wifi_wcid=args.wifi_wcid, wifi_mac_tail=args.wifi_mac_tail, wifi_mac_fixed=args.wifi_mac_fixed, wifi_efuse_map=args.wifi_efuse_map, wifi_mac_address=args.wifi_mac_address, wifi_mac_address_validate=args.wifi_mac_address_validate, wifi_mac_board=args.wifi_mac_board, wifi_ant_snapshot=args.wifi_ant_snapshot, wifi_ant_init=args.wifi_ant_init, wifi_rf_probe=args.wifi_rf_probe,wifi_rf_central=args.wifi_rf_central,wifi_rf_six=args.wifi_rf_six,wifi_rf_csr=args.wifi_rf_csr,wifi_rf_write=args.wifi_rf_write,wifi_rf_state=args.wifi_rf_state,wifi_rf_table=args.wifi_rf_table,wifi_rf_bank5=args.wifi_rf_bank5,wifi_rf_bank6=args.wifi_rf_bank6,wifi_rf_vga=args.wifi_rf_vga,wifi_rf_g20=args.wifi_rf_g20,wifi_rf_trim=args.wifi_rf_trim,wifi_rf_cal=args.wifi_rf_cal,wifi_rf_wait=args.wifi_rf_wait,wifi_path=args.wifi_path,wifi_channel_state=args.wifi_channel_state,wifi_channel_observe=args.wifi_channel_observe,wifi_vco_ready=args.wifi_vco_ready,wifi_usb_cycle=args.wifi_usb_cycle,wifi_bw_observe=args.wifi_bw_observe,wifi_bbp20=args.wifi_bbp20,wifi_channel_probe=args.wifi_channel_probe,wifi_band2g=args.wifi_band2g,wifi_synth1=args.wifi_synth1,wifi_post=args.wifi_post,wifi_gain=args.wifi_gain,wifi_channel_bbp=args.wifi_channel_bbp,wifi_post_vco=args.wifi_post_vco,wifi_agc_state=args.wifi_agc_state,wifi_rx_lifecycle=args.wifi_rx_lifecycle,wifi_mac_cycle=args.wifi_mac_cycle,wifi_cal_probe=args.wifi_cal_probe,wifi_poweron=args.wifi_poweron,wifi_passive=args.wifi_passive,wifi_window=args.wifi_window,wifi_window_long=args.wifi_window_long,wifi_discovery=args.wifi_discovery,wifi_channel_preview=args.wifi_channel_preview,wifi_channel_tune=args.wifi_channel_tune,wifi_channel_receive=args.wifi_channel_receive,wifi_scan=args.wifi_scan,wifi_scan_retry=args.wifi_scan_retry,wifi_scan_batch=args.wifi_scan_batch,wifi_desktop_trial=args.wifi_desktop_trial,wifi_log_isolation=args.wifi_log_isolation,wifi_desktop_input=args.wifi_desktop_input,wifi_desktop_empty=args.wifi_desktop_empty,wifi_channel_diagnosis=args.wifi_channel_diagnosis,desktop_reopen_test=args.desktop_reopen_test,posix_capture=args.posix_capture,desktop_capacity_test=args.desktop_capacity_test,desktop_lifecycle_trial=args.desktop_lifecycle_trial,desktop_audio_io_test=args.desktop_audio_io_test,desktop_audio_io_attended=args.desktop_audio_io_attended,desktop_navigation_trial=args.desktop_navigation_trial,desktop_power_test=args.desktop_power_test,mwait_wakeup_test=args.mwait_wakeup_test,mwait_deep_test=args.mwait_deep_test,ap_ownership_test=args.ap_ownership_test, ap_coordinated_c3=args.ap_coordinated_c3, ap_package_audit=args.ap_package_audit, ap_platform_audit=args.ap_platform_audit,wifi_5ghz_prereq=args.wifi_5ghz_prereq,wifi_5ghz_band=args.wifi_5ghz_band,wifi_5ghz_channel=args.wifi_5ghz_channel,wifi_a20_inventory=args.wifi_a20_inventory,wifi_a20_cycle=args.wifi_a20_cycle,wifi_frontend=args.wifi_frontend,wifi_pa5_cycle=args.wifi_pa5_cycle,wifi_bbp5_cycle=args.wifi_bbp5_cycle,wifi_held_channel=args.wifi_held_channel,wifi_trim5_channel=args.wifi_trim5_channel,haswell_backing_capture=args.haswell_backing_capture,wifi_dac5=args.wifi_dac5,wifi_vco5=args.wifi_vco5,haswell_tilectl=args.haswell_tilectl,wifi_channel_vco5=args.wifi_channel_vco5,wifi_cal5=args.wifi_cal5,wifi_discovery5=args.wifi_discovery5,haswell_linux_fences=args.haswell_linux_fences,haswell_firmware_capture=args.haswell_firmware_capture,wifi_power5=args.wifi_power5,haswell_cache_context=args.haswell_cache_context,wifi_handoff5=args.wifi_handoff5,haswell_alias_context=args.haswell_alias_context,haswell_alias_preinit=args.haswell_alias_preinit,wifi_peer5=args.wifi_peer5,wifi_tx5_owner=args.wifi_tx5_owner,wifi_join5=args.wifi_join5,wifi_eapol5=args.wifi_eapol5,wifi_wpa5=args.wifi_wpa5,wifi_wpa5_pmk=args.wifi_wpa5_pmk,wifi_data5=args.wifi_data5,wifi_provider5=args.wifi_provider5,wifi_reuse5=args.wifi_reuse5,wifi_nop5=args.wifi_nop5,wifi_stream5=args.wifi_stream5,wifi_stream5_dhcp=args.wifi_stream5_dhcp,wifi_stack5=args.wifi_stack5, wifi_cal5_cleanup=args.wifi_cal5_cleanup,wifi_http5=args.wifi_http5,wifi_reconnect5=args.wifi_reconnect5,startup_journal=args.startup_journal,wifi_reconnect5_journal=args.wifi_reconnect5_journal,wifi_reconnect5_http=args.wifi_reconnect5_http,wifi_early5=args.wifi_early5,wifi_early5_timing=args.wifi_early5_timing,wifi_cal5_prime=args.wifi_cal5_prime,haswell_ecam_boot=args.haswell_ecam_boot,haswell_window=args.haswell_window,haswell_read_qualification=args.haswell_read_qualification,haswell_register_sample=args.haswell_register_sample,audio_listen=args.audio_listen,desktop_capture_write_timing=args.capture_write_timing)
 
         else:
             install(args.release, keep_previous=args.keep_previous)

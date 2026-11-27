@@ -1,9 +1,10 @@
 #include <assert.h>
 #include <stdio.h>
 #include <srvros/backlight.h>
-static uint32_t regs[3];static unsigned reads,writes;static int broken;
-static uint32_t read_reg(void *ctx,unsigned reg) { assert(ctx==regs && reg<3);reads++;return regs[reg]; }
+static uint32_t regs[4];static unsigned reads,writes;static int broken;
+static uint32_t read_reg(void *ctx,unsigned reg) { assert(ctx==regs && reg<4);reads++;return regs[reg]; }
 static void write_duty(void *ctx,uint32_t value) { assert(ctx==regs);writes++;if(!broken) regs[2]=value; }
+static void write_cpu_duty(void *ctx,uint32_t value) { assert(ctx==regs);writes++;if(!broken) regs[3]=value; }
 static enum backlight_profile profile;
 static unsigned expected_period=2777;
 static void ready(void) {
@@ -32,6 +33,32 @@ static void exercise(void) {
     regs[2]=expected_period<<16;assert(!backlight_bind_profile((struct backlight_io){regs,read_reg,write_duty},profile));
     assert(!backlight_bind((struct backlight_io){0}));
 }
+static void exercise_pro81(void) {
+    regs[0]=regs[1]=0x80000000u;
+    regs[2]=1808u<<16;
+    regs[3]=0x690;
+    broken=0;
+    struct backlight_io io={regs,read_reg,write_cpu_duty};
+    unsigned before=writes;
+    assert(backlight_bind_profile(io,BACKLIGHT_PRO8_1) && writes==before);
+    assert(backlight_percent(0)==93 && writes==before);
+    assert(backlight_percent(35)==35 && regs[3]==633);
+    assert(backlight_percent(75)==75 && regs[3]==1356);
+    struct backlight_trial result=backlight_pro81_finish();
+    assert(result.low && result.high && result.restored && result.writes==2);
+    assert(result.initial_duty==0x690 && result.final_duty==1356);
+    assert(regs[3]==0x690 && writes==before+3 && backlight_percent(35)==-1);
+    assert(regs[0]==0x80000000u && regs[1]==0x80000000u && regs[2]==1808u<<16);
+    assert(backlight_bind_profile(io,BACKLIGHT_PRO8_1));
+    regs[1]|=1u<<30; /* A route change prevents further writes, including restoration. */
+    before=writes;
+    assert(!backlight_pro81_finish().restored && writes==before);
+    assert(!backlight_bind_profile(io,BACKLIGHT_PRO8_1));
+    regs[1]=0x80000000u;
+    assert(backlight_bind_profile(io,BACKLIGHT_PRO8_1));
+    broken=1;
+    assert(backlight_percent(35)==-1 && !backlight_pro81_finish().restored && writes==before+1);
+}
 int main(void) {
     assert(backlight_percent(0)==-1 && !reads && !writes);
     ready();assert(backlight_bind((struct backlight_io){regs,read_reg,write_duty}));
@@ -45,5 +72,6 @@ int main(void) {
     assert(!backlight_bind((struct backlight_io){regs,read_reg,write_duty}));
     assert(writes==w && backlight_percent(50)==-1);
     assert(!backlight_bind_profile((struct backlight_io){regs,read_reg,write_duty},99));
+    exercise_pro81();
     puts("backlight: PASS discovery without writes, 5-100% bounds, mode/period preservation, unchanged-duty suppression, drift/readback quarantine");
 }

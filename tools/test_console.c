@@ -79,6 +79,19 @@ static void test_font_and_bytes(void) {
     bool different = false;
     for (unsigned y=0;y<16;y++) for(unsigned x=0;x<8;x++) different |= storage[1+y*STRIDE+x] != storage[1+y*STRIDE+x+8];
     assert(different);
+    console_write("\x1b[2J\x1b[H" "pPqQgGyY");
+    for (unsigned pair = 0; pair < 4; pair++) {
+        bool capital_top_ink = false, lowercase_body_ink = false;
+        for (unsigned x = 0; x < 8; x++) {
+            unsigned offset = 1 + pair * 16 + x;
+            for (unsigned y = 1; y < 5; y++) {
+                assert(storage[offset + y * STRIDE] == storage[offset]);
+                capital_top_ink |= storage[offset + 8 + y * STRIDE] != storage[offset + 8];
+            }
+            lowercase_body_ink |= storage[offset + 5 * STRIDE] != storage[offset];
+        }
+        assert(capital_top_ink && lowercase_body_ink);
+    }
     console_write("\x1b[2J\x1b[2;3HQ\x1b[1DZ\x1b[K");
     assert(cells[1][2] == 'Z' && cells[1][3] == ' ');
     check_guards();
