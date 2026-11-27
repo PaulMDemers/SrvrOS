@@ -2419,6 +2419,29 @@ Realtek protected data descriptor, optional firmware TX report, native
 xHCI test path and cold diagnostic evidence. The WPA2 setup, DHCP
 behavior and 4 KiB receive request stay the same.
 
+Source `92c6b002` fingerprints the first protected MPDU and requests
+one CCX firmware TX report when the mailbox is empty. The report
+records the MAC ACK and retries separately from the USB completion.
+The routed native-path fixture checks the fingerprint with OpenSSL,
+and exercises ACK, no ACK, a missing report, a busy mailbox and an
+unrelated event. The [Linux RTL8188CU/RTL8192CU report series](https://lore.kernel.org/linux-wireless/20261122-b4-tx-status-v2-2-bbfdbd880acf@proton.me/)
+documents the mailbox behavior.
+
+Ubuntu's Netgear monitor on channel 10 captured protected frames
+from this Realtek and ACKs addressed to it. The router's target-only
+station sample saw association, authorization and decrypt successes.
+The DHCP control passed on the router radio interface and LAN bridge.
+The ASUS firmware refused a live raw monitor interface, so the cold
+run uses the Realtek's MAC report and the AP's station and DHCP
+receipts. The Ubuntu Netgear monitor cannot run during a SrvrOS boot.
+
+Release `9790d1223cc87ea3` passed the exact GPT workspace rehearsal
+and all four EFI journal modes. The run directory
+`build/bringup/pro112-rtl8188cu-radio-tx` carries the paired router
+collectors, the local Netgear control and the independent EFI journal. The
+cold trial keeps all three dongles attached and returns to Ubuntu
+after saving the receipt through the workspace and EFI journal.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
