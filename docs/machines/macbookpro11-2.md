@@ -170,6 +170,16 @@ and RF disabled through startup and retirement. Linux references are the
 [USB transfer path](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/usb.c)
 and [MAC and firmware loader](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/mac.c).
 
+Release `dc23a246707dfa6c` on `e503cee8` matches the Ubuntu trace across
+all 40 USB packets and all DMEM/IMEM DMA destinations. The native path
+passed both checksums, MCU readiness and endpoint retirement, plus
+short/missing OUT, invalid firmware, warm device, checksum, missing MCU
+ready, bad retirement cursor and busy DMA cases. Both sibling desktop
+regressions and all 329 boot and trial tests passed. The five exact-image
+VM runs passed and verified EFI phase 2 capture before the workspace
+mounts. The physical test is unattended once the hub has been cold-reset.
+Run record `build/bringup/pro112-rtl8822bu-firmware/run.json`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
