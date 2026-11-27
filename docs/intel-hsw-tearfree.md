@@ -254,6 +254,16 @@ photo is the evidence for this partial run because the halt preceded
 USB logging. The Mac returned to Ubuntu, and the one-shot, recovery
 payload and offline USB check verified.
 
+#### Census performance retry
+
+The sampler resolves its active pass state once per pass and uses recent
+row indices to accelerate searches of the validated RAM catalog. A row
+lookup rechecks full-page coverage, type and excluded ranges on every
+request. A miss runs the bounded search. The live HHDM walk, per-entry
+clock reads, root checks, raw comparisons and retirement verification
+remain in force. The same 100 ms pass deadline, inter-pass gap and 4 KiB
+census receipt cap apply. Both passes must retire before slot 4096 is read.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

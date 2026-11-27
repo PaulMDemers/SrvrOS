@@ -14,6 +14,7 @@ extern bool air61_read_gate_check0(unsigned),air61_read_gate_check1(unsigned);
 extern bool air61_read_gate_ram0(uint64_t),air61_read_gate_ram1(uint64_t);
 extern void air61_read_gate_reset0(void),air61_read_gate_reset1(void);
 extern const struct ecam_boot_gate_result *air61_read_gate_result0(void),*air61_read_gate_result1(void);
+extern uint64_t air61_read_gate_ram_steps0(void),air61_read_gate_ram_steps1(void);
 static unsigned read_phase_hook_mode;
 void air61_read_test_phase(unsigned pass,unsigned phase){
  eg_phase=phase;eg.phases=phase?1:0;
@@ -144,6 +145,40 @@ bool air61_sample_test_load(unsigned pass,unsigned slot,uint32_t offset,uint32_t
 }
 #endif
 static bool run_series(void){return vmm_air61_read_window_qualify(&rio,0x61697272656164,1000);}
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+static void test_large_census(void){
+ rreset();
+ /* Extend the five baseline tables with 37 sparse PTs in a second RAM row. */
+ for(unsigned frame=8;frame<TEST_FRAME_COUNT;frame++){
+  const uint64_t pa=0x2000000ull+4096ull*frame;
+  pages[3][32+frame-8]=pa|3;
+  pages[4][frame]=pa|3;
+  pages[frame][511]=0x8000000000000400ull+frame*2; /* Raw nonpresent bits. */
+ }
+ map_entries[5]=(struct limine_memmap_entry){.base=0x2008000,.length=(TEST_FRAME_COUNT-8)*4096ull,.type=0};
+ map_ptrs[5]=map_entries+5;
+ for(unsigned i=6;i<128;i++){
+  map_entries[i]=(struct limine_memmap_entry){.base=0x100000000ull+i*8192,.length=4096,.type=1};
+  map_ptrs[i]=map_entries+i;
+ }
+ map_response.entry_count=128;
+ assert(run_series() && rw.result.retired==2 && frees==4);
+ for(unsigned pass=0;pass<2;pass++){
+  const struct air61_read_pass_result *v=vmm_air61_read_window_pass(pass);
+  const struct hac_result *c=&v->census;
+  assert(c->status==1 && c->prepare_pages==42 && c->pages==42);
+  assert(c->prepare_reads==21504 && c->reads[0]==21504 && c->reads[1]==21504 && v->window.census_reads==64512);
+  assert(c->bytes[0]<=HAC_DATA_CAP && c->bytes[0]==c->bytes[1] && !memcmp(c->data[0],c->data[1],c->bytes[0]));
+  assert(v->attempts==12 && v->reads==12 && v->window.frees==2 && !v->window.claimed);
+  assert(v->window.end-v->window.begin<AIR61_WINDOW_LIMIT_US);
+  uint64_t steps=pass?air61_read_gate_ram_steps1():air61_read_gate_ram_steps0();
+  printf("air61-census-42 pass=%u clocks=%u guards=%u raw=%u ram_checks=%u row_steps=%llu\n",
+         pass,v->window.clock_samples,v->window.guard_checks,v->window.raw_loads,v->window.ram_checks,(unsigned long long)steps);
+  fflush(stdout);
+  assert(steps>=v->window.ram_checks && steps<2ull*v->window.ram_checks);
+ }
+}
+#endif
 #ifdef AIR61_READ_WINDOW_LIBRARY
 #define main read_backend_fixture_main
 #endif
@@ -265,6 +300,7 @@ int main(void){
  }
 #endif
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ test_large_census();
  puts("air61-register-backend PASS 24 guarded read-only fixture loads, exact paths, retained poison and no retry");
 #else
  puts("air61-read-window PASS dormant actual VMM and two fresh gates; zero target loads");

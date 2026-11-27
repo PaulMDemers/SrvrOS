@@ -18,11 +18,14 @@ static struct hfw_entry eg_ram[HFW_MAP_CAP];
 static unsigned eg_count,eg_phase;
 #ifdef SRVROS_AIR61_WINDOW_GATE
 static uint8_t eg_ram_index[HFW_MAP_CAP];
+/* Only row locators. A hit must still prove full-page coverage and type. */
+static uint8_t eg_ram_hint[8][2];
 static unsigned eg_ram_index_count;
 static bool eg_ram_index_ready;
 static uint64_t eg_ram_steps;
 static AIR61_SAMPLE_CODE bool eg_ram_index_prepare(void){
  eg_ram_index_ready=false;eg_ram_index_count=0;
+ for(unsigned i=0;i<8;i++)eg_ram_hint[i][0]=eg_ram_hint[i][1]=0;
  if(!hfw_catalog_valid(eg_ram,eg_count))return false;
  for(unsigned i=0;i<eg_count;i++){
   unsigned j=i;
@@ -30,6 +33,12 @@ static AIR61_SAMPLE_CODE bool eg_ram_index_prepare(void){
   eg_ram_index[j]=(uint8_t)i;
  }
  eg_ram_index_count=eg_count;eg_ram_index_ready=true;return true;
+}
+static inline bool eg_ram_covers(const struct hfw_entry *row,uint64_t pa){
+ return row->base<=pa && row->length>=4096 && pa-row->base<=row->length-4096;
+}
+static inline bool eg_ram_type(uint64_t type){
+ return type==0 || type==2 || type==3 || type==5 || type==6;
 }
 #endif
 static bool eg_started,eg_broken;
@@ -140,10 +149,19 @@ static AIR61_SAMPLE_CODE bool eg_ram_page(void *ctx,uint64_t pa) {
  (void)ctx;
  if(!pa || (pa&4095) || pa>=(1ull<<39) || (pa>=ECAM_BOOT_PA && pa<ECAM_BOOT_PA+ECAM_BOOT_BYTES) || pa==0xfed90000 || pa==0xfed91000)return false;
 #ifdef SRVROS_AIR61_WINDOW_GATE
- /* The private snapshot was fully validated and is immutable after phase0.
-  * This is an index of source rows, not cached classification/translation.
-  * Every successful lookup rechecks the authoritative row's bounds and type. */
+ /* The validated snapshot has disjoint rows and stays fixed after phase0.
+  * Recheck the referenced row on every query. A miss uses the same bounded
+  * index search; a hint never grants access or supplies a physical pointer. */
  if(!eg_ram_index_ready || eg_ram_index_count!=eg_count)return false;
+ unsigned slot=((pa>>12)^(pa>>18))&7;
+ uint8_t *hints=eg_ram_hint[slot];
+ for(unsigned way=0;way<2;way++){
+  unsigned hint=hints[way];
+  if(hint && hint<=eg_count){
+   const struct hfw_entry *row=eg_ram+hint-1;eg_ram_steps++;
+   if(eg_ram_covers(row,pa))return eg_ram_type(row->type);
+  }
+ }
  unsigned lo=0,hi=eg_count;
  while(lo<hi){
   unsigned mid=lo+(hi-lo)/2,index=eg_ram_index[mid];eg_ram_steps++;
@@ -154,8 +172,9 @@ static AIR61_SAMPLE_CODE bool eg_ram_page(void *ctx,uint64_t pa) {
  unsigned index=eg_ram_index[lo-1];eg_ram_steps++;
  if(index>=eg_count)return false;
  const struct hfw_entry *p=eg_ram+index;
- return p->base<=pa && pa+4096<=p->base+p->length &&
-  (p->type==0 || p->type==2 || p->type==3 || p->type==5 || p->type==6);
+ if(!eg_ram_covers(p,pa))return false;
+ hints[1]=hints[0];hints[0]=(uint8_t)(index+1);
+ return eg_ram_type(p->type);
 #else
  unsigned overlaps=0;bool good=false;
  for(unsigned i=0;i<eg_count;i++) {

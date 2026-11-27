@@ -121,8 +121,14 @@ static void ram_index_contracts(void){
   for(unsigned i=0;i<sizeof(bad)/sizeof(*bad);i++)assert(eg_ram_page(NULL,bad[i])==ram_reference(bad[i]));
  }
  eg_count=1;eg_ram[0]=(struct hfw_entry){.base=0x4000000,.length=8192,.type=0};assert(eg_ram_index_prepare());
- assert(eg_ram_page(NULL,0x4000000));eg_ram[0].type=1;assert(!eg_ram_page(NULL,0x4000000));
+ assert(eg_ram_page(NULL,0x4000000));
+ uint64_t warm_steps=eg_ram_steps;
+ assert(eg_ram_page(NULL,0x4000000) && eg_ram_steps==warm_steps+1);
+ eg_ram[0].type=1;assert(!eg_ram_page(NULL,0x4000000));
  eg_ram[0].type=0;eg_ram[0].length=4095;assert(!eg_ram_page(NULL,0x4000000));
+ eg_count=2;eg_ram[0]=(struct hfw_entry){0x4000000,4096,0};eg_ram[1]=(struct hfw_entry){0x4008000,4096,1};
+ assert(eg_ram_index_prepare() && eg_ram_page(NULL,0x4000000));
+ assert(!eg_ram_page(NULL,0x4008000) && eg_ram_page(NULL,0x4000000));
  for(unsigned bad=0;bad<4;bad++){
   eg_count=2;eg_ram[0]=(struct hfw_entry){0x4000000,8192,0};eg_ram[1]=(struct hfw_entry){0x5000000,4096,2};
   if(bad==0)eg_ram[1].base=0x4001000;

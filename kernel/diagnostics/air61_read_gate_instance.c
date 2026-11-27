@@ -48,7 +48,8 @@ AIR61_SAMPLE_CODE bool FN(air61_read_gate_touch)(void){
 #endif
  return ready && touch_private(&eg,sizeof(eg)) && touch_private(&eg_diagnostic,sizeof(eg_diagnostic)) &&
   touch_private(eg_ram,sizeof(eg_ram)) && touch_private(&eg_count,sizeof(eg_count)) && touch_private(&eg_phase,sizeof(eg_phase)) &&
-  touch_private(eg_ram_index,sizeof(eg_ram_index)) && touch_private(&eg_ram_index_count,sizeof(eg_ram_index_count)) &&
+  touch_private(eg_ram_index,sizeof(eg_ram_index)) && touch_private(eg_ram_hint,sizeof(eg_ram_hint)) &&
+  touch_private(&eg_ram_index_count,sizeof(eg_ram_index_count)) &&
   touch_private(&eg_ram_index_ready,sizeof(eg_ram_index_ready)) && touch_private(&eg_ram_steps,sizeof(eg_ram_steps)) &&
   touch_private(&eg_started,sizeof(eg_started)) && touch_private(&eg_broken,sizeof(eg_broken)) && touch_private(&eg_root,sizeof(eg_root)) &&
   touch_private(&eg_last_policy,sizeof(eg_last_policy)) && touch_private(eg_policy_ready,sizeof(eg_policy_ready));

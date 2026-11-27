@@ -9,7 +9,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <srvros/pmm.h>
-static uint64_t pages[8][512],tags[8],cr3,irq_flags,ticks;
+#ifdef AIR61_READ_WINDOW_FIXTURE
+#define TEST_FRAME_COUNT 45u
+#else
+#define TEST_FRAME_COUNT 8u
+#endif
+static uint64_t pages[TEST_FRAME_COUNT][512],tags[TEST_FRAME_COUNT],cr3,irq_flags,ticks;
 static unsigned allocs,frees,loads,stores,invalidates,alloc_fail_at,free_fail_at,store_fail_at;
 static unsigned load_fail_at,invalidate_fail_at,delay_load_at,root_change_load_at,ram_fail_load_at;
 static bool delay_at_publish,delay_in_census;
@@ -40,7 +45,7 @@ static uint8_t *user_frame_test_user_pointer(uint64_t p){(void)p;ecam_unexpected
 static void user_frame_test_cpuid(uint32_t n,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d){(void)n;(void)a;(void)b;(void)c;(void)d;ecam_unexpected_user_frame();}
 
 static uint64_t aw_clock_sample(void);
-static unsigned frame_index(uint64_t pa){assert(pa>=0x2000000 && pa<0x2008000 && !(pa&4095));return (pa-0x2000000)/4096;}
+static unsigned frame_index(uint64_t pa){assert(pa>=0x2000000 && pa<0x2000000+4096ull*TEST_FRAME_COUNT && !(pa&4095));return (pa-0x2000000)/4096;}
 static uint64_t aw_test_virtual(uint64_t pa){return 0xffff800000000000ull+pa+(bad_pointer?4096:0);}
 static bool aw_test_load(uint64_t pa,unsigned i,uint64_t *out){assert(pa!=0xfed90000 && i<512);loads++;if(loads==load_fail_at)return false;*out=pages[frame_index(pa)][i];if(loads==delay_load_at)ticks+=1600000;if(delay_in_census && aw_census_active()){delay_in_census=false;ticks+=1600000;}if(loads==root_change_load_at)cr3+=4096;if(loads==ram_fail_load_at)ram_fail=true;return true;}
 static bool aw_test_store(uint64_t pa,unsigned i,uint64_t before,uint64_t after,bool private){

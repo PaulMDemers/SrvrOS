@@ -102,6 +102,13 @@ before unlink. The second pass and slot 4096 check remain pending.
 Ubuntu returned with the one-shot consumed. Recovery and the offline USB
 filesystem check verified. The halt photo is archived locally.
 
+The next PR567 checkpoint reduces repeated catalog search and current-pass
+addressing costs in the isolated VT-d sampler. It preserves the full live
+HHDM walk, RAM and root predicates, PM-clock sampling and both complete
+alias comparisons. The next native test still requires both passes to
+retire within 100 ms before sampling slot 4096. Air7,2 PR301 at `b6f8939b`
+does not touch this path.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

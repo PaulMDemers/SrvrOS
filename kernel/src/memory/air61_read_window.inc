@@ -1,25 +1,27 @@
 /* Dedicated dormant two-pass zero-target-load qualifier. Primitives follow the
  * accepted window backend; the existing profile is not reset or reused. */
 #include <srvros/air61_read_window.h>
+struct rw_pass {
+ struct air61_read_pass_result view;
+ uint64_t root[512],pdpt[512],last,hhdm;
+ bool in_census,snapshot,checking,access_scope,census_ticket,owned[2],source_ticket_ready;
+ struct air61_window_token source_ticket;
+};
 static struct {
  struct air61_read_series_result result;
  struct air61_read_window_env io;
  unsigned current;
- struct {
-  struct air61_read_pass_result view;
-  uint64_t root[512],pdpt[512],last,hhdm;
-  bool in_census,snapshot,checking,access_scope,census_ticket,owned[2],source_ticket_ready;
-  struct air61_window_token source_ticket;
- } pass[AIR61_READ_PASSES];
+ struct rw_pass *active;
+ struct rw_pass pass[AIR61_READ_PASSES];
 } rw;
-#define rc (rw.pass[rw.current])
+#define rc (*rw.active)
 #define RW_ADDR (((1ull<<39)-1)&~4095ull)
 /* Record progress from the existing guarded clock. A cleanup failure must
  * leave the original fault stage and its last accepted clock intact. */
 static inline void rw_step(enum air61_read_step step){
  rc.view.timing.active=step;rc.view.timing.start[step]=rc.last;
 }
-static AIR61_SAMPLE_CODE bool rw_fault(const char *why){
+static AIR61_SAMPLE_CODE __attribute__((noinline)) bool rw_fault(const char *why){
  if(!rc.view.window.fault){
   rc.view.window.fault=why;
   rc.view.timing.failed=rc.view.timing.active;rc.view.timing.fault_at=rc.last;
@@ -447,6 +449,9 @@ AIR61_SAMPLE_CODE bool vmm_air61_read_window_qualify(const struct air61_read_win
  rw.result.attempted=rw.result.busy=true;rw.result.state=AIR61_READ_RUNNING;
  rw.result.owner=owner;rw.result.epoch=epoch;rw.result.root=kernel_cr3;rw.io=*io;
  for(rw.current=0;rw.current<AIR61_READ_PASSES;rw.current++){
+  /* The selected pass stays fixed through every guarded access and all
+   * callbacks. Avoid indexing its large receipt state in the hot path. */
+  rw.active=&rw.pass[rw.current];
   rw.result.started++;
   if(!rw_prepare())goto failed;
   if(!rw.current)rw.result.begin=rc.view.window.begin;
