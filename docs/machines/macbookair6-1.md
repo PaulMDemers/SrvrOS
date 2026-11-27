@@ -14995,3 +14995,28 @@ entries. The native 1800-second trial remains pending. The current host shell
 sets `NoNewPrivs`, which prevents privileged EFI installation and one-shot
 boot arming. The staged candidate, read-only USB inventory and matched evidence
 are retained. The installed current release and recovery remain available.
+
+Native run `da615f8eaf2f4b42` booted `cf6e85df4810c438` and scanned `/work`,
+then refused writable Home and detached the volume. The stress workload never
+started. The harness reported an unmount failure because it treated an inactive
+workspace as a failed unmount, even though the console had already confirmed
+detachment. Ubuntu returned with its one-shot consumed. Offline fsck and
+allocation checks passed and the same 327 files verified before and after.
+
+An isolated host replay restored all 410 live USB metadata records. The same
+restore with the exact staged initramfs and embedded `/fat` mounted refused
+atomically. Eight USB identities overlapped live `/fat` nodes. The isolated
+offline admission check cannot see those collisions. The photo, replay and
+return evidence are retained locally. Before retrying, qualify existing USB
+sidecar admission with both boot and Home namespaces present while preserving
+the saved identities and the external-collision check.
+
+### Boot-image identity repair
+
+Working from `c523e036`, isolate generated inode numbers for the initramfs and
+read-only fallback `/fat` block mount so the existing Air6,1 USB Home can
+restore its saved inode numbers. Scope is VFS allocation, embedded exFAT boot
+mounting, and a dual-mount regression. PR550's installed-system/account scope
+uses the existing persistent mount path. The next checkpoint is exact staged
+boot-namespace replay against the recorded USB sidecar and the existing loaded
+and exact-stage VM checks, followed by staging the original 30-minute 1% trial.
