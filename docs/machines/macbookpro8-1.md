@@ -7,9 +7,9 @@ enumeration trial. The operator verified built-in keyboard input, command
 execution and readable mixed-case text in the regular monitor. The isolated
 trackpad trial verified Wellspring mode recovery, one-finger motion, two
 contacts, and click press and release. Ubuntu verified the release-matched
-USB report. The native desktop retry verified pointer movement, physical
-clicks, the Ubuntu return, and the USB report. Its strict transport verdict
-remains incomplete after one reported malformed frame.**
+USB report. The native desktop verified pointer movement, physical clicks,
+Ubuntu return, and the USB report. The instrumented retry passed with zero
+malformed frames. The earlier malformed frame remains unexplained.**
 
 ## Identity and baseline
 
@@ -923,13 +923,26 @@ the EHCI frame index and descriptor tokens. The host fixture verifies that a
 overwrite it. The exact desktop VM rehearsal and read-only USB admission
 with all 119 files passed. The native run uses the same Text checklist.
 
+Native `e064782e489c1a51` passed the desktop checklist and the strict
+transport check. The initial eight-byte response triggered the expected
+Wellspring recovery, with a 1,013 µs wait. The driver recorded 1,153 valid
+reports, 841 motion events, five presses and five releases. The malformed
+trace had zero samples and zero omissions. The isolated malformed frame
+from `0a4b6e655574e009` did not recur. The original mode and topcase resource
+release verified.
+
+The 21,347-byte native report matched its archived copy after Ubuntu
+returned and the USB was remounted. The read-only allocation check passed
+for 120 files with zero writes, and prior user files were preserved. The
+one-shot was consumed and the retained recovery payloads verified.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | The native desktop checklist passed on `0a4b6e655574e009`, with movement, clicks, and topcase retirement verified. One malformed frame kept the strict run incomplete. | Capture the length and bytes if the malformed frame recurs |
+| Trackpad | The instrumented native desktop trial passed on `e064782e489c1a51`, with movement, clicks, topcase retirement, and zero malformed frames. | Capture the length and bytes if the earlier malformed frame recurs |
 | USB workspace | Native desktop report save and Ubuntu readback verified on `0a4b6e655574e009` after the boot-inode fix | Capture a saved receipt for the flash controller's final retirement |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
