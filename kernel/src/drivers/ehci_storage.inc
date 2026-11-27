@@ -15,6 +15,17 @@ struct ehci_flash_io {
     uint32_t endpoint_state[2];
 };
 
+static struct ehci_desktop_workspace {
+    struct ehci_probe_report report;
+    struct ehci_control_path path;
+    struct ehci_flash_io flash;
+    struct usb_storage storage;
+    const struct pci_device *device;
+    uint64_t root, page, bulk_page;
+    uint16_t memory_command;
+    bool unsafe;
+} desktop_workspace;
+
 static bool captured_flash_interface(const uint8_t *config, uint16_t length) {
     if (!config || length < 9 || config[4] != 1 || config[5] != 1) return false;
     bool interface = false, in = false, out = false;
@@ -87,40 +98,52 @@ static bool flash_bulk(void *context, bool in, void *data, uint32_t length, uint
     return true;
 }
 
-static void run_flash_log(struct ehci_control_path *path, uint64_t *bulk_page) {
+static bool prepare_flash_io(struct ehci_control_path *path, struct ehci_flash_io *flash, uint64_t *bulk_page) {
     struct ehci_probe_report *report = path->report;
     if (!report->flash_target.address) {
         console_write("ehci-log: captured flash interface unavailable\n");
-        return;
+        return false;
     }
     const struct usb_setup_packet configuration = { 0, USB_REQ_SET_CONFIGURATION, 1, 0, 0 };
     unsigned received;
     if (!control_transfer(path, &report->flash_target, &configuration, NULL, &received)) {
         console_write("ehci-log: SET_CONFIGURATION failed\n");
-        return;
+        return false;
     }
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {
         if (physical) pmm_free_frame(physical);
         console_write("ehci-log: no 32-bit bulk DMA page\n");
-        return;
+        return false;
     }
     *bulk_page = physical;
-    struct ehci_flash_io flash = { .path = path, .physical = (uint32_t)physical, .buffer = pmm_phys_to_virt(physical) };
+    *flash = (struct ehci_flash_io) { .path = path, .physical = (uint32_t)physical, .buffer = pmm_phys_to_virt(physical) };
+    return true;
+}
+
+static bool persist_flash_report(const char *release, bool startup) {
+    char filename[] = "/work/srvros-work/ehci-trackpad-0000000000000000-startup.txt";
+    const unsigned release_offset = sizeof("/work/srvros-work/ehci-trackpad-") - 1;
+    for (unsigned i = 0; i < 16; i++) filename[release_offset + i] = release[i];
+    if (!startup) {
+        static const char suffix[] = ".txt";
+        for (unsigned i = 0; i < sizeof(suffix); i++) filename[release_offset + 16 + i] = suffix[i];
+    }
+    return !vfs_lookup(filename) && bootlog_persist(filename);
+}
+
+static void run_flash_log(struct ehci_control_path *path, uint64_t *bulk_page) {
+    struct ehci_probe_report *report = path->report;
+    struct ehci_flash_io flash;
+    if (!prepare_flash_io(path, &flash, bulk_page)) return;
     static struct usb_storage startup_storage, final_storage;
     struct usb_storage *storage = report->log_startup ? &startup_storage : &final_storage;
     if (usb_storage_attach(storage, &flash, flash_bulk, false) && workspace_mount(report->log_volume)) {
-        char filename[] = "/work/srvros-work/ehci-trackpad-0000000000000000-startup.txt";
-        const unsigned release_offset = sizeof("/work/srvros-work/ehci-trackpad-") - 1;
-        for (unsigned i = 0; i < 16; i++) filename[release_offset + i] = report->log_release[i];
-        if (!report->log_startup) {
-            static const char suffix[] = ".txt";
-            for (unsigned i = 0; i < sizeof(suffix); i++) filename[release_offset + 16 + i] = suffix[i];
-        }
-        bool written = !vfs_lookup(filename) && bootlog_persist(filename);
+        bool written = persist_flash_report(report->log_release, report->log_startup);
         bool unmounted = workspace_unmount();
         report->log_saved = written && unmounted;
-        if (report->log_saved) console_printf("ehci-log: saved %s\n", filename);
+        if (report->log_saved) console_printf("ehci-log: saved /work/srvros-work/ehci-trackpad-%s%s.txt\n",
+            report->log_release, report->log_startup ? "-startup" : "");
     }
     if (!report->log_saved) console_write("ehci-log: result file could not be saved and unmounted\n");
     if (storage->block && storage->failed) usb_storage_print_status(storage->block);

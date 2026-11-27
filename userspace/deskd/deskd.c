@@ -2419,7 +2419,8 @@ int main(int argc,char **argv) {
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int retina_screenshot=argc==2 && !strcmp(argv[1],"--retina-screenshot");
     int retina_trial=retina_screenshot || (argc==2 && !strcmp(argv[1],"--retina-trial"));
-    int ehci_topcase_trial=argc==2 && !strcmp(argv[1],"--ehci-topcase-trial");
+    int ehci_file_trial=argc==3 && !strcmp(argv[1],"--ehci-file-trial");
+    int ehci_topcase_trial=ehci_file_trial || (argc==2 && !strcmp(argv[1],"--ehci-topcase-trial"));
     int ehci_trial=ehci_topcase_trial || (argc==2 && !strcmp(argv[1],"--ehci-trackpad-trial"));
     int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
@@ -2516,7 +2517,7 @@ int main(int argc,char **argv) {
     else if(audio_io || capacity_capture) { /* Launch serially after each rendered admission below. */ }
     else if(navigation_trial) spawn_app(&s,DESK_APP_HELP,"window-navigation-trial");
     else if(lifecycle_trial) spawn_app(&s,DESK_APP_HELP,"lifecycle-trial");
-    else if(ehci_trial) spawn_app(&s,DESK_APP_TEXT,"/fat/share/Trackpad trial.txt");
+    else if(ehci_trial) spawn_app(&s,DESK_APP_TEXT,ehci_file_trial?argv[2]:"/fat/share/Trackpad trial.txt");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(battery_work)strcpy(s.scene.notice,"5-minute test: type, save NEW file, reopen, use Files. Keep AC/USB connected.");
@@ -3015,7 +3016,7 @@ int main(int argc,char **argv) {
             if(s.scene.focus>=0) {
                 struct desk_packet p=desk_packet_new(DESK_KEY);memcpy(p.text,&key,sizeof(key));
                 queue_input(&s,s.scene.focus,p);
-                if(ehci_trial && !ehci_keyboard && desktop_window_at(&s.scene,s.scene.focus)->application==DESK_APP_TEXT &&
+                if(ehci_trial && !ehci_file_trial && !ehci_keyboard && desktop_window_at(&s.scene,s.scene.focus)->application==DESK_APP_TEXT &&
                     (key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT)) {
                     if(key.usage==0x09 && (key.modifiers&SRV_KEY_CTRL)) {
                         ehci_find_open=1;
@@ -3729,7 +3730,7 @@ int main(int argc,char **argv) {
     if(retina_screenshot)desk_log("retina-screenshot: result=%s scale=%u completed=%u\n",
         !failed && s.capture_success?"PASS":"FAIL",session_output_scale(&s),s.capture_finished);
     if(ehci_trial) {
-        if(ehci_axes!=3 || ehci_zoom_clicks<2 || !ehci_pointer_exit || !ehci_keyboard || ehci_timeout || s.child_errors)failed=1;
+        if(ehci_axes!=3 || ehci_zoom_clicks<2 || !ehci_pointer_exit || (!ehci_file_trial && !ehci_keyboard) || ehci_timeout || s.child_errors)failed=1;
         desk_log("ehci-desktop-ui: result=%s axes=%u checklist-zoom-clicks=%u pointer-exit=%u timeout=%u\n",
             failed?"INCOMPLETE":"PASS",ehci_axes,ehci_zoom_clicks,ehci_pointer_exit,ehci_timeout);
     }

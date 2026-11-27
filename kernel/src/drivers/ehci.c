@@ -790,6 +790,14 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
         run_trackpad_trial(&path, &frame_list, &transfer_page);
     } else if (complete && mode == EHCI_BOOT_USB_LOG) {
         run_flash_log(&path, &transfer_page);
+    } else if (complete && mode == EHCI_BOOT_DESKTOP_WORKSPACE) {
+        path.scan = NULL;
+        desktop_workspace.path = path;
+        if (prepare_flash_io(&desktop_workspace.path, &desktop_workspace.flash, &transfer_page)) {
+            desktop_workspace.bulk_page = transfer_page;
+            report->enumerated = true;
+            return;
+        }
     } else if (complete && keyboard_release && trial_slot == 0) {
         report->keyboard_result = run_keyboard_trial(&path, keyboard_release, &frame_list);
         console_set_framebuffer_muted(true);
@@ -868,7 +876,8 @@ static const char *probe_registers(const struct pci_device *device, volatile uin
 /* Return whether the temporary window is safe to reuse for another controller. */
 static bool probe_controller(const struct pci_device *device, uint64_t root, enum ehci_boot_mode mode,
     struct ehci_probe_report *report, int trial_slot, const char *keyboard_release) {
-    uint64_t window = report->log_startup ? EHCI_LOG_MMIO_WINDOW : EHCI_MMIO_WINDOW;
+    uint64_t window = report->log_startup || mode == EHCI_BOOT_DESKTOP_WORKSPACE ?
+        EHCI_LOG_MMIO_WINDOW : EHCI_MMIO_WINDOW;
     uint32_t bar = device->bar[0];
     uint64_t base = bar & 0xffffff00u;
     unsigned bar_type = bar & 0xff;
@@ -910,6 +919,13 @@ static bool probe_controller(const struct pci_device *device, uint64_t root, enu
                 desktop_trackpad.root = root;
                 desktop_trackpad.page = page;
                 desktop_trackpad.memory_command = command & PCI_COMMAND_MEMORY;
+                return false;
+            }
+            if (mode == EHCI_BOOT_DESKTOP_WORKSPACE && desktop_workspace.bulk_page) {
+                desktop_workspace.device = device;
+                desktop_workspace.root = root;
+                desktop_workspace.page = page;
+                desktop_workspace.memory_command = command & PCI_COMMAND_MEMORY;
                 return false;
             }
         }
@@ -1210,6 +1226,54 @@ bool ehci_desktop_trackpad_save(const char *release, const char *volume) {
         return false;
     }
     return save_trackpad_log(vmm_kernel_address_space(), release, volume, false);
+}
+
+bool ehci_desktop_workspace_start(const char *volume) {
+    uint64_t root = vmm_kernel_address_space();
+    if (!timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root) || workspace_active()) return false;
+    for (uint64_t i = 0; i < pci_device_count(); i++) {
+        const struct pci_device *device = pci_device_at(i);
+        if (!ehci_usb_controller(device) || trial_controller_slot(device) != 1) continue;
+        struct ehci_probe_report *report = &desktop_workspace.report;
+        bool reusable = probe_controller(device, root, EHCI_BOOT_DESKTOP_WORKSPACE, report, 1, NULL);
+        if (!desktop_workspace.device) {
+            desktop_workspace.unsafe = !reusable || (report->reset_halted && !report->dma_released);
+            print_scan_stop(report);
+            return false;
+        }
+        if (!usb_storage_attach(&desktop_workspace.storage, &desktop_workspace.flash, flash_bulk, false) ||
+            !workspace_mount(volume)) return false;
+        console_write("ehci-desktop-workspace: backend=ehci mounted=1\n");
+        return true;
+    }
+    /* A machine without the captured controller can use the existing USB
+     * workspace provider. Admission still checks the selected UUID and marker. */
+    if (!workspace_mount(volume)) return false;
+    console_write("ehci-desktop-workspace: backend=usb mounted=1\n");
+    return true;
+}
+
+bool ehci_desktop_workspace_report(const char *release, bool startup) {
+    return workspace_active() && persist_flash_report(release, startup) && workspace_flush_committed();
+}
+
+bool ehci_desktop_workspace_stop(void) {
+    if (!vmm_diagnostic_sole_kernel_root(vmm_kernel_address_space()) || desktop_workspace.unsafe) return false;
+    bool unmounted = !workspace_active() || workspace_unmount();
+    if (!desktop_workspace.device) return unmounted;
+    struct ehci_control_path *path = &desktop_workspace.path;
+    if (!usb_storage_retire(&desktop_workspace.storage) ||
+        !retire_control_path(desktop_workspace.device, path->op, false)) return false;
+    __asm__ volatile ("mfence" : : : "memory");
+    pmm_free_frame(path->physical);
+    pmm_free_frame(desktop_workspace.bulk_page);
+    uint64_t removed;
+    bool unmapped = vmm_unmap_page_in_space(desktop_workspace.root, EHCI_LOG_MMIO_WINDOW, &removed) &&
+        removed == desktop_workspace.page;
+    bool restored = set_command_bits(desktop_workspace.device, PCI_COMMAND_MEMORY, desktop_workspace.memory_command);
+    console_printf("ehci-desktop-workspace: unmounted=%u dma=released mapping=%s memory=%s\n",
+        (uint64_t)unmounted, unmapped ? "released" : "unverified", restored ? "restored" : "unverified");
+    return unmounted && unmapped && restored;
 }
 
 static void print_trackpad_arm_timing(const struct ehci_trackpad_capture *capture) {

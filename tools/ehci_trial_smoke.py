@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import socket
+import struct
 import subprocess
 import tempfile
 from threading import Thread
@@ -13,6 +14,7 @@ import time
 import hardware_boot as boot
 from desktop_foundation_smoke import QMP
 from ehci_hub_fixture import HubFixture
+from exfat_test_image import ExfatFixture, check_clean_image
 from hardware_boot_smoke import make_disk, wait_for
 from uefi_usb_smoke import default_ovmf_path, has_fatal_exception, qmp_command
 
@@ -122,6 +124,7 @@ def exercise_trackpad(command, temp, logs, release, log_volume):
 
 
 def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_checklist, keyboard_exit):
+    saved_file = mode == "desktop-file"
     serial = logs / "trial-serial.log"
     serial.unlink(missing_ok=True)
     qmp = temp / "qmp.sock"
@@ -137,11 +140,12 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                                f"srvros.ehci={mode} srvros.ehci-release={release} srvros.ehci-log-volume={log_volume}",
                                "deskd: display physical=1280x800 logical=1280x800 scale=1", "input: ps2_keyboard=yes ps2_mouse=yes"):
                     assert marker in first, marker
-                if mode == "topcase-desktop":
+                if mode in ("topcase-desktop", "desktop-file"):
+                    saved = "saved" if saved_file else "unverified"
                     for marker in (f"ehci-desktop-startup: release={release} phase=startup",
                                    "ehci-desktop-queue: phase=startup endpoint=0x0000000000000081",
                                    "ehci-desktop-queue: phase=startup endpoint=0x0000000000000083",
-                                   "ehci-desktop-startup: USB checkpoint=unverified"):
+                                   f"ehci-desktop-startup: USB checkpoint={saved}"):
                         assert first.index(marker) < first.index("ehci-desktop: opening desktop"), marker
                 ui = QMP(qmp)
                 time.sleep(1)
@@ -174,15 +178,37 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                     x, y, width, _ = map(int, re.search(zoom, resized).groups())
                     click(x + width - 56, y + 20)
                     wait_for(serial, lambda s: "maximized=0 frame=" in s, vm, 15)
+                    if saved_file:
+                        seed = len(boot.EHCI_DESKTOP_FILE_CHECKLIST)
+                        wait_for(serial, lambda s: f"file-result role=text op=1 status=0 bytes={seed}" in s, vm, 15)
+                        ui.call("human-monitor-command", {"command-line": "sendkey ctrl-end"})
+                        time.sleep(.3)
+                        ui.key("e", shift=True)
+                        for key in ("h", "c", "i", "minus", "4", "2"):
+                            ui.key(key)
+                        ui.call("human-monitor-command", {"command-line": "sendkey ctrl-s"})
+                        wait_for(serial, lambda s: "file-result role=text op=2 status=0" in s, vm, 25)
+                        ui.call("human-monitor-command", {"command-line": "sendkey ctrl-l"})
+                        time.sleep(.3)
+                        ui.key("ret")
+                        wait_for(serial, lambda s: f"file-result role=text op=1 status=0 bytes={seed + 7}" in s, vm, 25)
+                        time.sleep(.4)
+                        ui.call("screendump", {"filename": str(logs / "vm-reopened-document.ppm")})
                     click(33, 20)  # SrvrOS menu.
                     click(89, 462)  # Return to console.
                     ui_status = "PASS axes=3 checklist-zoom-clicks=2 pointer-exit=1 timeout=0"
                     desktop_status = "passed"
-                final = wait_for(serial, lambda s: "USB report save could not be verified." in s, vm, 15)
+                completion = "USB report saved. Restarting into Ubuntu." if saved_file else "USB report save could not be verified."
+                final = wait_for(serial, lambda s: completion in s, vm, 30)
                 for marker in (f"ehci-desktop-ui: result={ui_status}",
-                               f"ehci-desktop: release={release} result=INCOMPLETE desktop={desktop_status} retirement=safe",
-                               "ehci-log: captured flash controller absent"):
+                               f"ehci-desktop: release={release} result=INCOMPLETE desktop={desktop_status} retirement=safe"):
                     assert marker in final, marker
+                if saved_file:
+                    assert "ehci-desktop-workspace: backend=usb mounted=1" in final
+                    assert f"ehci-desktop-file: release={release} path=/work/srvros-work/ehci-desktop-{release}.txt seeded=1 exact={int(not keyboard_exit)}" in final
+                    assert "ehci-desktop-file: report=saved flash-retirement=safe" in final
+                else:
+                    assert "ehci-log: captured flash controller absent" in final
                 if mode == "topcase-desktop":
                     assert "ehci-desktop-queue: phase=final endpoint=0x0000000000000081" in final
                     assert "ehci-desktop-queue: phase=final endpoint=0x0000000000000083" in final
@@ -195,6 +221,43 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                 if vm.poll() is None:
                     vm.kill()
                     vm.wait()
+
+
+def desktop_workspace_image(temp, serial):
+    volume = temp / "workspace.exfat"
+    with volume.open("wb") as stream:
+        stream.truncate(128 * 1024 * 1024)
+    subprocess.run(["/usr/sbin/mkfs.exfat", "-c", "128K", str(volume)], check=True, stdout=subprocess.DEVNULL)
+    subprocess.run(["/usr/sbin/tune.exfat", "-I", "0x" + serial, str(volume)], check=True, stdout=subprocess.DEVNULL)
+    image = ExfatFixture(volume.read_bytes())
+    image.add_directory_files("srvros-work", {".workspace": f"SRVROS-WORKSPACE-V1 {serial}\n".encode(),
+                                              "anchor.txt": b"workspace anchor\n"})
+    mbr = bytearray(512)
+    mbr[450] = 7
+    struct.pack_into("<II", mbr, 454, 2048, len(image.data) // 512)
+    mbr[510:] = b"\x55\xaa"
+    stick = temp / "workspace.img"
+    with stick.open("wb") as stream:
+        stream.write(mbr)
+        stream.seek(2048 * 512)
+        stream.write(image.data)
+    return stick, volume
+
+
+def verify_desktop_workspace(stick, volume, release, keyboard_exit):
+    with stick.open("rb") as stream:
+        stream.seek(2048 * 512)
+        saved = stream.read()
+    volume.write_bytes(saved)
+    check_clean_image(volume)
+    image = ExfatFixture(saved)
+    assert image.read("srvros-work/anchor.txt") == b"workspace anchor\n"
+    expected = boot.EHCI_DESKTOP_FILE_CHECKLIST + (b"" if keyboard_exit else b"Ehci-42")
+    assert image.read(f"srvros-work/ehci-desktop-{release}.txt") == expected
+    startup = image.read(f"srvros-work/ehci-trackpad-{release}-startup.txt")
+    final = image.read(f"srvros-work/ehci-trackpad-{release}.txt")
+    assert f"ehci-desktop-startup: release={release} phase=startup".encode() in startup
+    assert f"ehci-desktop: release={release} result=INCOMPLETE".encode() in final
 
 
 def main():
@@ -213,9 +276,10 @@ def main():
     version = manifest["config_version"]
     log_match = boot.EHCI_TRACKPAD_LOG_RE.fullmatch(version)
     desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
+    desktop_file = version.startswith(boot.EHCI_DESKTOP_FILE_VERSION)
     desktop_trace = version.startswith(boot.EHCI_DESKTOP_VERSION)
     keyboard_checklist = desktop_trace or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
-    if args.keyboard_exit and not desktop_trace:
+    if args.keyboard_exit and not (desktop_trace or desktop_file):
         parser.error("keyboard exit needs a v3 desktop stage")
     log_volume = (log_match or desktop_match)[1] if log_match or desktop_match else None
     if version not in boot.EHCI_TRIAL_VERSIONS and not log_volume:
@@ -225,7 +289,7 @@ def main():
     trackpad_trial = version == boot.EHCI_TRACKPAD_VERSION or bool(log_match)
     if (keyboard_monitor or trackpad_trial or desktop_match) and args.stall_hub_status:
         parser.error("the emulated hub is for the split and typing trials")
-    mode = "topcase-desktop" if desktop_trace else "trackpad-desktop" if desktop_match else "trackpad-trial" if log_match else boot.EHCI_TRIAL_MODES[version]
+    mode = "desktop-file" if desktop_file else "topcase-desktop" if desktop_trace else "trackpad-desktop" if desktop_match else "trackpad-trial" if log_match else boot.EHCI_TRIAL_MODES[version]
     logs = boot.ROOT / "build/review" / f"macbookpro8-1-ehci-trial-{release}"
     if args.keyboard_exit:
         logs /= "keyboard-exit"
@@ -286,7 +350,14 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
         if keyboard_monitor:
             exercise_monitor(command.copy(), temp, logs, release)
         elif desktop_match:
-            exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_checklist, args.keyboard_exit)
+            trial_command = command.copy()
+            if desktop_file:
+                stick, volume = desktop_workspace_image(temp, log_volume)
+                trial_command += ["-device", "qemu-xhci,id=xhci", "-drive", f"if=none,id=stick,format=raw,file={stick}",
+                                  "-device", "usb-storage,drive=stick,bus=xhci.0"]
+            exercise_desktop(trial_command, temp, logs, release, log_volume, mode, keyboard_checklist, args.keyboard_exit)
+            if desktop_file:
+                verify_desktop_workspace(stick, volume, release, args.keyboard_exit)
         elif trackpad_trial:
             exercise_trackpad(command, temp, logs, release, log_volume)
         else:
@@ -311,6 +382,9 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
             result.update(vm_keyboard="PS/2", typed_checklist="vm-typed-checklist.ppm")
         if desktop_trace:
             result.update(startup_checkpoint="attempted", final_report="attempted", keyboard_exit=args.keyboard_exit)
+        if desktop_file:
+            result.update(startup_checkpoint="verified", final_report="verified", keyboard_exit=args.keyboard_exit,
+                          vm_keyboard="PS/2", file_roundtrip="unmodified" if args.keyboard_exit else "verified")
     elif trackpad_trial:
         result.update(guest_trial_result="INCOMPLETE", unrelated_controller_skipped=True, trackpad_reports=0)
     else:
