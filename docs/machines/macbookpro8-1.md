@@ -204,6 +204,15 @@ The one-shot entry was consumed, and the exact payload and reports are
 archived outside `build`. Brightness is enabled by the explicit
 `--ehci-desktop-brightness` recipe on this unit.
 
+The built-in speaker block starts at `29fe70a9` on merge base `93e10a44`,
+with integration tip `dc4a48d3` and the open device scopes inspected. It
+adds an opt-in Intel PCH HDA and Cirrus CS4206 speaker profile, a codec
+fixture and an attended Settings trial using the accepted live EHCI
+workspace. It uses the built-in speaker and bass routes from this unit's
+Ubuntu capture. The checkpoint is audible left and right playback,
+verified stream stop, and both release-matched USB reports after Ubuntu
+return.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
