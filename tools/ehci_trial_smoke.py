@@ -100,7 +100,8 @@ def exercise_trackpad(command, temp, logs, release, log_volume):
                       (qmp, logs / "vm-screen.ppm"))
     for marker in ("SRVROS_VM_NEXT_ENTRY_CONSUMED",
                    f"cmdline: srvros.storage=ram srvros.ehci=trackpad-trial srvros.ehci-release={release}",
-                   "move one finger across the pad", "place two fingers on it", "Repeat when the mouse endpoint check starts.",
+                   "move one finger across the pad", "place two fingers on it",
+                   "Repeat if a trackpad mode retry starts.", "Repeat when the mouse endpoint check starts.",
                    "Captured topcase controller absent.",
                    "Trackpad unavailable. Reports 0. Last 0 bytes. Largest 0 bytes.",
                    f"ehci-trackpad: release={release} result=INCOMPLETE"):
@@ -113,7 +114,8 @@ def exercise_trackpad(command, temp, logs, release, log_volume):
     for marker in ("Trackpad capture starting. Start the checklist now.", "Trackpad HID replay completed=",
                    "Trackpad feature before payload=", "trackpad-qh endpoint=", "Trackpad running queue starts=",
                    "Trackpad mode-to-arm request",
-                   "Trackpad first payload offset", "trackpad-usb endpoint=", "ehci: bus=", "srv> ", "xhci:",
+                   "Trackpad first payload offset", "trackpad-usb endpoint=", "trackpad-retry trigger-completion=",
+                   "ehci: bus=", "srv> ", "xhci:",
                    "workspace-log:", "ahci:", "SRVROS_VM_NEXT_ENTRY_SAVE_FAILED"):
         assert marker not in first, marker
 

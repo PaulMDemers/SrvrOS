@@ -139,6 +139,15 @@ struct ehci_trackpad_endpoint_trace {
     struct ehci_trackpad_payload_sample samples[EHCI_TRACKPAD_PAYLOAD_SAMPLES];
 };
 
+struct ehci_trackpad_recovery {
+    struct ehci_trackpad_endpoint_trace raw;
+    uint64_t waited_us, switch_us, mode_to_active_us, first_report_us, first_report_prefix;
+    unsigned first_report_length;
+    uint8_t normal[8], wellspring[8];
+    uint8_t mode_at_reset, mode_before_retry;
+    bool attempted, normal_written, wellspring_written, resumed;
+};
+
 struct ehci_trackpad_capture {
     unsigned reports, ignored, invalid, bytes, largest, contacts;
     unsigned wire_max, eight_byte_reports, eight_byte_id44;
@@ -154,6 +163,7 @@ struct ehci_trackpad_capture {
     uint8_t feature_before[8], feature_write[8], feature_after[8], feature_restored[8];
     struct ehci_trackpad_queue_sample first_requests[EHCI_TRACKPAD_TRACE_COUNT];
     struct ehci_trackpad_endpoint_trace raw, mouse_raw;
+    struct ehci_trackpad_recovery recovery;
     uint32_t qh_endpoint, qh_capabilities, first_td;
     uint8_t last_eight_byte_id;
     bool hid_replay_started, mode_before_read, mode_after_read;
@@ -1115,21 +1125,40 @@ static void print_trackpad_queue(const struct ehci_trackpad_capture *capture) {
     }
 }
 
-static void print_trackpad_endpoint(const struct ehci_periodic_endpoint *endpoint,
+static void print_trackpad_endpoint(const char *label, const struct ehci_periodic_endpoint *endpoint,
     const struct ehci_trackpad_endpoint_trace *trace, const char *result) {
-    console_printf("trackpad-usb endpoint=%x request=%u interval-ms=%u completions=%u result=%s\n",
-        (uint64_t)endpoint->address, (uint64_t)endpoint->length, (uint64_t)endpoint->interval,
+    console_printf("%s endpoint=%x request=%u interval-ms=%u completions=%u result=%s\n",
+        label, (uint64_t)endpoint->address, (uint64_t)endpoint->length, (uint64_t)endpoint->interval,
         (uint64_t)trace->completions, result ? result : "finished");
     for (unsigned length = 0; length < sizeof(trace->short_lengths) / sizeof(trace->short_lengths[0]); length++) {
-        if (trace->short_lengths[length]) console_printf("trackpad-usb endpoint=%x length=%u count=%u\n",
-            (uint64_t)endpoint->address, (uint64_t)length, (uint64_t)trace->short_lengths[length]);
+        if (trace->short_lengths[length]) console_printf("%s endpoint=%x length=%u count=%u\n",
+            label, (uint64_t)endpoint->address, (uint64_t)length, (uint64_t)trace->short_lengths[length]);
     }
     for (unsigned i = 0; i < trace->sample_count; i++) {
         const struct ehci_trackpad_payload_sample *sample = &trace->samples[i];
-        console_printf("trackpad-usb endpoint=%x completion=%u elapsed-us=%u length=%u bytes=%x\n",
-            (uint64_t)endpoint->address, (uint64_t)sample->completion, sample->elapsed_us,
+        console_printf("%s endpoint=%x completion=%u elapsed-us=%u length=%u bytes=%x\n",
+            label, (uint64_t)endpoint->address, (uint64_t)sample->completion, sample->elapsed_us,
             (uint64_t)sample->length, sample->bytes);
     }
+}
+
+static void print_trackpad_recovery(const struct ehci_trackpad_capture *capture) {
+    const struct ehci_trackpad_recovery *recovery = &capture->recovery;
+    if (!recovery->attempted) return;
+    console_printf("trackpad-retry trigger-completion=%u normal-written=%u wellspring-written=%u resumed=%u\n",
+        (uint64_t)capture->raw.completions, (uint64_t)recovery->normal_written,
+        (uint64_t)recovery->wellspring_written, (uint64_t)recovery->resumed);
+    if (recovery->normal_written) console_printf("trackpad-retry normal payload=%x previous-mode=%u waited-us=%u\n",
+        trackpad_report_word(recovery->normal), (uint64_t)recovery->mode_at_reset, recovery->waited_us);
+    if (recovery->wellspring_written) console_printf(
+        "trackpad-retry wellspring payload=%x previous-mode=%u normal-to-wellspring-us=%u\n",
+        trackpad_report_word(recovery->wellspring), (uint64_t)recovery->mode_before_retry, recovery->switch_us);
+    if (recovery->resumed) {
+        console_printf("trackpad-retry mode-to-periodic-active-us=%u\n", recovery->mode_to_active_us);
+        print_trackpad_endpoint("trackpad-usb-retry", &trackpad_endpoint, &recovery->raw, capture->result);
+    }
+    if (recovery->first_report_length) console_printf("trackpad-retry first-type2 length=%u prefix=%x elapsed-us=%u\n",
+        (uint64_t)recovery->first_report_length, recovery->first_report_prefix, recovery->first_report_us);
 }
 
 bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
@@ -1138,6 +1167,7 @@ bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
     console_printf("SrvrOS MacBookPro8,1 trackpad trial\nRelease %s\n\n", release);
     console_write("When capture starts, move one finger across the pad,\n"
                   "place two fingers on it, and press and release the clickpad.\n"
+                  "Repeat if a trackpad mode retry starts.\n"
                   "Repeat when the mouse endpoint check starts.\n");
     if (log_volume) console_write("Keep the flash drive connected. The result will be saved before restart.\n");
     else console_write("Photograph the result. Power off and start again to return to Ubuntu.\n");
@@ -1194,14 +1224,18 @@ bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
         (uint64_t)capture->wire_max, (uint64_t)capture->eight_byte_reports,
         (uint64_t)capture->eight_byte_id44, (uint64_t)capture->last_eight_byte_id);
     if (capture->submissions) console_printf("Trackpad running queue starts=%u submissions=%u resubmissions=%u completions=%u.\n",
-        (uint64_t)capture->arm_acknowledged, (uint64_t)capture->submissions,
+        (uint64_t)(capture->arm_acknowledged + capture->recovery.resumed), (uint64_t)capture->submissions,
         (uint64_t)(capture->submissions - 1), (uint64_t)capture->completions);
     if (capture->eight_byte_reports) console_printf("Last 8-byte sample in wire order: %x\n",
         capture->last_eight_byte_sample);
-    if (capture->arm_requested) print_trackpad_endpoint(&trackpad_endpoint, &capture->raw, capture->result);
-    if (capture->mouse_requested) print_trackpad_endpoint(&trackpad_mouse_endpoint, &capture->mouse_raw,
+    if (capture->arm_requested) print_trackpad_endpoint("trackpad-usb", &trackpad_endpoint, &capture->raw,
+        capture->recovery.resumed ? "paused for mode retry" : capture->result);
+    print_trackpad_recovery(capture);
+    if (capture->mouse_requested) print_trackpad_endpoint("trackpad-usb", &trackpad_mouse_endpoint, &capture->mouse_raw,
         capture->mouse_result);
-    bool passed = !capture->result && !capture->invalid && trackpad_capture_complete(capture) &&
+    bool passed = !capture->result && capture->invalid == (unsigned)capture->recovery.resumed &&
+        trackpad_capture_complete(capture) && capture->mode_after_read &&
+        capture->feature_after[0] == EHCI_TRACKPAD_WELLSPRING_MODE &&
         capture->mode_restored && report.dma_released && report.access_retired;
     if (!passed && capture->token) console_printf("USBSTS=%x qTD=%x QH=%x\n",
         (uint64_t)capture->status, (uint64_t)capture->token, (uint64_t)capture->overlay);

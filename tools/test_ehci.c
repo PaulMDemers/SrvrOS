@@ -30,6 +30,8 @@ static unsigned trackpad_reports, trackpad_offset, trackpad_packets;
 static unsigned trackpad_queue_starts, trackpad_queue_stops;
 static unsigned trackpad_mouse_reports;
 static bool mock_trackpad_dummy_overlay;
+static bool mock_trackpad_recovery, mock_trackpad_retry_wait_fails;
+static uint64_t trackpad_normal_at;
 static unsigned keyboard_packet_bytes;
 static bool keyboard_stop_stuck;
 static bool keyboard_fetch;
@@ -43,7 +45,11 @@ void console_write(const char *message) { assert(message); }
 void console_set_framebuffer_muted(bool muted) { assert(!muted); }
 
 bool console_sync(void) {
-    assert(trackpad_control_requests == (trackpad_prompt_syncs ? 10u : 8u) && op[EHCI_PERIODICLISTBASE] == 0xb000);
+    unsigned expected = 8;
+    if (trackpad_prompt_syncs) {
+        expected = mock_trackpad_recovery ? (trackpad_prompt_syncs == 1 ? 9u : 14u) : 10u;
+    }
+    assert(trackpad_control_requests == expected && op[EHCI_PERIODICLISTBASE] == 0xb000);
     trackpad_prompt_syncs++;
     return true;
 }
@@ -139,9 +145,15 @@ bool timer_delay_us(uint64_t delay) {
         }
         bool mouse = trackpad_dma->qh.endpoint == 0x00080403;
         if (!(op[EHCI_USBSTS] & EHCI_STS_PERIODIC)) {
-            assert(trackpad_control_requests == (mouse ? 10u : 9u) && trackpad_prompt_syncs == (mouse ? 2u : 1u));
+            unsigned expected = mouse ? 10u : 9u;
+            unsigned prompts = mouse ? 2u : 1u;
+            if (mock_trackpad_recovery && trackpad_queue_starts) {
+                expected = mouse ? 14u : 13u;
+                prompts = mouse ? 3u : 2u;
+            }
+            assert(trackpad_control_requests == expected && trackpad_prompt_syncs == prompts);
             assert(!(op[EHCI_USBSTS] & EHCI_STS_ASYNC));
-            assert(!trackpad_dma->qh.overlay.token);
+            if (!trackpad_queue_starts || mouse) assert(!trackpad_dma->qh.overlay.token);
             trackpad_queue_starts++;
         }
         op[EHCI_USBSTS] |= EHCI_STS_PERIODIC;
@@ -150,7 +162,7 @@ bool timer_delay_us(uint64_t delay) {
             now += EHCI_TRACKPAD_MOUSE_WAIT_US;
             return true;
         }
-        assert(mouse || trackpad_reports < 11);
+        assert(mouse || trackpad_reports < (mock_trackpad_recovery ? 7u : 11u));
         unsigned index = (mouse ? trackpad_mouse_reports : trackpad_reports) & 1u;
         struct ehci_trackpad_slot *slot = &trackpad_dma->slots[index];
         struct ehci_trackpad_slot *dummy = &trackpad_dma->slots[index ^ 1u];
@@ -183,8 +195,13 @@ bool timer_delay_us(uint64_t delay) {
         trackpad_dma->qh.overlay.buffer[1] = 4;
         uint8_t report[86] = {0x74, [85] = 0xb7};
         /* First six requests use seven packets, then finish the gesture checklist. */
-        int gesture = (int)trackpad_reports - 6;
+        int gesture = (int)trackpad_reports - (mock_trackpad_recovery ? 2 : 6);
         unsigned length = gesture == -6 ? 86 : gesture < 0 ? 2 : gesture == 2 ? 86 : 58;
+        if (mock_trackpad_recovery && gesture < 0) {
+            report[0] = gesture == -2 ? 0x60 : 2;
+            report[1] = gesture == -2 ? 2 : 0;
+            length = gesture == -2 ? 2 : 8;
+        }
         report[30 + 2] = gesture >= 1 ? 64 : 0;
         report[30 + 16] = 5;
         if (gesture == 2) report[58 + 16] = 5;
@@ -228,6 +245,11 @@ bool timer_delay_us(uint64_t delay) {
     }
     if (mock_feature_control && trackpad_control_requests >= 1 && trackpad_control_requests <= 7 &&
         !(op[EHCI_USBCMD] & EHCI_CMD_SCHEDULES) && !(op[EHCI_USBSTS] & EHCI_STS_SCHEDULES)) return true;
+    if (mock_trackpad_recovery && delay == EHCI_TRACKPAD_MODE_RETRY_US) {
+        assert(trackpad_control_requests == 11 && schedules_idle(&(struct ehci_control_path) { .op = op }));
+        assert(now - trackpad_normal_at == delay + EHCI_POLL_US);
+        return !mock_trackpad_retry_wait_fails;
+    }
     if (delay == 1000) {
         handoff_delays++;
         if (!firmware_stuck && handoff_delays == 3) pci_config[LEGACY_OFFSET / 4] &= ~EHCI_LEGACY_BIOS;
@@ -242,6 +264,8 @@ bool timer_delay_us(uint64_t delay) {
                 assert(control_dma->qh.capabilities == 0x41010000u);
                 unsigned step = trackpad_control_requests++;
                 unsigned residual = 0;
+                unsigned after_capture = mock_trackpad_recovery ? (mock_trackpad_retry_wait_fails ? 11u : 13u) : 9u;
+                bool mid_retry = mock_trackpad_recovery && step >= 9 && step < after_capture;
                 if (!step) {
                     assert(!control_dma->setup.request_type && control_dma->setup.request == USB_REQ_SET_CONFIGURATION);
                     assert(control_dma->setup.value == 1 && !control_dma->setup.index && !control_dma->setup.length);
@@ -257,28 +281,39 @@ bool timer_delay_us(uint64_t delay) {
                     assert(!memcmp(&control_dma->setup, &expected[step - 1], sizeof(control_dma->setup)));
                     if (step == 3 || step == 4) assert(control_dma->data[0] == 1 && control_dma->data[1] == 0);
                     if (step == 2 && mock_short_hid_descriptor) residual = 1;
-                } else if (step == 8 || step == 10) {
+                } else if (step == 8 || step == after_capture + 1 || (mid_retry && !(step & 1u))) {
                     assert(control_dma->setup.request_type == 0x21 && control_dma->setup.request == 9);
                     assert(control_dma->setup.value == 0x0300 && !control_dma->setup.index && control_dma->setup.length == 8);
                     assert(!memcmp(control_dma->data + 1, feature_bytes + 1, sizeof(feature_bytes) - 1));
-                    assert(control_dma->data[0] == (step == 8 ? 1 : 8));
+                    assert(control_dma->data[0] == (step == 8 || (mid_retry && step == 12) ? 1 : 8));
                     mock_feature_readback = control_dma->data[0];
-                    assert(trackpad_prompt_syncs == (step == 8 || mock_trackpad_dummy_overlay ? 1u : 2u) &&
-                        op[EHCI_PERIODICLISTBASE] == 0xb000);
+                    unsigned prompts = step == 8 || mock_trackpad_dummy_overlay ? 1 : 2;
+                    if (mock_trackpad_recovery && step == after_capture + 1 && !mock_trackpad_retry_wait_fails) prompts = 3;
+                    assert(trackpad_prompt_syncs == prompts && op[EHCI_PERIODICLISTBASE] == 0xb000);
                     if (step == 8) assert(trackpad_dma->slots[0].td.token & EHCI_TD_ACTIVE);
                     assert(control_dma->data_td.token == (EHCI_TD_DATA1 | (8u << EHCI_TD_BYTES_SHIFT) |
                         EHCI_TD_PID_OUT | EHCI_TD_RETRIES | EHCI_TD_ACTIVE));
                     assert((control_dma->status_td.token & EHCI_TD_PID_IN) &&
                         control_dma->data_td.alternate == EHCI_LINK_END);
                 } else {
-                    assert(step == 7 || step == 9 || step == 11);
+                    assert(step == 7 || step == after_capture || step == after_capture + 2 || mid_retry);
                     if (step == 7) assert(now - trackpad_configured_at >= 247973);
-                    if (step == 9) assert(trackpad_reports == (mock_trackpad_dummy_overlay ? 1u : 11u) &&
-                        !(op[EHCI_USBSTS] & EHCI_STS_PERIODIC) && trackpad_queue_stops == 1);
+                    if (step == after_capture) {
+                        unsigned reports = mock_trackpad_dummy_overlay ? 1u : 11u;
+                        if (mock_trackpad_recovery) reports = mock_trackpad_retry_wait_fails ? 2u : 7u;
+                        assert(trackpad_reports == reports && !(op[EHCI_USBSTS] & EHCI_STS_PERIODIC));
+                    }
                     assert(control_dma->setup.request_type == 0xa1 && control_dma->setup.request == 1);
                     assert(control_dma->setup.value == 0x0300 && !control_dma->setup.index && control_dma->setup.length == 8);
                     memcpy(control_dma->data, feature_bytes, sizeof(feature_bytes));
                     control_dma->data[0] = mock_feature_readback;
+                }
+                if (mid_retry) {
+                    uint32_t first = 0xa000u + offsetof(struct ehci_trackpad_dma, slots);
+                    assert(!(op[EHCI_USBSTS] & EHCI_STS_PERIODIC) && trackpad_queue_stops == 1);
+                    assert(trackpad_queue_parked(trackpad_dma, 0, first + sizeof(trackpad_dma->slots[0]), first));
+                    if (step == 10) trackpad_normal_at = now;
+                    if (step == 11) assert(now - trackpad_normal_at >= EHCI_TRACKPAD_MODE_RETRY_US);
                 }
                 control_dma->setup_td.token = control_dma->status_td.token = 0;
                 control_dma->data_td.token = residual << EHCI_TD_BYTES_SHIFT;
@@ -353,6 +388,8 @@ static void fixture_reset(void) {
     trackpad_queue_starts = trackpad_queue_stops = 0;
     trackpad_mouse_reports = 0;
     mock_trackpad_dummy_overlay = false;
+    mock_trackpad_recovery = mock_trackpad_retry_wait_fails = false;
+    trackpad_normal_at = 0;
     trackpad_control_requests = trackpad_dma_allocations = trackpad_prompt_syncs = 0;
     trackpad_configured_at = 0;
     keyboard_dma = 0;
@@ -693,6 +730,7 @@ static void test_trackpad_capture(void) {
     assert(trackpad_packets == 13 && report.trackpad.reports == 6 && report.trackpad.ignored == 5);
     assert(report.trackpad.submissions == 11 && report.trackpad.completions == 11);
     assert(trackpad_queue_starts == 2 && trackpad_queue_stops == 2);
+    assert(!report.trackpad.recovery.attempted);
     assert(report.trackpad.raw.completions == 11 && report.trackpad.raw.short_lengths[2] == 5);
     assert(report.trackpad.raw.sample_count == 1 && report.trackpad.raw.samples[0].completion == 2);
     assert(report.trackpad.raw.samples[0].bytes == 0x7400000000000000ull);
@@ -753,6 +791,56 @@ static void test_trackpad_capture(void) {
     assert(!report.trackpad.mouse_requested);
     assert(queue.slots[1].td.token == EHCI_TD_HALTED && queue.slots[1].td.next == EHCI_LINK_END);
     assert(trackpad_queue_starts == 1 && trackpad_queue_stops == 1 && report.trackpad.mode_restored);
+}
+
+static void test_trackpad_mode_retry(void) {
+    for (unsigned fail_wait = 0; fail_wait < 2; fail_wait++) {
+        fixture_reset();
+        struct ehci_dma dma;
+        const struct ehci_control_target target = { .address = 3, .packet_size = 8, .tt_hub = 1, .tt_port = 2 };
+        struct ehci_probe_report report = { .trackpad_target = target, .keyboard_target = target };
+        struct ehci_control_path path = { .op = op, .dma = &dma, .physical = 0x9000, .report = &report };
+        struct ehci_trackpad_dma queue;
+        uint64_t frames = 0, transfer_page = 0;
+        op[EHCI_USBCMD] = EHCI_CMD_RUN;
+        op[EHCI_USBSTS] = 0;
+        control_dma = &dma;
+        trackpad_dma = &queue;
+        mock_feature_control = mock_trackpad_recovery = true;
+        mock_trackpad_retry_wait_fails = fail_wait != 0;
+        mock_feature_readback = 8;
+
+        run_trackpad_trial(&path, &frames, &transfer_page);
+        const struct ehci_trackpad_capture *capture = &report.trackpad;
+        const struct ehci_trackpad_recovery *recovery = &capture->recovery;
+        assert(schedules_idle(&path) && capture->mode_restored);
+        assert(frames == 0xb000 && transfer_page == 0xa000 && trackpad_dma_allocations == 2);
+        assert(capture->raw.completions == 2 && capture->invalid == 1 && capture->ignored == 1);
+        assert(capture->raw.short_lengths[2] == 1 && capture->raw.short_lengths[8] == 1);
+        assert(capture->raw.samples[0].bytes == 0x6002000000000000ull);
+        assert(capture->raw.samples[1].bytes == 0x0200000000000000ull);
+        assert(recovery->attempted && recovery->normal_written && recovery->mode_at_reset == 1);
+        assert(!memcmp(recovery->normal, capture->feature_before, sizeof(recovery->normal)));
+        if (fail_wait) {
+            assert(!strcmp(capture->result, "mode retry wait failed"));
+            assert(!recovery->wellspring_written && !recovery->resumed && !recovery->raw.completions);
+            assert(!capture->mouse_requested && trackpad_control_requests == 14);
+            assert(trackpad_queue_starts == 1 && trackpad_queue_stops == 1);
+            assert(queue.slots[0].td.token == EHCI_TD_HALTED);
+        } else {
+            assert(!capture->result && trackpad_capture_complete(capture));
+            assert(recovery->wellspring_written && recovery->resumed && recovery->mode_before_retry == 8);
+            assert(!memcmp(recovery->wellspring, feature_bytes, sizeof(recovery->wellspring)));
+            assert(recovery->waited_us >= EHCI_TRACKPAD_MODE_RETRY_US && recovery->switch_us > recovery->waited_us);
+            assert(recovery->mode_to_active_us == 2 * EHCI_POLL_US);
+            assert(recovery->raw.completions == 5 && recovery->first_report_length == 58);
+            assert(recovery->first_report_prefix == 0x7400000000000000ull);
+            assert(recovery->first_report_us == recovery->mode_to_active_us + EHCI_TRACKPAD_POLL_US);
+            assert(capture->submissions == 7 && capture->completions == 7);
+            assert(capture->mouse_requested && trackpad_control_requests == 16);
+            assert(trackpad_queue_starts == 3 && trackpad_queue_stops == 3);
+        }
+    }
 }
 
 static void test_flash_bulk(void) {
@@ -841,6 +929,7 @@ int main(void) {
     test_keyboard_report_schedule();
     test_captured_keyboard_interface();
     test_trackpad_capture();
+    test_trackpad_mode_retry();
     test_flash_bulk();
     test_native_trial_result();
     puts("EHCI host tests passed");

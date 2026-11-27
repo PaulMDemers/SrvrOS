@@ -89,8 +89,8 @@ recovery.
 
 The Wellspring recovery trial starts from `029910c2` on base `61111819`.
 `origin/main` at `c523e036` and the open device scopes have no overlapping
-EHCI changes. After the first rejected eight-byte response on `0x81`, the
-attended profile will pause at a verified retired request, select normal
+EHCI changes. If an eight-byte response arrives on `0x81` before a valid
+frame, the attended profile will pause at a verified retired request, select normal
 mode, wait at least 1 ms, and retry Wellspring mode once. It will preserve
 the queue head and data toggle, record the before and after results, and
 save the report to the prepared flash drive. Scope is the existing EHCI

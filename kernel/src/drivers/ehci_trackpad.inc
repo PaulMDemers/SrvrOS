@@ -3,9 +3,12 @@
 #define EHCI_TRACKPAD_REPORT_MAX (30u + 28u * APPLE_TRACKPAD_CONTACTS)
 #define EHCI_TRACKPAD_WAIT_US 60000000u
 #define EHCI_TRACKPAD_MOUSE_WAIT_US 15000000u
+#define EHCI_TRACKPAD_MODE_RETRY_US 1000u
 #define EHCI_TRACKPAD_POLL_US 250u
 #define EHCI_TRACKPAD_MOVE_UNITS 32
 #define EHCI_TRACKPAD_FEATURE_READ_OFFSET_US 247973u
+#define EHCI_TRACKPAD_NORMAL_MODE 8u
+#define EHCI_TRACKPAD_WELLSPRING_MODE 1u
 
 struct ehci_trackpad_slot {
     _Alignas(32) struct ehci_qtd td;
@@ -225,11 +228,47 @@ static void sample_trackpad_queue(struct ehci_trackpad_queue_sample *sample, con
     sample->split_seen |= (overlay_token & EHCI_TD_SPLIT_STATE) != 0;
 }
 
+static bool trackpad_queue_parked(const volatile struct ehci_trackpad_dma *dma,
+    unsigned dummy, uint32_t retired_address, uint32_t dummy_address) {
+    return !(dma->qh.overlay.token & (EHCI_TD_ACTIVE | EHCI_TD_ERROR | EHCI_TD_SPLIT_STATE)) &&
+        (dma->qh.current & ~31u) == retired_address && dma->qh.overlay.next == dummy_address &&
+        dma->slots[dummy].td.token == EHCI_TD_HALTED;
+}
+
+static const char *retry_trackpad_mode(struct ehci_control_path *path, uint64_t *retry_completed_us) {
+    struct ehci_trackpad_recovery *recovery = &path->report->trackpad.recovery;
+    recovery->attempted = true;
+    if (!disable_periodic(path) || !schedules_idle(path)) return "queue pause for mode retry failed";
+    console_write("Trackpad mode retry. Repeat the gestures now. You have 60 seconds.\n");
+    console_sync();
+
+    /* Match bcm5974's read-modify-write in each direction. The native
+     * control helper requires both schedules idle. Keep the periodic QH
+     * parked at its inactive dummy until both mode writes have finished. */
+    if (!read_trackpad_mode(path, recovery->normal)) return "normal mode feature read failed";
+    recovery->mode_at_reset = recovery->normal[0];
+    recovery->normal[0] = EHCI_TRACKPAD_NORMAL_MODE;
+    uint64_t normal_completed_us;
+    if (!write_trackpad_mode(path, recovery->normal, &normal_completed_us)) return "normal mode write failed";
+    recovery->normal_written = true;
+    if (!timer_delay_us(EHCI_TRACKPAD_MODE_RETRY_US)) return "mode retry wait failed";
+    recovery->waited_us = timer_monotonic_us() - normal_completed_us;
+
+    if (!read_trackpad_mode(path, recovery->wellspring)) return "Wellspring retry feature read failed";
+    recovery->mode_before_retry = recovery->wellspring[0];
+    recovery->wellspring[0] = EHCI_TRACKPAD_WELLSPRING_MODE;
+    if (!write_trackpad_mode(path, recovery->wellspring, retry_completed_us)) return "Wellspring retry write failed";
+    recovery->wellspring_written = true;
+    recovery->switch_us = *retry_completed_us - normal_completed_us;
+    return NULL;
+}
+
 /* The first request and frame list are ready before the mode write. A successful
  * control transfer has acknowledged async stop, so the next action can set PSE. */
 static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_trackpad_dma *dma,
     const struct ehci_periodic_endpoint *endpoint, uint64_t mode_completed_us) {
     struct ehci_trackpad_capture *capture = &path->report->trackpad;
+    struct ehci_trackpad_recovery *recovery = &capture->recovery;
     bool gestures = endpoint == &trackpad_endpoint;
     struct ehci_trackpad_endpoint_trace *trace = gestures ? &capture->raw : &capture->mouse_raw;
     unsigned timeout = gestures ? EHCI_TRACKPAD_WAIT_US : EHCI_TRACKPAD_MOUSE_WAIT_US;
@@ -248,6 +287,7 @@ static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_tra
     }
     const char *failure = enabled ? NULL : "periodic enable timeout";
     unsigned slot = 0;
+    uint64_t retry_completed_us = 0;
     while (!failure) {
         uint32_t token = progress->slots[slot].td.token;
         uint32_t status = path->op[EHCI_USBSTS];
@@ -293,6 +333,11 @@ static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_tra
                 for (unsigned byte = 0; byte < length; byte++) capture->first_payload[byte] = data[byte];
             }
             record_trackpad_frame(capture, data, length);
+            if (recovery->resumed && capture->reports == 1 && !recovery->first_report_length) {
+                recovery->first_report_length = length;
+                recovery->first_report_prefix = trackpad_report_word(data);
+                recovery->first_report_us = timer_monotonic_us() - retry_completed_us;
+            }
         }
         record_trackpad_payload(trace, data, length, start);
         if (gestures && trackpad_capture_complete(capture)) break;
@@ -300,11 +345,18 @@ static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_tra
         unsigned dummy = slot ^ 1u;
         uint32_t retired_address = first_td + slot * sizeof(dma->slots[0]);
         uint32_t dummy_address = first_td + dummy * sizeof(dma->slots[0]);
-        if ((progress->qh.overlay.token & (EHCI_TD_ACTIVE | EHCI_TD_ERROR | EHCI_TD_SPLIT_STATE)) ||
-            (progress->qh.current & ~31u) != retired_address || progress->qh.overlay.next != dummy_address ||
-            progress->slots[dummy].td.token != EHCI_TD_HALTED) {
+        if (!trackpad_queue_parked(progress, dummy, retired_address, dummy_address)) {
             failure = "queue did not park at the inactive dummy";
             break;
+        }
+        bool retry = gestures && length == 8 && !capture->reports && !recovery->attempted;
+        if (retry) {
+            failure = retry_trackpad_mode(path, &retry_completed_us);
+            if (failure) break;
+            if (!trackpad_queue_parked(progress, dummy, retired_address, dummy_address)) {
+                failure = "parked queue changed during mode retry";
+                break;
+            }
         }
         /* The retired request becomes the new dummy. The live overlay and
          * its data toggle remain controller-owned throughout resubmission. */
@@ -313,6 +365,16 @@ static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_tra
             dummy_address + offsetof(struct ehci_trackpad_slot, data), endpoint->length);
         slot = dummy;
         if (gestures) capture->submissions++;
+        if (retry) {
+            if (!enable_periodic(path)) {
+                failure = "periodic resume after mode retry failed";
+                break;
+            }
+            start = timer_monotonic_us();
+            recovery->resumed = true;
+            recovery->mode_to_active_us = start - retry_completed_us;
+            trace = &recovery->raw;
+        }
     }
     return disable_periodic(path) ? failure : "periodic stop timeout";
 }
@@ -358,7 +420,7 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
     console_write("Trackpad capture starting. Start the checklist now. You have 60 seconds.\n");
     console_sync();
     for (unsigned i = 0; i < sizeof(capture->feature_write); i++) capture->feature_write[i] = capture->feature_before[i];
-    capture->feature_write[0] = 1;
+    capture->feature_write[0] = EHCI_TRACKPAD_WELLSPRING_MODE;
     capture->mode_write_attempted = true;
     uint64_t mode_completed_us;
     if (write_trackpad_mode(path, capture->feature_write, &mode_completed_us)) {
@@ -367,7 +429,7 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
         if (schedules_idle(path) && read_trackpad_mode(path, capture->feature_after)) {
             capture->mode_after_read = true;
         } else if (!capture->result) capture->result = "post-capture feature readback failed";
-        if (capture->mode_after_read && capture->feature_after[0] == 1 &&
+        if (capture->mode_after_read && capture->feature_after[0] == EHCI_TRACKPAD_WELLSPRING_MODE &&
             (!capture->result || capture->timed_out) && schedules_idle(path)) {
             capture->mouse_requested = true;
             console_write("Mouse endpoint check. Repeat the gestures now. You have 15 seconds.\n");
@@ -380,5 +442,6 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
     } else capture->result = "feature mode write failed";
     capture->mode_restore_read = write_trackpad_mode(path, capture->feature_before, NULL) &&
         read_trackpad_mode(path, capture->feature_restored);
-    capture->mode_restored = capture->mode_restore_read && capture->feature_restored[0] == capture->feature_before[0];
+    capture->mode_restored = capture->mode_restore_read &&
+        trackpad_report_word(capture->feature_restored) == trackpad_report_word(capture->feature_before);
 }
