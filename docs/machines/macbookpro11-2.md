@@ -2505,6 +2505,29 @@ The native-path fixture, five exact-image rehearsals and fresh router
 control passed. The local run record is
 `build/bringup/pro112-rtl8188cu-radio-repeat2/run.json`.
 
+Final cold session `session-00066146b772d46c-00` passed. The
+Realtek again got a MAC ACK with zero retries. Both router taps
+recorded the full DHCP exchange and the AP showed successful
+decryption with zero failures. SrvrOS verified the lease, DNS
+and HTTP 200, then saved the workspace exit and seven EFI
+checkpoints and returned automatically. All 662 existing files
+were preserved. The paired evidence is archived under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-36b158205fc065ae`.
+The private payload was retired, the previous boot entry restored,
+and the two DHCP recorders and the AP sampler stopped.
+
+#### RTL8188CUS desktop connection lifecycle
+
+The Demers2.4 boot-only probe passed three consecutive cold runs
+with matching payload bytes. Start desktop work from `5cfc1d27`.
+Inspected main `dc4a48d3` and the separate Air6,1 SSD trial in
+#566. Scope is the controlled System Wi-Fi provider, Realtek USB
+and WPA2 lifetime, resident network ownership, and native same-boot
+Disconnect and Connect with a fresh generation. Keep the accepted
+boot-only probe and Edimax behavior, and keep all three adapters
+on the hub. Qualify the real driver and provider path before an
+attended desktop run.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
