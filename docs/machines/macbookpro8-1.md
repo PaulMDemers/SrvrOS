@@ -143,6 +143,12 @@ path. The next trial will bound the observations, count keyboard reports
 without retaining keystrokes, and keep an independent pre-desktop report
 if input failure prevents the final report.
 
+The three-boot repeatability check starts at `a1f21d9a` on `93e10a44`.
+`origin/main` at `ae1a64d8` and the open device scopes have no overlapping
+EHCI work. It reuses the accepted `3388f68afd5dc712` payload and checklist.
+Only the staging identity changes so each boot can write two new files to
+the same workspace. Collect and verify each run before arming the next.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
