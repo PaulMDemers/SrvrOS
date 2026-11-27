@@ -2,6 +2,22 @@
 
 Updated: 2026-11-13. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
+## Current tear-free display scope (2026-11-27)
+
+Branch `device/macbookair6-1/tearfree` starts at main `dc4a48d3`.
+The live Ubuntu inventory reports Haswell `8086:0a26` revision 09,
+Apple subsystem `106b:011a`, and one connected 1366×768 eDP panel under
+i915. The SrvrOS native backing capture observed a 1,056-page X-tiled
+surface inside a 16 MiB fence.
+
+Air7,2 PR301 at `fd722b07` owns the shared scanout lifetime work and the
+Broadwell hardware provider. This branch starts the Haswell GGTT entry
+planner using the existing read-only backing capture and that unit's exact
+register layout. It can describe a proposed private bind and its exact
+rollback word; a caller still needs a maintained native owner to execute it.
+The next checkpoint is a read-only verification of one candidate slot and
+the paths that can access it. There is no boot armed.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
