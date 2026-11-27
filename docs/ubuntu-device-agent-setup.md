@@ -879,6 +879,17 @@ The instructions open in the file. After Ubuntu returns, compare the edited
 document and both reports with the run record, and run the offline allocation
 check. The final report includes the Text write and reopen receipts.
 
+The MacBookPro8,1 built-in speaker variant stages with
+`--ehci-desktop-trial UUID --ehci-desktop-audio`. Text opens the checklist
+automatically. In Settings, scroll to Sound and click Test sound at 25%.
+Listen for a low tone on the left, a middle tone on the right and a high
+tone on both. Return to console from the SrvrOS menu, press
+Control+Alt+Escape, or wait for the 150-second automatic exit. Keep the
+flash drive connected until Ubuntu returns. Compare the startup and final
+reports against the release and run the read-only allocation check.
+Pair the final stream completion and amplifier stop results with the
+operator's observations for each speaker.
+
 Omit `--save` for a JSON report on stdout. The command reads the recorded
 model and volume UUID, checks the marker, excludes pre-existing sessions,
 and matches the release in boot-option records. An unidentified new session

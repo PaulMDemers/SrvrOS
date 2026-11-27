@@ -219,8 +219,20 @@ heard two of the intended three cues at each setting, so audible stereo
 coverage remains incomplete. Ubuntu verified both startup and final
 reports and a clean allocation check with 147 files and 155 clusters.
 An Ubuntu PipeWire comparison with longer gaps and three pitches also
-produced two audible cues. The next native trial uses that same timing
-and pitches to help identify which cue is missing.
+produced two audible cues. PipeWire showed the same gain for both
+channels, with the analog sink mapped to front left and front right.
+
+Source `109b1f19` and release `024a87e1e8d4bf42` used the longer gaps and
+three pitches. The operator identified a broken physical left speaker
+on this laptop. Right-speaker output was audible. SrvrOS completed all
+three playback attempts without controller errors, stopped the stream
+and read back the disabled amplifier GPIOs. Audible left-channel
+coverage remains open. The desktop checklist timed out, and the
+automatic exit saved both reports and returned to Ubuntu. Ubuntu
+verified both files, retained all pre-existing user files and verified
+149 files and 157 clusters in the read-only allocation check. The
+accepted brightness profile and known-good recovery payload were
+retained alongside the speaker trials.
 
 ## Bring-up sequence
 
