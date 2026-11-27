@@ -401,6 +401,13 @@ that engine/proxy drain or an exclusion held through a store and rollback.
 The native build contains no one-page writer. [Broadwell register reference,
 pp. 234–237, 815–816, 1607, 1620 and 1823](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
 
+Review release `f7f826b7bb1f815f` passed four exact-image QEMU boots using
+this unit's Ubuntu shim and GRUB. The normal case saved diagnostics,
+verified the exFAT files and reset. Missing workspace, missing ACPI protocol,
+and missing ACPI vector refused the trial. The review image was staged
+locally. Ubuntu and installed recovery `9aa8dbf6fbda8252` were left in place
+with an empty GRUB one-shot entry.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
