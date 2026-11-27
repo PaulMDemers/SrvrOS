@@ -995,14 +995,36 @@ save attempt and returned to the Ubuntu default fixture. The VM recorded
 both save attempts with the captured flash controller absent. The exact
 RAM image passed write admission against this unit's 120-file workspace.
 
+Native release `3388f68afd5dc712` passed with both built-in inputs. At
+startup `0x81` had returned the two-byte `0x60` status packet and still had
+an active request. `0x83` had an active request and no completion before
+typing. The first touch produced an eight-byte `0x02` response at 4.894 s
+after queue activation. The existing recovery restored normal mode, waited
+1,014 µs and reselected Wellspring mode. The next observed completion was
+a 58-byte `0x74` report at 4.904 s. Both queues continued to make progress
+with the same frame allocation as the previous trial. The added startup
+observations and flash save changed when Text opened. The earlier
+trackpad failure did not recur and its cause remains unverified.
+
+The desktop recorded 1,285 valid trackpad reports, 980 motion events,
+six click presses and releases and zero malformed frames. The keyboard
+returned 22 valid reports and eight press and release transitions. Typing
+into Find, maximize, restore and pointer exit all passed. Mode restoration
+and topcase retirement verified. Ubuntu read back the 11,044-byte startup
+report and the 31,676-byte final report, then verified both hashes after
+remount. All 120 prior files were preserved apart from the expected
+metadata update. The offline allocation check passed for 122 files with
+zero writes. Ubuntu consumed the one-shot and the retained payloads
+verified.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
-| Keyboard | Operator verified built-in input and commands in the regular monitor and keyboard input in the combined desktop trial `159368a637be087a` | Capture the combined desktop keyboard counters on USB |
-| Trackpad | The instrumented native desktop trial passed on `e064782e489c1a51`, with movement, clicks, topcase retirement, and zero malformed frames. | Capture the length and bytes if the earlier malformed frame recurs |
-| USB workspace | Native desktop report save and Ubuntu readback verified on `0a4b6e655574e009` after the boot-inode fix | Capture a saved receipt for the flash controller's final retirement |
+| Keyboard | Built-in monitor commands and combined desktop typing verified on `3388f68afd5dc712` | Repeat combined desktop input across boots |
+| Trackpad | Movement, clicks, mode restoration and zero malformed frames verified in the combined desktop trial `3388f68afd5dc712` | Capture queue progress if the intermittent failure recurs |
+| USB workspace | Combined desktop startup and final reports saved and read back on `3388f68afd5dc712` | Collect startup-only evidence if the desktop cannot exit |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
