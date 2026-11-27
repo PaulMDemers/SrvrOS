@@ -800,6 +800,14 @@ matched their archive copies after USB remount. The read-only allocation
 check passed for 115 files with zero writes. The saved native report ends
 before the flash controller's final teardown and reset.
 
+Source `6489a417`, release `53177189337d3d65`, is the staged mode-recovery
+trial. The host fixture verified the normal and Wellspring control writes,
+the minimum 1 ms wait, queue resumption with the controller's data toggle,
+and restoration on timer failure. The exact-stage VM verified the operator
+checklist, absent-controller handling, and Ubuntu-default rehearsal. The
+flash report records the trigger, feature writes, wait and resume timing,
+and the first decoded Type 2 frame after the retry if one arrives.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
