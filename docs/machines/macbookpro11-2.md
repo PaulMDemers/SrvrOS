@@ -1694,6 +1694,23 @@ CR, cleanup readback and receive counters in both journal tails.
 The run record is under `build/bringup/pro112-rtl8188cu-cr-security`.
 The effect on reception still needs the cold hardware result.
 
+Cold session `session-00066139cc1dc972-00` confirmed CR `0x029a`
+before LLT and firmware, and at all three receive snapshots. The
+MCU reached ready and all three hub adapters were present. PHY
+parity failures rose from 28 to 3,596. The 14 receive counters and
+the FIFO pointer stayed at zero, and the single 4 KiB request timed
+out with no bytes or Demers2.4 beacons. Adding ENSEC alone left the
+same receive failure observed at `0x009a`.
+
+Stop Endpoint reported all 4,096 bytes remaining. The radio parked
+with CR `0x0000` and `TXPAUSE=0xff`. The workspace exit snapshot and
+seven EFI checkpoints saved automatically and agreed on the timing
+and cleanup readbacks. SrvrOS recorded a clean unmount and normal
+return to Ubuntu. The collector verified all 628 prior workspace
+files and the installed recovery. Evidence and the verified payload
+are archived locally under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-d2c591aaa60004a3`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
