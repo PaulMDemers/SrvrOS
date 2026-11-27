@@ -2385,8 +2385,28 @@ archived byte-for-byte before rearming its contiguous allocation
 with a fresh nonce. The cold run keeps all three adapters attached
 and pairs the saved guest receipts with the four-hour station-filtered
 router capture. The local run directory is
-`build/bringup/pro112-rtl8188cu-discover-trace`. Physical packet
-arrival and response are pending collection.
+`build/bringup/pro112-rtl8188cu-discover-trace`.
+
+Cold session `session-00066145a4325818-00` at 12:46 p.m. EST on
+November 27 enumerated all three hub adapters, associated with
+Demers2.4, verified the WPA2 M3 MIC and completed M4 on USB. The
+Realtek submitted and completed one encrypted Discover on USB OUT.
+Two incoming protected frames passed CCMP but neither was IPv4.
+The DHCP poll limit expired after 1.446 seconds without an Offer.
+The station-filtered router captures on both `eth6` and `br0` were
+empty throughout the run. The same adapter's Ubuntu control had
+captured Discover, Offer, Request and ACK on both interfaces. DNS
+and HTTP were never reached. The open boundary is the adapter's
+radio transmission and the AP's reception and acceptance of the
+protected data frame.
+
+The USB workspace and EFI diagnostics agreed. Teardown and automatic
+Ubuntu return passed with a verified exit snapshot, seven EFI journal
+checkpoints, a clean filesystem check, and 656 pre-existing files
+preserved. The paired capture and Ubuntu control are archived under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-a019ab3043fad1b5`.
+The private image was retired, the accepted passive entry and EFI
+mount options were restored, and the two router captures were stopped.
 
 ### Retina desktop default
 
