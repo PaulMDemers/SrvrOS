@@ -15037,3 +15037,29 @@ underruns. Maximum desktop loop time was 122.742 ms within the existing
 The original 1800-second workload is staged with the same boot options and
 collector requirements. Ubuntu recovery `c35475f62f154f1e` is verified. The
 native run is pending and no one-shot is armed.
+
+Native run `904ed5c5e4ed449c` on release `0e572ed90dbf0f0e` passed the full
+1800-second stress workload at 1% volume and returned to Ubuntu automatically.
+Writable Home admitted both filesystems together. A read-only comparison of
+the collected USB sidecar with the preboot records confirmed all 410 prior
+live inode numbers and no duplicate IDs. The 326 pre-existing files outside
+the rewritten sidecar matched their preboot hashes, and post-return fsck and
+allocation checks passed with zero leaks or FAT/bitmap mismatches.
+
+The trial completed 1,403 app cycles, 5,882 verified 256 KiB disk bursts, and
+all three screenshots in 5.04–7.16 s. The longest desktop loop was 140.077 ms
+within the original 500 ms bound. Playback recorded zero underruns. Final
+directory admission recorded 1,380 calls and 21,042 entries. The collector
+accepted the saved lifecycle, battery retirement and live sidecar equality
+evidence. Both archives verified, and the Ubuntu boot ID matched the run's
+recorded return. The one-shot was consumed and recovery remains available.
+
+### Read-only internal SSD qualification
+
+Starting at `93e10a44` (PR554), qualify the captured Marvell `1b4b:9183`
+controller at `04:00.0` and its APPLE SSD SD0128F. Scope is bounded polling
+AHCI IDENTIFY and read commands, a dedicated early boot profile, and an Ubuntu
+GPT and hash verifier. The native boot records its receipt on the existing USB
+workspace and never mounts the internal disk. Installed-system work in PR550
+and offline image export in PR510 retain their existing paths. The next gate is
+fixture and exact-stage VM coverage, followed by native comparison to Ubuntu.
