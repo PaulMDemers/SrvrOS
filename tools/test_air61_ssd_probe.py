@@ -28,7 +28,46 @@ def fixture(overlap=False):
     return bytes(mbr) + primary + entries, bytes(entries) + backup, bytes(mbr)
 
 
+def reset_trace(release, volume, ready=True):
+    rows = [probe.probe_profile(release, volume, True, True),
+            "air61-ssd-controller: firmware_ghc=0x0000000080000000 firmware_port=1",
+            "air61-ssd-reset: result=ready attempts=1 hold_us=1000 wait_us=321" if ready else
+            "air61-ssd-reset: result=timeout attempts=1 hold_us=1000 wait_us=2000000"]
+    phases = ["firmware", "before-stop", "after-stop", "buffers-programmed", "fis-enabled",
+              "reset-asserted", "reset-released", "reset-return"]
+    if ready:
+        phases.extend(("engine-started", "identify-return"))
+    phases.append("retire-return")
+    for index, phase in enumerate(phases):
+        registers = dict.fromkeys("ghc cmd tfd sig ssts sctl serr is ci sact clb fb".split(), 0)
+        registers.update(ghc=1 << 31, tfd=0x50 if ready and index >= 7 else 0x80,
+                         sig=0x101, ssts=0x133, sctl=0x301 if phase == "reset-asserted" else 0x300,
+                         fb=0x2000 if index >= 3 else 0x1000)
+        values = " ".join(f"{key}=0x{value:016x}" for key, value in registers.items())
+        d2h = 0x00504034 if ready and index >= 7 else 0
+        rows.append(f"air61-ssd-port: phase={phase} port=0 us={index} {values} fis_valid={int(index >= 3)} "
+                    f"pio=0x0000000000000000 d2h=0x{d2h:016x} sdb=0x0000000000000000")
+    return rows
+
+
 class Probe(unittest.TestCase):
+    def test_reset_receipts(self):
+        v2 = boot.limine_config(RELEASE, f"ram-usb-v2-air61-ssd-{VOLUME}")
+        v3 = boot.limine_config(RELEASE, f"ram-usb-v3-air61-ssd-{VOLUME}")
+        self.assertEqual(v3.replace(" srvros.ssd-reset=port0", ""), v2)
+        good = "\n".join(reset_trace(RELEASE, VOLUME))
+        timeout = "\n".join(reset_trace(RELEASE, VOLUME, ready=False))
+        for receipt, status in ((good, "ready"), (timeout, "timeout")):
+            result = probe.read_port_trace(receipt, RELEASE, VOLUME, reset=True)
+            self.assertEqual(result["reset"]["status"], status)
+        for bad in (good.replace("attempts=1", "attempts=2"),
+                    good.replace("hold_us=1000", "hold_us=999"),
+                    good.replace("sctl=0x0000000000000301", "sctl=0x0000000000000300"),
+                    good.replace("d2h=0x0000000000504034", "d2h=0x0000000000000000"),
+                    good.replace("tfd=0x0000000000000050", "tfd=0x0000000000000080")):
+            with self.assertRaises(ValueError):
+                probe.read_port_trace(bad, RELEASE, VOLUME, reset=True)
+
     def test_port_trace_accepts_complete_busy_probe(self):
         version = f"ram-usb-v2-air61-ssd-{VOLUME}"
         config = boot.limine_config(RELEASE, version)

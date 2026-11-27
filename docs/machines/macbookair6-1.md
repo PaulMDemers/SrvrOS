@@ -15103,3 +15103,40 @@ debug data and retains the same entry point and loadable segments, so it fits
 alongside the installed release and recovery. The USB copy of the first probe
 receipt still matches the archive. The next native run has its own receipt,
 Ubuntu baseline and return comparison. It is staged and unarmed.
+
+Native release `e6361b7660adbb2e` saved all eight AHCI snapshots and returned
+automatically. The diagnostic passed and the SSD read probe failed. Firmware
+handed off AHCI enabled with port 0 already busy (`TFD=0x80`). That value stayed
+at every snapshot through engine stop, buffer replacement, receive and command
+engine start, IDENTIFY readiness timeout, and teardown. The link reported
+`SSTS=0x133` throughout. The programmed receive page matched `PxFB`, and all
+three sampled status FIS dwords were zero throughout its ownership. `PxCI` and
+`PxSACT` remained zero. IDENTIFY hit the same two-second pre-submission deadline
+and no native disk sample was read.
+
+Both USB receipts match their archives. Ubuntu validated both GPT copies and
+the three reference hashes matched before and after and across the two trials.
+The internal SSD stayed unmounted in SrvrOS. The one-shot was consumed and the
+installed recovery payload matches its backup. A separate, bounded port-only
+link reset could test whether reinitializing the link produces fresh device
+status and clears the inherited BSY before IDENTIFY. The existing diagnostic
+does not establish the cause of missing device status.
+
+#### Port 0 SATA reset scope
+
+Starting at `54632d47` (PR556), test a single SATA COMRESET on the captured
+Marvell port 0. Scope is the opt-in Air6,1 probe, reset and receipt fixtures,
+and a separate staged boot. Require a stopped command engine, empty command
+and active-slot registers, and the probe-owned FIS page. The SSD stays
+unmounted and command timeouts and the five-second read budget remain in
+place. The first two USB receipts and Ubuntu recovery are kept for comparison.
+
+Source `73283472`, release `5ee3b01c4297be04`, passed AHCI/block, SMBIOS,
+GPT/receipt, stage and documentation tests. The reset fixture covers a single
+pulse, SATA control restoration, fresh status, stuck BSY, a stopped clock and
+unsafe admission. The exact EFI stage refused the foreign VM before AHCI
+access or storage mounting. The compact EFI payload preserves the kernel
+entry point and loadable segments and fits without retiring a release. Both
+earlier USB receipts match their archives. The native reset is staged and
+unarmed. The collector distinguishes a complete reset trace from an accepted
+read-only SSD probe and compares any native samples to the Ubuntu baseline.
