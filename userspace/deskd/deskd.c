@@ -2402,6 +2402,7 @@ int main(int argc,char **argv) {
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int retina_screenshot=argc==2 && !strcmp(argv[1],"--retina-screenshot");
     int retina_trial=retina_screenshot || (argc==2 && !strcmp(argv[1],"--retina-trial"));
+    int ehci_trial=argc==2 && !strcmp(argv[1],"--ehci-trackpad-trial");
     int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
     int navigation_trial=argc==2 && !strcmp(argv[1],"--navigation-trial");
@@ -2414,7 +2415,7 @@ int main(int argc,char **argv) {
     int growth=argc==2 && !strcmp(argv[1],"--window-growth-smoke");
     int multiwindow=growth || (argc==2 && !strcmp(argv[1],"--multiwindow-smoke"));
     int dialog_refusal=argc==2 && !strcmp(argv[1],"--dialog-refusal-test");
-    int apps=session_child || profile_home || choose_profile || apps_trace || dialog_refusal || pool_wait || multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--registry-pressure-test")));
+    int apps=session_child || profile_home || choose_profile || apps_trace || dialog_refusal || pool_wait || multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || ehci_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--registry-pressure-test")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
@@ -2437,7 +2438,7 @@ int main(int argc,char **argv) {
     if(stress_volume<0){ui_puts("audio-io: result=FAIL reason=volume-override\n");return 1;}
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.session_child=session_child,.dynamic=1,.refuse_dialogs=dialog_refusal,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
-        .trace=retina_trial || wifi_trial || pointer_trace || apps_trace || audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && !strcmp(argv[1],"--registry-pressure-test"))};
+        .trace=ehci_trial || retina_trial || wifi_trial || pointer_trace || apps_trace || audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && !strcmp(argv[1],"--registry-pressure-test"))};
     if(profile_home) {
         s.profile=selected_profile;s.home=s.profile.home;
         desk_log("deskd: profile id=%s home=%s credentials=unchanged\n",s.profile.id,s.home);
@@ -2497,6 +2498,7 @@ int main(int argc,char **argv) {
     else if(audio_io || capacity_capture) { /* Launch serially after each rendered admission below. */ }
     else if(navigation_trial) spawn_app(&s,DESK_APP_HELP,"window-navigation-trial");
     else if(lifecycle_trial) spawn_app(&s,DESK_APP_HELP,"lifecycle-trial");
+    else if(ehci_trial) spawn_app(&s,DESK_APP_TEXT,"/fat/share/Trackpad trial.txt");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(battery_work)strcpy(s.scene.notice,"5-minute test: type, save NEW file, reopen, use Files. Keep AC/USB connected.");
@@ -2548,6 +2550,8 @@ int main(int argc,char **argv) {
     struct srv_scheduler_status idle_before={0};
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
+    uint64_t ehci_deadline=ehci_trial?(uint64_t)srv_monotonic_us()+90000000u:0;
+    unsigned ehci_axes=0,ehci_zoom_clicks=0,ehci_pointer_exit=0,ehci_timeout=0;
     uint64_t drag_identity=0,resize_identity=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
     unsigned resize_edges=0;struct desk_rect resize_start={0},resize_last={0},drag_last={0},drag_restore={0};int resize_x=0,resize_y=0,drag_x=0,drag_y=0,drag_placed=0,drag_moved=0;
@@ -2562,6 +2566,10 @@ int main(int argc,char **argv) {
     if(!failed) ui_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
         uint64_t loop_now=(uint64_t)srv_monotonic_us();
+        if(ehci_trial && !s.exiting && loop_now>=ehci_deadline) {
+            ehci_timeout=1;
+            global_menu_action(&s,GLOBAL_EXIT);
+        }
         if(audio_io && (audio_io_pid || audio_io_finished)) {
             uint64_t gap=loop_sample(&loop_last,&loop_max,loop_now);
             loop_trace_end(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
@@ -3033,6 +3041,7 @@ int main(int argc,char **argv) {
              * wheel report must not count as motion or insert client HOVER. */
             int motion=!(e.flags&MOUSE_CANCEL) && ((e.flags&MOUSE_ABSOLUTE)?
                 (x!=previous_x || y!=previous_y):(e.dx || e.dy));
+            if(ehci_trial && motion) ehci_axes|=(x!=previous_x?1u:0u)|(y!=previous_y?2u:0u);
             if(hardware_trial) {
                 long now=srv_monotonic_us();
                 desktop_timing_input(&timing,poll_time,now>0?(uint64_t)now:0,motion);
@@ -3105,6 +3114,7 @@ int main(int argc,char **argv) {
                 struct desk_menu_result result=desk_menu_pointer(&s.scene.menu,(struct desk_widget_event){
                     .type=DESK_WIDGET_POINTER,.x=x,.y=y,.down=(e.buttons&MOUSE_LEFT)!=0,
                     .pressed=(e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT)});
+                if(ehci_trial && result.action==GLOBAL_EXIT) ehci_pointer_exit=1;
                 global_menu_result(&s,result);
                 if(result.consumed) {
                     s.pointer_blocked=(e.buttons&MOUSE_LEFT)!=0;buttons=s.pointer_buttons=e.buttons;
@@ -3131,7 +3141,13 @@ int main(int argc,char **argv) {
                     focus(&s,i); struct desk_rect w=desktop_window_at(&s.scene,i)->frame;
                     unsigned control=desktop_titlebar_hit(w,apps,x,y);
                     if (control==DESKTOP_CLOSE) request_close(&s,i);
-                    else if (control==DESKTOP_MAXIMIZE) { maximize(&s,i);s.pointer_blocked=1; }
+                    else if (control==DESKTOP_MAXIMIZE) {
+                        struct desktop_window *window=desktop_window_at(&s.scene,i);
+                        int was_maximized=window->maximized;
+                        maximize(&s,i);s.pointer_blocked=1;
+                        if(ehci_trial && window->application==DESK_APP_TEXT && was_maximized!=window->maximized)
+                            ehci_zoom_clicks++;
+                    }
                     else if (control==DESKTOP_MINIMIZE) { minimize(&s,i);s.pointer_blocked=1; }
                     else if (edge) { resize=i;resize_identity=session_client(&s,i)->identity;
                         resize_edges=edge;resize_start=resize_last=w;resize_x=x;resize_y=y; }
@@ -3482,7 +3498,7 @@ int main(int argc,char **argv) {
             if(srv_sched_trace(SRV_SCHED_TRACE_BEGIN,&wait->scheduler))loop_trace.invalid++;
             else wait->valid=1;
         }
-        int sleep=!apps || coexist || control_capture || battery_guided || hardware_trial ||
+        int sleep=!apps || coexist || control_capture || battery_guided || hardware_trial || ehci_trial ||
             quit || painted || buttons || drag>=0 || resize>=0 || pending_key || !session_quiescent(&s);
         if(!sleep) {
             if(wait)wait->gui_begin=(uint64_t)srv_monotonic_us();
@@ -3673,6 +3689,11 @@ int main(int argc,char **argv) {
     }
     if(retina_screenshot)desk_log("retina-screenshot: result=%s scale=%u completed=%u\n",
         !failed && s.capture_success?"PASS":"FAIL",session_output_scale(&s),s.capture_finished);
+    if(ehci_trial) {
+        if(ehci_axes!=3 || ehci_zoom_clicks<2 || !ehci_pointer_exit || ehci_timeout || s.child_errors)failed=1;
+        desk_log("ehci-desktop-ui: result=%s axes=%u checklist-zoom-clicks=%u pointer-exit=%u timeout=%u\n",
+            failed?"INCOMPLETE":"PASS",ehci_axes,ehci_zoom_clicks,ehci_pointer_exit,ehci_timeout);
+    }
     desk_log("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
         (unsigned long long)frames,(unsigned long long)bytes);
     return failed?1:s.session_child && s.end_committed?s.end_action:0;

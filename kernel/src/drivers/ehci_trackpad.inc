@@ -235,12 +235,14 @@ static bool trackpad_queue_parked(const volatile struct ehci_trackpad_dma *dma,
         dma->slots[dummy].td.token == EHCI_TD_HALTED;
 }
 
-static const char *retry_trackpad_mode(struct ehci_control_path *path, uint64_t *retry_completed_us) {
+static const char *retry_trackpad_mode(struct ehci_control_path *path, uint64_t *retry_completed_us, bool attended) {
     struct ehci_trackpad_recovery *recovery = &path->report->trackpad.recovery;
     recovery->attempted = true;
     if (!disable_periodic(path) || !schedules_idle(path)) return "queue pause for mode retry failed";
-    console_write("Trackpad mode retry. Repeat the gestures now. You have 60 seconds.\n");
-    console_sync();
+    if (attended) {
+        console_write("Trackpad mode retry. Repeat the gestures now. You have 60 seconds.\n");
+        console_sync();
+    }
 
     /* Match bcm5974's read-modify-write in each direction. The native
      * control helper requires both schedules idle. Keep the periodic QH
@@ -351,7 +353,7 @@ static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_tra
         }
         bool retry = gestures && length == 8 && !capture->reports && !recovery->attempted;
         if (retry) {
-            failure = retry_trackpad_mode(path, &retry_completed_us);
+            failure = retry_trackpad_mode(path, &retry_completed_us, true);
             if (failure) break;
             if (!trackpad_queue_parked(progress, dummy, retired_address, dummy_address)) {
                 failure = "parked queue changed during mode retry";
@@ -379,32 +381,28 @@ static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_tra
     return disable_periodic(path) ? failure : "periodic stop timeout";
 }
 
-static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_list, uint64_t *transfer_page) {
+static const char *configure_trackpad(struct ehci_control_path *path, uint64_t *frame_list,
+    uint64_t *transfer_page, uint64_t *configured_at) {
     struct ehci_probe_report *report = path->report;
     struct ehci_trackpad_capture *capture = &report->trackpad;
-    capture->result = "captured trackpad interfaces unavailable";
-    if (!report->trackpad_target.address) return;
-    capture->result = "captured keyboard interface unavailable for HID replay";
-    if (report->keyboard_target.address != report->trackpad_target.address) return;
+    if (!report->trackpad_target.address) return "captured trackpad interfaces unavailable";
+    if (report->keyboard_target.address != report->trackpad_target.address)
+        return "captured keyboard interface unavailable for HID replay";
     const struct usb_setup_packet configuration = { 0, USB_REQ_SET_CONFIGURATION, 1, 0, 0 };
     unsigned received;
-    uint64_t configured_at;
-    capture->result = "SET_CONFIGURATION failed";
     if (!control_transfer_payload(path, &report->trackpad_target, &configuration, NULL, NULL, &received,
-        &configured_at)) return;
-    capture->result = replay_trackpad_hid(path, configured_at);
-    if (capture->result) return;
-    capture->result = "HID replay feature-read timer failed";
-    if (!wait_trackpad_hid_offset(configured_at, EHCI_TRACKPAD_FEATURE_READ_OFFSET_US)) return;
-    capture->result = "feature mode read failed";
-    capture->configuration_to_feature_read_us = timer_monotonic_us() - configured_at;
-    if (!read_trackpad_mode(path, capture->feature_before)) return;
+        configured_at)) return "SET_CONFIGURATION failed";
+    const char *failure = replay_trackpad_hid(path, *configured_at);
+    if (failure) return failure;
+    if (!wait_trackpad_hid_offset(*configured_at, EHCI_TRACKPAD_FEATURE_READ_OFFSET_US))
+        return "HID replay feature-read timer failed";
+    capture->configuration_to_feature_read_us = timer_monotonic_us() - *configured_at;
+    if (!read_trackpad_mode(path, capture->feature_before)) return "feature mode read failed";
     capture->mode_before_read = true;
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {
         if (physical) pmm_free_frame(physical);
-        capture->result = "trackpad interrupt DMA unavailable";
-        return;
+        return "trackpad interrupt DMA unavailable";
     }
     *transfer_page = physical;
     struct ehci_trackpad_dma *dma = pmm_phys_to_virt(physical);
@@ -413,17 +411,41 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
     capture->qh_capabilities = dma->qh.capabilities;
     capture->first_td = dma->qh.overlay.next;
     uint32_t qh = (uint32_t)physical + offsetof(struct ehci_trackpad_dma, qh);
-    capture->result = configure_periodic_frames(path, &trackpad_endpoint, qh, frame_list);
+    return configure_periodic_frames(path, &trackpad_endpoint, qh, frame_list);
+}
+
+static bool select_trackpad_wellspring(struct ehci_control_path *path, uint64_t *completed_us) {
+    struct ehci_trackpad_capture *capture = &path->report->trackpad;
+    for (unsigned i = 0; i < sizeof(capture->feature_write); i++) capture->feature_write[i] = capture->feature_before[i];
+    capture->feature_write[0] = EHCI_TRACKPAD_WELLSPRING_MODE;
+    capture->mode_write_attempted = true;
+    return write_trackpad_mode(path, capture->feature_write, completed_us);
+}
+
+static bool restore_trackpad_mode(struct ehci_control_path *path) {
+    struct ehci_trackpad_capture *capture = &path->report->trackpad;
+    capture->mode_restore_read = write_trackpad_mode(path, capture->feature_before, NULL) &&
+        read_trackpad_mode(path, capture->feature_restored);
+    capture->mode_restored = capture->mode_restore_read &&
+        trackpad_report_word(capture->feature_restored) == trackpad_report_word(capture->feature_before);
+    return capture->mode_restored;
+}
+
+static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_list, uint64_t *transfer_page) {
+    struct ehci_probe_report *report = path->report;
+    struct ehci_trackpad_capture *capture = &report->trackpad;
+    uint64_t configured_at;
+    capture->result = configure_trackpad(path, frame_list, transfer_page, &configured_at);
     if (capture->result) return;
+    uint32_t physical = (uint32_t)*transfer_page;
+    struct ehci_trackpad_dma *dma = pmm_phys_to_virt(physical);
+    uint32_t qh = physical + offsetof(struct ehci_trackpad_dma, qh);
 
     console_set_framebuffer_muted(false);
     console_write("Trackpad capture starting. Start the checklist now. You have 60 seconds.\n");
     console_sync();
-    for (unsigned i = 0; i < sizeof(capture->feature_write); i++) capture->feature_write[i] = capture->feature_before[i];
-    capture->feature_write[0] = EHCI_TRACKPAD_WELLSPRING_MODE;
-    capture->mode_write_attempted = true;
     uint64_t mode_completed_us;
-    if (write_trackpad_mode(path, capture->feature_write, &mode_completed_us)) {
+    if (select_trackpad_wellspring(path, &mode_completed_us)) {
         capture->result = poll_trackpad(path, dma, &trackpad_endpoint, mode_completed_us);
         capture->configuration_to_mode_us = mode_completed_us - configured_at;
         if (schedules_idle(path) && read_trackpad_mode(path, capture->feature_after)) {
@@ -440,8 +462,5 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
             capture->mouse_result = poll_trackpad(path, dma, &trackpad_mouse_endpoint, mode_completed_us);
         }
     } else capture->result = "feature mode write failed";
-    capture->mode_restore_read = write_trackpad_mode(path, capture->feature_before, NULL) &&
-        read_trackpad_mode(path, capture->feature_restored);
-    capture->mode_restored = capture->mode_restore_read &&
-        trackpad_report_word(capture->feature_restored) == trackpad_report_word(capture->feature_before);
+    restore_trackpad_mode(path);
 }

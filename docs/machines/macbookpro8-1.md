@@ -103,8 +103,8 @@ The desktop trackpad block starts at `ea08f5c9` on base `61111819`.
 `origin/main` at `93e10a44` and the open device scopes have no overlapping
 EHCI input work. The captured topcase will feed the existing desktop mouse
 queue from a resident EHCI worker and reuse the verified Wellspring recovery.
-The attended boot will open a pointer and physical click checklist in the
-regular compositor. After the desktop exits, it will retire the topcase
+The attended boot will open a pointer and physical click checklist in Text
+in the regular compositor. After the desktop exits, it will retire the topcase
 controller and save the release-bound report through the separate flash
 controller. Scope is EHCI trackpad ownership, the boot profile and desktop
 checklist. The checkpoint is exact-stage VM rehearsal and native acceptance

@@ -1,0 +1,198 @@
+/* The captured internal endpoint is owned by one kernel I/O worker. */
+static enum ehci_monitor_state desktop_trackpad_state(void *arg) {
+    (void)arg;
+    return __atomic_load_n(&desktop_trackpad.state, __ATOMIC_ACQUIRE);
+}
+
+static bool desktop_trackpad_eligible(void *arg) {
+    enum ehci_monitor_state state = desktop_trackpad_state(arg);
+    return state == EHCI_MONITOR_RUNNING || state == EHCI_MONITOR_STOPPING;
+}
+
+static bool desktop_trackpad_due(void *arg) {
+    return desktop_trackpad_state(NULL) != EHCI_MONITOR_RUNNING || timer_ticks() >= *(const uint64_t *)arg;
+}
+
+static bool release_desktop_trackpad(void) {
+    struct ehci_desktop_trackpad *session = &desktop_trackpad;
+    struct ehci_control_path *path = &session->path;
+    if (!disable_periodic(path) || !schedules_idle(path) || !restore_trackpad_mode(path)) {
+        if (!session->failure) session->failure = "feature mode restoration failed";
+    }
+    if (!retire_control_path(session->device, path->op, true)) return false;
+    __asm__ volatile ("mfence" : : : "memory");
+    pmm_free_frame(path->physical);
+    pmm_free_frame(session->frame_list);
+    pmm_free_frame(session->transfer_page);
+    bool restored = set_command_bits(session->device, PCI_COMMAND_MEMORY, session->memory_command);
+
+    /* These are non-global kernel pages. The I/O worker runs on the kernel
+     * root, and user roots share the high-half tables. Unpublish with local
+     * interrupts disabled after the controller has stopped touching DMA. */
+    uint64_t flags, removed;
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    bool unmapped = vmm_unmap_page_in_space(session->root, EHCI_MMIO_WINDOW, &removed) && removed == session->page;
+    if (flags & (1u << 9)) __asm__ volatile ("sti" : : : "memory");
+    return restored && unmapped;
+}
+
+static void desktop_trackpad_pointer(struct trackpad_pointer *pointer, const struct apple_trackpad_frame *frame) {
+    struct trackpad_motion motion;
+    unsigned speed, options;
+    mouse_trackpad_get_settings(&speed, &options);
+    uint8_t previous = pointer->buttons;
+    if (!trackpad_pointer_configured(pointer, frame, false, false, timer_monotonic_us(), speed, options, &motion))
+        return;
+    if (previous && motion.palm_suppressed) {
+        mouse_cancel_trackpad();
+        return;
+    }
+    mouse_inject_trackpad(motion.dx, motion.dy, motion.buttons);
+    desktop_trackpad.motion += motion.dx != 0 || motion.dy != 0;
+    if (motion.buttons != previous) {
+        if (motion.buttons & 1u) desktop_trackpad.presses++;
+        else if (previous & 1u) desktop_trackpad.releases++;
+    }
+}
+
+static void cancel_desktop_pointer(struct trackpad_pointer *pointer) {
+    struct trackpad_motion motion;
+    if (trackpad_pointer_cancel(pointer, &motion)) mouse_cancel_trackpad();
+}
+
+static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct ehci_trackpad_dma *dma,
+    struct trackpad_pointer *pointer, unsigned *slot, uint64_t *last_report) {
+    const volatile struct ehci_trackpad_dma *progress = dma;
+    uint32_t token = progress->slots[*slot].td.token;
+    uint32_t status = path->op[EHCI_USBSTS];
+    if ((token & EHCI_TD_ERROR) || (status & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR)) ||
+        !(status & EHCI_STS_PERIODIC) || !(path->op[EHCI_PORTSC] & EHCI_PORT_CONNECTED))
+        return "interrupt queue stopped";
+    if (token & EHCI_TD_ACTIVE) {
+        if (pointer->buttons && timer_monotonic_us() - *last_report >= 1000000u) cancel_desktop_pointer(pointer);
+        return NULL;
+    }
+
+    unsigned residual = (token >> EHCI_TD_BYTES_SHIFT) & EHCI_TD_BYTES_MASK;
+    if (residual > trackpad_endpoint.length) return "invalid interrupt residual";
+    __asm__ volatile ("mfence" : : : "memory");
+    unsigned length = trackpad_endpoint.length - residual;
+    struct ehci_trackpad_capture *capture = &path->report->trackpad;
+    unsigned next = *slot ^ 1u;
+    uint32_t retired = capture->first_td + *slot * sizeof(dma->slots[0]);
+    uint32_t dummy = capture->first_td + next * sizeof(dma->slots[0]);
+    if (!trackpad_queue_parked(progress, next, retired, dummy)) return "queue did not park at the inactive dummy";
+    const uint8_t *data = dma->slots[*slot].data;
+    struct apple_trackpad_frame frame;
+    int decoded = apple_trackpad_decode_type(EHCI_TRACKPAD_TYPE, data, length, &frame);
+    bool retry = decoded < 0 && length == 8 && !desktop_trackpad.reports && !capture->recovery.attempted;
+    uint64_t retry_completed = 0;
+    if (retry) {
+        capture->last_eight_byte_sample = trackpad_report_word(data);
+        const char *failure = retry_trackpad_mode(path, &retry_completed, false);
+        if (failure) return failure;
+        if (!trackpad_queue_parked(progress, next, retired, dummy)) return "parked queue changed during mode retry";
+    } else if (decoded > 0) {
+        desktop_trackpad.reports++;
+        *last_report = timer_monotonic_us();
+        desktop_trackpad_pointer(pointer, &frame);
+    } else if (decoded < 0) {
+        desktop_trackpad.malformed++;
+        cancel_desktop_pointer(pointer);
+    } else desktop_trackpad.ignored++;
+
+    park_trackpad_qtd(&dma->slots[*slot].td);
+    publish_trackpad_qtd(&dma->slots[next].td, retired,
+        dummy + offsetof(struct ehci_trackpad_slot, data), trackpad_endpoint.length);
+    *slot = next;
+    if (retry) {
+        if (!enable_periodic(path)) return "periodic resume after mode retry failed";
+        capture->recovery.resumed = true;
+        capture->recovery.mode_to_active_us = timer_monotonic_us() - retry_completed;
+    }
+    return NULL;
+}
+
+static void desktop_trackpad_worker(void *arg) {
+    struct ehci_control_path *path = arg;
+    struct ehci_trackpad_dma *dma = pmm_phys_to_virt(desktop_trackpad.transfer_page);
+    struct trackpad_pointer pointer = {0};
+    struct scheduler_wait_queue wake = {0};
+    unsigned slot = 0;
+    uint64_t last_report = 0;
+    while (desktop_trackpad_state(NULL) == EHCI_MONITOR_RUNNING) {
+        desktop_trackpad.failure = desktop_trackpad_poll(path, dma, &pointer, &slot, &last_report);
+        if (desktop_trackpad.failure) break;
+        uint64_t due = timer_ticks() + 1;
+        if (!scheduler_wait_timeout(&wake, desktop_trackpad_due, &due, due)) scheduler_yield();
+    }
+    cancel_desktop_pointer(&pointer);
+    bool released = release_desktop_trackpad();
+    __atomic_store_n(&desktop_trackpad.state, released ? EHCI_MONITOR_RELEASED : EHCI_MONITOR_UNSAFE,
+        __ATOMIC_RELEASE);
+}
+
+bool ehci_desktop_trackpad_start(void) {
+    uint64_t root = vmm_kernel_address_space();
+    if (desktop_trackpad_state(NULL) != EHCI_MONITOR_UNUSED || !timer_reference_ready() ||
+        !vmm_diagnostic_sole_kernel_root(root)) return false;
+    const struct pci_device *device = captured_topcase_controller();
+    if (!device) {
+        console_write("ehci-desktop: captured trackpad controller absent\n");
+        return false;
+    }
+    struct ehci_probe_report *report = &desktop_trackpad.report;
+    bool reusable = probe_controller(device, root, EHCI_BOOT_DESKTOP_TRACKPAD, report, 0, NULL);
+    if (!desktop_trackpad.frame_list) {
+        if (!reusable || (report->reset_halted && !report->access_retired))
+            desktop_trackpad.state = EHCI_MONITOR_UNSAFE;
+        const char *reason = desktop_trackpad.failure ? desktop_trackpad.failure :
+            report->stopped.operation ? report->stopped.operation : report->result;
+        console_printf("ehci-desktop: trackpad unavailable (%s)\n", reason);
+        log_transfer_failure(&report->transfer_failure);
+        return false;
+    }
+    desktop_trackpad.state = EHCI_MONITOR_RUNNING;
+    if (!scheduler_spawn_io_service("ehci-trackpad", desktop_trackpad_worker, &desktop_trackpad.path,
+            desktop_trackpad_eligible)) {
+        desktop_trackpad.failure = "trackpad worker could not start";
+        desktop_trackpad.state = release_desktop_trackpad() ? EHCI_MONITOR_RELEASED : EHCI_MONITOR_UNSAFE;
+        return false;
+    }
+    console_printf("ehci-desktop: trackpad ready endpoint=0x81 interval-ms=1 address=%u active-us=%u\n",
+        (uint64_t)report->trackpad_target.address, report->trackpad.mode_to_active_us);
+    return true;
+}
+
+bool ehci_desktop_trackpad_stop(void) {
+    enum ehci_monitor_state state = desktop_trackpad_state(NULL);
+    if (state == EHCI_MONITOR_UNUSED) return true;
+    state = EHCI_MONITOR_RUNNING;
+    __atomic_compare_exchange_n(&desktop_trackpad.state, &state, EHCI_MONITOR_STOPPING,
+        false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+    uint64_t start = timer_monotonic_us();
+    while ((state = desktop_trackpad_state(NULL)) == EHCI_MONITOR_STOPPING && timer_monotonic_us() - start < 1000000u)
+        scheduler_yield();
+    if (state == EHCI_MONITOR_STOPPING) {
+        console_write("ehci-desktop: trackpad retirement timed out\n");
+        return false;
+    }
+
+    const struct ehci_trackpad_capture *capture = &desktop_trackpad.report.trackpad;
+    const struct ehci_trackpad_recovery *recovery = &capture->recovery;
+    if (recovery->attempted) console_printf(
+        "ehci-desktop: trigger=%x normal=%x retry=%x waited-us=%u switch-us=%u resumed=%u\n",
+        capture->last_eight_byte_sample, trackpad_report_word(recovery->normal), trackpad_report_word(recovery->wellspring),
+        recovery->waited_us, recovery->switch_us, (uint64_t)recovery->resumed);
+    console_printf("ehci-desktop: reports=%u ignored=%u malformed=%u motion=%u presses=%u releases=%u mode=%s cleanup=%s error=%s\n",
+        (uint64_t)desktop_trackpad.reports, (uint64_t)desktop_trackpad.ignored, (uint64_t)desktop_trackpad.malformed,
+        (uint64_t)desktop_trackpad.motion, (uint64_t)desktop_trackpad.presses, (uint64_t)desktop_trackpad.releases,
+        capture->mode_restored ? "restored" : "unverified", state == EHCI_MONITOR_RELEASED ? "released" : "unverified",
+        desktop_trackpad.failure ? desktop_trackpad.failure : "none");
+    return state == EHCI_MONITOR_RELEASED;
+}
+
+bool ehci_desktop_trackpad_verified(void) {
+    return desktop_trackpad_state(NULL) == EHCI_MONITOR_RELEASED && !desktop_trackpad.failure &&
+        !desktop_trackpad.malformed && desktop_trackpad.motion && desktop_trackpad.presses && desktop_trackpad.releases;
+}

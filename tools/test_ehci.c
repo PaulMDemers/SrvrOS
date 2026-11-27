@@ -39,8 +39,27 @@ static uint64_t now;
 static unsigned freed_monitor_frames, unmapped_monitor_windows;
 static struct ehci_flash_io *mock_bulk;
 static bool mock_bulk_timeout;
+static unsigned injected_trackpad_events;
+static int32_t trackpad_dx, trackpad_dy;
+static uint8_t trackpad_buttons;
 
 void console_write(const char *message) { assert(message); }
+
+void mouse_trackpad_get_settings(unsigned *speed, unsigned *options) {
+    *speed = 3;
+    *options = 0;
+}
+
+void mouse_inject_trackpad(int32_t dx, int32_t dy, uint8_t buttons) {
+    injected_trackpad_events++;
+    trackpad_dx = dx;
+    trackpad_dy = dy;
+    trackpad_buttons = buttons;
+}
+
+void mouse_cancel_trackpad(void) {
+    trackpad_buttons = 0;
+}
 
 void console_set_framebuffer_muted(bool muted) { assert(!muted); }
 
@@ -843,6 +862,44 @@ static void test_trackpad_mode_retry(void) {
     }
 }
 
+static void test_desktop_trackpad_input(void) {
+    fixture_reset();
+    desktop_trackpad = (struct ehci_desktop_trackpad){0};
+    struct ehci_probe_report *report = &desktop_trackpad.report;
+    struct ehci_control_path path = { .op = op, .report = report };
+    const struct ehci_control_target target = { .address = 3, .packet_size = 8, .tt_hub = 1, .tt_port = 2 };
+    struct ehci_trackpad_dma queue;
+    struct trackpad_pointer pointer = {0};
+    unsigned slot = 0;
+    uint64_t last_report = 0;
+    prepare_trackpad_queue(&queue, 0xa000, &target, &trackpad_endpoint);
+    report->trackpad.first_td = queue.qh.overlay.next;
+    op[EHCI_USBCMD] = EHCI_CMD_RUN | EHCI_CMD_PERIODIC;
+    op[EHCI_USBSTS] = EHCI_STS_PERIODIC;
+    op[EHCI_PORTSC] = EHCI_PORT_CONNECTED;
+    assert(!desktop_trackpad_poll(&path, &queue, &pointer, &slot, &last_report));
+    assert(slot == 0 && !desktop_trackpad.reports);
+
+    for (unsigned request = 0; request < 4; request++) {
+        struct ehci_trackpad_slot *active = &queue.slots[slot];
+        assert(active->td.token & EHCI_TD_ACTIVE);
+        const uint8_t report_bytes[58] = {0x74, [15] = request == 2, [32] = 64 * request,
+            [34] = 48 * request, [46] = 5};
+        memcpy(active->data, report_bytes, sizeof(report_bytes));
+        active->td.token = ((trackpad_endpoint.length - sizeof(report_bytes)) << EHCI_TD_BYTES_SHIFT) |
+            EHCI_TD_PID_IN | EHCI_TD_RETRIES | EHCI_TD_IOC;
+        queue.qh.current = queue.qh.overlay.next;
+        queue.qh.overlay.next = active->td.next;
+        queue.qh.overlay.token = active->td.token;
+        now += 8000;
+        assert(!desktop_trackpad_poll(&path, &queue, &pointer, &slot, &last_report));
+        assert(trackpad_buttons == (request == 2 ? 1 : 0));
+        if (request == 1) assert(trackpad_dx > 0 && trackpad_dy < 0);
+    }
+    assert(desktop_trackpad.reports == 4 && desktop_trackpad.motion && injected_trackpad_events >= 3);
+    assert(desktop_trackpad.presses == 1 && desktop_trackpad.releases == 1);
+}
+
 static void test_flash_bulk(void) {
     fixture_reset();
     uint8_t config[] = {9, 2, 32, 0, 1, 1, 0, 0x80, 50,
@@ -930,6 +987,7 @@ int main(void) {
     test_captured_keyboard_interface();
     test_trackpad_capture();
     test_trackpad_mode_retry();
+    test_desktop_trackpad_input();
     test_flash_bulk();
     test_native_trial_result();
     puts("EHCI host tests passed");

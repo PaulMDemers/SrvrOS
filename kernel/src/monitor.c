@@ -1142,7 +1142,7 @@ static void run_command(char *line) {
             console_write("reboot: workspace could not be unmounted\n");
         } else if (process_file_sync_all() < 0 || !block_flush_all()) {
             console_write("reboot: storage flush failed\n");
-        } else if (ehci_monitor_stop()) {
+        } else if (ehci_desktop_trackpad_stop() && ehci_monitor_stop()) {
             arch_reboot();
         }
     } else if (streq(command, "fsck")) {

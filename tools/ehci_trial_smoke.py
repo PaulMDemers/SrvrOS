@@ -11,6 +11,7 @@ from threading import Thread
 import time
 
 import hardware_boot as boot
+from desktop_foundation_smoke import QMP
 from ehci_hub_fixture import HubFixture
 from hardware_boot_smoke import make_disk, wait_for
 from uefi_usb_smoke import default_ovmf_path, has_fatal_exception, qmp_command
@@ -120,6 +121,53 @@ def exercise_trackpad(command, temp, logs, release, log_volume):
         assert marker not in first, marker
 
 
+def exercise_desktop(command, temp, logs, release, log_volume):
+    serial = logs / "trial-serial.log"
+    serial.unlink(missing_ok=True)
+    qmp = temp / "qmp.sock"
+    command = [arg.replace("i8042=off", "i8042=on") for arg in command]
+    command += ["-qmp", f"unix:{qmp},server=on,wait=off", "-serial", f"file:{serial}"]
+    geometry = r"deskd: geometry pid=\d+ window=\d+ frame=(\d+),(\d+),(\d+),(\d+)"
+    zoom = r"deskd: zoom pid=\d+ maximized=1 frame=(\d+),(\d+),(\d+),(\d+)"
+    with (logs / "trial-qemu.log").open("wb") as errors:
+        with subprocess.Popen(command, stdout=errors, stderr=errors) as vm:
+            try:
+                first = wait_for(serial, lambda s: re.search(geometry, s), vm, 90)
+                for marker in ("SRVROS_VM_NEXT_ENTRY_CONSUMED", "ehci-desktop: captured trackpad controller absent",
+                               f"srvros.ehci=trackpad-desktop srvros.ehci-release={release} srvros.ehci-log-volume={log_volume}",
+                               "deskd: display physical=1280x800 logical=1280x800 scale=1", "input: ps2_keyboard=yes ps2_mouse=yes"):
+                    assert marker in first, marker
+                ui = QMP(qmp)
+                time.sleep(1)
+                ui.call("screendump", {"filename": str(logs / "vm-screen.ppm")})
+                pointer = [24, 56]
+
+                def click(x, y):
+                    ui.mouse(x - pointer[0], y - pointer[1]); pointer[:] = [x, y]
+                    ui.mouse(0, 0, 1)
+                    ui.mouse(0, 0, 0)
+
+                x, y, width, _ = map(int, re.search(geometry, first).groups())
+                click(x + width - 56, y + 20)
+                resized = wait_for(serial, lambda s: re.search(zoom, s), vm, 15)
+                x, y, width, _ = map(int, re.search(zoom, resized).groups())
+                click(x + width - 56, y + 20)
+                wait_for(serial, lambda s: "maximized=0 frame=" in s, vm, 15)
+                click(33, 20)  # SrvrOS menu.
+                click(89, 462)  # Return to console, after the separator and disabled profile rows.
+                final = wait_for(serial, lambda s: "USB report save could not be verified." in s, vm, 15)
+                for marker in ("ehci-desktop-ui: result=PASS axes=3 checklist-zoom-clicks=2 pointer-exit=1 timeout=0",
+                               f"ehci-desktop: release={release} result=INCOMPLETE desktop=passed retirement=safe",
+                               "ehci-log: captured flash controller absent"):
+                    assert marker in final, marker
+                assert not has_fatal_exception(final)
+                ui.sock.close()
+            finally:
+                if vm.poll() is None:
+                    vm.kill()
+                    vm.wait()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("release", help="exact staged EHCI trial release")
@@ -134,15 +182,16 @@ def main():
     manifest = boot.verify(source, release)
     version = manifest["config_version"]
     log_match = boot.EHCI_TRACKPAD_LOG_RE.fullmatch(version)
-    log_volume = log_match[1] if log_match else None
+    desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
+    log_volume = (log_match or desktop_match)[1] if log_match or desktop_match else None
     if version not in boot.EHCI_TRIAL_VERSIONS and not log_volume:
         parser.error("expected an attended EHCI trial stage")
     keyboard_trial = version == boot.EHCI_KEYBOARD_VERSION
     keyboard_monitor = version == boot.EHCI_MONITOR_VERSION
-    trackpad_trial = version == boot.EHCI_TRACKPAD_VERSION or bool(log_volume)
-    if (keyboard_monitor or trackpad_trial) and args.stall_hub_status:
+    trackpad_trial = version == boot.EHCI_TRACKPAD_VERSION or bool(log_match)
+    if (keyboard_monitor or trackpad_trial or desktop_match) and args.stall_hub_status:
         parser.error("the emulated hub is for the split and typing trials")
-    mode = "trackpad-trial" if log_volume else boot.EHCI_TRIAL_MODES[version]
+    mode = "trackpad-desktop" if desktop_match else "trackpad-trial" if log_match else boot.EHCI_TRIAL_MODES[version]
     logs = boot.ROOT / "build/review" / f"macbookpro8-1-ehci-trial-{release}"
     if args.stall_hub_status:
         logs /= "hub-status-stall"
@@ -200,6 +249,8 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
 
         if keyboard_monitor:
             exercise_monitor(command.copy(), temp, logs, release)
+        elif desktop_match:
+            exercise_desktop(command, temp, logs, release, log_volume)
         elif trackpad_trial:
             exercise_trackpad(command, temp, logs, release, log_volume)
         else:
@@ -217,6 +268,8 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
                   on_screen_checklist="vm-screen.ppm", grub_next_entry="", ubuntu_default_fixture=True)
     if keyboard_monitor:
         result.update(monitor_input="serial", case_echo=True, history_edit=True, monitor_reboot=True)
+    elif desktop_match:
+        result.update(guest_trial_result="INCOMPLETE", desktop_ui="PASS", vm_mouse="PS/2")
     elif trackpad_trial:
         result.update(guest_trial_result="INCOMPLETE", unrelated_controller_skipped=True, trackpad_reports=0)
     else:

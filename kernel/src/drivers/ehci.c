@@ -4,10 +4,12 @@
 #include <srvros/console.h>
 #include <srvros/ehci_enumeration.h>
 #include <srvros/keyboard.h>
+#include <srvros/mouse.h>
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
 #include <srvros/scheduler.h>
 #include <srvros/timer.h>
+#include <srvros/trackpad_pointer.h>
 #include <srvros/usb_storage.h>
 #include <srvros/vfs.h>
 #include <srvros/vmm.h>
@@ -277,6 +279,17 @@ static struct ehci_monitor_session {
     uint16_t memory_command;
     enum ehci_monitor_state state;
 } monitor_session;
+
+static struct ehci_desktop_trackpad {
+    struct ehci_probe_report report;
+    struct ehci_control_path path;
+    const struct pci_device *device;
+    uint64_t frame_list, transfer_page, root, page;
+    uint16_t memory_command;
+    enum ehci_monitor_state state;
+    unsigned reports, ignored, malformed, motion, presses, releases;
+    const char *failure;
+} desktop_trackpad;
 
 static bool set_command_bits(const struct pci_device *device, uint16_t mask, uint16_t bits) {
     uint16_t command = pci_read_config16(device, PCI_COMMAND);
@@ -643,6 +656,7 @@ static void track_trial_device(void *context, const struct ehci_control_target *
 static void enumerate_controller(const struct pci_device *device, volatile uint32_t *op,
     struct ehci_probe_report *report, enum ehci_boot_mode mode, int trial_slot, const char *keyboard_release) {
     bool keep_keyboard = mode == EHCI_BOOT_KEYBOARD_MONITOR;
+    bool keep_trackpad = mode == EHCI_BOOT_DESKTOP_TRACKPAD;
     bool split = mode != EHCI_BOOT_ENUMERATE;
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {
@@ -655,7 +669,7 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
     struct ehci_control_path path = { .op = op, .dma = pmm_phys_to_virt(physical), .physical = (uint32_t)physical,
         .report = report, .trial_slot = trial_slot };
     struct ehci_enumeration bus = { .control = control_transfer, .context = &path, .split = split,
-        .trackpad_multi_tt = mode == EHCI_BOOT_TRACKPAD_TRIAL,
+        .trackpad_multi_tt = mode == EHCI_BOOT_TRACKPAD_TRIAL || keep_trackpad,
         .device_found = trial_slot >= 0 ? track_trial_device : 0, .step = { .operation = "configure DMA and bus mastering" } };
     path.scan = &bus.step;
     *path.dma = (struct ehci_dma) { .qh = { .link = EHCI_LINK_END,
@@ -690,6 +704,25 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
             monitor_session.frame_list = frame_list;
             return;
         }
+    } else if (complete && keep_trackpad) {
+        uint64_t configured_at, mode_completed_at;
+        desktop_trackpad.failure = configure_trackpad(&path, &frame_list, &transfer_page, &configured_at);
+        if (!desktop_trackpad.failure) {
+            if (!select_trackpad_wellspring(&path, &mode_completed_at)) {
+                desktop_trackpad.failure = "feature mode write failed";
+            } else if (!enable_periodic(&path)) {
+                desktop_trackpad.failure = "periodic enable timeout";
+            } else {
+                report->trackpad.mode_to_active_us = timer_monotonic_us() - mode_completed_at;
+                report->enumerated = true;
+                path.scan = NULL;
+                desktop_trackpad.path = path;
+                desktop_trackpad.frame_list = frame_list;
+                desktop_trackpad.transfer_page = transfer_page;
+                return;
+            }
+            if (disable_periodic(&path) && schedules_idle(&path)) restore_trackpad_mode(&path);
+        }
     } else if (complete && mode == EHCI_BOOT_TRACKPAD_TRIAL) {
         run_trackpad_trial(&path, &frame_list, &transfer_page);
     } else if (complete && mode == EHCI_BOOT_USB_LOG) {
@@ -706,6 +739,7 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
     report->enumerated = complete;
     report->dma_released = retired;
     if (keep_keyboard && !retired) monitor_session.state = EHCI_MONITOR_UNSAFE;
+    if (keep_trackpad && !retired) desktop_trackpad.state = EHCI_MONITOR_UNSAFE;
     if (retired) {
         __asm__ volatile ("mfence" : : : "memory");
         pmm_free_frame(physical);
@@ -807,6 +841,13 @@ static bool probe_controller(const struct pci_device *device, uint64_t root, enu
                 monitor_session.memory_command = command & PCI_COMMAND_MEMORY;
                 return false; /* The worker now owns the window. */
             }
+            if (mode == EHCI_BOOT_DESKTOP_TRACKPAD && desktop_trackpad.frame_list) {
+                desktop_trackpad.device = device;
+                desktop_trackpad.root = root;
+                desktop_trackpad.page = page;
+                desktop_trackpad.memory_command = command & PCI_COMMAND_MEMORY;
+                return false;
+            }
         }
     } else {
         report->result = "memory-decode-failed";
@@ -855,6 +896,8 @@ static void log_transfer_failure(const struct ehci_transfer_failure *failure) {
         (uint64_t)failure->usbsts, (uint64_t)failure->setup_token, (uint64_t)failure->data_token,
         (uint64_t)failure->status_token);
 }
+
+#include "ehci_desktop.inc"
 
 static enum ehci_monitor_state monitor_state(void) {
     return __atomic_load_n(&monitor_session.state, __ATOMIC_ACQUIRE);
@@ -1066,7 +1109,10 @@ static void print_scan_stop(const struct ehci_probe_report *report) {
 }
 
 static bool save_trackpad_log(uint64_t root, const char *release, const char *volume) {
-    if (!timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root)) return false;
+    if (!timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root)) {
+        console_write("ehci-log: timer or address-space ownership unavailable\n");
+        return false;
+    }
     for (uint64_t i = 0; i < pci_device_count(); i++) {
         const struct pci_device *device = pci_device_at(i);
         if (!ehci_usb_controller(device) || trial_controller_slot(device) != 1) continue;
@@ -1079,6 +1125,12 @@ static bool save_trackpad_log(uint64_t root, const char *release, const char *vo
     }
     console_write("ehci-log: captured flash controller absent\n");
     return false;
+}
+
+bool ehci_desktop_trackpad_save(const char *release, const char *volume) {
+    enum ehci_monitor_state state = desktop_trackpad_state(NULL);
+    if (state != EHCI_MONITOR_UNUSED && state != EHCI_MONITOR_RELEASED) return false;
+    return save_trackpad_log(vmm_kernel_address_space(), release, volume);
 }
 
 static void print_trackpad_arm_timing(const struct ehci_trackpad_capture *capture) {
