@@ -5,7 +5,8 @@
 enum { PARK_CTL = 0xa090, PARK_STATE = 0xa094, PARK_RC6 = 4u << 16,
        PARK_AUTO = 0x90040000, PARK_POLLS = 8, PARK_WORDS = 24,
        PARK_INTERVAL_US = BDW_TRAFFIC_BLOCK_US / PARK_POLLS,
-       PARK_COLD_END_US = 5000, PARK_COLD_FIRST_POLL = 6 };
+       PARK_COLD_END_US = 5000, PARK_COLD_FIRST_POLL = 6,
+       PARK_VCS1 = 3, PARK_MAX_IDLE = 10, PARK_VCS1_INHERITED = 64 };
 enum park_op { PARK_OPEN, PARK_POLL, PARK_HELD, PARK_REOPEN };
 enum park_rc6_failure {
     PARK_RC6_OK, PARK_RC6_START, PARK_RC6_ENTER, PARK_RC6_BEFORE_READ,
@@ -30,6 +31,10 @@ static struct {
     struct park_rc6_timing cold_timing[2];
     uint64_t rewake_us;
     uint64_t guard_entry_us, guard_release_us, guard_rewake_us;
+    struct {
+        uint64_t apply_us, restore_us;
+        uint32_t saved, applied, at_return, restored;
+    } vcs1;
     uint32_t smi_last;
     unsigned smi_checks, panel_checks, guard_live, guard_fallback;
     uint32_t plane, surface, live;
@@ -41,6 +46,15 @@ static bool park_cold_trial(void)
 {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
     return intel_display_test_park_cold_trial();
+#else
+    return true;
+#endif
+}
+
+static bool park_vcs1_trial(void)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_park_vcs1_trial();
 #else
     return true;
 #endif
@@ -308,6 +322,54 @@ static bool park_store(unsigned i, uint32_t value, uint32_t *readback)
     return *readback == value;
 }
 
+static bool park_vcs1_port(void)
+{
+    struct wake_adapter *a = air_park.adapter;
+    if (!park_owner(a,air_park.owner) || !bootstrap_guard() || !park_pci_inhibited(a) ||
+        !park_panel_bound() || (gt_bootstrap_native.engine_ro_mask & (1u << PARK_VCS1)) ||
+        !air_idle_port(a,PARK_VCS1) || !bootstrap_smi.reads || bootstrap_smi.fault) return false;
+    if (bootstrap_smi_count(BOOT_SMI_PARK) == bootstrap_smi.first) return true;
+    a->uncertain = true;
+    return false;
+}
+
+/* Change only the engine whose inherited limit differs from the known Air
+ * baseline. The existing park clock starts after the two park policy stores. */
+static bool park_vcs1_apply(void)
+{
+    static const uint32_t expected[] = {PARK_MAX_IDLE, PARK_MAX_IDLE, PARK_MAX_IDLE,
+                                        PARK_VCS1_INHERITED, PARK_MAX_IDLE};
+    if (!park_vcs1_trial()) return true;
+    if (!gt_idle_samples[0].end ||
+        memcmp(gt_idle_samples[0].words + 4,expected,sizeof(expected)) || !park_vcs1_port()) return false;
+    uint32_t saved = air_idle_load(PARK_VCS1);
+    if (saved != PARK_VCS1_INHERITED || !bootstrap_tick()) return false;
+    air_park.vcs1.saved = saved;
+    air_park.vcs1.apply_us = gt_bootstrap_native.last;
+    air_idle_store(PARK_VCS1,PARK_MAX_IDLE);
+    air_park.vcs1.applied = air_idle_load(PARK_VCS1);
+    return air_park.vcs1.applied == PARK_MAX_IDLE;
+}
+
+static bool park_vcs1_current(void)
+{
+    return !air_park.vcs1.apply_us ||
+           (air_idle_port(air_park.adapter,PARK_VCS1) && air_idle_load(PARK_VCS1) == PARK_MAX_IDLE);
+}
+
+static bool park_vcs1_restore(void)
+{
+    if (!air_park.vcs1.apply_us) return true;
+    if (!park_vcs1_port()) return false;
+    air_park.vcs1.at_return = air_idle_load(PARK_VCS1);
+    air_idle_store(PARK_VCS1,air_park.vcs1.saved);
+    air_park.vcs1.restored = air_idle_load(PARK_VCS1);
+    if (air_park.vcs1.restored != air_park.vcs1.saved || !park_vcs1_port() || !bootstrap_tick()) return false;
+    air_park.vcs1.restore_us = gt_bootstrap_native.last;
+    if (air_park.vcs1.at_return != PARK_MAX_IDLE) air_park.sampled = false;
+    return true;
+}
+
 static bool park_read(void *ctx, uint32_t reg, uint32_t *value)
 {
     struct park_frame *f = ctx;
@@ -370,7 +432,7 @@ static bool park_sample(struct bdw_traffic_sample *s, enum park_op op, bool *dra
     struct wake_adapter *a = air_park.adapter;
     bool guarded = requested ? !a->uncertain && completion_mapping(a,0) && completion_mapping(a,1) &&
         completion_mapping(a,2) && engine_requesters(a) && intel_hda_gpu_live(&joint.scope) : park_owner(a,air_park.owner) && bootstrap_guard();
-    if (!f->begin || !guarded || !park_panel() || park_policy_read(PARK_CTL) != ctl ||
+    if (!f->begin || !guarded || (requested && !park_vcs1_current()) || !park_panel() || park_policy_read(PARK_CTL) != ctl ||
         park_policy_read(PARK_STATE) != PARK_RC6) return false;
     bool ok;
     switch (op) {
@@ -379,7 +441,8 @@ static bool park_sample(struct bdw_traffic_sample *s, enum park_op op, bool *dra
     case PARK_HELD: ok = intel_bdw_traffic_still_blocked(f,park_message); break;
     default: return false;
     }
-    if (!ok || !park_panel() || !engine_requesters(air_park.adapter) || park_policy_read(PARK_CTL) != ctl ||
+    if (!ok || !park_panel() || !engine_requesters(air_park.adapter) || (requested && !park_vcs1_current()) ||
+        park_policy_read(PARK_CTL) != ctl ||
         park_policy_read(PARK_STATE) != PARK_RC6) return false;
     f->end = timer_monotonic_us();
     return f->begin < f->end && f->end - f->begin <= BDW_TRAFFIC_BLOCK_US;
@@ -398,7 +461,7 @@ static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
         !park_alias(true)) return false;
     struct bdw_traffic_sample sample = {.read=park_message};
     bool drained = false;
-    if (!park_sample(&sample,PARK_OPEN,&drained) || !park_owner(a,g)) return false;
+    if (!park_sample(&sample,PARK_OPEN,&drained) || !park_owner(a,g) || !park_vcs1_apply()) return false;
     for (unsigned i=0; i<2; ++i) {
         ++air_park.attempts;
         if (!park_store(i,PARK_RC6,&air_park.programmed[i])) return false;
@@ -473,7 +536,7 @@ static bool park_restore(struct wake_adapter *a, struct intel_gt_access *g)
         air_park.reopened = park_sample(&sample,PARK_REOPEN,&unused);
         if (!air_park.reopened) return false;
     }
-    if (air_park.mapped && !park_alias(false)) return false;
+    if (!park_vcs1_restore() || (air_park.mapped && !park_alias(false))) return false;
     if (!park_owner(a,g)) return false;
     air_park.active = false;
     air_park.returned = true;
@@ -522,6 +585,10 @@ static void park_report(void)
         console_printf("intel-park-guard: v=1 entry=%u release=%u rewake=%u live=%u fallback=%u\n",
             air_park.guard_entry_us,air_park.guard_release_us,air_park.guard_rewake_us,
             (uint64_t)air_park.guard_live,(uint64_t)air_park.guard_fallback);
+        if (park_vcs1_trial())
+            console_printf("intel-park-vcs1: v=1 apply=%u restore=%u saved=%u set=%u at_return=%u returned=%u\n",
+                air_park.vcs1.apply_us,air_park.vcs1.restore_us,(uint64_t)air_park.vcs1.saved,
+                (uint64_t)air_park.vcs1.applied,(uint64_t)air_park.vcs1.at_return,(uint64_t)air_park.vcs1.restored);
     }
     for (unsigned i=0; i<air_park.frames_used; ++i) {
         const struct park_frame *f = &air_park.frames[i];
@@ -531,7 +598,7 @@ static void park_report(void)
             (uint64_t)i,(uint64_t)f->op,f->begin,f->end,(uint64_t)f->count,encoded);
     }
     console_printf("intel-park: v=%u poll_origin_us=%u returned_us=%u prepare_us=%u smi_checks=%u smi_last=%u panel_checks=%u plane=%x surface=%x live=%x attempts=%u returns=%u opened=%u unmapped=%u sampled=%u held=%u reopened=%u returned=%u ctl=%x target=%x set_ctl=%x set_target=%x final_ctl=%x final_target=%x restore_ctl=%x restore_target=%x\n",
-        (uint64_t)(park_cold_trial() ? 7 : 3),air_park.poll_origin_us,air_park.returned_us,air_park.prepare_us,(uint64_t)air_park.smi_checks,(uint64_t)air_park.smi_last,
+        (uint64_t)(park_vcs1_trial() ? 8 : park_cold_trial() ? 7 : 3),air_park.poll_origin_us,air_park.returned_us,air_park.prepare_us,(uint64_t)air_park.smi_checks,(uint64_t)air_park.smi_last,
         (uint64_t)air_park.panel_checks,(uint64_t)air_park.plane,(uint64_t)air_park.surface,(uint64_t)air_park.live,
         (uint64_t)air_park.attempts,(uint64_t)air_park.returns,(uint64_t)air_park.mapped,
         (uint64_t)air_park.unmapped,(uint64_t)air_park.sampled,(uint64_t)air_park.held,

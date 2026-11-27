@@ -17,6 +17,7 @@ from intel_display_backing import backing_result
 from intel_gt_bootstrap import bootstrap_result, historical_view
 from intel_gt_primary import verify_primary_backing
 from intel_gt_flush import MEDIA_WORDS
+from intel_gt_park import TIMING_PREFIXES, verify_timing_file
 from intel_gt_preflight import gt_result
 from test_intel_gt_primary import run
 from test_intel_gt_range import RECIPE, ROOT, TESTS
@@ -414,6 +415,40 @@ class FlushAcknowledgements(unittest.TestCase):
                          [(0, (0x7fff, 0x7f, 0))])
         self.assertEqual(park['summary']['attempts'], 0)
         self.assertEqual(flush['idle_change']['summary']['returned'], 31)
+
+    def test_pre_reset_vcs1_idle_override_and_rollback(self):
+        text = observe('park-cold-vcs1')
+        park = bootstrap_result(text)['flush']['park']
+        self.assertTrue(park['complete'])
+        self.assertFalse(park['powered_block_observed'] or park['hardware_ownership'])
+        vcs1 = park['vcs1']
+        self.assertEqual([vcs1[k] for k in ('saved', 'set', 'at_return', 'returned')], [64, 10, 10, 64])
+        origin = park['summary']['poll_origin_us']
+        self.assertLessEqual(vcs1['apply'], origin)
+        self.assertLessEqual(park['cold']['rewake']['close'] - origin, 7500)
+        self.assertLessEqual(vcs1['restore'], park['summary']['prepare_us'])
+
+        full = (text + '\nlaptop-capture: boot options=test\nlaptop-capture: completed=yes\n').encode()
+        compact = b''.join(row for row in full.splitlines(keepends=True) if row.startswith(TIMING_PREFIXES))
+        verify_timing_file(compact, full)
+        row = next(line for line in compact.splitlines(keepends=True) if line.startswith(b'intel-park-vcs1: '))
+        with self.assertRaises(ValueError):
+            verify_timing_file(compact.replace(row, b''), full)
+        for altered in ('', row.decode().replace('returned=64', 'returned=10'),
+                        row.decode().replace(f"apply={vcs1['apply']}", f'apply={origin + 1}')):
+            with self.assertRaises(ValueError):
+                bootstrap_result(text.replace(row.decode(), altered))
+
+        for mode, attempted, returned in (('baseline', False, False), ('apply', True, True),
+                                          ('drift', True, True), ('restore', True, False)):
+            with self.subTest(mode=mode):
+                result = bootstrap_result(observe('park-cold-vcs1-' + mode))
+                failed = result['flush']['park']
+                self.assertFalse(failed['complete'])
+                self.assertEqual(bool(failed['vcs1']['apply']), attempted)
+                self.assertEqual(bool(failed['vcs1']['restore']), returned)
+                if mode == 'restore':
+                    self.assertEqual(result['reset']['reset_writes'], 0)
 
     def test_max_idle_rollback(self):
         text = observe('pass')
@@ -885,6 +920,7 @@ class FlushAcknowledgements(unittest.TestCase):
             compile_fixture(TARGET, output=binary, declaration=(
                 cc, [*flags, "-O1", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"], sources,
             ))
-            for mode, pos in (("pass", 0), ("flush-clock", 12), ("flush-unmap", 2), ("flush-float", 100),
+            for mode, pos in (("pass", 0), ("park-cold-vcs1", 0), ("park-cold-vcs1-restore", 0),
+                              ("flush-clock", 12), ("flush-unmap", 2), ("flush-float", 100),
                               ("smi-count", 2), ("smi-wrap", 2), ("smi-hypervisor", 1)):
                 observe(mode, pos, binary=binary)

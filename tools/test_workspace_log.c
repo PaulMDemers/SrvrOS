@@ -201,11 +201,11 @@ int main(void) {
     static const char park_rows[]=
         "laptop-capture: boot options=fixture\n"
         "intel-park-rc6-clock: v=1 n=0\nintel-park-forcewake: v=2\nintel-park-rewake: v=1\n"
-        "intel-park-guard: v=1\nintel-park: v=7\n"
+        "intel-park-guard: v=1\nintel-park-vcs1: v=1\nintel-park: v=8\n"
         "laptop-capture: completed=NO\n";
     snapshot_fixture="irrelevant line\nlaptop-capture: boot options=fixture\n"
         "intel-park-rc6-clock: v=1 n=0\nintel-park-forcewake: v=2\nintel-park-rewake: v=1\n"
-        "intel-park-guard: v=1\nintel-park: v=7\n"
+        "intel-park-guard: v=1\nintel-park-vcs1: v=1\nintel-park: v=8\n"
         "intel-park-frame: n=1\nlaptop-capture: completed=NO\n";
     unsigned before_park_syncs=global_syncs;
     assert(workspace_log_park_timing_snapshot());

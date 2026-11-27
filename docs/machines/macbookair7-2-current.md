@@ -202,6 +202,16 @@ against the full exit log and verified the checkpoint, raw hashes and offline
 exFAT integrity. All 19 source-bound host checks and four exact-image QEMU
 cases passed before the physical trial.
 
+The follow-up on PR 301 isolates the inherited VCS1 MAX_IDLE value of 64.
+The other four engines already read 10 in the pre-reset capture. The Air
+park diagnostic will test the Broadwell i915 value of 10 on VCS1 alone and
+verify restoration before engine preparation. Scope is the existing GT
+park owner, its USB receipt and the source-bound host and VM fixtures.
+The panel and HDA exclusions, 10 ms window and fresh traffic acknowledgements
+remain required. Shared baseline `c523e036` was inspected. The timing
+comparison builds on this device branch's qualified `84d038a6` runtime.
+[Broadwell i915 RC6 initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_rc6.c#L216-L234)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

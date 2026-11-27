@@ -142,7 +142,10 @@ fence census runs at park entry and at both closing guards. Intermediate
 checks verify the live GPU/HDA endpoints, firmware registers, exact aliases,
 exclusion, SMI count and original panel. The park window stays at 10 ms.
 The compact USB `park-timing.log` records the census, release, sample and
-reacquisition timings.
+reacquisition timings. Park receipt v8 also binds the single pre-reset VCS1
+MAX_IDLE adjustment to the measured five-engine baseline and to verified
+restoration before any engine preparation. Failed restoration retains
+exclusion and stops before reset. Earlier USB reports still replay.
 
 The opt-in [private CPU context-image](intel-bdw-bcs-context.md) profile
 `intel-bcs-context-v46` selects a separate `--intel-bcs-context` image/recipe
