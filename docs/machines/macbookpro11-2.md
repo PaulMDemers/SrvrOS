@@ -1916,6 +1916,17 @@ collector verified all 638 prior files and the installed recovery.
 Evidence, comparison and the verified payload are archived under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-9a088d0b7f9867a1`.
 
+The calibration-order comparison starts at `cba8a206` (integration
+base `50f1978a`, upstream inspected at `c523e036`). In both Linux
+startup phases the final retained path-A RX IQ word at `0xc14`
+preceded the post-IQ LC trigger by 6,981 and 10,454 µs. SrvrOS
+applies its retained IQ correction block after LC and channel
+tuning. Move the same block ahead of post-profile LC and verify the
+matrix and RF mux again after tuning. Keep live IQ triggers idle,
+TX paused, the 4 KiB request fixed and all three hub adapters in
+place. Qualify the native path and both log sinks before the cold
+run. [Linux CU calibration order](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L858-L874)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
