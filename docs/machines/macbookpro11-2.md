@@ -1597,6 +1597,17 @@ single 4 KiB USB buffer. Verify early and late CR readbacks, receive
 counters and cleanup. Main `61111819` has no overlapping changes.
 [Linux RTL8192CU power-on and CR order](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L443-L460)
 
+Release `cb30e13ebd413f9e` (`687e98b3`) is installed with recovery
+`74da74e0b57afbb8`, workspace `0E53-5900` and all three hub ports
+verified. Native fixtures exercised the early gate, refused a bad
+readback before RF setup and stopped the endpoint on later CR drift.
+The exact image passed workspace logging and automatic reset, plus
+all four EFI journal availability cases. The decoder recovered the
+CR timing row and receive counters from both bounded checkpoints.
+The run record and Linux timing trace are under
+`build/bringup/pro112-rtl8188cu-early-rx`. Radio reception still needs
+the cold hardware result.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
