@@ -86,13 +86,26 @@ enum rtl_cu_rx_admission {
 enum rtl_cu_rf0_phase {
     RTL_CU_RF0_BEFORE_WRITE,RTL_CU_RF0_PRE_LC,RTL_CU_RF0_POST_LC,RTL_CU_RF0_TUNED,RTL_CU_RF0_COUNT
 };
+enum rtl_cu_phy_iq_register {
+    RTL_CU_PHY_IQ_RX=18,RTL_CU_PHY_IQ_TX_CCA=19,RTL_CU_PHY_IQ_TX=23,
+    RTL_CU_PHY_IQ_TX_EXT=24,RTL_CU_PHY_IQ_RX_EXT=25,
+};
+static const struct { uint16_t address,sample; uint32_t mask,value; } rtl_cu_iq_fields[RTL_CU_IQ_FIELDS]={
+    [RTL_CU_IQ_RX]={RTL_CU_RX_IQ,RTL_CU_PHY_IQ_RX,0x0000ffff,0x04f7},
+    [RTL_CU_IQ_RX_EXT]={RTL_CU_RX_IQ_EXT,RTL_CU_PHY_IQ_RX_EXT,0xf0000000,0},
+    [RTL_CU_IQ_TX]={0xc80,RTL_CU_PHY_IQ_TX,0x003f03ff,0x000b0102},
+    [RTL_CU_IQ_TX_EXT]={0xc94,RTL_CU_PHY_IQ_TX_EXT,0xf0000000,0},
+    [RTL_CU_IQ_TX_CCA]={0xc4c,RTL_CU_PHY_IQ_TX_CCA,0xa0000000,0},
+};
 /* Compare the Linux monitor's RF control, channel width, path routing, gain,
  * and IQ matrix. These reads require neither an IQK run nor a MAC TX gate. */
 static const struct { uint16_t address,width; } rtl_cu_phy_radio_regs[]={
     {0x01f,1},{0x603,1},{0x800,4},{0x804,4},{0x860,4},{0x864,4},{0x870,4},
     {0x874,4},{RTL_CU_RF_PATH_SELECT,4},{0x87c,4},{0x884,4},{0x900,4},
-    {0xa00,4},{0xa04,4},{0xa08,4},{0xa0c,4},{0xc04,4},{0xc08,4},{0xc14,4},
-    {0xc4c,4},{0xc50,4},{0xc58,4},{0xc70,4},{0xc80,4},{0xc94,4},{0xca0,4},
+    {0xa00,4},{0xa04,4},{0xa08,4},{0xa0c,4},{0xc04,4},{0xc08,4},
+    [RTL_CU_PHY_IQ_RX]={RTL_CU_RX_IQ,4},[RTL_CU_PHY_IQ_TX_CCA]={0xc4c,4},
+    {0xc50,4},{0xc58,4},{0xc70,4},[RTL_CU_PHY_IQ_TX]={0xc80,4},
+    [RTL_CU_PHY_IQ_TX_EXT]={0xc94,4},[RTL_CU_PHY_IQ_RX_EXT]={RTL_CU_RX_IQ_EXT,4},
     {0xd00,4},{0xd04,4},
 };
 #define RTL_CU_PHY_RADIO_COUNT (sizeof rtl_cu_phy_radio_regs/sizeof rtl_cu_phy_radio_regs[0])
@@ -147,7 +160,7 @@ static struct {
     uint64_t profile_wait_us;
     unsigned profile_waits;
     bool startup_rf_valid,profile_started;
-    uint64_t post_lc_wait_us;
+    uint64_t post_lc_wait_us,post_lc_started_us,iq_verified_us;
     uint32_t post_lc_channel,gain[2];
     unsigned gain_valid;
     bool post_lc_attempted,post_lc_triggered,post_lc_read_valid;
@@ -161,7 +174,7 @@ static struct {
     unsigned ledcfg_valid;
     uint32_t iq_before[RTL_CU_IQ_FIELDS],iq_after[RTL_CU_IQ_FIELDS],iq_startup[RTL_CU_IQ_STARTUP_COUNT];
     unsigned iq_valid,iq_startup_reads;
-    bool iq_attempted,iq_ready;
+    bool iq_attempted,iq_ready,iq_retained;
     uint32_t b68_readback,sifs_readback,e4c_readback;
     bool b68_attempted,b68_valid,sifs_valid,e4c_valid;
     uint32_t dma_regs[RTL_CU_DMA_COUNT],trxdma_before,usb_opt_before;
@@ -360,6 +373,9 @@ static void rtl_cu_rx_log(void) {
     if(rtl_passive.owner)
         console_printf("rtl8188cu-startup-order: %u %u\n",rtl_passive.llt_started_us,
             rtl_passive.owner->rtl8188cu_download_started_us);
+    if(rtl_passive.iq_attempted)
+        console_printf("rtl8188cu-calibration-order: %u %u %u\n",rtl_passive.iq_verified_us,
+            rtl_passive.post_lc_started_us,(uint64_t)rtl_passive.iq_retained);
     for(unsigned i=0;i<RTL_CU_SAMPLE_COUNT;i++) {
         const struct rtl_cu_rx_sample *s=&rtl_passive.samples[i];
         if(!s->present)continue;
@@ -526,19 +542,20 @@ static bool rtl_cu_capture_phy_radio(struct xhci_device *d) {
     }
     rtl_passive.phy_radio_ready=path==0x2808 &&
         (rtl_passive.rf0[RTL_CU_RF0_TUNED]&RTL_CU_RF0_STABLE_MASK)==RTL_CU_RF0_STABLE_RX;
-    return rtl_passive.phy_radio_ready;
+    if(!rtl_passive.phy_radio_ready)return false;
+    uint32_t ledcfg;
+    if(!rtl8188cu_read(d,RTL_CU_LED_CONFIG,4,&ledcfg) || !(ledcfg&RTL_CU_RF_PATH_MUX))return false;
+    for(unsigned i=0;i<RTL_CU_IQ_FIELDS;i++) {
+        uint32_t sampled=rtl_passive.phy_radio[rtl_cu_iq_fields[i].sample];
+        if((sampled^rtl_passive.iq_after[i])&rtl_cu_iq_fields[i].mask)return false;
+    }
+    rtl_passive.iq_retained=true;
+    return true;
 }
 
 static bool rtl_cu_apply_iq_matrix(struct xhci_device *d) {
     /* Retained path-A matrix from the working Linux capture on this board.
      * TX stays parked and none of the IQK trigger registers are written. */
-    static const struct { uint16_t address; uint32_t mask,value; } fields[RTL_CU_IQ_FIELDS]={
-        [RTL_CU_IQ_RX]={RTL_CU_RX_IQ,0x0000ffff,0x04f7},
-        [RTL_CU_IQ_RX_EXT]={RTL_CU_RX_IQ_EXT,0xf0000000,0},
-        [RTL_CU_IQ_TX]={0xc80,0x003f03ff,0x000b0102},
-        [RTL_CU_IQ_TX_EXT]={0xc94,0xf0000000,0},
-        [RTL_CU_IQ_TX_CCA]={0xc4c,0xa0000000,0},
-    };
     rtl_passive.iq_attempted=true;
     uint32_t sifs_before=0,iq_mode=0,e4c_before=0;
     if(!rtl_cu_rx_held(d))return false;
@@ -569,15 +586,17 @@ static bool rtl_cu_apply_iq_matrix(struct xhci_device *d) {
     if(!rtl_passive.e4c_valid || rtl_passive.e4c_readback!=e4c_expected)return false;
     for(unsigned i=0;i<RTL_CU_IQ_FIELDS;i++) {
         uint32_t before;
-        if(!rtl8188cu_read(d,fields[i].address,4,&before))return false;
+        uint16_t address=rtl_cu_iq_fields[i].address;
+        if(!rtl8188cu_read(d,address,4,&before))return false;
         rtl_passive.iq_before[i]=before;
         rtl_passive.iq_valid|=1u<<(2*i);
-        uint32_t desired=(before&~fields[i].mask)|fields[i].value;
-        if((before!=desired && !rtl8188cu_write_value(d,fields[i].address,4,desired)) ||
-           !rtl8188cu_read(d,fields[i].address,4,&rtl_passive.iq_after[i]))return false;
+        uint32_t desired=(before&~rtl_cu_iq_fields[i].mask)|rtl_cu_iq_fields[i].value;
+        if((before!=desired && !rtl8188cu_write_value(d,address,4,desired)) ||
+           !rtl8188cu_read(d,address,4,&rtl_passive.iq_after[i]))return false;
         rtl_passive.iq_valid|=1u<<(2*i+1);
         if(rtl_passive.iq_after[i]!=desired)return false;
     }
+    rtl_passive.iq_verified_us=timer_monotonic_us();
     rtl_passive.iq_ready=true;
     return true;
 }
@@ -595,9 +614,9 @@ static bool rtl_cu_post_profile_lc(struct xhci_device *d,struct xhci_device *hub
     rtl_passive.post_lc_attempted=true;
     /* Use the normal 1T LC branch observed on this board. No IQK test
      * transmission, RF mode override or TX queue release is needed. */
-    if(!rtl_cu_rx_held(d) ||
-       !rtl8188cu_read(d,0xd03,1,&test_mode) || (test_mode&0x70) ||
-       !rtl8188cu_write_value(d,0x840,4,0x01800000u|RTL_CU_RF_START_CHANNEL|RTL_CU_LC_START))return false;
+    if(!rtl_cu_rx_held(d) || !rtl8188cu_read(d,0xd03,1,&test_mode) || (test_mode&0x70))return false;
+    rtl_passive.post_lc_started_us=timer_monotonic_us();
+    if(!rtl8188cu_write_value(d,0x840,4,0x01800000u|RTL_CU_RF_START_CHANNEL|RTL_CU_LC_START))return false;
     rtl_passive.post_lc_triggered=true;
     uint64_t before=timer_monotonic_us();
     if(!timer_delay_us(100000))return false;
@@ -759,6 +778,7 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
     rtl_passive.startup_rf_valid=true;
     if((rtl_passive.startup_rf_channel&RTL_CU_RF_DATA_MASK)!=RTL_CU_RF_START_CHANNEL ||
        !rtl_cu_apply_linux_radio_settings(d) ||
+       !rtl_cu_apply_iq_matrix(d) ||
        !rtl_cu_post_profile_lc(d,hub) || !rtl_cu_prepare_mac_loopback(d) ||
        !rtl_cu_prepare_usb_interface(d))return false;
     /* Verify the channel through RF path A and keep both aggregation paths
@@ -954,10 +974,6 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready) {
                 bool rx_setup=rtl_cu_verify_receive_setup(d);
                 bool phy_radio=rx_setup && rtl_cu_capture_phy_radio(d);
                 result=phy_radio?"rx-endpoint":rx_setup?"phy-radio":"rx-setup";
-                if(phy_radio && !rtl_cu_apply_iq_matrix(d)) {
-                    result="iq-matrix";
-                    phy_radio=false;
-                }
                 if(phy_radio && rtl_cu_rx_configure(d)) {
                     window=rtl_cu_listen(d,hub);
                     rtl_cu_rx_snapshot(d,RTL_CU_BEFORE_STOP,window);
@@ -976,6 +992,8 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready) {
                 }
             } else if(rtl_passive.xtal_attempted && !rtl_passive.xtal_ready) {
                 result="xtal";
+            } else if(rtl_passive.iq_attempted && !rtl_passive.iq_ready) {
+                result="iq-matrix";
             } else if(rtl_passive.loopback_reads && rtl_passive.loopback_after!=RTL_CU_MAC_LOOPBACK_LINUX) {
                 result="loopback";
             } else if(rtl_passive.usb_if_before_reads && !rtl_passive.usb_if_ready) {

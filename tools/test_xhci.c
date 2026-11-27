@@ -7601,7 +7601,8 @@ enum rtl_radio_fault {
     RTL_RADIO_SECURITY_READBACK,RTL_RADIO_SECURITY_DRIFT,RTL_RADIO_SECURITY_PARK,
     RTL_RADIO_LOOPBACK_READY,RTL_RADIO_LOOPBACK_BASELINE,RTL_RADIO_LOOPBACK_READBACK,RTL_RADIO_LOOPBACK_DRIFT,
     RTL_RADIO_USB_IF_READY,RTL_RADIO_USB_IF_BASELINE,RTL_RADIO_USB_IF_READBACK,RTL_RADIO_USB_IF_STUCK,
-    RTL_RADIO_USB_IF_SHORT,RTL_RADIO_USB_IF_DRIFT,RTL_RADIO_RCR_READBACK,RTL_RADIO_RCR_DRIFT
+    RTL_RADIO_USB_IF_SHORT,RTL_RADIO_USB_IF_DRIFT,RTL_RADIO_RCR_READBACK,RTL_RADIO_RCR_DRIFT,
+    RTL_RADIO_IQ_TUNE_DRIFT
 };
 static struct {
     const uint8_t *profile;
@@ -7715,6 +7716,7 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
                    rtl_passive.rf0[RTL_CU_RF0_POST_LC]==0x130df4 &&
                    rtl_passive.rf0[RTL_CU_RF0_TUNED]==0x130e14);
             assert(rtl_passive.iq_ready && rtl_passive.iq_valid==0x3ff &&
+                   rtl_passive.iq_retained && rtl_passive.iq_verified_us<rtl_passive.post_lc_started_us &&
                    rtl_passive.iq_startup_reads==6 &&
                    rtl_passive.ledcfg_valid==3 && rtl_passive.ledcfg_before==0x00028282 &&
                    rtl_passive.ledcfg_after==0x00828282 && rtl_passive.iq_startup[0]==0x00828282 &&
@@ -8041,6 +8043,7 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
             }
             if(after_profile && (reg==0xc14 || reg==0xca0 || reg==0xc80 || reg==0xc94 || reg==0xc4c)) {
                 assert(length==4 && !rtl_radio_model.commands &&
+                       !rtl_radio_model.post_lc_triggers && rtl_radio_model.channel==0x7401 &&
                        rtl_radio_cr()==0x02ba && rtl_radio_model.reg[0x522]==0xff);
                 rtl_radio_model.iq_writes++;
                 if(reg==0xc14) {
@@ -8061,12 +8064,18 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
                 assert(val==0x32ed3 && rtl_radio_model.rf0==0x132e15 &&
                     rtl_radio_cr()==0x02ba && rtl_radio_model.reg[0x522]==0xff);
                 rtl_radio_model.rf0=0x132e14;
+                if(rtl_radio_model.fault==RTL_RADIO_RX_IQ_EXT) {
+                    rtl_radio_model.reg[0xca0]=0x5a;
+                    rtl_radio_model.reg[0xca3]=0xa0;
+                }
             } else rtl_radio_model.rf0=val==0x30159?0x132e15:val;
         }
         if(reg==0x840 && val>>20==0x18) {
             if(after_profile && (val&0x8000)) {
                 assert(val==0x0180f401 && !rtl_radio_model.post_lc_triggers &&
                     rtl_passive.rf0_valid==3 && rtl_passive.rf0[RTL_CU_RF0_PRE_LC]==0x132e14 &&
+                    rtl_passive.iq_ready && rtl_passive.iq_valid==0x3ff && rtl_radio_model.iq_writes==2 &&
+                    rtl_passive.iq_verified_us<rtl_passive.post_lc_started_us &&
                     rtl_radio_cr()==0x02ba && rtl_radio_model.reg[0x522]==0xff);
                 rtl_radio_model.post_lc_triggers++;
             }
@@ -8074,10 +8083,8 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
                 rtl_radio_model.rf0=rtl_radio_model.fault==RTL_RADIO_RF0?0x110e14:0x130e14;
             if(after_profile && (val&0x3ff)==10 && rtl_radio_model.fault==RTL_RADIO_LED_MUX_DRIFT)
                 rtl_radio_model.reg[0x04e]&=0x7f;
-            if(after_profile && (val&0x3ff)==10 && rtl_radio_model.fault==RTL_RADIO_RX_IQ_EXT) {
-                rtl_radio_model.reg[0xca0]=0x5a;
-                rtl_radio_model.reg[0xca3]=0xa0;
-            }
+            if(after_profile && (val&0x3ff)==10 && rtl_radio_model.fault==RTL_RADIO_IQ_TUNE_DRIFT)
+                rtl_radio_model.reg[0xc14]^=1;
             rtl_radio_model.channel=val&0xfffff;
         }
     }
@@ -8093,7 +8100,7 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
     FILE *firmware=fopen(firmware_path,"rb");
     assert(firmware && fread(image,1,sizeof image,firmware)==sizeof image && fgetc(firmware)==EOF);
     assert(fclose(firmware)==0 && rtl8188cu_image_matches(image,sizeof image));
-    for(enum rtl_radio_fault fault=RTL_RADIO_OK;fault<=RTL_RADIO_RCR_DRIFT;fault++) {
+    for(enum rtl_radio_fault fault=RTL_RADIO_OK;fault<=RTL_RADIO_IQ_TUNE_DRIFT;fault++) {
         struct xhci_device *d=rtl_hub_fixture();
         uint8_t *command_memory;
         assert(alloc_frame_zero(&xhci.command_ring_phys,(void **)&command_memory));
@@ -8265,15 +8272,17 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
         if(fault==RTL_RADIO_RF0_READ)
             assert(!rtl_radio_model.commands && !rtl_radio_model.posts && d->ep0_quarantined &&
                 rtl_passive.rf0_write_ok && rtl_passive.rf0_valid==3 && !rtl_passive.post_lc_read_valid);
-        if(fault==RTL_RADIO_LED_MUX || fault==RTL_RADIO_LED_MUX_DRIFT) {
+        if(fault==RTL_RADIO_LED_MUX) {
             assert(!rtl_radio_model.commands && !rtl_radio_model.posts && !rtl_radio_model.b68_writes &&
                    rtl_radio_model.ledcfg_writes==1 && rtl_passive.ledcfg_valid==3 &&
-                   !rtl_passive.iq_ready && !rtl_passive.iq_valid);
-            if(fault==RTL_RADIO_LED_MUX)
-                assert(rtl_passive.ledcfg_after==0x00028282 && !rtl_passive.post_lc_attempted && !rtl_passive.iq_attempted);
-            else
-                assert(rtl_passive.ledcfg_after==0x00828282 && rtl_passive.post_lc_read_valid &&
-                       rtl_passive.iq_startup_reads==1 && rtl_passive.iq_startup[0]==0x00028282);
+                   !rtl_passive.iq_ready && !rtl_passive.iq_valid && rtl_passive.ledcfg_after==0x00028282 &&
+                   !rtl_passive.post_lc_attempted && !rtl_passive.iq_attempted);
+        }
+        if(fault==RTL_RADIO_LED_MUX_DRIFT || fault==RTL_RADIO_IQ_TUNE_DRIFT) {
+            assert(!rtl_radio_model.commands && !rtl_radio_model.posts && rtl_passive.iq_ready &&
+                   rtl_passive.post_lc_read_valid && rtl_passive.phy_radio_ready && !rtl_passive.iq_retained);
+            if(fault==RTL_RADIO_LED_MUX_DRIFT)assert(!(rtl_radio_model.reg[0x04e]&0x80));
+            else assert(rtl_passive.phy_radio[RTL_CU_PHY_IQ_RX]==0x400004f6);
         }
         if(fault==RTL_RADIO_B68)
             assert(!rtl_radio_model.commands && !rtl_radio_model.posts && !rtl_radio_model.iq_writes &&
@@ -8296,7 +8305,7 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
                        !rtl_passive.e4c_valid && rtl_passive.iq_startup[3]==0x80000000);
         }
         if(fault==RTL_RADIO_RX_IQ || fault==RTL_RADIO_RX_IQ_EXT || fault==RTL_RADIO_TX_IQ) {
-            assert(!rtl_radio_model.commands && !rtl_radio_model.posts && rtl_passive.phy_radio_ready &&
+            assert(!rtl_radio_model.commands && !rtl_radio_model.posts && !rtl_passive.post_lc_attempted &&
                    rtl_passive.iq_attempted && !rtl_passive.iq_ready && rtl_passive.iq_startup_reads==6);
             if(fault==RTL_RADIO_RX_IQ)
                 assert(rtl_radio_model.iq_writes==1 && rtl_passive.iq_valid==3 &&
@@ -8424,7 +8433,7 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
     rtl_test_delay=NULL;
     native_boundary_mmio_hook=NULL;
     memset(&rtl_passive,0,sizeof rtl_passive);
-    puts("rtl8188cu: PASS native RCR trailer settings and FCS parsing, TX paused and fixed 4096-byte RX");
+    puts("rtl8188cu: PASS native IQ before LC and post-tune retention, TX paused and fixed 4096-byte RX");
 }
 static struct xhci_device *tt_cleanup_fixture(void) {
     struct xhci_device *d=control_fixture();
