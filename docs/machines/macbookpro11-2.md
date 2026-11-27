@@ -2258,6 +2258,31 @@ Scope is the Realtek startup/firmware gates, handoff, xHCI fixture
 and existing log/recovery recipe. Use the same three hub adapters,
 channel 10, 4 KiB receive request, and 250 ms Auth timeout.
 
+Source `3c8708e6` sets both DMA bits in the early CR write,
+readbacks CR `0x02bf` and TXPAUSE `0xff`, and then starts the LLT
+and queue allocation. RF stays off through firmware. Listening
+uses CR `0x02ff` with TXPAUSE still `0xff`. The station releases
+that pause after queue, MAC and USB OUT admission, immediately
+before the existing Auth exchange. A failed readiness check
+keeps Auth closed. Native fixtures exercise this order, missing
+siblings, dropped DMA bits before LLT and after firmware start,
+pause drift, and verified parking on refusal.
+
+The `rtl8188cu-tx-dma:` receipt captures readback validity,
+CR, TXPAUSE, ordered timestamps for enable, first LLT and
+firmware payload, and terminal parking. The saved-result decoder
+fits this receipt beside the queue and Auth trace in the bounded
+EFI journal and reads the same fields from the workspace exit
+log. Use `build/bringup/pro112-rtl8188cu-early-tx-dma` for the
+trial and return evidence.
+
+Release `bed12b3eedbff693` passed the exact GPT workspace and four
+EFI journal rehearsals, including the missing-workspace save path.
+Cold-cycle hub power and the upstream cable for ten seconds with
+all three adapters in place and the workspace attached separately.
+The unattended trial records the first Auth outcome and returns
+to Ubuntu for collection and private image retirement.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
