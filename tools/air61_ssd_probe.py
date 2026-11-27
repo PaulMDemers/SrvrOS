@@ -282,9 +282,13 @@ def verify_reset_trace(status, snapshots):
 
 
 def read_port_trace(receipt, release, volume, *, reset=False, partition=False, discovery=False):
+    return read_port_trace_for_profile(receipt, probe_profile(release, volume, True, reset, partition, discovery),
+                                       reset=reset)
+
+
+def read_port_trace_for_profile(receipt, profile, *, reset=False):
     lines = receipt.splitlines()
-    require(lines.count(probe_profile(release, volume, True, reset, partition, discovery)) == 1,
-            "Port trace release or workspace differs")
+    require(lines.count(profile) == 1, "Port trace release or workspace differs")
     controllers = [line for line in lines if line.startswith("air61-ssd-controller:")]
     require(len(controllers) == 1, "Missing or duplicate AHCI controller snapshot")
     match = re.fullmatch(r"air61-ssd-controller: firmware_ghc=0x0{8}([0-9a-f]{8}) firmware_port=([01])",

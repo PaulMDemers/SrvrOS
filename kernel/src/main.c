@@ -945,6 +945,100 @@ static void air61_ssd_trial(const char *cmdline, bool discovery) {
     halt_forever();
 }
 
+static unsigned scratch_hex(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    return 16;
+}
+
+static bool scratch_take(const char **cursor, const char *literal) {
+    while (*literal) {
+        if (**cursor != *literal++) return false;
+        (*cursor)++;
+    }
+    return true;
+}
+
+static bool scratch_profile(const char *cmdline, char volume[9], char identity[129], uint8_t proof[64]) {
+    if (!scratch_take(&cmdline, "srvros.storage=ram srvros.capture=air61-ssd-scratch srvros.workspace-volume="))
+        return false;
+    for (unsigned i = 0; i < 8; i++) {
+        if (scratch_hex(*cmdline) >= 16) return false;
+        volume[i] = *cmdline++;
+    }
+    volume[8] = 0;
+    if (!scratch_take(&cmdline, " srvros.ssd-fixture=")) return false;
+    for (unsigned i = 0; i < 128; i++) {
+        unsigned nibble = scratch_hex(*cmdline);
+        if (nibble >= 16) return false;
+        identity[i] = *cmdline++;
+        if (i & 1) proof[i / 2] |= nibble;
+        else proof[i / 2] = nibble << 4;
+    }
+    identity[128] = 0;
+    return !*cmdline;
+}
+
+static void scratch_path(char path[80], const char *identity, const char *filename) {
+    const char *prefix = "/work/srvros-work/air61-ssd-";
+    while (*prefix) *path++ = *prefix++;
+    for (unsigned i = 0; i < 24; i++) *path++ = *identity++;
+    while ((*path++ = *filename++)) {}
+}
+
+static void scratch_halt(const char *message) {
+    console_printf("air61-scratch: %s\n", message);
+    console_sync();
+    halt_forever();
+}
+
+static void air61_scratch_trial(const char *cmdline) {
+    char volume[9], identity[129];
+    uint8_t proof[64];
+    boot_set_framebuffer_quiet(false);
+    console_clear();
+    if (!display_profile_is_air61() || !scratch_profile(cmdline, volume, identity, proof))
+        scratch_halt("REFUSED platform or invalid profile");
+
+    char armed[80], written[80], verified[80];
+    scratch_path(armed, identity, "-armed.log");
+    scratch_path(written, identity, "-write.log");
+    scratch_path(verified, identity, "-verify.log");
+    xhci_init();
+    arch_enable_interrupts();
+    if (!workspace_mount(volume)) scratch_halt("REFUSED evidence USB unavailable");
+    bool prior_arm = vfs_lookup(armed) != NULL;
+    bool verify = vfs_lookup(written) != NULL;
+    if (prior_arm != verify || vfs_lookup(verified)) {
+        bool parked = workspace_unmount();
+        scratch_halt(parked ? "REFUSED existing or interrupted trial" : "HALTED USB unmount failed");
+    }
+    console_printf("air61-scratch: profile %s\n", cmdline);
+    console_printf("air61-scratch: phase=%s\n", verify ? "verify" : "write");
+    bool arm_saved = verify || bootlog_persist(armed);
+    if (!workspace_unmount() || !arm_saved) scratch_halt("HALTED attempt marker or USB unmount failed");
+
+    enum ahci_probe_result result = ahci_air61_scratch(proof, verify);
+    if (result == AHCI_PROBE_UNSAFE)
+        scratch_halt("HALTED AHCI ownership unproved, photograph this screen");
+    console_printf("air61-scratch: result=%s internal_mounted=no\n",
+        result == AHCI_PROBE_PASS ? "PASS" : "FAIL");
+    const char *receipt = result == AHCI_PROBE_PASS ? (verify ? verified : written) : NULL;
+    char failed[80];
+    if (!receipt) {
+        scratch_path(failed, identity, verify ? "-verify-failed.log" : "-write-failed.log");
+        receipt = failed;
+    }
+    if (!workspace_mount(volume)) scratch_halt("HALTED receipt USB unavailable");
+    bool saved = !vfs_lookup(receipt) && bootlog_persist(receipt);
+    if (!workspace_unmount() || !saved) scratch_halt("HALTED receipt or USB unmount failed");
+    if (result != AHCI_PROBE_PASS) scratch_halt("FAIL receipt saved, power off");
+    if (verify) scratch_halt("PASS reboot readback saved, power off before reinstalling Ubuntu SSD");
+    console_write("air61-scratch: write and flush receipt saved. Rebooting to verify.\n");
+    console_sync();
+    arch_reboot_unattended();
+}
+
 static void startup_checkpoint(uint32_t phase,uint64_t flags) {
     if(!startup_journal_admitted)return;
     if(startup_journal_checkpoint(phase,flags))return;
@@ -1117,6 +1211,10 @@ void kmain(void) {
 #endif
     }
     pci_init();
+    if (cmdline_has_token(cmdline, "srvros.capture=air61-ssd-scratch")) {
+        air61_scratch_trial(cmdline);
+        halt_forever();
+    }
     bool ssd_discovery = cmdline_has_token(cmdline, "srvros.ssd-discovery=normal");
     bool ssd_capture = cmdline_has_token(cmdline, "srvros.capture=air61-ssd-read-only");
     if (ssd_discovery && (!ssd_capture || startup_journal_requested || !display_profile_is_air61() ||

@@ -21,6 +21,9 @@ static unsigned failure_logs;
 static uint64_t probe_reads[68];
 static unsigned probe_count;
 static uint8_t primary_gpt[34 * AHCI_SECTOR_SIZE];
+static uint8_t backup_gpt[33 * AHCI_SECTOR_SIZE], scratch_medium[3 * AHCI_IO_PAGE_BYTES];
+static bool short_write, flush_error;
+static unsigned model_writes, model_flushes;
 static uint64_t batched_lba[128];
 static unsigned batched_sectors[128], batch_count;
 static volatile struct hba_port *reset_port;
@@ -126,6 +129,39 @@ uint64_t timer_monotonic_us(void) {
     polls++;
     if(behavior==14 && model.tfd && polls==2) { model.tfd=0;now+=AHCI_COMMAND_TIMEOUT_US; }
     if(model.ci) {
+        if (behavior == 22) {
+            uint8_t opcode = table.cfis[2];
+            unsigned count = table.cfis[12];
+            uint64_t lba = (uint64_t)table.cfis[4] | (uint64_t)table.cfis[5] << 8 |
+                (uint64_t)table.cfis[6] << 16 | (uint64_t)table.cfis[8] << 24;
+            size_t size = count * AHCI_SECTOR_SIZE;
+            if (opcode == ATA_CMD_READ_DMA_EXT) {
+                assert(count && count <= AIR61_SCRATCH_PAGE_SECTORS && !(header.flags & (1u << 6)));
+                if (lba < 34) {
+                    assert(lba + count <= 34);
+                    memcpy(buffer, primary_gpt + lba * AHCI_SECTOR_SIZE, size);
+                } else if (lba >= AIR61_SSD_SECTORS - 33) {
+                    assert(lba + count <= AIR61_SSD_SECTORS);
+                    memcpy(buffer, backup_gpt + (lba - (AIR61_SSD_SECTORS - 33)) * AHCI_SECTOR_SIZE, size);
+                } else {
+                    assert(lba >= AIR61_SCRATCH_LBA && lba + count <= AIR61_SCRATCH_LBA + 24);
+                    memcpy(buffer, scratch_medium + (lba - AIR61_SCRATCH_LBA) * AHCI_SECTOR_SIZE, size);
+                }
+            } else if (opcode == ATA_CMD_WRITE_DMA_EXT) {
+                assert(count == 1 && (header.flags & (1u << 6)) &&
+                       lba == AIR61_SCRATCH_LBA + AIR61_SCRATCH_PAGE_SECTORS + model_writes);
+                model_writes++;
+                if (short_write) size--;
+                memcpy(scratch_medium + (lba - AIR61_SCRATCH_LBA) * AHCI_SECTOR_SIZE, buffer, size);
+            } else {
+                assert(opcode == ATA_CMD_FLUSH_CACHE_EXT && !(header.flags & (1u << 6)) &&
+                       count == 0 && lba == 0 && model_writes == AIR61_SCRATCH_PAGE_SECTORS);
+                model_flushes++;
+                if (flush_error) model.is = HBA_PORT_IS_TFES;
+            }
+            header.prdbc = size;
+            model.ci = 0;
+        }
         if (behavior == 20 || behavior == 21) {
             unsigned count = table.cfis[12];
             uint64_t lba = (uint64_t)table.cfis[4] | (uint64_t)table.cfis[5] << 8 |
@@ -298,6 +334,77 @@ static void air61_partition_contract(void) {
     puts("air61-ahci-partition: PASS GPT views, four 4 KiB reads, deadline, short DMA and write refusal");
 }
 
+static void start_scratch_model(struct ahci_disk *disk) {
+    block_init();
+    *disk = setup(22);
+    disk->probe_partition = true;
+    disk->sectors = AIR61_SSD_SECTORS;
+    disk->block = block_register("ahci0", AHCI_SECTOR_SIZE, disk->sectors, ahci_read, NULL, disk);
+    assert(disk->block && !disk->block->write && !disk->block->flush);
+    disk->block->max_transfer_bytes = AHCI_IO_PAGE_BYTES;
+    model_writes = model_flushes = 0;
+    short_write = flush_error = false;
+}
+
+static void air61_scratch_contract(void) {
+    uint8_t *gpt = primary_gpt + 512;
+    uint8_t *entries = primary_gpt + 1024;
+    uint8_t *entry = entries + 128;
+    memcpy(entry, "\xf1\x65\x03\x7a\xa3\xb9\xea\x40\x8e\x6a\xd1\xe2\xba\x82\x40\x70", 16);
+    entry[16] = 2;
+    put_le(entry + 32, AIR61_SCRATCH_LBA, 8);
+    put_le(entry + 40, AIR61_SCRATCH_LBA + 23, 8);
+    put_le(gpt + 88, fixture_crc(entries, 128 * 128), 4);
+    put_le(gpt + 16, 0, 4);
+    put_le(gpt + 16, fixture_crc(gpt, 92), 4);
+    memcpy(backup_gpt, entries, 128 * 128);
+    uint8_t *backup_header = backup_gpt + 128 * 128;
+    memcpy(backup_header, gpt, 512);
+    put_le(backup_header + 24, AIR61_SSD_SECTORS - 1, 8);
+    put_le(backup_header + 32, 1, 8);
+    put_le(backup_header + 72, AIR61_SSD_SECTORS - 33, 8);
+    put_le(backup_header + 16, 0, 4);
+    put_le(backup_header + 16, fixture_crc(backup_header, 92), 4);
+    uint8_t proof[64], initial[sizeof(scratch_medium)];
+    sha256_digest(primary_gpt, sizeof(primary_gpt), proof);
+    sha256_digest(backup_gpt, sizeof(backup_gpt), proof + 32);
+    for (unsigned i = 0; i < 3; i++) air61_scratch_page(proof, i, initial + i * AHCI_IO_PAGE_BYTES);
+    memcpy(scratch_medium, initial, sizeof(initial));
+
+    struct ahci_disk disk;
+    start_scratch_model(&disk);
+    assert(!issue_command(&disk, ATA_CMD_WRITE_DMA_EXT, AIR61_SCRATCH_LBA + 8, 1, true));
+    disk.scratch_armed = true;
+    assert(!issue_command(&disk, ATA_CMD_WRITE_DMA_EXT, AIR61_SCRATCH_LBA + 7, 1, true));
+    assert(!issue_command(&disk, ATA_CMD_WRITE_DMA_EXT, AIR61_SCRATCH_LBA + 8, 2, true));
+    assert(!ahci_flush(disk.block) && !commands_issued);
+    disk.scratch_armed = false;
+    proof[32] ^= 1;
+    assert(!air61_scratch_io(&disk, proof, false) && !model_writes && !model_flushes);
+    proof[32] ^= 1;
+
+    start_scratch_model(&disk);
+    assert(air61_scratch_io(&disk, proof, false) && model_writes == 8 && model_flushes == 1);
+    assert(!memcmp(scratch_medium, initial, AHCI_IO_PAGE_BYTES));
+    assert(!memcmp(scratch_medium + 2 * AHCI_IO_PAGE_BYTES, initial + 2 * AHCI_IO_PAGE_BYTES, AHCI_IO_PAGE_BYTES));
+    assert(memcmp(scratch_medium + AHCI_IO_PAGE_BYTES, initial + AHCI_IO_PAGE_BYTES, AHCI_IO_PAGE_BYTES));
+    start_scratch_model(&disk);
+    assert(air61_scratch_io(&disk, proof, true) && !model_writes && !model_flushes);
+    assert(!air61_scratch_io(&disk, proof, false) && !model_writes && !model_flushes);
+    scratch_medium[0] ^= 1;
+    assert(!air61_scratch_io(&disk, proof, true) && !model_writes && !model_flushes);
+
+    start_scratch_model(&disk);
+    memcpy(scratch_medium, initial, sizeof(initial));
+    short_write = true;
+    assert(!air61_scratch_io(&disk, proof, false) && model_writes == 1 && !model_flushes && !disk.scratch_armed);
+    start_scratch_model(&disk);
+    memcpy(scratch_medium, initial, sizeof(initial));
+    flush_error = true;
+    assert(!air61_scratch_io(&disk, proof, false) && model_writes == 8 && model_flushes == 1 && disk.failed);
+    puts("air61-ahci-scratch: PASS grant bounds, fixture refusal, exact write/flush, reboot verify, short DMA and flush failure");
+}
+
 static void air61_port_trace_contract(void) {
     static struct hba_memory controller;
     struct ahci_port_trace trace = {0};
@@ -428,6 +535,7 @@ int main(void) {
     allocation_contract();
     air61_probe_contract();
     air61_partition_contract();
+    air61_scratch_contract();
     air61_port_trace_contract();
     air61_reset_contract();
     air61_normal_init_contract();
