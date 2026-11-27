@@ -1448,6 +1448,17 @@ verified clean exFAT, all 618 existing files and Ubuntu's default boot.
 Evidence and the verified payload are archived locally under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-08712adbde733426`.
 
+#### RTL8188CUS power and isolation trace
+
+Locate the first native isolation divergence from the working Linux
+startup. Record paired SYS_ISO_CTRL and APS_FSMCO values around
+regulator setup, MAC auto-on, firmware readiness, APS finalization
+and RF isolation release. Reuse the existing armed receive snapshot
+for the final comparison. Keep the writes, fixed 4 KiB request, TX
+park and three-adapter topology as in the crystal trial. Scope is the
+RTL8188CUS firmware and passive paths, fixtures and local collector.
+Fetched main `61111819` and open reviews have no overlapping changes.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
