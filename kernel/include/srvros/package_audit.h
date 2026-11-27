@@ -9,6 +9,9 @@ struct package_pci_snapshot {
     uint32_t state; /* 1 complete, 2 malformed, 3 absent, 4 unsupported header/cap */
 };
 void package_pci_read(struct package_pci_snapshot *,uint32_t (*read)(void *,unsigned),void *);
+struct package_pci_af { uint32_t offset, header, control_status; };
+void package_pci_read_with_af(struct package_pci_snapshot *,struct package_pci_af *,
+                              uint32_t (*read)(void *,unsigned),void *);
 bool package_counter_delta(uint64_t t0,uint64_t c0,uint64_t c1,uint64_t t1,uint64_t *,uint64_t *);
 
 /* Extended capability traversal is separate and explicitly opted into. */

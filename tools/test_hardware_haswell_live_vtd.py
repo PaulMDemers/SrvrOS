@@ -51,6 +51,23 @@ class LiveReceipt(unittest.TestCase):
         self.assertTrue(proof["requesters"][0]["bus_master"])
         self.assertFalse(proof["hardware_authority"])
 
+    def test_af_and_same_cpu_smi_wrap_are_observations(self):
+        observation = self.result()["requester_observation"]
+        self.assertEqual(observation["smi"], [0xffffffff, 0])
+        self.assertEqual(observation["smi_delta"], 1)
+        self.assertTrue(observation["af"][0]["igd"]["transactions_pending"])
+        self.assertIsNone(observation["af"][0]["hda"]["transactions_pending"])
+        self.assertFalse(observation["requester_drain_proven"])
+        self.assertFalse(observation["firmware_exclusion_proven"])
+        without = "\n".join(row for row in self.exit_log.splitlines()
+                            if not row.startswith(("hsw-live-af:", "hsw-live-observe:")))
+        self.assertIsNone(self.result(without)["requester_observation"])
+        for line in self.exit_log.splitlines():
+            if line.startswith(("hsw-live-af:", "hsw-live-observe:")):
+                self.assertIsNone(self.result(self.exit_log.replace(line+"\n", "")))
+        self.assertIsNone(self.result(self.exit_log.replace("smi=4294967295,0", "smi=4294967296,0")))
+        self.assertIsNone(self.result(self.exit_log.replace("hda=0,0,0", "hda=0,0,1")))
+
     def test_rejects_cross_release_drift_or_out_of_order(self):
         for old, new in (("cmd=7 pm=0", "cmd=3 pm=0"), ("gt_rows=2", "gt_rows=1"),
                          ("desktop-release="+RELEASE, "desktop-release="+("b"*16)),

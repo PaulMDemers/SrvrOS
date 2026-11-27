@@ -4,8 +4,10 @@ bool package_counter_delta(uint64_t t0,uint64_t c0,uint64_t c1,uint64_t t1,uint6
     if(t1<=t0 || c1<c0 || c1-c0>t1-t0)return false;
     *dt=t1-t0;*dc=c1-c0;return true;
 }
-void package_pci_read(struct package_pci_snapshot *s,uint32_t (*read)(void *,unsigned),void *ctx) {
+void package_pci_read_with_af(struct package_pci_snapshot *s,struct package_pci_af *af,
+                              uint32_t (*read)(void *,unsigned),void *ctx) {
     *s=(struct package_pci_snapshot){0};
+    if(af)*af=(struct package_pci_af){0};
     s->id=read(ctx,0);
     if((s->id&0xffff)==0xffff || !(s->id&0xffff)){s->state=3;return;}
     uint32_t cs=read(ctx,4);s->command=cs&0xffff;
@@ -38,11 +40,27 @@ void package_pci_read(struct package_pci_snapshot *s,uint32_t (*read)(void *,uns
                 if(ptr>0xd4){s->state=2;return;}
                 s->ltr_cap=read(ctx,ptr+36);s->ltr=read(ctx,ptr+40)&0xffff;s->flags|=4;span=11;
             }
+        } else if(id==0x13 && af) {
+            unsigned length=(h>>16)&255;
+            if(af->offset || length<6 || length>256-ptr){s->state=2;return;}
+            span=(length+3)/4;
+            uint64_t payload=((1ull<<span)-2)<<(ptr/4);
+            uint64_t link=next?1ull<<(next/4):0;
+            if((payload&visited) || (link&(payload|visited)) || (next && (next<0x40 || (next&3)))){
+                s->state=2;return;
+            }
+            uint32_t raw=read(ctx,ptr+4);
+            if(raw==UINT32_MAX){s->state=2;return;}
+            *af=(struct package_pci_af){.offset=ptr,.header=h,.control_status=raw&0xffff};
         }
         uint64_t region=((1ull<<span)-1)<<(ptr/4);
         if(region&(visited^(1ull<<(ptr/4)))){s->state=2;return;}
         visited|=region;ptr=next;
     }
+}
+
+void package_pci_read(struct package_pci_snapshot *s,uint32_t (*read)(void *,unsigned),void *ctx) {
+    package_pci_read_with_af(s,0,read,ctx);
 }
 
 bool package_graphics_bar(uint32_t low,uint32_t high,uint32_t command,uint64_t *base) {

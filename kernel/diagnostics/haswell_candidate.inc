@@ -27,9 +27,10 @@ static struct {
     uint32_t neighbors[2][HSW_ACCESS_SLOTS];
 } hsw_access_result;
 
-static bool hsw_candidate_pci(const struct pci_device *dev, uint32_t id, uint32_t *out) {
+static bool hsw_candidate_pci(const struct pci_device *dev, uint32_t id, uint32_t *out,
+                              struct package_pci_af *af) {
     struct package_pci_snapshot p;
-    package_pci_read(&p, conventional_read, (void *)dev);
+    package_pci_read_with_af(&p, af, conventional_read, (void *)dev);
     if (p.id != id || p.state != 1 || p.command == UINT16_MAX || !(p.flags & 1) ||
         p.pm == UINT16_MAX) return false;
     uint32_t status = p.pcie_offset ? pci_read_config16(dev, p.pcie_offset + 10) : UINT32_MAX;
@@ -48,8 +49,25 @@ static struct {
     unsigned requester_rows, gt_rows;
     struct { uint64_t begin, end; uint32_t words[4]; } requester[2];
     struct { uint32_t core, rc6; } gt[2];
+    struct package_pci_af af[2][2]; /* Phase, then IGD/display HDA. */
+    uint32_t smi_begin, smi_end;
     bool slot_probe;
 } hsw_live;
+
+static bool hsw_smi_count(uint32_t *count) {
+#ifdef SRVROS_PLATFORM_HOST_TEST
+    extern bool platform_test_hsw_smi_count(uint32_t *);
+    return platform_test_hsw_smi_count(count);
+#else
+    uint32_t a, b, c, d;
+    __asm__ volatile("cpuid" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"(0), "c"(0));
+    if (a < 1 || b != 0x756e6547 || d != 0x49656e69 || c != 0x6c65746e) return false;
+    __asm__ volatile("cpuid" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"(1), "c"(0));
+    if (a != 0x40651 || b >> 24 || !(d & (1u << 5))) return false;
+    __asm__ volatile("rdmsr" : "=a"(*count), "=d"(d) : "c"(0x34u) : "memory");
+    return true;
+#endif
+}
 
 static bool hsw_live_snapshot(const struct pci_device *dev) {
     unsigned phase = hsw_live.requester_rows;
@@ -58,7 +76,7 @@ static bool hsw_live_snapshot(const struct pci_device *dev) {
         return false;
     hsw_live.requester[phase].begin = timer_monotonic_us();
     uint32_t *row = hsw_live.requester[phase].words;
-    if (!hsw_candidate_pci(dev, 0x0a268086, row) || !(row[0] & 2) || (row[1] & 3)) return false;
+    if (!hsw_candidate_pci(dev, 0x0a268086, row, NULL) || !(row[0] & 2) || (row[1] & 3)) return false;
     hsw_live.requester[phase].end = timer_monotonic_us();
     if (!hsw_live.requester[phase].begin ||
         hsw_live.requester[phase].end < hsw_live.requester[phase].begin) return false;
@@ -112,6 +130,15 @@ static void hsw_live_report(bool ok) {
     for (unsigned phase = 0; phase < hsw_live.gt_rows; phase++)
         console_printf("hsw-live-gt: phase=%u core=%u rc6=%u\n", (uint64_t)phase,
                        (uint64_t)hsw_live.gt[phase].core, (uint64_t)hsw_live.gt[phase].rc6);
+    console_printf("hsw-live-observe: v=1 complete=%u cpu=0 begin=%u end=%u smi=%u,%u writes=0 authority=none\n",
+                   (uint64_t)ok, ok ? hsw_candidate_result.begin : 0, ok ? hsw_candidate_result.end : 0,
+                   (uint64_t)(ok ? hsw_live.smi_begin : 0), (uint64_t)(ok ? hsw_live.smi_end : 0));
+    if (ok) for (unsigned phase = 0; phase < 2; phase++) {
+        const struct package_pci_af *igd = &hsw_live.af[phase][0], *hda = &hsw_live.af[phase][1];
+        console_printf("hsw-live-af: phase=%u igd=%u,%u,%u hda=%u,%u,%u\n", (uint64_t)phase,
+                       (uint64_t)igd->offset, (uint64_t)igd->header, (uint64_t)igd->control_status,
+                       (uint64_t)hda->offset, (uint64_t)hda->header, (uint64_t)hda->control_status);
+    }
 }
 
 static bool hsw_candidate_display_unchanged(const uint32_t *row) {
@@ -174,8 +201,9 @@ static bool hsw_candidate_sample(uint32_t *row) {
         row[HC_EDP_CONF + i] = resource_read(hsw_candidate_regs[i]);
         if (row[HC_EDP_CONF + i] == UINT32_MAX) return false;
     }
+    struct package_pci_af *af = hsw_live.slot_probe ? hsw_live.af[hsw_candidate_result.rows] : NULL;
     if (!hsw_candidate_display_unchanged(row) ||
-        !hsw_candidate_pci(gpu, 0x0a268086, &row[HC_IGD_CMD]) ||
+        !hsw_candidate_pci(gpu, 0x0a268086, &row[HC_IGD_CMD], af ? &af[0] : NULL) ||
         (row[HC_IGD_PM] & 3) || !(row[HC_IGD_CMD] & 2)) return false;
 
     const struct pci_device *hda = NULL;
@@ -190,7 +218,7 @@ static bool hsw_candidate_sample(uint32_t *row) {
 #endif
     if (!hda || pci_read_config32(hda, 8) >> 8 != 0x040300 ||
         pci_read_config32(hda, 0x2c) != 0x011a106b ||
-        !hsw_candidate_pci(hda, 0x0a0c8086, &row[HC_HDA_CMD])) return false;
+        !hsw_candidate_pci(hda, 0x0a0c8086, &row[HC_HDA_CMD], af ? &af[1] : NULL)) return false;
 
     row[HC_FRAME] = resource_read(0x70040);
     if (!hsw_config_valid() || !hsw_read(NULL, HSW_CANDIDATE_MMIO, &row[HC_PTE]) ||
@@ -219,7 +247,8 @@ static bool hsw_candidate_observe_access(bool access) {
     hsw_candidate_result.status = 2; /* Access or sampling failure. */
     hsw_candidate_window = true;
     hsw_access_window = access;
-    if (hsw_candidate_result.begin && (!access || (hsw_fbc_sample() && hsw_candidate_in_budget())) &&
+    if (hsw_candidate_result.begin && (!hsw_live.slot_probe || hsw_smi_count(&hsw_live.smi_begin)) &&
+        (!access || (hsw_fbc_sample() && hsw_candidate_in_budget())) &&
         hsw_map(NULL, mmio)) {
         hsw_candidate_result.mapped = true;
         uint32_t *before = hsw_candidate_result.sample[0], *after = hsw_candidate_result.sample[1];
@@ -254,6 +283,8 @@ static bool hsw_candidate_observe_access(bool access) {
         }
     }
     if (hsw_window_poison) hsw_candidate_result.status = 5;
+    if (hsw_live.slot_probe && hsw_candidate_result.status == 1 && !hsw_smi_count(&hsw_live.smi_end))
+        hsw_candidate_result.status = 2;
     hsw_access_window = false;
     hsw_candidate_window = false;
     hsw_candidate_result.end = timer_monotonic_us();

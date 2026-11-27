@@ -40,6 +40,20 @@ int main(void) {
     init();cfg[0x40/4]=0x00034401;cfg[0x44/4]=5;assert(snap().state==2); /* next inside PMCSR */
     init();cfg[0x40/4]=0x00410010;cfg[0x4c/4]=0xc00;cfg[0x50/4]=3;
     s=snap();assert(s.state==1 && s.flags==2 && !s.ltr && !s.ltr_cap); /* v1 has no Device Control 2 */
+    struct package_pci_af af;
+    init();cfg[0x40/4]=0x01060013;cfg[0x44/4]=0x100;
+    package_pci_read_with_af(&s,&af,read_cfg,cfg);
+    assert(s.state==1 && af.offset==0x40 && af.header==0x01060013 && af.control_status==0x100);
+    assert(snap().state==1 && reads==6); /* The ordinary walk adds no AF payload read. */
+    for(unsigned i=0;i<5;i++){
+        init();cfg[0x40/4]=0x01060013;
+        if(i==0)cfg[0x40/4]=0x01050013;
+        if(i==1)cfg[0x40/4]=0x01064413;
+        if(i==2){cfg[0x40/4]=0x01065013;cfg[0x50/4]=0x01060013;}
+        if(i==3)cfg[0x44/4]=UINT32_MAX;
+        if(i==4){cfg[0x34/4]=0xfc;cfg[0xfc/4]=0x01060013;}
+        reads=0;package_pci_read_with_af(&s,&af,read_cfg,cfg);assert(s.state==2);
+    }
     uint64_t base;assert(package_graphics_bar(0xc0000004,0,2,&base) && base==0xc0000000);
     assert(!package_graphics_bar(0xc0001004,0,2,&base));assert(!package_graphics_bar(0xc0000000,0,2,&base));assert(!package_graphics_bar(0xc0000004,0,0,&base));assert(!package_graphics_bar(4,0,2,&base));
     assert(ltr().state==3);ext_ok=true;assert(ltr().state==2);

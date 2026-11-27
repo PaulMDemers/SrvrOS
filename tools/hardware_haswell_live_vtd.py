@@ -24,6 +24,45 @@ def _rows(text, prefix, pattern):
     return rows
 
 
+def _decode_af(offset, header, control_status):
+    if not offset:
+        if header or control_status:
+            raise ValueError("missing AF framing")
+        return dict(offset=None, transactions_pending=None)
+    length = header >> 16 & 255
+    next_offset = header >> 8 & 255
+    if (offset not in range(0x40, 0xfc, 4) or not 0 <= header <= WORD_MAX or header & 255 != 0x13 or
+            not 6 <= length <= 256-offset or not 0 <= control_status <= 0xffff or
+            (next_offset and (next_offset not in range(0x40, 0x100, 4) or offset <= next_offset < offset+length))):
+        raise ValueError("AF capability bounds")
+    return dict(offset=offset, header=header, control_status=control_status,
+                transactions_pending=bool(control_status & 0x100) if header & (1 << 24) else None)
+
+
+def _observe_requesters(text, bracket):
+    meta = [line for line in text.splitlines() if line.startswith("hsw-live-observe:")]
+    rows = _rows(text, "hsw-live-af:", r"hsw-live-af: phase=([01]) igd=(\d+),(\d+),(\d+) hda=(\d+),(\d+),(\d+)")
+    if not meta and not rows:
+        return None  # Historical live receipts precede this observation.
+    if len(meta) != 1:
+        raise ValueError("requester observation summary")
+    match = re.fullmatch(r"hsw-live-observe: v=1 complete=([01]) cpu=0 begin=(\d+) end=(\d+) "
+                         r"smi=(\d+),(\d+) writes=0 authority=none", meta[0])
+    if not match:
+        raise ValueError("requester observation framing")
+    complete, begin, end, before, after = map(int, match.groups())
+    if bracket is None:
+        if any((complete, begin, end, before, after, rows)):
+            raise ValueError("incomplete requester observation")
+        return dict(status="NOT_SAMPLED")
+    if not complete or (begin, end) != bracket or len(rows) != 2 or max(before, after) > WORD_MAX:
+        raise ValueError("requester observation bracket")
+    return dict(status="OBSERVED", cpu=0, begin=begin, end=end, smi=[before, after],
+                smi_delta=(after-before) & WORD_MAX,
+                af=[dict(igd=_decode_af(*row[:3]), hda=_decode_af(*row[3:])) for row in rows],
+                requester_drain_proven=False, firmware_exclusion_proven=False)
+
+
 def _parse(window, ecam, exit_log, session, release):
     if not re.fullmatch(r"[0-9a-f]{16}", release):
         return None
@@ -68,6 +107,7 @@ def _parse(window, ecam, exit_log, session, release):
             return None
         status = "REFUSED" if sample and sample["status"] == "REFUSED" and not requester and not gt else "INCOMPLETE"
         result.update(status=status, remapper_status=sample["status"] if sample else "unverified")
+        result["requester_observation"] = _observe_requesters(exit_log, None)
         return result
 
     access = access_result(exit_log)
@@ -77,7 +117,7 @@ def _parse(window, ecam, exit_log, session, release):
         return None
     rows = access["candidate"]["samples"]
     slot_log, = [line for line in exit_log.splitlines() if line.startswith("hsw-candidate:")]
-    start = int(re.search(r" begin=(\d+) end=\d+ ", slot_log)[1])
+    start, end = map(int, re.search(r" begin=(\d+) end=(\d+) ", slot_log).groups())
     if not requester[0][1] <= sample["begin"] < sample["end"] <= requester[1][0] <= requester[1][1] < start:
         return None
     if any(req[2:5] != tuple(row[key] for key in ("igd_cmd", "igd_pm", "igd_cap"))
@@ -91,6 +131,7 @@ def _parse(window, ecam, exit_log, session, release):
     target_in_igd_rmrr = any(r["segment"] == 0 and gpu_scope in r["scopes"]
                              for r in access["declared_rmrrs_covering_target"])
     result.update(status="OBSERVED", slot_access=access, target_in_igd_rmrr=target_in_igd_rmrr,
+                  requester_observation=_observe_requesters(exit_log, (start, end)),
                   remapper="DMAR DRHD0 graphics unit", remapper_sample=decoded[0],
                   remapper_reads=24, remapper_writes=0, candidate_gap_us=start - sample["end"],
                   input_sha256={name: hashlib.sha256(data.encode()).hexdigest()

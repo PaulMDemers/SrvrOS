@@ -285,6 +285,39 @@ Slot 4096 stays protected. Requester drain, firmware/SMM exclusion and a
 maintained owner remain open. The smallest observed retirement margin was
 419 µs.
 
+### Requester drain and firmware exclusion
+
+The next v9 release adds two read-only observations to the existing
+slot 4096 bracket while Pipe A advances. The conventional PCI walk checks
+Advanced Features capability `0x13` on IGD and display HDA. The receipt
+contains the raw capability header and control/status for each endpoint.
+Transactions Pending is unknown if the capability is absent or lacks TP
+support. At the two ends of the slot bracket, the pinned Haswell BSP reads
+its 32-bit SMI counter. The host decodes the modulo-32-bit delta. The unit
+also exposes an SMI counter through Ubuntu's `msr` PMU. [PCI register definitions](https://raw.githubusercontent.com/torvalds/linux/v6.12/include/uapi/linux/pci_regs.h) · [Linux SMI counter sampling](https://raw.githubusercontent.com/torvalds/linux/v6.12/tools/power/x86/turbostat/turbostat.c)
+
+A pending bit or advancing SMI counter supplies direct evidence of
+activity within its scope. Clear endpoint samples and a zero CPU0 delta
+leave intervening traffic and firmware access on other CPUs or agents
+unresolved. EFI boot-services exit alone grants no continuing exclusion
+of runtime firmware or SMM. A later firmware-exclusion claim needs an
+explicit trusted platform handoff with a maintained hold, or hardware
+enforcement for all relevant agents. [UEFI boot-services handoff](https://uefi.org/specs/UEFI/2.10/07_Services_Boot_Services.html)
+
+Graphics DRHD0 advertises both read and write drain support. The captured
+ECAP locates the Haswell IOTLB command register at `0x108` relative to
+DRHD0. Broadwell PR301 exercises an ordered drain under its own held
+requester lifetime. Haswell still needs separate admission, register
+state/interlock qualification, command completion and retirement, under
+a hold that prevents new submissions. The remapper's drain cannot alone
+retire GT caches, the display reader or firmware. Engine queue state would
+need an independently qualified awake access path. The ring registers
+are in the i915 forcewake range, so this trial leaves them unread.
+[Intel VT-d specification](https://cdrdv2-public.intel.com/774206/vt-directed-io-spec%20.pdf) · [Intel Haswell command registers](https://kiwitree.net/~lina/intel-gfx-docs/prm/hsw/intel-gfx-prm-osrc-hsw-commandreference-registers_0.pdf) · [i915 forcewake access](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/gpu/drm/i915/intel_uncore.c)
+
+The receipt grants no requester drain or firmware exclusion authority.
+All VT-d, PCI and GPU controls and the slot 4096 entry remain unchanged.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

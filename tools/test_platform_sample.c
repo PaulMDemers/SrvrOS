@@ -5,6 +5,12 @@
 #include <stdarg.h>
 #include <string.h>
 static uint64_t test_ticks=100;
+static uint32_t test_smi_count;
+static bool test_smi_unavailable;
+bool platform_test_hsw_smi_count(uint32_t *count) {
+    if(test_smi_unavailable)return false;
+    *count=test_smi_count++;return true;
+}
 static unsigned reads;
 static uint32_t rc=50;
 static unsigned well_reads,map_calls,map_failure;

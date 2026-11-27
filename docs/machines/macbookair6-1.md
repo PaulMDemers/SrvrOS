@@ -119,6 +119,12 @@ enabled at both sampled PCI endpoints. Keep the slot protected pending
 requester drain and firmware exclusion evidence. Ubuntu, recovery and
 the offline USB filesystem check verified on return.
 
+The next PR567 checkpoint adds read-only PCI Advanced Features pending
+status for IGD and display HDA, and a CPU0 SMI count bracket around the
+same live Pipe A and protected slot 4096 observation. It uses the
+existing PCI capability walk and the verified Haswell CPU identity.
+Air7,2 PR301 at `efc06d12` supplies separate Broadwell ownership work.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

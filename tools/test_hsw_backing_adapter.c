@@ -84,6 +84,10 @@ static void access_tests(void) {
 static void live_setup(void) {
  access_setup();
  memset(&hsw_live,0,sizeof(hsw_live));
+ pci_config[0x60/4]=0x00918810;
+ pci_config[0x88/4]=0x01060013;
+ pci_config[0x8c/4]=0x100;
+ test_smi_count=UINT32_MAX;test_smi_unavailable=false;
 }
 
 static void live_audit_tests(void) {
@@ -98,8 +102,12 @@ static void live_audit_tests(void) {
  assert(hsw_live_snapshot(gpu) && hsw_live_snapshot(gpu) && !hsw_live_snapshot(gpu));
  hsw_live.slot_probe=true;
  assert(hsw_candidate_observe_access(true) && hsw_live_match());
+ assert(hsw_live.af[0][0].offset==0x88 && hsw_live.af[1][0].control_status==0x100);
+ assert(!hsw_live.af[0][1].offset && hsw_live.smi_begin==UINT32_MAX && hsw_live.smi_end==0);
  hsw_candidate_result.sample[1][HC_IGD_CMD]^=4;
  assert(!hsw_live_match());
+ live_setup();hsw_live.slot_probe=true;test_smi_unavailable=true;
+ assert(!hsw_candidate_observe_access(true) && !hsw_candidate_result.mapped && !hsw_window_live);
 }
 static void candidate_tests(void) {
  candidate_setup();assert(hsw_candidate_observe_access(false) && candidate_ptes==2 && candidate_frames==2 &&
