@@ -441,6 +441,21 @@ original-slot and Pipe A preservation, and release through the existing
 Broadwell traffic verifier. Local models include the Air's captured
 pre-reopen state. A physical run requires a documented request provider.
 
+The recorded GAM trace sampled `0xff` before reset and `0x7fff` after
+the first reset pulse. Across 844 reads after the second pulse, from
+3,034,147 through 3,172,683 µs of boot time, it still read `0x7fff`.
+The client request bits stayed open in those samples, and no clear
+reset-reason state was observed at the pre-reopen boundary. The
+no-store fixture replays the final native request, GAM reply and WiDi
+reply and refuses before issuing a request.
+
+The same fixture exercises a provider with a fresh drain, separate
+existing 10 ms acquisition and reopening budgets, identical slot and
+Pipe A readbacks, and a clean return. Uncertain request or reply keeps
+the interval and display exclusion pinned. All 299 host cases and 78
+QEMU cases passed, including 17 new cases. The Air stays in Ubuntu at
+1% volume while the native request provider is pending.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

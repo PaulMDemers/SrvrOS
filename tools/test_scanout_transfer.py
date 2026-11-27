@@ -23,6 +23,11 @@ OWNED_PAGE_MODES += (
     "boot-page-epoch-lost", "boot-page-cache-lost", "boot-page-clock-expired", "boot-page-foreign-pte",
     "boot-page-uncertain-store", "boot-page-stale-forward", "boot-page-stale-rollback", "boot-page-rollback-alias-lost",
 )
+OWNED_PAGE_MODES += tuple(f"boot-drain-{mode}" for mode in (
+    "roundtrip", "air-capture", "no-parent", "no-effect", "ambiguous-request", "lost-ticket",
+    "stale-l3", "no-l3", "widi-open", "target-drift", "plane-drift", "delayed-return",
+    "ambiguous-return", "stuck-return", "expired", "late-parent-loss", "separate-windows",
+))
 MODES = list(OWNED_PAGE_MODES) + """normal missing invalid failed-open clock-open stuck-open deadline-open
 post-open-clock source-open changed-first changed-last pool-exhausted poison-open
 input-mutation reentry source-live clock-live poison-live regress-live failed-close

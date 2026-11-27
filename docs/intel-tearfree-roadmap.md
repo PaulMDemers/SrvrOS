@@ -160,6 +160,15 @@ the ability to block new traffic unproven. [Native Air checkpoint](machines/macb
    range and its backing pinned if either translation or ownership becomes
    uncertain. [WiDi TLB control, p. 1823](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
 
+The no-store diagnostic now exercises this lifetime in the host suite and
+Q35. It borrows the exact page reservation and display exclusion, checks
+the current owner and open baseline, and requires fresh closed traffic
+before returning the provider's ticket. After return it checks that
+traffic has reopened and that the original PTE and live plane still match.
+The provider owns the actual request, checks the pre-reopen boot context
+and retains the firmware, proxy and cache-policy guards. The saved Air
+baseline refuses before any request. [Diagnostic core](../kernel/diagnostics/intel_bdw_boot_drain.c)
+
 If the occupied interval cannot be transferred, the boot allocator needs
 an interval explicitly yielded before any firmware or device client can
 use it. The existing Air capture identifies preserved mappings and reserved
