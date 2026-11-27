@@ -7,8 +7,9 @@ enumeration trial. The operator verified built-in keyboard input, command
 execution and readable mixed-case text in the regular monitor. The isolated
 trackpad trial verified Wellspring mode recovery, one-finger motion, two
 contacts, and click press and release. Ubuntu verified the release-matched
-USB report. Trackpad pointer integration and monitor shutdown counters remain
-unverified.**
+USB report. The operator confirmed the trackpad worked in the native desktop.
+The desktop report was missing after a flash save warning, so the full
+desktop checklist and retirement counters remain unverified.**
 
 ## Identity and baseline
 
@@ -109,6 +110,14 @@ controller and save the release-bound report through the separate flash
 controller. Scope is EHCI trackpad ownership, the boot profile and desktop
 checklist. The checkpoint is exact-stage VM rehearsal and native acceptance
 on this unit.
+
+The desktop USB follow-up starts from `7ed554ef`. The first desktop run
+confirmed working trackpad input with the operator and returned to Ubuntu,
+but the flash save failed. A read-only replay using the exact initramfs and
+attached drive reproduced the writable-admission refusal. The follow-up
+consumes `origin/main` at `93e10a44` and the boot-inode repair in PR #554.
+Scope is integrating the landed fix, replaying this unit's USB workspace, and
+verifying the same desktop checklist with a native flash report.
 
 ## Bring-up sequence
 
@@ -858,13 +867,27 @@ overall hardware result incomplete. The reboot rehearsal returned to the
 Ubuntu default. The attended image carries the compositor, Text and its
 required helpers in RAM so the recovery image still fits on the EFI volume.
 
+The operator confirmed the built-in trackpad worked in native desktop
+`c431c3461b31a9a3` and reported a flash save verification warning on exit.
+Ubuntu returned and consumed the one-shot, and EFI entries and retained
+payloads verified. The report was absent. All 117 workspace files matched
+their backups, and offline allocation and writable checks passed. The
+operator observation does not supply the compositor or retirement counters.
+
+The exact staged initramfs and current USB partition reproduced the save
+blocker in a read-only host replay. The desktop bootstrap allocated inode 2
+to `/fat`, while the workspace sidecar already assigned it to `/work`.
+Additional boot inode numbers overlapped saved metadata. Writable admission
+refused even though exFAT allocation passed with zero I/O writes or flushes.
+The shared fix in PR #554 assigns generated boot IDs to a separate range.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Isolated native recovery passed on `53177189337d3d65`. All 224 post-retry frames decoded. One-finger motion, two contacts, and click press and release verified. | Integrate and verify trackpad pointer input in the regular runtime |
+| Trackpad | Isolated native recovery passed on `53177189337d3d65`. The operator confirmed desktop trackpad function on `c431c3461b31a9a3`. | Verify desktop pointer, click, and retirement counters from the saved native report |
 | USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
