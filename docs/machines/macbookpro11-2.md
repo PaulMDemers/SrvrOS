@@ -2196,6 +2196,37 @@ endpoint and queue receipts, and its native xHCI fixture. Keep all
 three hub leaves, channel 10, the four-second 4 KiB receive path,
 the 250 ms wait, and the existing boot/save/recovery recipe.
 
+The present Ubuntu `rtl8192cu` driver completed the first 62-byte
+Auth on bulk OUT `0x02` in 14 µs with status 0 and actual length 62,
+then completed WPA2 on Demers2.4. The cold Linux capture places the
+queue writes between the last LLT write and firmware download.
+The working readbacks were RQPN `0x00e70009`, NPQ `8`, TRXDMA
+`0xfaf0`, management boundary `0xf9` and SIE queue bytes
+`0x32/0x00` (high queue on OUT 2, normal queue on OUT 3).
+Linux usbfs returned EBUSY for a separate user-space endpoint status
+query while the kernel driver owned the interface.
+[Linux CU initialization](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c)
+[Linux CU endpoint mapping](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/trx.c)
+
+Source `af08e485` applies the observed queue order to the active
+station profile. TX DMA and radio TX stay gated through queue setup
+and passive discovery. Before Auth, the driver checks retained TX
+allocation and SIE mapping, confirms the xHCI bulk OUT context, and
+queries endpoint `0x02` for halt. It saves queue samples from before
+firmware and immediately before Auth, plus the existing transfer
+trace. The native xHCI fixture exercised the new order, a stuck load
+bit, lost reservation, swapped SIE queues, endpoint halt and wrong
+xHCI packet size, as well as the successful WPA2 and cleanup paths.
+The saved-result decoder fit both new receipts within the bounded
+EFI journal tail. Use `build/bringup/pro112-rtl8188cu-tx-queue` for
+the source-matched cold run and its workspace and EFI evidence.
+Release `a8950ab3cf3d03a5` passed the exact GPT workspace and four
+EFI journal rehearsals, including the missing-workspace save path.
+The test is unattended. Cold-cycle the hub upstream cable and any
+external hub power for ten seconds while keeping the three adapters
+in their ports and the workspace connected to the laptop. Verify
+return to Ubuntu and retire the private image after collecting.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
