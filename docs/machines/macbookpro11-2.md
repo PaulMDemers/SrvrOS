@@ -2595,6 +2595,16 @@ range and still checks the snapshot, row flags and selection. Exercise
 the actual System actions against both the Edimax and Realtek providers.
 Inspected `origin/main` at `dc4a48d3` and SrvrApps main at `27e8203`.
 
+Release `87649100cf3cbfe5` pins SrvrApps `b8e7765` on SrvrOS
+`b640ea25`. System's production view and command handlers pass both
+generations on channels 10 and 161, and the native Realtek test passes
+both generations through xHCI and the resident network stack. The
+Edimax reconnect, shared xHCI lifecycle, 327 boot and trial tests, and
+five exact-image VM rehearsals passed. Keep all three adapters on the
+hub for the cold run. Help opens the same checklist and the session
+saves each System command result and the final receipts. Local run
+record `build/bringup/pro112-rtl8188cu-desktop-channel/run.json`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
