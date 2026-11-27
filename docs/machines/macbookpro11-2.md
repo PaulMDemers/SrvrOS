@@ -2016,6 +2016,21 @@ prior workspace files. The evidence, comparison and verified
 payload are under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-fc150a451faf921d`.
 
+#### RTL8188CUS receive-ring reuse
+
+Start at `7d09ef06` (integration base `50f1978a`, upstream inspected
+at `93e10a44`). Extend only the routed RTL8188CUS passive xHCI
+path and native fixture. Keep one fixed 4 KiB transfer in flight,
+and recycle the ring only after the prior completion and buffer
+inspection. Cover Link TRB cycle transitions and verify the
+stopped dequeue position and cycle. Run for the full four seconds
+and record aggregate descriptor and frame dispositions in both
+log sinks. Keep TX paused, both TX DMA gates clear and all three
+adapters on the hub. The prior 62-completion, one-beacon cold
+session is the control.
+[xHCI Transfer Ring and Stop Endpoint specification](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf)
+[Linux CU receive descriptor](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/trx.h)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
