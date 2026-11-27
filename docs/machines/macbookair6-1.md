@@ -2,11 +2,12 @@
 
 Updated: 2026-11-13. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
-The [bounded internal SSD partition-read trial](#native-partition-read-return)
-passed on 2026-11-27. Both GPT regions, the complete EFI boot sector, and three
-EFI partition ranges matched cleanly unmounted Ubuntu references. The partition
-ranges used four 4 KiB AHCI reads. SrvrOS left the SSD unmounted and issued zero
-ATA writes.
+The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
+passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
+the complete EFI boot sector, and three EFI partition ranges matched cleanly
+unmounted Ubuntu references. SrvrOS used the normal AHCI initializer and issued
+four 4 KiB partition reads per boot. The SSD stayed unmounted and no ATA writes
+were issued.
 
 Current diagnostic milestone: the exact-source pre-user two-pass read-only
 sampler is physically accepted on release `2ddbd3b285f6bf41`. All24 DWORD reads
@@ -15236,3 +15237,23 @@ samples against a clean Ubuntu baseline, and save separate cold and warm
 receipts. Scope is AHCI discovery, boot profile, and its test tooling.
 Ordinary boot policy and all timeouts stay unchanged. PR550's installed-root
 and account scope remains separate.
+
+#### Native cold and warm discovery return
+
+Release `9829a6ecc9cbc9a4` (source `021da577`, PR562) passed in both phases.
+Ubuntu reached its power-off target before the cold start and its reboot target
+before the warm start. Separate launch records and preserved USB receipts
+identify both runs. Each used the normal AHCI initializer to register
+`ahci0` read-only and expose the two expected GPT partitions. All six native
+digests matched the clean Ubuntu references, which agreed across the four
+captures. The three EFI partition ranges required four 4 KiB commands per boot.
+
+Each run performed one SATA reset. The cold and warm holds were 1,000 and
+1,001 µs, and the link became ready 3,862 and 3,861 µs after release.
+Each receipt retained 11 port snapshots and showed both AHCI engines stopped
+with command and active slots clear. The internal SSD remained unmounted and
+SrvrOS reported zero ATA writes. Ubuntu returned automatically with its
+EFI mount restored, its boot order unchanged, and recovery release
+`c35475f62f154f1e` retained. Both USB exFAT and allocation checks passed.
+All five earlier and both new USB receipts matched their saved copies.
+This accepts the opt-in read-only discovery path for the captured SSD.
