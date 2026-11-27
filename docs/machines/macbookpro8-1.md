@@ -7,9 +7,9 @@ enumeration trial. The operator verified built-in keyboard input, command
 execution and readable mixed-case text in the regular monitor. The isolated
 trackpad trial verified Wellspring mode recovery, one-finger motion, two
 contacts, and click press and release. Ubuntu verified the release-matched
-USB report. The operator confirmed the trackpad worked in the native desktop.
-The desktop report was missing after a flash save warning, so the full
-desktop checklist and retirement counters remain unverified.**
+USB report. The native desktop retry verified pointer movement, physical
+clicks, the Ubuntu return, and the USB report. Its strict transport verdict
+remains incomplete after one reported malformed frame.**
 
 ## Identity and baseline
 
@@ -890,14 +890,30 @@ using its exact staged initramfs. The previous run's Ubuntu return note is
 on the flash drive. The native retry will check the release-bound desktop
 report after the pointer and click checklist.
 
+The native desktop retry on `0a4b6e655574e009` passed the compositor
+checklist at 1280 × 800. The built-in trackpad moved the pointer on both
+axes, maximized and restored the Text window, and selected Return to console.
+The driver recovered Wellspring mode after a 1,013 µs wait. It recorded 910
+valid reports, 691 motion events, and four presses and four releases. It
+restored the original mode and released the topcase resources. The aggregate
+marker was `INCOMPLETE` because the driver counted one malformed frame. The
+runtime report does not include that frame's length or bytes.
+
+The operator confirmed the trackpad and reboot worked. Ubuntu read back the
+21,272-byte native report, consumed the one-shot, and verified the retained
+EFI and recovery payloads. The offline allocation check passed for all 119
+files with zero writes. The previous user files matched their backups, and
+the flash-drive report matched its archived copy after remount. The one-time
+Ubuntu verifier removed its own startup entry after collecting the report.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Isolated native recovery passed on `53177189337d3d65`. The operator confirmed desktop trackpad function on `c431c3461b31a9a3`. | Verify desktop pointer, click, and retirement counters from the saved native report |
-| USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
+| Trackpad | The native desktop checklist passed on `0a4b6e655574e009`, with movement, clicks, and topcase retirement verified. One malformed frame kept the strict run incomplete. | Capture the length and bytes if the malformed frame recurs |
+| USB workspace | Native desktop report save and Ubuntu readback verified on `0a4b6e655574e009` after the boot-inode fix | Capture a saved receipt for the flash controller's final retirement |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
