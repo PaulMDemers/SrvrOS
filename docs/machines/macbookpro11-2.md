@@ -1875,6 +1875,18 @@ return. The collector verified all 636 prior files and the installed
 recovery. Evidence, comparison and the verified payload are under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-e1c25099a8e3bd3e`.
 
+The next comparison starts at `2ba1e4a6` (integration base
+`50f1978a`, upstream inspected at `c523e036`). The working Linux
+monitor readback is `RCR=0xf000790f`, while the last SrvrOS run
+held `0x1000790f`. Add only bits 29–31 for appended ICV, MIC and
+FCS, keeping the PHY prefix and existing receive filters. Check
+the complete RCR again before posting RX. Strip the four-byte FCS
+from plaintext beacons before parsing their information elements.
+Keep TX paused, the fixed 4 KiB request and all three hub ports.
+Qualify the native path and both log sinks before the cold run.
+[Linux RCR definitions](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h#L589-L595)
+[Linux CU receive setup](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L659-L678)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
