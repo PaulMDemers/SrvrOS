@@ -280,14 +280,24 @@ static struct ehci_monitor_session {
     enum ehci_monitor_state state;
 } monitor_session;
 
+#define EHCI_DESKTOP_MALFORMED_SAMPLES 4u
+struct ehci_desktop_frame_sample {
+    uint64_t observed_us, previous_valid_us;
+    uint32_t qtd_token, overlay_token, frame_index;
+    unsigned completion, length;
+    uint8_t bytes[EHCI_DESCRIPTOR_BYTES];
+};
+
 static struct ehci_desktop_trackpad {
     struct ehci_probe_report report;
     struct ehci_control_path path;
     const struct pci_device *device;
     uint64_t frame_list, transfer_page, root, page;
+    uint64_t activated_us, retry_activated_us;
     uint16_t memory_command;
     enum ehci_monitor_state state;
-    unsigned reports, ignored, malformed, motion, presses, releases;
+    unsigned completions, reports, ignored, malformed, motion, presses, releases;
+    struct ehci_desktop_frame_sample malformed_samples[EHCI_DESKTOP_MALFORMED_SAMPLES];
     const char *failure;
 } desktop_trackpad;
 
@@ -713,7 +723,8 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
             } else if (!enable_periodic(&path)) {
                 desktop_trackpad.failure = "periodic enable timeout";
             } else {
-                report->trackpad.mode_to_active_us = timer_monotonic_us() - mode_completed_at;
+                desktop_trackpad.activated_us = timer_monotonic_us();
+                report->trackpad.mode_to_active_us = desktop_trackpad.activated_us - mode_completed_at;
                 report->enumerated = true;
                 path.scan = NULL;
                 desktop_trackpad.path = path;
@@ -1145,18 +1156,11 @@ static void print_trackpad_arm_timing(const struct ehci_trackpad_capture *captur
     }
     console_printf("Trackpad mode-to-first completion %u us. First payload %u bytes.\n",
         capture->mode_to_first_completion_us, (uint64_t)capture->first_payload_length);
-    static const char digits[] = "0123456789abcdef";
-    enum { bytes_per_line = 24 };
-    for (unsigned offset = 0; offset < capture->first_payload_length; offset += bytes_per_line) {
-        char hex[2 * bytes_per_line + 1];
+    for (unsigned offset = 0; offset < capture->first_payload_length; offset += EHCI_TRACKPAD_HEX_LINE_BYTES) {
+        char hex[2 * EHCI_TRACKPAD_HEX_LINE_BYTES + 1];
         unsigned count = capture->first_payload_length - offset;
-        if (count > bytes_per_line) count = bytes_per_line;
-        for (unsigned i = 0; i < count; i++) {
-            uint8_t byte = capture->first_payload[offset + i];
-            hex[2 * i] = digits[byte >> 4];
-            hex[2 * i + 1] = digits[byte & 15u];
-        }
-        hex[2 * count] = '\0';
+        if (count > EHCI_TRACKPAD_HEX_LINE_BYTES) count = EHCI_TRACKPAD_HEX_LINE_BYTES;
+        format_trackpad_hex(hex, capture->first_payload + offset, count);
         console_printf("Trackpad first payload offset %u %s\n", (uint64_t)offset, hex);
     }
 }

@@ -862,6 +862,18 @@ static void test_trackpad_mode_retry(void) {
     }
 }
 
+static void retire_desktop_test_report(struct ehci_trackpad_dma *queue, unsigned slot,
+    const uint8_t *data, unsigned length) {
+    struct ehci_trackpad_slot *active = &queue->slots[slot];
+    assert(active->td.token & EHCI_TD_ACTIVE);
+    if (length) memcpy(active->data, data, length);
+    active->td.token = ((trackpad_endpoint.length - length) << EHCI_TD_BYTES_SHIFT) |
+        EHCI_TD_PID_IN | EHCI_TD_RETRIES | EHCI_TD_IOC;
+    queue->qh.current = queue->qh.overlay.next;
+    queue->qh.overlay.next = active->td.next;
+    queue->qh.overlay.token = active->td.token;
+}
+
 static void test_desktop_trackpad_input(void) {
     fixture_reset();
     desktop_trackpad = (struct ehci_desktop_trackpad){0};
@@ -881,16 +893,9 @@ static void test_desktop_trackpad_input(void) {
     assert(slot == 0 && !desktop_trackpad.reports);
 
     for (unsigned request = 0; request < 4; request++) {
-        struct ehci_trackpad_slot *active = &queue.slots[slot];
-        assert(active->td.token & EHCI_TD_ACTIVE);
         const uint8_t report_bytes[58] = {0x74, [15] = request == 2, [32] = 64 * request,
             [34] = 48 * request, [46] = 5};
-        memcpy(active->data, report_bytes, sizeof(report_bytes));
-        active->td.token = ((trackpad_endpoint.length - sizeof(report_bytes)) << EHCI_TD_BYTES_SHIFT) |
-            EHCI_TD_PID_IN | EHCI_TD_RETRIES | EHCI_TD_IOC;
-        queue.qh.current = queue.qh.overlay.next;
-        queue.qh.overlay.next = active->td.next;
-        queue.qh.overlay.token = active->td.token;
+        retire_desktop_test_report(&queue, slot, report_bytes, sizeof(report_bytes));
         now += 8000;
         assert(!desktop_trackpad_poll(&path, &queue, &pointer, &slot, &last_report));
         assert(trackpad_buttons == (request == 2 ? 1 : 0));
@@ -898,6 +903,29 @@ static void test_desktop_trackpad_input(void) {
     }
     assert(desktop_trackpad.reports == 4 && desktop_trackpad.motion && injected_trackpad_events >= 3);
     assert(desktop_trackpad.presses == 1 && desktop_trackpad.releases == 1);
+
+    /* Full-size Type 2 transfer with a negative pressure field. */
+    uint8_t malformed[EHCI_TRACKPAD_REPORT_MAX] = {0x74, [47] = 0x80,
+        [EHCI_TRACKPAD_REPORT_MAX - 1] = 0xff};
+    now += 9000;
+    op[EHCI_FRINDEX] = 0x4321;
+    retire_desktop_test_report(&queue, slot, malformed, sizeof(malformed));
+    assert(!desktop_trackpad_poll(&path, &queue, &pointer, &slot, &last_report));
+    const struct ehci_desktop_frame_sample *sample = &desktop_trackpad.malformed_samples[0];
+    assert(sample->length == sizeof(malformed) && !memcmp(sample->bytes, malformed, sizeof(malformed)));
+    assert(sample->completion == 5 && sample->previous_valid_us == last_report && sample->observed_us - last_report == 9000);
+    assert(sample->frame_index == 0x321 && sample->qtd_token == sample->overlay_token);
+
+    for (unsigned extra = 0; extra < EHCI_DESKTOP_MALFORMED_SAMPLES; extra++) {
+        now += 8000;
+        retire_desktop_test_report(&queue, slot, NULL, 0);
+        assert(!desktop_trackpad_poll(&path, &queue, &pointer, &slot, &last_report));
+    }
+    assert(desktop_trackpad.malformed == EHCI_DESKTOP_MALFORMED_SAMPLES + 1);
+    assert(desktop_trackpad.malformed_samples[1].length == 0);
+    assert(desktop_trackpad.malformed_samples[EHCI_DESKTOP_MALFORMED_SAMPLES - 1].completion ==
+        4 + EHCI_DESKTOP_MALFORMED_SAMPLES);
+    assert(!memcmp(sample->bytes, malformed, sizeof(malformed)));
 }
 
 static void test_flash_bulk(void) {

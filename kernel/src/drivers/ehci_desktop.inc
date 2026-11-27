@@ -84,6 +84,7 @@ static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct 
     if (!trackpad_queue_parked(progress, next, retired, dummy)) return "queue did not park at the inactive dummy";
     const uint8_t *data = dma->slots[*slot].data;
     struct apple_trackpad_frame frame;
+    desktop_trackpad.completions++;
     int decoded = apple_trackpad_decode_type(EHCI_TRACKPAD_TYPE, data, length, &frame);
     bool retry = decoded < 0 && length == 8 && !desktop_trackpad.reports && !capture->recovery.attempted;
     uint64_t retry_completed = 0;
@@ -97,7 +98,19 @@ static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct 
         *last_report = timer_monotonic_us();
         desktop_trackpad_pointer(pointer, &frame);
     } else if (decoded < 0) {
-        desktop_trackpad.malformed++;
+        /* Sample only retired requests, before the buffer can be reused. */
+        unsigned sample = desktop_trackpad.malformed++;
+        if (sample < EHCI_DESKTOP_MALFORMED_SAMPLES) {
+            struct ehci_desktop_frame_sample *trace = &desktop_trackpad.malformed_samples[sample];
+            trace->observed_us = timer_monotonic_us();
+            trace->previous_valid_us = *last_report;
+            trace->qtd_token = token;
+            trace->overlay_token = progress->qh.overlay.token;
+            trace->frame_index = path->op[EHCI_FRINDEX] & EHCI_FRINDEX_MASK;
+            trace->completion = desktop_trackpad.completions;
+            trace->length = length;
+            for (unsigned i = 0; i < length; i++) trace->bytes[i] = data[i];
+        }
         cancel_desktop_pointer(pointer);
     } else desktop_trackpad.ignored++;
 
@@ -108,7 +121,8 @@ static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct 
     if (retry) {
         if (!enable_periodic(path)) return "periodic resume after mode retry failed";
         capture->recovery.resumed = true;
-        capture->recovery.mode_to_active_us = timer_monotonic_us() - retry_completed;
+        desktop_trackpad.retry_activated_us = timer_monotonic_us();
+        capture->recovery.mode_to_active_us = desktop_trackpad.retry_activated_us - retry_completed;
     }
     return NULL;
 }
@@ -164,6 +178,34 @@ bool ehci_desktop_trackpad_start(void) {
     return true;
 }
 
+static void print_desktop_frame_samples(void) {
+    unsigned count = desktop_trackpad.malformed;
+    if (count > EHCI_DESKTOP_MALFORMED_SAMPLES) count = EHCI_DESKTOP_MALFORMED_SAMPLES;
+    console_printf("ehci-desktop-malformed: endpoint=0x81 samples=%u omitted=%u\n",
+        (uint64_t)count, (uint64_t)(desktop_trackpad.malformed - count));
+    for (unsigned i = 0; i < count; i++) {
+        const struct ehci_desktop_frame_sample *sample = &desktop_trackpad.malformed_samples[i];
+        uint64_t retry_us = desktop_trackpad.retry_activated_us;
+        bool after_retry = retry_us && sample->observed_us >= retry_us;
+        uint64_t phase_start = after_retry ? retry_us : desktop_trackpad.activated_us;
+        console_printf("ehci-desktop-malformed: completion=%u length=%u phase=%s observed-us=%u phase-us=%u\n",
+            (uint64_t)sample->completion, (uint64_t)sample->length, after_retry ? "retry" : "initial",
+            sample->observed_us, sample->observed_us - phase_start);
+        console_printf("ehci-desktop-malformed: completion=%u previous-valid-us=%u since-valid-us=%u frindex=%x qtd=%x overlay=%x\n",
+            (uint64_t)sample->completion, sample->previous_valid_us,
+            sample->previous_valid_us ? sample->observed_us - sample->previous_valid_us : 0,
+            (uint64_t)sample->frame_index, (uint64_t)sample->qtd_token, (uint64_t)sample->overlay_token);
+        for (unsigned offset = 0; offset < sample->length; offset += EHCI_TRACKPAD_HEX_LINE_BYTES) {
+            char hex[2 * EHCI_TRACKPAD_HEX_LINE_BYTES + 1];
+            unsigned bytes = sample->length - offset;
+            if (bytes > EHCI_TRACKPAD_HEX_LINE_BYTES) bytes = EHCI_TRACKPAD_HEX_LINE_BYTES;
+            format_trackpad_hex(hex, sample->bytes + offset, bytes);
+            console_printf("ehci-desktop-malformed: completion=%u offset=%u bytes=%s\n",
+                (uint64_t)sample->completion, (uint64_t)offset, hex);
+        }
+    }
+}
+
 bool ehci_desktop_trackpad_stop(void) {
     enum ehci_monitor_state state = desktop_trackpad_state(NULL);
     if (state == EHCI_MONITOR_UNUSED) return true;
@@ -189,6 +231,7 @@ bool ehci_desktop_trackpad_stop(void) {
         (uint64_t)desktop_trackpad.motion, (uint64_t)desktop_trackpad.presses, (uint64_t)desktop_trackpad.releases,
         capture->mode_restored ? "restored" : "unverified", state == EHCI_MONITOR_RELEASED ? "released" : "unverified",
         desktop_trackpad.failure ? desktop_trackpad.failure : "none");
+    print_desktop_frame_samples();
     return state == EHCI_MONITOR_RELEASED;
 }
 

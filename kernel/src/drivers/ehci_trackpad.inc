@@ -9,6 +9,7 @@
 #define EHCI_TRACKPAD_FEATURE_READ_OFFSET_US 247973u
 #define EHCI_TRACKPAD_NORMAL_MODE 8u
 #define EHCI_TRACKPAD_WELLSPRING_MODE 1u
+#define EHCI_TRACKPAD_HEX_LINE_BYTES 24u
 
 struct ehci_trackpad_slot {
     _Alignas(32) struct ehci_qtd td;
@@ -119,6 +120,15 @@ static uint64_t trackpad_report_word(const uint8_t data[8]) {
     uint64_t sample = 0;
     for (unsigned i = 0; i < 8; i++) sample = (sample << 8) | data[i];
     return sample;
+}
+
+static void format_trackpad_hex(char *hex, const uint8_t *data, unsigned length) {
+    static const char digits[] = "0123456789abcdef";
+    for (unsigned i = 0; i < length; i++) {
+        hex[2 * i] = digits[data[i] >> 4];
+        hex[2 * i + 1] = digits[data[i] & 15u];
+    }
+    hex[2 * length] = '\0';
 }
 
 static void record_trackpad_payload(struct ehci_trackpad_endpoint_trace *trace,
