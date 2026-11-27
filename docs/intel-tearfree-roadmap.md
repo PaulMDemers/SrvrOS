@@ -97,9 +97,20 @@ Implement the boot-owned path in this order.
    or render contexts later, with their own queue, cache and completion proofs.
    [Desktop presentation contract](display-presentation.md)
 
-The next boot candidate should answer step 2 with a live driver owner. The
-RC1e/RC6 diagnostics and inherited-slot rollback tests remain recorded for the
-different ownership model they exercise.
+The one-page transaction in step 2 passed the host and Q35 models. It
+requires the original, private and restored aperture markers in order. A PTE
+readback alone cannot retire the lease. The native owner must preserve Pipe A
+and verify frame progress while it lends the exact slot, old backing,
+private RAM and uncached aliases across both stores. Wire the native producer
+at the pre-PCI-reopen queue boundary. Use the existing CPU-root, engine and
+remapper guards for their proven scope. Account separately for outstanding
+traffic to the slot and continuing proxy and firmware exclusion before giving
+the transaction write access. `ExitBootServices` ends firmware boot services
+and device-handle protocol calls. Use that boundary for the boot-services
+producer and establish coverage for any platform firmware access separately.
+[UEFI ExitBootServices](https://uefi.org/specs/UEFI/2.10_A/07_Services_Boot_Services.html#efi-boot-services-exitbootservices)
+[One-page transaction](../kernel/diagnostics/intel_bdw_boot_scanout.c)
+· [Air qualification](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
 
 ## Earlier qualifications
 

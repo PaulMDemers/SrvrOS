@@ -17,6 +17,12 @@ OWNED_PAGE_MODES = ("owned-no-grant", "owned-short-import", "owned-vacant", "own
 OWNED_PAGE_MODES += ("owned-mmio-admission-reset", "owned-mmio-acquire-reset", "owned-mmio-store-reset",
                      "owned-mmio-unreadable-reset", "owned-mmio-rollback-reset", "owned-mmio-reopen-reset")
 OWNED_PAGE_MODES += ("tiled-flip", "tiled-flip-wrong-pixels", "tiled-flip-retained")
+OWNED_PAGE_MODES += (
+    "boot-page-roundtrip", "boot-page-no-port", "boot-page-no-proxy", "boot-page-no-firmware",
+    "boot-page-no-prior", "boot-page-no-alias", "boot-page-stale-proof", "boot-page-overlap", "boot-page-front-drift",
+    "boot-page-epoch-lost", "boot-page-cache-lost", "boot-page-clock-expired", "boot-page-foreign-pte",
+    "boot-page-uncertain-store", "boot-page-stale-forward", "boot-page-stale-rollback", "boot-page-rollback-alias-lost",
+)
 MODES = list(OWNED_PAGE_MODES) + """normal missing invalid failed-open clock-open stuck-open deadline-open
 post-open-clock source-open changed-first changed-last pool-exhausted poison-open
 input-mutation reentry source-live clock-live poison-live regress-live failed-close

@@ -932,8 +932,12 @@ static void owned_page_case(const char *mode)
                                  manifest.aperture_bytes, manifest.fence_end, imported));
     assert(table[8704] == inherited && table[target-1] == left && table[target+1] == right);
 }
+int test_bdw_boot_page(const char *mode);
+
 int main(int argc,char **argv) {
-    assert(argc==2);const char *mode=argv[1];setup();
+    assert(argc==2);const char *mode=argv[1];
+    if(!strncmp(mode,"boot-page-",10))return test_bdw_boot_page(mode);
+    setup();
     if(!strncmp(mode,"owned-",6)) {
         owned_page_case(mode);printf("PASS %s\n", mode);return 0;
     }

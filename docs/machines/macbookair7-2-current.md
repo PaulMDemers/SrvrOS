@@ -359,6 +359,24 @@ native producer must demonstrate range-specific exclusion for firmware,
 engines, DMA and display readers before a write-capable Air image is armed.
 The scope starts at `eb038ff0` with main `5cb57eab` reviewed.
 
+The boot-owned one-page transaction now runs against modeled registers in
+the host suite and Q35. It binds the source to the same driver, CPU root and
+reset epoch throughout the trial and locks the exact interval. The fixture
+uses slot 12292, outside the boot fence and the inherited-slot trial at 12291.
+It checks the original, private and restored contents through the aperture.
+A stale translation or a lost alias after the rollback store retains the
+range, backing and display pin. The test covers 17 new cases. Across the full
+suites, 282 host cases and 61 Q35 cases passed.
+
+The Air adapter still needs to supply the source. Its integration point is
+the sealed five-engine queue boundary after GT reset and remapper maintenance,
+before PCI bus mastering reopens. That boundary already supplies engine and
+CPU-writer exclusion. It has no established way to exclude firmware and the
+display proxy for the exact page throughout the operation or to attest that
+earlier device access to that page has retired. Native PTE and aperture access
+must also remain pinned as the page is bound and restored. No hardware image
+was armed for the modeled result.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
