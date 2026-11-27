@@ -284,6 +284,7 @@ static struct ehci_monitor_session {
 #define EHCI_DESKTOP_MALFORMED_SAMPLES 4u
 #define EHCI_DESKTOP_RECOVERY_ATTEMPTS 4u
 #define EHCI_DESKTOP_RECOVERY_INTERVAL_US 1000000u
+#define EHCI_DESKTOP_NORMAL_POLL_US 300000u
 struct ehci_desktop_frame_sample {
     uint64_t observed_us, previous_valid_us, retry_activated_us;
     uint32_t qtd_token, overlay_token, frame_index;
@@ -293,8 +294,11 @@ struct ehci_desktop_frame_sample {
 
 struct ehci_desktop_mode_attempt {
     uint64_t trigger, waited_us, switch_us, resumed_at_us, first_reply_us, first_valid_us;
+    uint64_t normal_completed_us;
     unsigned trigger_completion, first_reply_completion, first_reply_length, first_reply_id;
+    unsigned normal_reports;
     uint8_t mode_at_reset, mode_before_retry;
+    bool polling_normal, normal_status;
     const char *control_error;
 };
 

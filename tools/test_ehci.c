@@ -899,6 +899,30 @@ static void retire_desktop_test_report(struct ehci_trackpad_dma *queue, unsigned
     queue->qh.overlay.token = active->td.token;
 }
 
+static void finish_desktop_test_normal(struct ehci_control_path *path,
+    struct ehci_trackpad_dma *queue, struct trackpad_pointer *pointer,
+    unsigned *slot, uint64_t *last_report, bool have_status) {
+    const uint8_t status[] = {0x60, 0x02};
+    struct ehci_desktop_mode_attempt *attempt = &desktop_trackpad.attempts[desktop_trackpad.mode_attempts - 1];
+    assert(attempt->polling_normal && mock_feature_readback == 8 && op[EHCI_USBSTS] == EHCI_STS_PERIODIC);
+    assert(trackpad_control_requests == 4 * desktop_trackpad.mode_attempts - 2);
+    if (have_status) {
+        now = attempt->normal_completed_us + EHCI_TRACKPAD_MODE_RETRY_US - 1;
+        retire_desktop_test_report(queue, *slot, status, sizeof(status));
+        assert(!desktop_trackpad_poll(path, queue, pointer, slot, last_report));
+        assert(attempt->polling_normal && attempt->normal_reports == 1 && attempt->normal_status);
+    } else {
+        now = attempt->normal_completed_us + EHCI_DESKTOP_NORMAL_POLL_US - 1;
+        assert(!desktop_trackpad_poll(path, queue, pointer, slot, last_report));
+        assert(attempt->polling_normal && !attempt->normal_reports && !attempt->normal_status);
+    }
+    now++;
+    struct ehci_qtd active = queue->slots[*slot].td;
+    assert(!desktop_trackpad_poll(path, queue, pointer, slot, last_report));
+    assert(!attempt->polling_normal && attempt->resumed_at_us);
+    assert(!memcmp(&active, &queue->slots[*slot].td, sizeof(active)));
+}
+
 static void test_desktop_persistent_mode_recovery(void) {
     const uint8_t legacy[] = {0x02, 0, 7, 0, 0, 0, 9, 0};
     const uint8_t native[58] = {0x74, [46] = 5};
@@ -931,8 +955,10 @@ static void test_desktop_persistent_mode_recovery(void) {
         retire_desktop_test_report(&queues[0], slot, legacy, sizeof(legacy));
         queues[0].qh.overlay.token |= EHCI_TD_DATA1;
         assert(!desktop_trackpad_poll(&path, &queues[0], &pointer, &slot, &last_report));
-        assert(desktop_trackpad.mode_attempts == 1 && trackpad_control_requests == 4);
+        assert(desktop_trackpad.mode_attempts == 1);
         assert(queues[0].qh.overlay.token & EHCI_TD_DATA1);
+        finish_desktop_test_normal(&path, &queues[0], &pointer, &slot, &last_report, scenario != 2);
+        assert(trackpad_control_requests == 4);
         assert((desktop_trackpad.attempts[0].control_error != NULL) == mock_desktop_first_write_fails);
         assert(op[EHCI_USBSTS] == EHCI_STS_PERIODIC && (queues[1].slots[0].td.token & EHCI_TD_ACTIVE));
 
@@ -947,6 +973,8 @@ static void test_desktop_persistent_mode_recovery(void) {
             now = desktop_trackpad.retry_activated_us + EHCI_DESKTOP_RECOVERY_INTERVAL_US;
             retire_desktop_test_report(&queues[0], slot, legacy, sizeof(legacy));
             assert(!desktop_trackpad_poll(&path, &queues[0], &pointer, &slot, &last_report));
+            finish_desktop_test_normal(&path, &queues[0], &pointer, &slot, &last_report, scenario == 1);
+            assert(mock_feature_readback == 1);
         }
         assert(trackpad_control_requests == 4 * target_attempts && mock_feature_readback == 1);
         assert(!desktop_trackpad.malformed && !desktop_trackpad.reports);

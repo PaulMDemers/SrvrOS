@@ -1088,6 +1088,20 @@ so the desktop aggregate was incomplete. This boot did not exercise an
 additional retry. Both reports matched after remount and the 130-file
 offline allocation check passed.
 
+Release `66f988ee64dc5135` reproduced the failure on the same build. All
+four retry cycles completed and read normal mode `8` before writing
+Wellspring mode `1`. The trackpad returned 406 eight-byte responses and
+zero valid frames. The keyboard-only exit worked. Both flash files and
+the 132-file allocation check verified.
+
+The follow-up desktop recovery resumes periodic polling between the normal
+and Wellspring writes. It keeps both queues live for up to 300 ms in normal
+mode. A `60 02` status response allows the switch after the minimum 1 ms
+wait. The timeout also advances the switch when the trackpad is quiet.
+Both control exchanges still acquire an idle periodic schedule and keep
+pending descriptors and data toggles intact. Each attempt records normal
+mode completions and the status response alongside the final report.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |

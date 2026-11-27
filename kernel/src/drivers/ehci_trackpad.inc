@@ -245,27 +245,20 @@ static bool trackpad_queue_parked(const volatile struct ehci_trackpad_dma *dma,
         dma->slots[dummy].td.token == EHCI_TD_HALTED;
 }
 
-static const char *retry_trackpad_mode(struct ehci_control_path *path, uint64_t *retry_completed_us, bool attended) {
+static const char *retry_trackpad_normal(struct ehci_control_path *path, uint64_t *normal_completed_us) {
     struct ehci_trackpad_recovery *recovery = &path->report->trackpad.recovery;
-    recovery->attempted = true;
-    if (!disable_periodic(path) || !schedules_idle(path)) return "queue pause for mode retry failed";
-    if (attended) {
-        console_write("Trackpad mode retry. Repeat the gestures now. You have 60 seconds.\n");
-        console_sync();
-    }
-
-    /* Match bcm5974's read-modify-write in each direction. The native
-     * control helper requires both schedules idle. Keep the periodic QH
-     * parked at its inactive dummy until both mode writes have finished. */
     if (!read_trackpad_mode(path, recovery->normal)) return "normal mode feature read failed";
     recovery->mode_at_reset = recovery->normal[0];
     recovery->normal[0] = EHCI_TRACKPAD_NORMAL_MODE;
-    uint64_t normal_completed_us;
-    if (!write_trackpad_mode(path, recovery->normal, &normal_completed_us)) return "normal mode write failed";
+    if (!write_trackpad_mode(path, recovery->normal, normal_completed_us)) return "normal mode write failed";
     recovery->normal_written = true;
-    if (!timer_delay_us(EHCI_TRACKPAD_MODE_RETRY_US)) return "mode retry wait failed";
-    recovery->waited_us = timer_monotonic_us() - normal_completed_us;
+    return NULL;
+}
 
+static const char *retry_trackpad_wellspring(struct ehci_control_path *path, uint64_t normal_completed_us,
+    uint64_t *retry_completed_us) {
+    struct ehci_trackpad_recovery *recovery = &path->report->trackpad.recovery;
+    recovery->waited_us = timer_monotonic_us() - normal_completed_us;
     if (!read_trackpad_mode(path, recovery->wellspring)) return "Wellspring retry feature read failed";
     recovery->mode_before_retry = recovery->wellspring[0];
     recovery->wellspring[0] = EHCI_TRACKPAD_WELLSPRING_MODE;
@@ -273,6 +266,21 @@ static const char *retry_trackpad_mode(struct ehci_control_path *path, uint64_t 
     recovery->wellspring_written = true;
     recovery->switch_us = *retry_completed_us - normal_completed_us;
     return NULL;
+}
+
+static const char *retry_trackpad_mode(struct ehci_control_path *path, uint64_t *retry_completed_us, bool attended) {
+    path->report->trackpad.recovery.attempted = true;
+    if (!disable_periodic(path) || !schedules_idle(path)) return "queue pause for mode retry failed";
+    if (attended) {
+        console_write("Trackpad mode retry. Repeat the gestures now. You have 60 seconds.\n");
+        console_sync();
+    }
+    /* Each read-modify-write uses the asynchronous schedule with PSE idle. */
+    uint64_t normal_completed_us;
+    const char *failure = retry_trackpad_normal(path, &normal_completed_us);
+    if (failure) return failure;
+    if (!timer_delay_us(EHCI_TRACKPAD_MODE_RETRY_US)) return "mode retry wait failed";
+    return retry_trackpad_wellspring(path, normal_completed_us, retry_completed_us);
 }
 
 /* The first request and frame list are ready before the mode write. A successful

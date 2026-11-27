@@ -87,6 +87,37 @@ static void complete_desktop_queue(struct ehci_desktop_queue_trace *trace, unsig
     }
 }
 
+static const char *resume_desktop_mode_attempt(struct ehci_control_path *path,
+    struct ehci_desktop_mode_attempt *attempt, const char *failure, uint64_t retry_completed) {
+    struct ehci_trackpad_recovery *recovery = &path->report->trackpad.recovery;
+    attempt->control_error = failure;
+    attempt->waited_us = recovery->waited_us;
+    attempt->switch_us = recovery->switch_us;
+    attempt->mode_at_reset = recovery->mode_at_reset;
+    attempt->mode_before_retry = recovery->mode_before_retry;
+    attempt->polling_normal = false;
+    if (failure && !schedules_idle(path)) return failure;
+    if (!enable_periodic(path)) return "periodic resume after mode retry failed";
+    recovery->resumed = true;
+    attempt->resumed_at_us = desktop_trackpad.retry_activated_us = timer_monotonic_us();
+    if (retry_completed) recovery->mode_to_active_us = attempt->resumed_at_us - retry_completed;
+    return NULL;
+}
+
+static bool desktop_normal_poll_done(const struct ehci_desktop_mode_attempt *attempt, uint64_t now) {
+    uint64_t elapsed = now - attempt->normal_completed_us;
+    return elapsed >= EHCI_DESKTOP_NORMAL_POLL_US ||
+        (attempt->normal_status && elapsed >= EHCI_TRACKPAD_MODE_RETRY_US);
+}
+
+static const char *finish_desktop_normal_poll(struct ehci_control_path *path,
+    struct ehci_desktop_mode_attempt *attempt) {
+    if (!disable_periodic(path) || !schedules_idle(path)) return "queue pause after normal mode polling failed";
+    uint64_t retry_completed = 0;
+    const char *failure = retry_trackpad_wellspring(path, attempt->normal_completed_us, &retry_completed);
+    return resume_desktop_mode_attempt(path, attempt, failure, retry_completed);
+}
+
 static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct ehci_trackpad_dma *dma,
     struct trackpad_pointer *pointer, unsigned *slot, uint64_t *last_report) {
     const volatile struct ehci_trackpad_dma *progress = dma;
@@ -96,8 +127,15 @@ static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct 
     if ((token & EHCI_TD_ERROR) || (status & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR)) ||
         !(status & EHCI_STS_PERIODIC) || !(path->op[EHCI_PORTSC] & EHCI_PORT_CONNECTED))
         return "interrupt queue stopped";
+    unsigned attempts = desktop_trackpad.mode_attempts;
+    struct ehci_desktop_mode_attempt *previous = attempts ? &desktop_trackpad.attempts[attempts - 1] : NULL;
+    bool normal_poll = previous && previous->polling_normal;
     if (token & EHCI_TD_ACTIVE) {
-        if (pointer->buttons && timer_monotonic_us() - *last_report >= 1000000u) cancel_desktop_pointer(pointer);
+        uint64_t now = timer_monotonic_us();
+        if (pointer->buttons && now - *last_report >= 1000000u) cancel_desktop_pointer(pointer);
+        /* The overlay stays controller-owned. Pausing PSE here does not
+         * modify the pending request or its data toggle. */
+        if (normal_poll && desktop_normal_poll_done(previous, now)) return finish_desktop_normal_poll(path, previous);
         return NULL;
     }
 
@@ -116,9 +154,10 @@ static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct 
     desktop_trackpad.completions++;
     int decoded = apple_trackpad_decode_type(EHCI_TRACKPAD_TYPE, data, length, &frame);
     uint64_t now = timer_monotonic_us();
-    unsigned attempts = desktop_trackpad.mode_attempts;
-    if (attempts) {
-        struct ehci_desktop_mode_attempt *previous = &desktop_trackpad.attempts[attempts - 1];
+    if (normal_poll) {
+        previous->normal_reports++;
+        previous->normal_status |= length == 2 && data[0] == 0x60 && data[1] == 0x02;
+    } else if (previous) {
         if (!previous->first_reply_completion) {
             previous->first_reply_completion = desktop_trackpad.completions;
             previous->first_reply_us = now - previous->resumed_at_us;
@@ -130,33 +169,32 @@ static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct 
 
     /* A lone legacy reply can be buffered at the switch. Give native frames
      * a full second to arrive before treating another legacy reply as stuck. */
-    bool legacy = !desktop_trackpad.reports && length == 8 && data[0] == 0x02;
+    bool legacy = !normal_poll && !desktop_trackpad.reports && length == 8 && data[0] == 0x02;
     desktop_trackpad.legacy_reports += legacy;
     bool retry = !desktop_trackpad.reports && length == 8 &&
         (!attempts || (legacy && attempts < EHCI_DESKTOP_RECOVERY_ATTEMPTS &&
             now - desktop_trackpad.retry_activated_us >= EHCI_DESKTOP_RECOVERY_INTERVAL_US));
-    uint64_t retry_completed = 0;
+    const char *mode_failure = NULL;
+    struct ehci_desktop_mode_attempt *attempt = NULL;
     if (retry) {
         capture->last_eight_byte_sample = trackpad_report_word(data);
         capture->recovery = (struct ehci_trackpad_recovery){0};
-        struct ehci_desktop_mode_attempt *attempt = &desktop_trackpad.attempts[desktop_trackpad.mode_attempts++];
+        attempt = &desktop_trackpad.attempts[desktop_trackpad.mode_attempts++];
         attempt->trigger = capture->last_eight_byte_sample;
         attempt->trigger_completion = desktop_trackpad.completions;
-        const char *failure = retry_trackpad_mode(path, &retry_completed, false);
-        attempt->control_error = failure;
-        attempt->waited_us = capture->recovery.waited_us;
-        attempt->switch_us = capture->recovery.switch_us;
+        capture->recovery.attempted = true;
+        if (!disable_periodic(path) || !schedules_idle(path)) return "queue pause for mode retry failed";
+        mode_failure = retry_trackpad_normal(path, &attempt->normal_completed_us);
+        attempt->polling_normal = !mode_failure;
+        attempt->control_error = mode_failure;
         attempt->mode_at_reset = capture->recovery.mode_at_reset;
-        attempt->mode_before_retry = capture->recovery.mode_before_retry;
-        /* A failed feature request may leave EP0 safe and idle. Resume the
-         * keyboard's schedule whenever ownership and the dummy are intact. */
-        if (failure && !schedules_idle(path)) return failure;
+        if (mode_failure && !schedules_idle(path)) return mode_failure;
         if (!trackpad_queue_parked(progress, next, retired, dummy)) return "parked queue changed during mode retry";
-    } else if (decoded > 0) {
+    } else if (!normal_poll && decoded > 0) {
         desktop_trackpad.reports++;
         *last_report = now;
         desktop_trackpad_pointer(pointer, &frame);
-    } else if (decoded < 0 && !legacy) {
+    } else if (!normal_poll && decoded < 0 && !legacy) {
         /* Sample only retired requests, before the buffer can be reused. */
         unsigned sample = desktop_trackpad.malformed++;
         if (sample < EHCI_DESKTOP_MALFORMED_SAMPLES) {
@@ -172,18 +210,16 @@ static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct 
             for (unsigned i = 0; i < length; i++) trace->bytes[i] = data[i];
         }
         cancel_desktop_pointer(pointer);
-    } else if (!legacy) desktop_trackpad.ignored++;
+    } else if (!normal_poll && !legacy) desktop_trackpad.ignored++;
 
     park_trackpad_qtd(&dma->slots[*slot].td);
     publish_trackpad_qtd(&dma->slots[next].td, retired,
         dummy + offsetof(struct ehci_trackpad_slot, data), trackpad_endpoint.length);
     *slot = next;
-    if (retry) {
-        if (!enable_periodic(path)) return "periodic resume after mode retry failed";
-        capture->recovery.resumed = true;
-        desktop_trackpad.retry_activated_us = timer_monotonic_us();
-        desktop_trackpad.attempts[attempts].resumed_at_us = desktop_trackpad.retry_activated_us;
-        if (retry_completed) capture->recovery.mode_to_active_us = desktop_trackpad.retry_activated_us - retry_completed;
+    if (normal_poll && desktop_normal_poll_done(previous, now)) return finish_desktop_normal_poll(path, previous);
+    if (attempt) {
+        if (!attempt->polling_normal) return resume_desktop_mode_attempt(path, attempt, mode_failure, 0);
+        if (!enable_periodic(path)) return "periodic resume for normal mode polling failed";
     }
     return NULL;
 }
@@ -395,6 +431,8 @@ void ehci_desktop_trackpad_print_trace(const char *phase) {
         console_printf("ehci-desktop-recovery: phase=%s attempt=%u reply-completion=%u reply-us=%u reply-length=%u reply-id=%x first-valid-us=%u\n",
             phase, (uint64_t)(i + 1), (uint64_t)attempt->first_reply_completion, attempt->first_reply_us,
             (uint64_t)attempt->first_reply_length, (uint64_t)attempt->first_reply_id, attempt->first_valid_us);
+        console_printf("ehci-desktop-recovery: phase=%s attempt=%u normal-reports=%u normal-status=%u\n",
+            phase, (uint64_t)(i + 1), (uint64_t)attempt->normal_reports, (uint64_t)attempt->normal_status);
     }
     print_desktop_queue(phase, &trackpad_endpoint, &desktop_trackpad.trackpad_trace);
     print_desktop_queue(phase, &keyboard_endpoint, &desktop_trackpad.keyboard_trace);
