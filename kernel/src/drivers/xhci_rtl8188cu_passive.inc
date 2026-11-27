@@ -21,6 +21,11 @@
 #define RTL_CU_MAC_LOOPBACK_SETTING 0x015u
 #define RTL_CU_MAC_LOOPBACK_COLD 0xa9u
 #define RTL_CU_MAC_LOOPBACK_LINUX 0xe9u
+#define RTL_CU_USB_IF_BASE 0xfe40u
+#define RTL_CU_USB_IF_COUNT 3u
+#define RTL_CU_USB_IF_COLD 0x01ade7u
+#define RTL_CU_USB_IF_WRITE 0x808de0u
+#define RTL_CU_USB_IF_SETTLED 0x008de0u
 #define RTL_CU_RX_DRIVER_INFO_UNITS 4u
 #define RTL_CU_ALL_SUBTYPES 0xffffu
 #define RTL_CU_RF_DATA_MASK 0xfffffu
@@ -96,14 +101,15 @@ static const struct { uint16_t address,width; } rtl_cu_dma_regs[]={
     {0x104,1},{0x114,1},{0x116,2},{0x118,4},{0x280,2},{0xfe5b,1},{0xfe5c,1},{0xfe5d,1},
 };
 #define RTL_CU_DMA_COUNT (sizeof rtl_cu_dma_regs/sizeof rtl_cu_dma_regs[0])
-enum rtl_cu_enable_register { RTL_CU_ENABLE_LOOPBACK=5,RTL_CU_ENABLE_XTAL=7 };
+enum rtl_cu_enable_register { RTL_CU_ENABLE_LOOPBACK=5,RTL_CU_ENABLE_XTAL=7,RTL_CU_ENABLE_USB_IF=21 };
 static const struct { uint16_t address,width; } rtl_cu_enable_regs[]={
     {0x000,2},{0x002,2},{RTL8188CU_POWER,2},{0x008,2},{0x010,1},
     [RTL_CU_ENABLE_LOOPBACK]={RTL_CU_MAC_LOOPBACK_SETTING,1},
     {0x021,1},[RTL_CU_ENABLE_XTAL]={RTL_CU_AFE_XTAL_CONTROL,4},
     {0x028,4},{RTL8188CU_MAC_CONTROL,4},{0x600,1},{0x604,4},
     {0x608,4},{0x60c,1},{0x60d,1},{0x60f,1},{0x668,4},{0x692,1},
-    {0x6b4,4},{0x800,4},{0x900,4},{0xfe40,1},{0xfe41,1},{0xfe42,1},
+    {0x6b4,4},{0x800,4},{0x900,4},[RTL_CU_ENABLE_USB_IF]={RTL_CU_USB_IF_BASE,1},
+    {RTL_CU_USB_IF_BASE+1,1},{RTL_CU_USB_IF_BASE+2,1},
 };
 #define RTL_CU_ENABLE_COUNT (sizeof rtl_cu_enable_regs/sizeof rtl_cu_enable_regs[0])
 struct rtl_cu_rx_sample {
@@ -163,6 +169,9 @@ static struct {
     bool xtal_attempted,xtal_ready;
     uint32_t loopback_before,loopback_after;
     unsigned loopback_reads;
+    uint32_t usb_if_before,usb_if_after,usb_if_first42;
+    unsigned usb_if_before_reads,usb_if_writes,usb_if_after_reads;
+    bool usb_if_ready;
     bool event_data,rx_cr_valid;
     bool configured,pending,failed;
 } rtl_passive;
@@ -332,6 +341,11 @@ static void rtl_cu_rx_log(void) {
     if(rtl_passive.loopback_reads)
         console_printf("rtl8188cu-mac-loopback: %u %x\n",(uint64_t)rtl_passive.loopback_reads,
             ((uint64_t)rtl_passive.loopback_before<<32)|rtl_passive.loopback_after);
+    if(rtl_passive.usb_if_before_reads)
+        console_printf("rtl8188cu-usb-interface: %u %u %u %x %x %x\n",
+            (uint64_t)rtl_passive.usb_if_before_reads,(uint64_t)rtl_passive.usb_if_writes,
+            (uint64_t)rtl_passive.usb_if_after_reads,(uint64_t)rtl_passive.usb_if_before,
+            (uint64_t)rtl_passive.usb_if_after,(uint64_t)rtl_passive.usb_if_first42);
     rtl8188cu_power_log(rtl_passive.owner,"passive");
     if(rtl_passive.early_rx_reads)
         console_printf("rtl8188cu-rx-timing: %u %x %u %u\n",(uint64_t)rtl_passive.early_rx_reads,
@@ -652,6 +666,45 @@ static bool rtl_cu_prepare_mac_loopback(struct xhci_device *d) {
     return rtl_passive.loopback_after==RTL_CU_MAC_LOOPBACK_LINUX;
 }
 
+static bool rtl_cu_sample_usb_interface(struct xhci_device *d,uint32_t *sample,unsigned *reads) {
+    for(unsigned i=0;i<RTL_CU_USB_IF_COUNT;i++) {
+        uint32_t byte;
+        if(!rtl8188cu_read(d,RTL_CU_USB_IF_BASE+i,1,&byte))return false;
+        *sample|=byte<<(8*i);
+        (*reads)++;
+    }
+    return true;
+}
+
+static bool rtl_cu_prepare_usb_interface(struct xhci_device *d) {
+    if(!rtl_cu_rx_held(d) ||
+       !rtl_cu_sample_usb_interface(d,&rtl_passive.usb_if_before,&rtl_passive.usb_if_before_reads))return false;
+    if(rtl_passive.usb_if_before!=RTL_CU_USB_IF_SETTLED) {
+        if(rtl_passive.usb_if_before!=RTL_CU_USB_IF_COLD)return false;
+        /* Linux writes these bytes in order to address USB interface interference. */
+        for(unsigned i=0;i<RTL_CU_USB_IF_COUNT;i++) {
+            if(!rtl8188cu_write_value(d,RTL_CU_USB_IF_BASE+i,1,(RTL_CU_USB_IF_WRITE>>(8*i))&0xff))return false;
+            rtl_passive.usb_if_writes++;
+        }
+    }
+    if(!rtl_cu_sample_usb_interface(d,&rtl_passive.usb_if_after,&rtl_passive.usb_if_after_reads))return false;
+    uint32_t last=rtl_passive.usb_if_after>>16;
+    rtl_passive.usb_if_first42=last;
+    /* Linux writes 0x80 to the last byte, but the working live state reads zero. */
+    if(last==0x80 && rtl_passive.usb_if_writes==RTL_CU_USB_IF_COUNT) {
+        bool settled=rtl8188cu_poll(d,RTL_CU_USB_IF_BASE+2,1,0xff,0,16,&last);
+        rtl_passive.usb_if_after=(rtl_passive.usb_if_after&0xffff)|(last<<16);
+        if(!settled)return false;
+    }
+    rtl_passive.usb_if_ready=rtl_passive.usb_if_after==RTL_CU_USB_IF_SETTLED;
+    return rtl_passive.usb_if_ready;
+}
+
+static bool rtl_cu_usb_interface_armed(void) {
+    const uint32_t *bytes=&rtl_passive.enable_regs[RTL_CU_ENABLE_USB_IF];
+    return (bytes[0]|(bytes[1]<<8)|(bytes[2]<<16))==RTL_CU_USB_IF_SETTLED;
+}
+
 static const char *rtl_cu_prepare_passive_start(struct xhci_device *d,struct xhci_device *hub) {
     uint32_t state;
     if(rtl_passive.owner || !rtl8188cu_check_port(d,hub))return "passive-admission";
@@ -700,7 +753,8 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
     rtl_passive.startup_rf_valid=true;
     if((rtl_passive.startup_rf_channel&RTL_CU_RF_DATA_MASK)!=RTL_CU_RF_START_CHANNEL ||
        !rtl_cu_apply_linux_radio_settings(d) ||
-       !rtl_cu_post_profile_lc(d,hub) || !rtl_cu_prepare_mac_loopback(d))return false;
+       !rtl_cu_post_profile_lc(d,hub) || !rtl_cu_prepare_mac_loopback(d) ||
+       !rtl_cu_prepare_usb_interface(d))return false;
     /* Verify the channel through RF path A and keep both aggregation paths
      * off so a single receive buffer describes one frame. */
     if(!rtl8188cu_update(d,0x603,1,0,4) ||
@@ -807,7 +861,8 @@ static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
         rtl_passive.enable_reads++;
     }
     if(rtl_passive.enable_regs[RTL_CU_ENABLE_XTAL]!=RTL_CU_AFE_XTAL_LINUX ||
-       rtl_passive.enable_regs[RTL_CU_ENABLE_LOOPBACK]!=RTL_CU_MAC_LOOPBACK_LINUX)return false;
+       rtl_passive.enable_regs[RTL_CU_ENABLE_LOOPBACK]!=RTL_CU_MAC_LOOPBACK_LINUX ||
+       !rtl_cu_usb_interface_armed())return false;
     rtl_cu_rx_snapshot(d,RTL_CU_ARMED,true);
     if(!rtl_cu_rx_held(d))return false;
     console_write("rtl8188cu-passive-progress: listening on channel 10; no input required\n");
@@ -906,11 +961,15 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready) {
                        rtl_passive.enable_regs[RTL_CU_ENABLE_XTAL]!=RTL_CU_AFE_XTAL_LINUX)result="xtal-drift";
                     if(rtl_passive.enable_reads==RTL_CU_ENABLE_COUNT &&
                        rtl_passive.enable_regs[RTL_CU_ENABLE_LOOPBACK]!=RTL_CU_MAC_LOOPBACK_LINUX)result="loopback-drift";
+                    if(rtl_passive.enable_reads==RTL_CU_ENABLE_COUNT && !rtl_cu_usb_interface_armed())
+                        result="usb-interface-drift";
                 }
             } else if(rtl_passive.xtal_attempted && !rtl_passive.xtal_ready) {
                 result="xtal";
             } else if(rtl_passive.loopback_reads && rtl_passive.loopback_after!=RTL_CU_MAC_LOOPBACK_LINUX) {
                 result="loopback";
+            } else if(rtl_passive.usb_if_before_reads && !rtl_passive.usb_if_ready) {
+                result="usb-interface";
             }
             rtl_cu_park(d,hub);
             d->rtl8188cu_firmware_active=false;
