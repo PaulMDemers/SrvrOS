@@ -591,23 +591,6 @@ the normal mode restoration and USB save path. The EHCI host tests verified
 the request order and the retained multi-packet payload. The exact VM payload
 passed the checklist, absent-controller and Ubuntu-default rehearsal.
 
-Native `bc98fee76d0e18c3` completed all six HID requests and retained the
-same complete mode payloads as the previous trial and Ubuntu. The periodic
-queue started once and recorded 384 resubmissions and 384 completions, with
-the final request still pending at the gesture deadline. The first six
-snapshots verified alternating descriptors and data toggles, matching qTD
-and overlay tokens, and C-progress `0x04`. Their transfer lengths were
-again 2, 8, 8, 8, 8 and 8 bytes. The full run logged one ignored response,
-383 rejected eight-byte transfers, and zero decoded gestures. The original
-mode and topcase DMA and MMIO retirement verified.
-
-Ubuntu returned with the one-shot consumed and the EFI entries unchanged.
-The 6,275-byte native USB report matched its archived copy. The read-only
-allocation check passed for all 111 files, and prior file contents were
-preserved with the expected sidecar updates. The exact payload and report
-are archived outside `build/`. The saved report stops before USB teardown
-and reset.
-
 The native `cacf59a022b41970` trial requested periodic enable 13 µs after
 observed completion of the mode write. The controller acknowledged at 15 µs.
 The first interrupt completion arrived at 474,169 µs and carried `60 02`,
@@ -739,6 +722,23 @@ snapshots. The host fixture verified one schedule start and stop across
 11 requests, retained the hardware toggle, and refused to republish when
 the fake controller advanced into the inactive dummy. The exact VM payload
 passed the checklist, absent-controller and Ubuntu-default rehearsal.
+
+Native `bc98fee76d0e18c3` completed all six HID requests and retained the
+same complete mode payloads as the previous trial and Ubuntu. The periodic
+queue started once and recorded 384 resubmissions and 384 completions, with
+the final request still pending at the gesture deadline. The first six
+snapshots verified alternating descriptors and data toggles, matching qTD
+and overlay tokens, and C-progress `0x04`. Their transfer lengths were
+again 2, 8, 8, 8, 8 and 8 bytes. The full run logged one ignored response,
+383 rejected eight-byte transfers, and zero decoded gestures. The original
+mode and topcase DMA and MMIO retirement verified.
+
+Ubuntu returned with the one-shot consumed and the EFI entries unchanged.
+The 6,275-byte native USB report matched its archived copy. The read-only
+allocation check passed for all 111 files, and prior file contents were
+preserved with the expected sidecar updates. The exact payload and report
+are archived outside `build/`. The saved report stops before USB teardown
+and reset.
 
 ## Capability ledger
 
