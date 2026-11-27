@@ -491,8 +491,11 @@ can start with inherited entries still cached.
 The blitter requires a controller lease before it can promote the transfer.
 It checks the enabled primary surface, all eight L3 bank policies, and open
 engine and arbiter replies before requesting a drain. It checks the five
-fresh engine flush acknowledgements and brackets the L3 flush pulse with
-WiDi GO and busy reads. After all seven translations have been installed and
+fresh engine flush acknowledgements. The shared verifier reads WiDi GO and
+busy on both sides of the L3 register. It requires a low L3 sample with every
+GAM client closed and WiDi reporting GO=0, followed by a new pulse within
+that same block. A high L3 bit in the first closed sample has unknown origin.
+After all seven translations have been installed and
 verified, the owner must independently hold the WiDi device and display
 proxy before reopening global memory traffic. BCS can then fetch its command.
 Rollback requires a second drain and a fresh L3 pulse. A lost lease after a

@@ -310,9 +310,10 @@ forcewake held before GT reset. Across eight polls, ending 8.751 ms into
 the 10 ms window, GAM request and response stayed at `0xff` and `0x7f`,
 WiDi stayed open at `0x1f`, and the L3 acknowledgement stayed at zero.
 The fresh engine acknowledgement mask was zero. Native `MISC_CTRL0` was
-`0xc5280000` before the request and after rollback, with the firmware lock
-and CPD GO-message disable bits set. The run restored both RC control words
-and confirmed the original open state 9.257 ms after the poll origin.
+`0xc5280000` before the request and after rollback. The firmware lock was
+set and the CPD GO-message enable bit was clear. The run restored both RC
+control words and confirmed the original open state 9.257 ms after the poll
+origin.
 
 Pipe A kept the inherited framebuffer across reset and PCI reopening.
 The backing guard covered 1,484 inherited pages and seven firmware command
@@ -325,6 +326,22 @@ verified the USB checkpoint, all four file hashes, the 1,266-byte park
 timing report and offline exFAT integrity. The run is closed as a diagnostic.
 Device-wide traffic stayed open, so the first native translation store
 remains gated. Shared baseline `0d764d9f` was inspected.
+
+The shared Broadwell verifier now requires L3 to read low after GAM and WiDi
+close and to pulse on a later guarded read under the same block. It brackets
+the L3 register with WiDi GO reads for the mapping, submission and PCI-reset
+paths. The Air park recipe uses the same verifier and keeps its existing wire
+format and deadlines. This scope covers the traffic verifier and its modeled
+consumers. The next physical run needs a documented way to hold the request
+while observing the acknowledgements. The locked CPD policy survives PCI
+function reset, and the WiDi-only soft-reset control clears when its reset
+finishes. Neither provides that hold. Main `d29abcf1` was inspected and
+contains separate Air6,1 SSD work.
+
+The diagnostic image built and all five local suites passed. Q35 passed 44
+one-page and 33 blitter cases. Removing either the closed-low requirement or
+the WiDi read immediately after L3 reproduced the corresponding regression.
+The saved RC1e hardware receipt still replays with zero fresh acknowledgements.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

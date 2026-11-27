@@ -334,6 +334,10 @@ def park_result(text, cold, change, timing, wake_complete, flush):
     for f in polls:
         require(not drained)
         w = f['words']
+        previous_widi_closed = bool(go_closed & (1 << 5))
+        pulse = bool(w[4] & 1)
+        widi_bracket_closed = not (w[3] | w[5]) & 0x11
+        require(not w[4] & 2 and (not (pulse or previous_widi_closed) or widi_bracket_closed))
         for start in (0, 13):
             req, resp, reset = w[start:start+3]
             require(not (req & (request_closed | 0x8000) or resp & response_closed or
@@ -341,6 +345,7 @@ def park_result(text, cold, change, timing, wake_complete, flush):
             request_closed |= ~req & GAM
             response_closed |= ~resp & GAM
             if start == 0:
+                require(not pulse or request_closed)
                 for i, bit in enumerate((0, 1, 2, 4, 3, 6)):
                     v = w[6+i]
                     ack = (i < 5 and v & 0x20)
@@ -353,9 +358,7 @@ def park_result(text, cold, change, timing, wake_complete, flush):
                     if not permit:
                         go_closed |= 1 << i
         closed = arbiter(w[:3], False) and arbiter(w[-3:], False)
-        pulse = bool(w[4] & 1)
-        require(not w[4] & 2 and (not pulse or (not (w[3] | w[5]) & 0x11 and request_closed)))
-        if closed and not (w[3] | w[5] | w[11]) & 0x11:
+        if closed and widi_bracket_closed and not w[11] & 0x11:
             if not pulse:
                 low = True
             elif low and not high:

@@ -14,7 +14,7 @@ struct bdw_traffic_sample {
     void *ctx;
     bool (*read)(void *,uint32_t,uint32_t *);
     uint32_t request_closed, response_closed, engine_ack, engine_go_closed, engine_blocked;
-    bool l3_high, l3_ack;
+    bool l3_closed_low, l3_high, l3_ack;
 };
 
 static inline bool bdw_traffic_gam(struct bdw_traffic_sample *a, uint32_t allowed, bool *matches)
@@ -146,31 +146,45 @@ static inline bool bdw_traffic_reopened(struct bdw_traffic_sample *s, bool *open
     return true;
 }
 
+static inline bool bdw_traffic_l3(struct bdw_traffic_sample *s, uint32_t *l3,
+                                  uint32_t *widi_before, uint32_t *widi_after)
+{
+    return s->read(s->ctx,0x8014,widi_before) && s->read(s->ctx,0x8038,l3) &&
+           s->read(s->ctx,0x8014,widi_after);
+}
+
 static inline bool intel_bdw_traffic_open(struct bdw_traffic_sample *s)
 {
     bool arbiter, pipelines;
-    uint32_t l3;
+    uint32_t l3, widi_before, widi_after;
     return bdw_traffic_gam(s,BDW_GAM_CLIENTS,&arbiter) && arbiter &&
            bdw_traffic_engines(s,false,&pipelines) && pipelines &&
-           s->read(s->ctx,0x8038,&l3) && !(l3 & 3u) &&
+           bdw_traffic_l3(s,&l3,&widi_before,&widi_after) && !(l3 & 3u) &&
+           (widi_before & widi_after & 0x10u) &&
            bdw_traffic_gam(s,BDW_GAM_CLIENTS,&arbiter) && arbiter;
 }
 
 static inline bool intel_bdw_traffic_poll(struct bdw_traffic_sample *s,bool *drained)
 {
     bool arbiter, pipelines, closing;
-    uint32_t l3, eco;
+    uint32_t l3, eco, widi_before, widi_after;
     /* Read the request before the acknowledgements. A pulse observed while
      * every request line is still open cannot qualify a later closure. */
-    if (!bdw_traffic_gam(s,0,&arbiter) || !s->read(s->ctx,0x8038,&l3) ||
-        !bdw_traffic_engines(s,true,&pipelines) || !s->read(s->ctx,0x8040,&eco) ||
-        (l3 & 2u) || ((l3 & 1u) && !s->request_closed)) return false;
-    if (!bdw_traffic_gam(s,0,&closing)) return false;
-    /* An ACK first seen while any client could still issue memory traffic
-     * cannot cover that client, even if the bit stays high through closure.
-     * GPM may consume a valid pulse before the last engine reports ready. */
+    bool widi_was_closed = (s->engine_go_closed & (1u << 5)) != 0;
+    if (!bdw_traffic_gam(s,0,&arbiter) || !bdw_traffic_l3(s,&l3,&widi_before,&widi_after))
+        return false;
     bool high = (l3 & 1u) != 0;
-    if (arbiter && closing && high && !s->l3_high) s->l3_ack = true;
+    bool widi_closed = !((widi_before | widi_after) & 0x11u);
+    if ((l3 & 2u) || (high && (!s->request_closed || !widi_closed)) ||
+        (widi_was_closed && !widi_closed) || !bdw_traffic_engines(s,true,&pipelines) ||
+        !s->read(s->ctx,0x8040,&eco) || !bdw_traffic_gam(s,0,&closing)) return false;
+    /* Observe the cleared state under the same closed arbiter and WiDi hold.
+     * A high bit at the first closed sample may belong to an earlier phase.
+     * GPM may consume a valid pulse before the last engine reports ready. */
+    if (arbiter && closing && widi_closed && (s->engine_go_closed & (1u << 5))) {
+        if (!high) s->l3_closed_low = true;
+        else if (s->l3_closed_low && !s->l3_high) s->l3_ack = true;
+    }
     s->l3_high = high;
     *drained = arbiter && closing && pipelines && s->l3_ack && (eco & 1u);
     return true;
@@ -192,8 +206,9 @@ static inline bool intel_bdw_traffic_still_blocked(void *ctx, bool (*read)(void 
         {0x8000, 0x31, 0x20}, {0x8004, 0x31, 0x20}, {0x8008, 0x31, 0x20},
         {0x800c, 0x31, 0x20}, {0x8010, 0x31, 0x20},
         {0x8014, 0x11, 0}, /* WiDi GO acknowledged closed, pipe reports busy. */
-        /* GAM idle, no L3 unblock, no new requests or grants. */
-        {0x8040, 1, 1}, {0x8038, 2, 0}, {0x40d0, 0x805f, 0}, {0x8028, 0x5f, 0},
+        /* GAM idle, WiDi still closed around the L3 sample, no unblock. */
+        {0x8040, 1, 1}, {0x8014, 0x11, 0}, {0x8038, 2, 0}, {0x8014, 0x11, 0},
+        {0x40d0, 0x805f, 0}, {0x8028, 0x5f, 0},
         {BDW_RSTFCTLMSG, BDW_PREP_RST_WIDI_ACK, 0}
     };
     if (!read) return false;

@@ -183,12 +183,15 @@ static enum intel_gt_write unblock(const struct scanout_transfer *t,const struct
  if(joint)assert(table[0]==slot_original && !slot_allocated);
  active_block=false;releases++;return GT_WRITE_DONE;
 }
+static unsigned l3_samples;
 static bool traffic_read(const struct scanout_transfer *t,uint32_t reg,uint32_t *v)
 {
  assert(t==&transfer);
  switch(reg){
  case 0x40d0: case 0x8028: *v=active_block ? 0 : 0x5f;break;
- case 0x8038: *v=active_block ? !fault("window-no-l3",1) : fault("window-stale-l3",1);break;
+ case 0x8038:
+  *v=active_block ? (++l3_samples==2 && !fault("window-no-l3",1)) : fault("window-stale-l3",1);
+  break;
  case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010:
   *v=active_block && !(reg==0x8004 && fault("window-no-engine",1)) ? 0x20 : 0x10;break;
  case 0x8108: *v=0;break;

@@ -214,7 +214,7 @@ static struct {
     uint64_t epoch,widi_epoch;
     uint32_t selector;
     bool bcs;
-    unsigned drains,tlb_controls;
+    unsigned drains,tlb_controls,l3_reads;
     bool injected_early;
 } controller;
 
@@ -254,7 +254,8 @@ static bool traffic_read(const struct scanout_transfer *t,uint32_t offset,uint32
         break;
     case 0x4dc0: *out=!invalidates || traffic_fault==WIDI_CACHED ? 0x40000000u : 0; break;
     case 0x4dc4: *out=traffic_fault==WIDI_CACHED_ROLLBACK && invalidates==2 ? 1 : 0; break;
-    case 0x8038: *out=blocked && !bcs && traffic_fault!=NO_NEW_L3 &&
+    case 0x8038: *out=blocked && !bcs &&
+            (++controller.l3_reads==2 || traffic_fault==EARLY_L3) && traffic_fault!=NO_NEW_L3 &&
             !(traffic_fault==STALE_SECOND_DRAIN && controller.drains==2); break;
     case 0x8040: *out=1; break;
     case 0x8108: case 0x12870: case 0x12878: case 0x1c870: case 0x1c878: case 0xb11c: *out=0; break;
@@ -282,7 +283,10 @@ static enum intel_gt_write permit_bcs(const struct scanout_transfer *t,const str
 {
     assert(epoch==93 && block_epoch(t,p)==epoch && enable!=controller.bcs);
     if (enable) assert(invalidates==1 && !posted && p->writes==PAGES);
-    else ++controller.drains;
+    else {
+        ++controller.drains;
+        controller.l3_reads=0;
+    }
     controller.bcs=enable;
     if (enable && traffic_fault==LOST_BLOCK_EPOCH) ++controller.epoch;
     return GT_WRITE_DONE;

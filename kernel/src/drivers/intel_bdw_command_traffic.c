@@ -54,16 +54,6 @@ static bool plane_held(struct bdw_command_hold *h)
     return control==h->plane && live==h->surface;
 }
 
-/* A flush observed before WiDi acknowledged GO=0 cannot retire that reader.
- * Bracket the L3 register itself, since the arbiter and client reply separately. */
-static bool drain_read(void *ctx,uint32_t offset,uint32_t *word)
-{
-    uint32_t before,after;
-    if (offset!=0x8038) return sample_read(ctx,offset,word);
-    return sample_read(ctx,0x8014,&before) && sample_read(ctx,offset,word) &&
-        sample_read(ctx,0x8014,&after) && (!(*word&1) || !((before|after)&0x11));
-}
-
 /* Read the independent WIN clock request (CGMSG) and its reply from the
  * clocking unit (MSG_CLKGATE_GCP). The device owner's WiDi lease excludes
  * the producer and changes to the request between these observations. */
@@ -106,7 +96,7 @@ static bool executing(struct bdw_command_hold *h)
 
 static bool finish_drain(struct bdw_command_hold *h,uint64_t begin,bool after_execution)
 {
-    struct bdw_traffic_sample s={.ctx=h,.read=drain_read};
+    struct bdw_traffic_sample s={.ctx=h,.read=sample_read};
     if (after_execution && (!h->widi_epoch || !widi_clock_gated(h))) goto retained;
     for (unsigned i=0;i<GT_ACCESS_POLL_CAP;i++) {
         bool drained=false;

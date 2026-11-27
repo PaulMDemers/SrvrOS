@@ -174,9 +174,11 @@ about 50 ms apart returned `0xc5280000` with i915 forcewake held and eDP
 enabled before and after. Bit 31 locks the power-management policy and bit 25
 is clear, disabling GAM GO messaging on CPD entry/exit in this configuration. The GAM
 request and response were `0xff` and `0x7f`, WiDi returned `0x1f`, and L3
-returned zero throughout. A SrvrOS sample is still needed to identify its
-inherited policy. This register configures a transition and supplies no
-software request to enter or hold it.
+returned zero throughout. The native SrvrOS RC1e release `0b8aeb4fce7c1c8d`
+read the same `MISC_CTRL0` value before the request and after restoring
+the original controls. This register configures a transition and supplies
+no software request to enter or hold it. Intel specifies that its locked
+fields survive PCI function reset.
 [Intel Broadwell register reference, pp. 606–607](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
 
 ## Render indirect context for the command interval

@@ -427,10 +427,26 @@ class FlushAcknowledgements(unittest.TestCase):
                          dict(v=1, reads=2, cpd_before=0xc5280000, cpd_after=0xc5280000))
         self.assertEqual(len([frame for frame in result['frames'] if frame['op'] == 1]), 8)
 
-        result = bootstrap_result(observe('park-rc1e-ack'))['flush']['park']
+        acknowledged = observe('park-rc1e-ack')
+        result = bootstrap_result(acknowledged)['flush']['park']
         self.assertTrue(result['complete'] and result['powered_block_observed'])
         self.assertEqual((result['fresh_engine_mask'], result['fresh_l3'], result['summary']['held']),
                          (31, True, 2))
+        stuck = bootstrap_result(observe('park-rc1e-stale-closed'))['flush']['park']
+        self.assertTrue(stuck['complete'] and stuck['summary']['returned'])
+        self.assertEqual((stuck['fresh_engine_mask'], stuck['fresh_l3'], stuck['powered_block_observed']),
+                         (31, False, False))
+        # The second poll says that GAM and WiDi are closed and L3 pulses.
+        # A WiDi reopening just before or after the L3 read invalidates it.
+        pulse_row = next(row for row in acknowledged.splitlines()
+                         if row.startswith('intel-park-frame: v=1 n=2 op=1 '))
+        data = pulse_row.split(' data=')[1]
+        for offset in (3, 5):
+            raw = bytearray(base64.b64decode(data))
+            raw[4 * offset] = 0x10
+            forged = acknowledged.replace(pulse_row, pulse_row.replace(data, base64.b64encode(raw).decode()))
+            with self.subTest(widi_word=offset), self.assertRaises(ValueError):
+                bootstrap_result(forged)
         for fault in ('park-rc1e-stale', 'park-rc1e-cpd-drift'):
             with self.subTest(fault=fault):
                 result = bootstrap_result(observe(fault))['flush']['park']

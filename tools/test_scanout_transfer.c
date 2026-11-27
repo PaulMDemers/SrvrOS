@@ -344,6 +344,7 @@ bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t va,uint64_t pa,uint32_t 
     return true;
 }
 static unsigned traffic_reads,block_requests,block_releases,l3_reads,request_reads;
+static uint32_t last_traffic_register;
 static bool block_revoked,block_active,retire_reentered;
 static bool baseline_l3_sampled, rollback_media_sampled, acquisition_eco_sampled;
 static uint64_t held_block(const struct scanout_transfer *t,const struct scanout_publication *p) {
@@ -409,6 +410,8 @@ static enum intel_gt_write select_l3(const struct scanout_transfer *t,uint32_t f
 static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32_t *word) {
     assert(t==&transfer);
     ++traffic_reads;
+    uint32_t previous = last_traffic_register;
+    last_traffic_register = offset;
     if (block_releases && !strcmp(page_failure,"read-failed")) return false;
     if (offset==0x8038 && !strcmp(page_failure,"unfilled-l3")) return true;
     switch(offset) {
@@ -487,7 +490,7 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
     case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010: {
         /* The last engine closes only after L3's one-shot ACK disappears. */
         *word=(!block_active || !strcmp(page_failure,"engine-go") ||
-               (offset==0x8010 && l3_reads==1)) ? 0x10 : 0x20;
+               (offset==0x8010 && l3_reads<=2)) ? 0x10 : 0x20;
         char early_ack[32];
         snprintf(early_ack,sizeof(early_ack),"engine-early-ack-%u",(offset-0x8000)/4);
         if (block_active && l3_reads==1 && !strcmp(page_failure,early_ack)) *word=0x21;
@@ -502,7 +505,9 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
             break;
         }
         ++l3_reads;
-        *word=!strcmp(page_failure,"l3-unblock")?2:(l3_reads==1 && strcmp(page_failure,"missing-l3"));
+        *word=!strcmp(page_failure,"l3-unblock")?2:(l3_reads==2 && strcmp(page_failure,"missing-l3"));
+        if (!strcmp(page_failure,"owned-mmio-l3-stale-closed")) *word=1;
+        if (!strcmp(page_failure,"owned-mmio-l3-widi-edge") && l3_reads==2) *word=1;
         if (!strcmp(page_failure,"sa-post-l3") && ggtt_posts==a.publication.writes) *word=2;
         break;
     case 0x40d0: *word=(!block_active && !strcmp(page_failure,"air-post-reset")) ? 0x7fff :
@@ -512,18 +517,22 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
     case 0x8028: *word=(!block_active || !strcmp(page_failure,"gam-response")) ? 0x5f : 0; break;
     default: assert(0); return false;
     }
-    /* First pulse before WiDi closes: it can vanish, remain high or be
-     * followed by a fresh low-to-high transition in the closed interval. */
+    /* Exercise a pulse before WiDi closes and a valid pulse that follows
+     * a fully closed, low sample after WiDi closes. */
     if (block_active && (!strcmp(page_failure,"owned-mmio-l3-before-widi") ||
                          !strcmp(page_failure,"owned-mmio-l3-before-widi-response") ||
                          !strcmp(page_failure,"owned-mmio-l3-across-widi") ||
                          !strcmp(page_failure,"owned-mmio-l3-after-widi"))) {
         if (!l3_reads && (offset==0x8028 || (offset==0x40d0 &&
             strcmp(page_failure,"owned-mmio-l3-before-widi-response")))) *word |= 1u<<6;
-        if (l3_reads==1 && offset==0x8014) *word=0x10;
+        if (request_reads==1 && offset==0x8014) *word=0x10;
+        if (offset==0x8038 && l3_reads==1) *word=strcmp(page_failure,"owned-mmio-l3-after-widi")!=0;
+        if (offset==0x8038 && l3_reads==2 && !strcmp(page_failure,"owned-mmio-l3-after-widi")) *word=0;
         if (offset==0x8038 && l3_reads==2 && !strcmp(page_failure,"owned-mmio-l3-across-widi")) *word=1;
         if (offset==0x8038 && l3_reads==3 && !strcmp(page_failure,"owned-mmio-l3-after-widi")) *word=1;
     }
+    if (block_active && !strcmp(page_failure,"owned-mmio-l3-widi-edge") &&
+        l3_reads==2 && previous==0x8038 && offset==0x8014) *word=0x10;
     if (block_active && !strcmp(page_failure,"owned-mmio-acquire-reopen")) {
         if (acquisition_eco_sampled && offset==0x40d0) *word|=1u<<6;
         acquisition_eco_sampled = offset==0x8040 && l3_reads==2;
@@ -554,6 +563,7 @@ static bool traffic_word(const struct scanout_transfer *t,uint32_t offset,uint32
         if (!strcmp(page_failure,"l3-before-request")) {
             if (offset==0x40d0 || offset==0x8028) *word=0x5f;
             if (offset>=0x8000 && offset<=0x8014) *word=0x10;
+            if (offset==0x8038) *word=1;
         }
         static const struct { const char *mode; uint32_t bit, message; } early[]={
             {"rcs-before-request",0,0x8000}, {"vcs0-before-request",1,0x8004},
@@ -848,7 +858,8 @@ static void owned_page_case(const char *mode)
             assert(!borrower && intel_bdw_bcs_port_release(&model));
         } else if (!strcmp(mode,"owned-mmio-acquire-reset") || !strcmp(mode,"owned-mmio-store-reset") ||
                    !strcmp(mode,"owned-mmio-unreadable-reset") || !strcmp(mode,"owned-mmio-l3-before-widi") || !strcmp(mode,"owned-mmio-l3-across-widi") ||
-                   !strcmp(mode,"owned-mmio-l3-before-widi-response") || !strcmp(mode,"owned-mmio-acquire-reopen")) {
+                   !strcmp(mode,"owned-mmio-l3-before-widi-response") || !strcmp(mode,"owned-mmio-acquire-reopen") ||
+                   !strcmp(mode,"owned-mmio-l3-stale-closed") || !strcmp(mode,"owned-mmio-l3-widi-edge")) {
             assert(!scanout_memory_apply(&a,&at));
             assert(block_requests==1 && !model.writes && !ggtt_posts && table[target]==input[0]);
             assert(borrower && !block_releases && !model.releases);

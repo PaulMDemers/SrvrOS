@@ -12,7 +12,8 @@ OWNED_PAGE_MODES = ("owned-no-grant", "owned-short-import", "owned-vacant", "own
                     "owned-mmio-reopen-owner", "owned-mmio-bcs-busy", "owned-mmio-admission-drift",
                     "owned-mmio-rollback-early-open", "owned-mmio-parked-queues", "owned-mmio-l3-before-widi",
                     "owned-mmio-l3-across-widi", "owned-mmio-l3-after-widi",
-                    "owned-mmio-l3-before-widi-response", "owned-mmio-acquire-reopen")
+                    "owned-mmio-l3-before-widi-response", "owned-mmio-acquire-reopen",
+                    "owned-mmio-l3-stale-closed", "owned-mmio-l3-widi-edge")
 OWNED_PAGE_MODES += ("owned-mmio-admission-reset", "owned-mmio-acquire-reset", "owned-mmio-store-reset",
                      "owned-mmio-unreadable-reset", "owned-mmio-rollback-reset", "owned-mmio-reopen-reset")
 OWNED_PAGE_MODES += ("tiled-flip", "tiled-flip-wrong-pixels", "tiled-flip-retained")

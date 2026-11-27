@@ -490,15 +490,6 @@ static bool park_capture_edge(struct wake_adapter *a)
     return true;
 }
 
-/* Bracket the L3 pulse itself with WiDi, as the command owner does. */
-static bool park_message(void *ctx, uint32_t reg, uint32_t *value)
-{
-    if (reg != 0x8038) return park_read(ctx,reg,value);
-    uint32_t before, after;
-    return park_read(ctx,0x8014,&before) && park_read(ctx,reg,value) && park_read(ctx,0x8014,&after) &&
-           (!(*value & 1) || !((before | after) & 0x11));
-}
-
 static bool park_sample(struct bdw_traffic_sample *s, enum park_op op, bool *drained)
 {
     if (air_park.frames_used >= sizeof(air_park.frames)/sizeof(air_park.frames[0])) return false;
@@ -526,7 +517,7 @@ static bool park_sample(struct bdw_traffic_sample *s, enum park_op op, bool *dra
     switch (op) {
     case PARK_OPEN: case PARK_REOPEN: ok = intel_bdw_traffic_open(s); break;
     case PARK_POLL: ok = intel_bdw_traffic_poll(s,drained); break;
-    case PARK_HELD: ok = intel_bdw_traffic_still_blocked(f,park_message); break;
+    case PARK_HELD: ok = intel_bdw_traffic_still_blocked(f,park_read); break;
     default: return false;
     }
     if (!ok || !park_panel() || !engine_requesters(air_park.adapter) || (requested && !park_vcs1_current()) ||
@@ -547,7 +538,7 @@ static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
     if (air_park.original[0] != PARK_AUTO || air_park.original[1] != PARK_RC6 ||
         gt_flush.raw[0][13] != PARK_AUTO || gt_flush.raw[0][14] != PARK_RC6 ||
         !park_alias(true)) return false;
-    struct bdw_traffic_sample sample = {.read=park_message};
+    struct bdw_traffic_sample sample = {.read=park_read};
     bool drained = false;
     if (!park_sample(&sample,PARK_OPEN,&drained) || !park_owner(a,g) || !park_vcs1_apply()) return false;
     if (park_rc1e_trial()) {
@@ -559,7 +550,6 @@ static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
         ++air_park.attempts;
         if (!park_store(i,i ? park_target() : PARK_RC6,&air_park.programmed[i])) return false;
     }
-    bool closed_low = false;
     uint64_t begin = timer_monotonic_us();
     if (!begin) return false;
     air_park.poll_origin_us = begin;
@@ -589,13 +579,6 @@ static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
         if (!park_sample(&sample,PARK_POLL,&drained)) return false;
         struct park_frame *f = &air_park.frames[air_park.frames_used-1];
         if (f->count != 16) return false;
-        if (!closed_low) {
-            /* Require an observed low after all GAM clients and WiDi close. */
-            sample.l3_ack = false;
-            drained = false;
-            closed_low = !((f->raw[0] | f->raw[1] | f->raw[13] | f->raw[14]) & BDW_GAM_CLIENTS) &&
-                         !((f->raw[3] | f->raw[5] | f->raw[11]) & 0x11) && !(f->raw[4] & 3);
-        }
         uint64_t end = f->end;
         if (end < begin || end-begin > BDW_TRAFFIC_BLOCK_US) return false;
         if (drained) {
@@ -626,7 +609,7 @@ static bool park_restore(struct wake_adapter *a, struct intel_gt_access *g)
         ++air_park.returns;
     }
     if (air_park.attempts) {
-        struct bdw_traffic_sample sample = {.read=park_message};
+        struct bdw_traffic_sample sample = {.read=park_read};
         bool unused = false;
         air_park.reopened = park_sample(&sample,PARK_REOPEN,&unused);
         if (!air_park.reopened) return false;

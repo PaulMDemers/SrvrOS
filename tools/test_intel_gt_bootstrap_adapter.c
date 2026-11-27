@@ -199,8 +199,9 @@ static uint32_t intel_display_test_park_read(unsigned reg) {
     }
     const struct park_frame *frame = &air_park.frames[air_park.frames_used-1];
     bool late = !strcmp(bootstrap_mode,"park-late-ack");
+    bool stuck_high = !strcmp(bootstrap_mode,"park-rc1e-stale-closed");
     bool blocked = park_model[0] == PARK_RC6 && (!strcmp(bootstrap_mode,"park-ack") ||
-        (!strcmp(bootstrap_mode,"park-rc1e-ack") && park_model[1] == PARK_RC1E) ||
+        ((!strcmp(bootstrap_mode,"park-rc1e-ack") || stuck_high) && park_model[1] == PARK_RC1E) ||
         (late && frame->begin >= air_park.poll_origin_us + 7500));
     bool stale = (!strcmp(bootstrap_mode,"park-early-l3") || !strcmp(bootstrap_mode,"park-rc1e-stale")) &&
         frame->op == PARK_POLL;
@@ -214,8 +215,8 @@ static uint32_t intel_display_test_park_read(unsigned reg) {
     case 0x8028: return blocked ? 0 : 0x7f;
     case 0x8108: return 0;
     case 0x8014: return blocked ? 0 : 0x1f;
-    case 0x8038: return (blocked && (late ? frame->begin >= air_park.poll_origin_us + 8750 :
-                                           air_park.frames_used >= 3)) || stale;
+    case 0x8038: return (blocked && (stuck_high || (late ? frame->begin >= air_park.poll_origin_us + 8750 :
+                                           air_park.frames_used >= 3))) || stale;
     case 0x8040: return 1;
     case 0x12870: case 0x12878: case 0x1c870: case 0x1c878: return 0;
     case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010: return blocked ? 0x20 : 0x1f;
@@ -683,6 +684,7 @@ static bool intel_display_test_bootstrap_expected(void) {
  if(!strcmp(bootstrap_mode,"pipe-writer"))return true;
  if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"park-late-ack") ||
     !strcmp(bootstrap_mode,"park-rc1e") || !strcmp(bootstrap_mode,"park-rc1e-ack") ||
+    !strcmp(bootstrap_mode,"park-rc1e-stale-closed") ||
     !strcmp(bootstrap_mode,"park-cold") || !strcmp(bootstrap_mode,"park-cold-cost") ||
     !strcmp(bootstrap_mode,"park-cold-vcs1") || !strcmp(bootstrap_mode,"park-cold-vcs1-edge") ||
     !strcmp(bootstrap_mode,"flush-quiet") || !strcmp(bootstrap_mode,"flush-stale") ||

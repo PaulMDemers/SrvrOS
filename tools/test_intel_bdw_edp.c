@@ -115,7 +115,7 @@ struct source_fixture {
     struct intel_vtd_drain drain;
     struct intel_vtd_drain_source drain_source;
     unsigned drain_stores, drain_reads_after_store;
-    unsigned block_calls, decode_closes, media_reads, l3_reads;
+    unsigned block_calls, decode_closes, media_reads, l3_reads, gam_reads;
     bool lost_block_owner, reopened_at_config;
     const struct bdw_flr_report *block_owner;
     uint64_t block_epoch;
@@ -852,14 +852,15 @@ static bool flr_admitted(void *context, const struct bdw_flr_pci_image *image,
            (s->flr_fault != DRAIN_OWNER_LOST || !s->drain.complete);
 }
 
-/* Modeled GPM transaction. L3 acknowledges only on the first poll and
- * clears the bit before the five engines finish the handshake. */
+/* Modeled GPM transaction. L3 first reads low under closure, then pulses
+ * and clears before the five engines finish the handshake. */
 static bool flr_gt_read(void *context, uint32_t offset, uint32_t *word)
 {
     struct source_fixture *s = context;
     assert(flr_held(s) && s->flr_config[1] == 0x100403 && !s->decode_closes);
     bool block = s->block_calls != 0;
-    bool ready = block && s->l3_reads >= 2;
+    bool ready = block && s->l3_reads >= 3;
+    if (block && offset == 0x40d0) ++s->gam_reads;
     if (block && s->flr_fault == GT_READ_FAILED && offset == 0x8038) return false;
     /* Replay the observed pre/held response words from Air release
      * 8e5b856650ecf306. The request register was not in that recording.
@@ -876,7 +877,9 @@ static bool flr_gt_read(void *context, uint32_t offset, uint32_t *word)
     }
     switch (offset) {
     case 0x8108: *word = 0; break;
-    case 0x8014: *word = ready ? 0 : 0x10; break;
+    case 0x8014:
+        *word = !block || (s->flr_fault == GT_PROGRESSIVE_BLOCK && s->gam_reads == 1) ? 0x10 : 0;
+        break;
     case 0x40d0: case 0x8028:
         *word = block ? 0x20 : 0x7f;
         if (!block && offset == 0x40d0 && s->flr_fault == GT_FOREIGN_RESET) *word |= 0x8000;
@@ -910,9 +913,9 @@ static bool flr_gt_read(void *context, uint32_t offset, uint32_t *word)
         }
         break;
     case 0x8038:
-        *word = block ? (++s->l3_reads == 1 && s->flr_fault != GT_NO_L3) : s->flr_fault == GT_STALE_L3;
+        *word = block ? (++s->l3_reads == 2 && s->flr_fault != GT_NO_L3) : s->flr_fault == GT_STALE_L3;
         if (block && s->flr_fault == GT_PROGRESSIVE_BLOCK)
-            *word = s->l3_reads == 2;
+            *word = s->l3_reads == 3;
         if (block && s->flr_fault == GT_OWNER_REPLACED && s->l3_reads == 2)
             ++s->block_epoch;
         if (block && s->flr_fault == GT_L3_UNBLOCK && s->media_reads == 4) *word = 2;
@@ -1281,7 +1284,7 @@ static unsigned test_cycle(void)
     f = (struct source_fixture){.exercise_flr = true};
     assert(run_cycle(&f, &r) && r.stage == BDW_EDP_CYCLE_COMPLETE && !r.retained);
     assert(f.flr.reset_issued && f.flr.ready_polls == 3 && f.flr_writes == 5);
-    assert(f.flr.block_issued && f.flr.traffic_blocked && f.flr.l3_ack && f.flr.traffic_polls == 2);
+    assert(f.flr.block_issued && f.flr.traffic_blocked && f.flr.l3_ack && f.flr.traffic_polls == 3);
     assert(f.flr.stores == 6 && f.media_reads == 4 && f.decode_closes == 1);
     assert(f.flr.stage == BDW_FLR_COMPLETE && !f.flr.retained);
     assert(f.reopen.phase == BDW_EDP_REOPEN_READY && f.reopen.writes == 3 && !f.reopen.retained);
@@ -1381,7 +1384,7 @@ static unsigned test_cycle(void)
         }
     }
     f = (struct source_fixture){.exercise_flr = true, .flr_fault = GT_PROGRESSIVE_BLOCK};
-    assert(run_cycle(&f, &r) && f.flr.block_issued && f.flr.traffic_polls == 2);
+    assert(run_cycle(&f, &r) && f.flr.block_issued && f.flr.traffic_polls == 3);
     assert(f.flr.l3_ack && f.flr.traffic_blocked && f.flr.reset_issued && f.drain_stores == 1);
     return writes + 49 + traffic_cases;
 }
