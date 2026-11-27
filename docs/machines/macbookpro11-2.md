@@ -206,6 +206,21 @@ WLRF1 bits, and active-MCU refusal. Both sibling desktop regressions and
 rehearsals. The retry uses the same pinned firmware, hub ports and
 workspace. Run record `build/bringup/pro112-rtl8822bu-firmware-retry/run.json`.
 
+Physical session `session-0006614a00d84750-00` stopped at `entry-owner`.
+The Netgear reported `CR=0xea`, `SYS_STATUS=0x10` and `MCUFW_CTRL=0x00600001`.
+The MAC was off, both firmware-ready bits were clear, and the old check
+refused because bit 0 was already set. No firmware bytes were sent.
+Both copies of the log agreed, all 678 workspace files matched, and the
+system returned cleanly to Ubuntu. Evidence and payload are archived under
+`evidence-b55734ac90635da7` in the recovery archive.
+
+Continue from `106819a2` on the same integration baseline. Recognize
+only the observed cold signature on this adapter. Before clearing bit 0,
+confirm the hub route, closed CPU interface, disabled RF and idle DDMA.
+The native fixture must cover that exact signature and refuse different
+entry values, a running MCU and busy DMA. Preserve the existing RF and
+flash-selection checks, 40 firmware transfers and unattended log capture.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
