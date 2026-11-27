@@ -138,13 +138,22 @@ the 10 ms park window. The repeat missed the deadline during ACK sampling
 and ended before RC6 sampling, engine preparation or GT reset. The run is
 closed as an incomplete GPU trial with verified physical log persistence.
 
-The next Air trial groups the two always-on forcewake reads under a single
-fresh adapter admission. It covers the GT access core and the Air park
-adapter. The separate closing guard, original panel, HDA lease, PCI checks
-and 10 ms deadline remain in force. PR 301 is the device work branch, with
-`61111819` reviewed as the upstream integration reference. The next
-checkpoint is exact-image VM qualification and one native run with a matched
-USB timing report.
+The Air park probe groups the two always-on forcewake reads under one fresh
+adapter admission. The separate closing guard, original panel, HDA lease,
+PCI checks and 10 ms deadline remain in force. Physical release
+`20f421f22c817cf1` at `8ae06d45` passed exact-image VM and host qualification.
+Native session `session-00066139bd55b6e9-00` issued the release store at
+5.444 ms, verified the clear request and ACK at 6.804 ms, and passed the
+closing guard at 8.165 ms. The paired reads moved both verification points
+4.100 ms earlier than the preceding physical run.
+
+The remaining 1.835 ms did not yield a complete RC6 sample. The report does
+not identify which check stopped the first sample. Forcewake reacquired at
+24.509 ms and both park registers were restored, with the temporary alias
+retired. The later diagnostic reset completed two writes, but park evidence
+contained no fresh engine or L3 acknowledgements. Ubuntu matched the
+1,217-byte USB `park-timing.log` to the exit log and verified the raw hashes,
+checkpoint and exFAT integrity. The run is closed as an incomplete GPU trial.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
