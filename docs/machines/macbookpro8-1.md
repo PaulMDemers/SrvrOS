@@ -539,13 +539,29 @@ Ubuntu `sync` and unmount cleared the mounted flash drive's dirty flag, and
 the offline writable check passed with 102 files and zero writes or allocation
 errors.
 
+The native `1ee4e80c7cbf4111` run verified hub alternate 1 and completed
+234 interrupt transfers across 40 schedule windows. One short response was
+ignored and 233 eight-byte responses were rejected. The last was
+`02 00 00 00 00 00 02 00`. Feature mode changed from 8 to 1 and was restored.
+The capture decoded zero type 2 reports and timed out with motion, contacts
+and clicks unverified. The topcase controller released DMA and its MMIO map.
+
+Ubuntu read back the 4,178-byte report from the expected USB volume and
+confirmed the consumed one-shot and unchanged EFI entries. The current,
+console recovery and keyboard monitor payloads matched their manifests.
+USB contents matched the pre-trial copy except for the new report and the
+expected sidecar addition and workspace marker access time. The read-only
+offline allocation check passed for all 103 files. The saved report ends
+before the guest log controller's final teardown and reset messages.
+The run record, report and exact payload are archived outside `build/`.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Native captures confirmed the mode switch and completed interrupt transfers with zero decoded type 2 frames | Check multi-TT and batched polling on hardware, then qualify motion and clicks |
+| Trackpad | Native multi-TT and batched polling completed 234 transfers with zero decoded type 2 frames | Compare endpoint payloads and initialization timing with Ubuntu, then qualify motion and clicks |
 | USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
