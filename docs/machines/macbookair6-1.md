@@ -15277,3 +15277,16 @@ for both boots and no host block devices. Observe the virtual disk's write and
 flush completions, and check the exact saved bytes, exFAT allocation, and bytes
 outside the data partition. Scope is host harness and evidence, with the native
 Air6,1 write fixture kept separate.
+
+On source `ac1b5dc3`, QEMU 10.2.1 booted the exact generated image twice
+using Q35 with software CPU emulation and fresh OVMF variable stores. The
+write phase saved 4,096 known bytes, issued 21 ATA write commands including
+filesystem metadata, and recorded one completed flush during explicit sync.
+Each boot ended with a separate ATA flush and a QMP-confirmed guest reset.
+The fresh readback issued 4,096 bytes of disk reads and zero writes during
+the measured read window. The guest and offline file content both matched
+SHA-256 `9c2f2ae199567ff7d841ab1bdb03af18e4e5949dacd93c5dde6824ff9117f2a6`.
+Both guest and offline exFAT checks passed, and the image bytes outside the
+data partition were identical. The Ubuntu partitions remained in place.
+This accepts the file-backed QEMU trial. Native SSD write validation remains
+pending.
