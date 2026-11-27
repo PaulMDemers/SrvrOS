@@ -618,6 +618,7 @@ struct xhci_device {
     bool wifi_probe_attempted, wifi_probe_ok;
     bool rtl8188cu_probe_attempted,rtl8188cu_identified;
     bool rtl8188cu_firmware_attempted,rtl8188cu_firmware_active;
+    bool rtl8822bu_probe_attempted;
     bool rtl8188cu_firmware_ready;
     uint64_t rtl8188cu_download_started_us;
     uint32_t rtl8188cu_power_samples[RTL8188CU_POWER_PHASE_COUNT];
@@ -2910,7 +2911,7 @@ static bool rtl8188cu_hub_idle(struct xhci_device *d,struct xhci_device *hub) {
     return !hub->hub_status_pending && !hub->control_pending && wifi_hub_path_present(d);
 }
 
-static bool rtl8188cu_check_port(struct xhci_device *d,struct xhci_device *hub) {
+static bool wifi_hub_check_port(struct xhci_device *d,struct xhci_device *hub) {
     uint64_t flags=event_irq_save();
     uint32_t status;
     bool read=rtl8188cu_hub_idle(d,hub) && hub_get_port_status(hub,d->hub_port_id,&status);
@@ -2921,7 +2922,7 @@ static bool rtl8188cu_check_port(struct xhci_device *d,struct xhci_device *hub) 
 }
 
 static const char *rtl8188cu_probe(struct xhci_device *d,struct xhci_device *hub) {
-    if(!rtl8188cu_check_port(d,hub))return "port";
+    if(!wifi_hub_check_port(d,hub))return "port";
     zero_bytes(d->descriptor_buffer,46);
     if(!get_descriptor(d,USB_DESC_CONFIGURATION,0,0,46) ||
        !rtl8188cu_config_matches(d->descriptor_buffer))return "descriptor";
@@ -2937,7 +2938,7 @@ static const char *rtl8188cu_probe(struct xhci_device *d,struct xhci_device *hub
     }
     if(!rtl8188cu_read(d,RTL8188CU_BOOT_SOURCE,1,&boot))return "boot-source";
     if(!rtl8188cu_read(d,RTL8188CU_MCU_STATUS,1,&mcu))return "mcu-status";
-    if(!rtl8188cu_check_port(d,hub))return "port-after";
+    if(!wifi_hub_check_port(d,hub))return "port-after";
     console_printf("rtl8188cu-identity: slot=%u parent=%u port=%u sys_cfg=%x boot=%x mcu_status=%x\n",
         (uint64_t)d->slot_id,(uint64_t)hub->slot_id,(uint64_t)d->hub_port_id,
         (uint64_t)sys_cfg,(uint64_t)boot,(uint64_t)mcu);
@@ -2974,6 +2975,69 @@ bool xhci_rtl8188cu_capture_identity(void) {
         event_irq_restore(flags);
     }
     console_printf("rtl8188cu-probe: result=%s register_writes=0 firmware=0 rf=0\n",
+        failure?failure:"identified");
+    return !failure;
+}
+
+static const char *rtl8822bu_probe(struct xhci_device *d,struct xhci_device *hub) {
+    /* The A6150's captured high-speed, configuration 1, interface 0 descriptor. */
+    static const uint8_t configuration[]={
+        9,USB_DESC_CONFIGURATION,53,0,1,1,0,0x80,250,
+        9,USB_DESC_INTERFACE,0,0,5,0xff,0xff,0xff,2,
+        7,USB_DESC_ENDPOINT,0x84,2,0,2,0,
+        7,USB_DESC_ENDPOINT,0x05,2,0,2,0,
+        7,USB_DESC_ENDPOINT,0x06,2,0,2,0,
+        7,USB_DESC_ENDPOINT,0x87,3,64,0,3,
+        7,USB_DESC_ENDPOINT,0x08,2,0,2,0,
+    };
+    if(!wifi_hub_check_port(d,hub))return "port";
+    zero_bytes(d->descriptor_buffer,sizeof configuration);
+    if(!get_descriptor(d,USB_DESC_CONFIGURATION,0,0,sizeof configuration) ||
+       !bytes_equal(d->descriptor_buffer,configuration,sizeof configuration))return "descriptor";
+    if(!set_configuration(d,1))return "configuration";
+
+    /* One read from the always-on identity register. The Linux driver
+     * follows these reads with a vendor write during regular operation. */
+    const struct usb_setup_packet setup={.request_type=0xc0,.request=5,.value=0xf0,.length=4};
+    int actual;
+    if(!control_transfer_internal(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual!=4)
+        return "sys-cfg1";
+    uint32_t sys_cfg1=0;
+    for(unsigned i=0;i<4;i++)sys_cfg1|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
+    unsigned cut=(sys_cfg1>>12)&15,chains=(sys_cfg1&(1u<<27))?2:1;
+    if(!wifi_hub_check_port(d,hub))return "port-after";
+    console_printf("rtl8822bu-identity: slot=%u parent=%u port=%u sys_cfg1=%x cut=%u rf_chains=%u\n",
+        (uint64_t)d->slot_id,(uint64_t)hub->slot_id,(uint64_t)d->hub_port_id,
+        (uint64_t)sys_cfg1,(uint64_t)cut,(uint64_t)chains);
+    return (sys_cfg1&(1u<<23)) || cut!=3 || chains!=2?"silicon":NULL;
+}
+
+bool xhci_rtl8822bu_capture_identity(void) {
+    const char *failure="absent";
+    struct xhci_device *target=NULL;
+    uint64_t flags=event_irq_save();
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
+        struct xhci_device *d=&xhci.devices[i];
+        if(!d->present || d->removed || d->slot_disabled ||
+           d->vendor_id!=0x0846 || d->product_id!=0x9055)continue;
+        if(target){failure="ambiguous";target=NULL;break;}
+        target=d;
+    }
+    if(target) {
+        struct xhci_device *hub=device_by_slot(target->parent_slot_id);
+        failure="admission";
+        if(hub && hub->vendor_id==0x05e3 && hub->product_id==0x0608 && hub->hub_ports==4 &&
+           target->hub_port_id==4 && target->device_bcd==0x0210 && target->configuration_count==1 &&
+           target->ep0_max_packet==64 && target->descriptor_buffer && target->descriptor_buffer_phys &&
+           !target->configured && !target->control_failed && !target->control_pending && !target->ep0_quarantined &&
+           !target->rtl8822bu_probe_attempted && !xhci.sync_users && !strict_control.device &&
+           wifi_hub_route_present(target)) {
+            target->rtl8822bu_probe_attempted=true;
+            failure=rtl8822bu_probe(target,hub);
+        }
+    }
+    event_irq_restore(flags);
+    console_printf("rtl8822bu-probe: result=%s register_writes=0 firmware=0 rf=0\n",
         failure?failure:"identified");
     return !failure;
 }
@@ -3121,7 +3185,7 @@ static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hu
                                   const uint8_t *image,unsigned *bytes,uint32_t *status,
                                   bool *download_touched,bool passive) {
     const unsigned body=RTL8188CU_IMAGE_SIZE-RTL8188CU_HEADER_SIZE;
-    if(!rtl8188cu_check_port(d,hub))return "port";
+    if(!wifi_hub_check_port(d,hub))return "port";
     uint32_t sys_cfg,boot;
     if(!rtl8188cu_read(d,RTL8188CU_SYS_CFG,4,&sys_cfg) || (sys_cfg&~3u)!=0x04400734 ||
        !rtl8188cu_read(d,RTL8188CU_BOOT_SOURCE,1,&boot) || (boot&0x30)!=0x20 ||
@@ -3147,7 +3211,7 @@ static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hu
     uint64_t start=timer_monotonic_us();
     while(*bytes<body) {
         unsigned offset=*bytes%RTL8188CU_PAGE_SIZE;
-        if(!offset && (!rtl8188cu_check_port(d,hub) ||
+        if(!offset && (!wifi_hub_check_port(d,hub) ||
            !rtl8188cu_select_page(d,*bytes/RTL8188CU_PAGE_SIZE)))return "page";
         unsigned remaining=body-*bytes;
         unsigned n=remaining>=RTL8188CU_BLOCK_SIZE?RTL8188CU_BLOCK_SIZE:remaining>=8?8:1;
@@ -3156,7 +3220,7 @@ static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hu
            !rtl8188cu_write(d,RTL8188CU_WINDOW+offset,image+RTL8188CU_HEADER_SIZE+*bytes,n))return "image-write";
         *bytes+=n;
     }
-    if(!rtl8188cu_check_port(d,hub))return "port-before-start";
+    if(!wifi_hub_check_port(d,hub))return "port-before-start";
     if(!rtl8188cu_setup_read(d,"disable-before",RTL8188CU_MCU_STATUS,4,status) ||
        !rtl8188cu_setup_write(d,"disable-write",RTL8188CU_MCU_STATUS,4,*status&~RTL8188CU_DL_ENABLE))
         return "download-disable";
@@ -3171,7 +3235,7 @@ static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hu
     if((*status&running) || !rtl8188cu_setup_write(d,"ready-write",RTL8188CU_MCU_STATUS,4,
         *status|RTL8188CU_DL_READY))return "start";
     if(!rtl8188cu_poll(d,RTL8188CU_MCU_STATUS,4,running|RTL8188CU_DL_ENABLE,running,192,status))return "ready";
-    if(!rtl8188cu_check_port(d,hub) ||
+    if(!wifi_hub_check_port(d,hub) ||
        (passive?(!rtl8188cu_rf_off(d) || !rtl_cu_rx_held(d)):!rtl8188cu_radio_parked(d)))return "final-gates";
     if(!rtl8188cu_power_sample(d,RTL8188CU_POWER_FIRMWARE_READY))return "power-sample";
     return NULL;
@@ -3207,7 +3271,7 @@ static bool rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size,bool p
                 d->rtl8188cu_firmware_active=true;
                 failure=rtl8188cu_upload(d,hub,image,&bytes,&status,&touched,passive);
                 if(failure && touched && !d->ep0_quarantined && !d->control_failed && !d->control_pending &&
-                   rtl8188cu_check_port(d,hub)) {
+                   wifi_hub_check_port(d,hub)) {
                     uint32_t check;
                     const uint32_t clear=RTL8188CU_DL_ENABLE|RTL8188CU_DL_READY;
                     disabled=rtl8188cu_setup_read(d,"cleanup-before",RTL8188CU_MCU_STATUS,4,&check) &&

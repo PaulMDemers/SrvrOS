@@ -389,7 +389,7 @@ static void rtl_test_desktop_hub_refusals(void) {
   if(fault==2)event->control|=4;
   control_model=NULL;
   uint64_t enqueue=hub->ep0_enqueue,started=test_time;
-  assert(!rtl8188cu_check_port(d,hub) && hub->ep0_enqueue==enqueue && test_time-started<=10200);
+  assert(!wifi_hub_check_port(d,hub) && hub->ep0_enqueue==enqueue && test_time-started<=10200);
   assert(hub->hub_status_pending==(fault!=3) && hub->control_pending==(fault!=3) &&
          d->removed==(fault==3) && !xhci.devices[2].removed && !xhci.devices[3].removed && !freed);
  }

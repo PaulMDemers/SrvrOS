@@ -611,7 +611,7 @@ static bool rtl_cu_packet_buffer(struct xhci_device *d,struct xhci_device *hub) 
         if(page==RTL_CU_PACKET_BOUNDARY-1)next=0xff;
         if(page==0xff)next=RTL_CU_PACKET_BOUNDARY;
         if(timer_monotonic_us()-start>=1000000 ||
-           ((page&63)==0 && (!rtl8188cu_check_port(d,hub) || !rtl_cu_rx_held(d))))return false;
+           ((page&63)==0 && (!wifi_hub_check_port(d,hub) || !rtl_cu_rx_held(d))))return false;
         if(!page)rtl_passive.llt_started_us=timer_monotonic_us();
         if(!rtl8188cu_write_value(d,RTL_CU_LLT,4,RTL_CU_LLT_WRITE|(page<<8)|next) ||
            !rtl8188cu_poll(d,RTL_CU_LLT,4,RTL_CU_LLT_BUSY,0,8,&value) ||
@@ -623,7 +623,7 @@ static bool rtl_cu_packet_buffer(struct xhci_device *d,struct xhci_device *hub) 
     bool station=rtl_station.early_tx_dma;
     if(station) {
         rtl_station.queue_attempted=true;
-        if(!rtl8188cu_check_port(d,hub) || !rtl_cu_station_same_hub(d) || !rtl_cu_rx_held(d) ||
+        if(!wifi_hub_check_port(d,hub) || !rtl_cu_station_same_hub(d) || !rtl_cu_rx_held(d) ||
            !rtl_cu_write_checked(d,RTL_CU_NPQ,1,RTL_CU_NORMAL_PAGES) ||
            !rtl8188cu_write_value(d,RTL_CU_RQPN,4,RTL_CU_RQPN_LOAD|RTL_CU_TX_PAGES) ||
            !rtl8188cu_poll(d,RTL_CU_RQPN,4,RTL_CU_RQPN_LOAD,0,32,&rtl_station.queue_load) ||
@@ -774,7 +774,7 @@ static bool rtl_cu_post_profile_lc(struct xhci_device *d,struct xhci_device *hub
     uint64_t before=timer_monotonic_us();
     if(!timer_delay_us(100000))return false;
     rtl_passive.post_lc_wait_us=timer_monotonic_us()-before;
-    if(!rtl8188cu_check_port(d,hub) || !rtl_cu_rx_held(d) ||
+    if(!wifi_hub_check_port(d,hub) || !rtl_cu_rx_held(d) ||
        !rtl_cu_sample_rf0(d,RTL_CU_RF0_POST_LC) ||
        !rtl_cu_rf_read(d,0x18,&rtl_passive.post_lc_channel))return false;
     rtl_passive.post_lc_read_valid=true;
@@ -885,7 +885,7 @@ static bool rtl_cu_usb_interface_armed(void) {
 
 static const char *rtl_cu_prepare_passive_start(struct xhci_device *d,struct xhci_device *hub) {
     uint32_t state;
-    if(rtl_passive.owner || !rtl8188cu_check_port(d,hub))return "passive-admission";
+    if(rtl_passive.owner || !wifi_hub_check_port(d,hub))return "passive-admission";
     rtl_passive.owner=d;
     if(!rtl8188cu_write_value(d,RTL_CU_TX_PAUSE,1,0xff) || !rtl_cu_tx_held(d,0) ||
        !rtl8188cu_power_sample(d,RTL8188CU_POWER_BEFORE_APS) ||
@@ -916,7 +916,7 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
     for(unsigned i=0;i<RTL_CU_PROFILE_WRITES;i++) {
         const uint8_t *row=blob+6*i;
         if(timer_monotonic_us()-start>=3000000 ||
-           ((i&63)==0 && !rtl8188cu_check_port(d,hub)) ||
+           ((i&63)==0 && !wifi_hub_check_port(d,hub)) ||
            !rtl8188cu_write_value(d,row[0]|(unsigned)row[1]<<8,4,rtl_cu_le32(row+2)))return false;
         (*writes)++;
         uint32_t delay=rtl_cu_profile_wait(i);
@@ -927,7 +927,7 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
             rtl_passive.profile_waits++;
         }
     }
-    if(!rtl8188cu_check_port(d,hub) ||
+    if(!wifi_hub_check_port(d,hub) ||
        !rtl_cu_rf_read(d,0x18,&rtl_passive.startup_rf_channel))return false;
     rtl_passive.startup_rf_valid=true;
     if((rtl_passive.startup_rf_channel&RTL_CU_RF_DATA_MASK)!=RTL_CU_RF_START_CHANNEL ||
@@ -953,7 +953,7 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
     rtl_passive.gain_valid=1;
     if(!rtl8188cu_read(d,0xc58,4,&rtl_passive.gain[1]))return false;
     rtl_passive.gain_valid=3;
-    return rtl8188cu_check_port(d,hub) && rtl_cu_tx_held(d,rtl_cu_tx_dma_bits());
+    return wifi_hub_check_port(d,hub) && rtl_cu_tx_held(d,rtl_cu_tx_dma_bits());
 }
 
 static void rtl_cu_bulk_context(struct xhci_device *d,const struct xhci_bulk_endpoint *ep,
@@ -1132,7 +1132,7 @@ static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
     /* The CU needs MACTXEN for reception. Hold all TX queues paused
      * while listening on the bulk IN endpoint. */
     uint32_t listen_cr=rtl_cu_listen_cr();
-    if(!rtl8188cu_check_port(d,hub) || !rtl_cu_rx_held(d) ||
+    if(!wifi_hub_check_port(d,hub) || !rtl_cu_rx_held(d) ||
        !rtl8188cu_write_value(d,RTL8188CU_MAC_CONTROL,1,listen_cr&0xff))return false;
     rtl_passive.listen_written=true;
     rtl_passive.rx_cr_valid=rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,2,&rtl_passive.rx_cr);
@@ -1159,7 +1159,7 @@ static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
             clock=now;
             if(stalled>=XHCI_TRANSFER_TIMEOUT)return false;
             if(now-last>=250000) {
-                if(!rtl8188cu_check_port(d,hub) || !rtl_cu_mac_held(d,listen_cr))return false;
+                if(!wifi_hub_check_port(d,hub) || !rtl_cu_mac_held(d,listen_cr))return false;
                 last=now;
                 if(!rtl_passive.completed && !rtl_passive.samples[RTL_CU_PENDING].present) {
                     rtl_cu_rx_snapshot(d,RTL_CU_PENDING,true);
@@ -1210,7 +1210,7 @@ static bool rtl_cu_rx_stop(struct xhci_device *d) {
 
 static void rtl_cu_park(struct xhci_device *d,struct xhci_device *hub) {
     if(rtl_passive.owner!=d || !hub || d->control_failed || d->ep0_quarantined ||
-       d->control_pending || !rtl8188cu_check_port(d,hub))return;
+       d->control_pending || !wifi_hub_check_port(d,hub))return;
     uint32_t rf;
     uint32_t clear=rtl_station.requested?RTL_CU_STATION_CR:RTL_CU_LISTEN_CR;
     bool rx_off=rtl8188cu_update(d,RTL8188CU_MAC_CONTROL,2,clear,0);
@@ -1239,7 +1239,7 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready,const u
         if(hub && !xhci.sync_users && !strict_control.device) {
             d->rtl8188cu_firmware_active=true;
             result="setup";
-            if(wifi_hub_path_present(d) && timer_reference_ready() && rtl8188cu_check_port(d,hub) &&
+            if(wifi_hub_path_present(d) && timer_reference_ready() && wifi_hub_check_port(d,hub) &&
                rtl_cu_radio_prepare(d,hub,blob,&writes,&channel)) {
                 bool rx_setup=rtl_cu_verify_receive_setup(d);
                 bool phy_radio=rx_setup && rtl_cu_capture_phy_radio(d);

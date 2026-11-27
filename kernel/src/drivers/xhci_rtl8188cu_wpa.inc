@@ -58,7 +58,7 @@ static bool rtl_cu_write_address(struct xhci_device *d,uint16_t reg,const uint8_
 
 static bool rtl_cu_station_prepare(struct xhci_device *d,struct xhci_device *hub) {
     if(!rtl_station.peer.rsne_size || !rtl_station.queue_ready || !rtl_cu_station_same_hub(d) ||
-       !rtl8188cu_check_port(d,hub) || !rtl_cu_mac_held(d,RTL_CU_STATION_CR))return false;
+       !wifi_hub_check_port(d,hub) || !rtl_cu_mac_held(d,RTL_CU_STATION_CR))return false;
     static const struct {uint16_t reg,width;uint32_t value;} setup[]={
         {0x42a,2,0x3030},{0x430,4,0x01000000},{0x434,4,0x07060504},
         {0x438,4,0x01000000},{0x43c,4,0x07060504},{0x440,2,0x015d},{0x640,1,0x40},
@@ -73,7 +73,7 @@ static bool rtl_cu_station_prepare(struct xhci_device *d,struct xhci_device *hub
         if(!rtl_cu_write_checked(d,setup[i].reg,setup[i].width,setup[i].value))return false;
     if(!rtl_cu_write_address(d,0x610,rtl_station.peer.station) ||
        !rtl_cu_write_address(d,0x618,rtl_station.peer.bssid) ||
-       !rtl8188cu_check_port(d,hub) || !rtl_cu_tx_sample(d,&rtl_station.auth_queue))return false;
+       !wifi_hub_check_port(d,hub) || !rtl_cu_tx_sample(d,&rtl_station.auth_queue))return false;
     const uint32_t *v=rtl_station.auth_queue.value;
     /* The same adapter's Linux SIE map assigns HQ to OUT 2 and NQ to OUT 3. */
     if(!rtl_cu_tx_allocation_matches(&rtl_station.auth_queue) ||
@@ -359,7 +359,7 @@ static bool rtl_cu_station_exchange(struct xhci_device *d,struct xhci_device *hu
 
 static bool rtl_cu_station_stop(struct xhci_device *d,struct xhci_device *hub) {
     /* Close new radio publication before the USB OUT ownership proof. */
-    bool paused=rtl8188cu_check_port(d,hub) && rtl_cu_write_checked(d,RTL_CU_TX_PAUSE,1,0xff);
+    bool paused=wifi_hub_check_port(d,hub) && rtl_cu_write_checked(d,RTL_CU_TX_PAUSE,1,0xff);
     rtl_station.enabled=false;
     uint64_t slot=UINT64_MAX;
     rtl_station.stopping=true;

@@ -934,7 +934,7 @@ static void retina_desktop_trial(const char *cmdline) {
     halt_forever();
 }
 
-static bool rtl8188cu_recipe(const char *cmdline,const char *capture) {
+static bool journaled_usb_radio_recipe(const char *cmdline,const char *capture) {
     const struct { const char *prefix; unsigned hex_digits; } tokens[] = {
         {"srvros.storage=ram",0},
         {"srvros.workspace-volume=",8},
@@ -964,6 +964,8 @@ void kmain(void) {
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
+    const char *netgear_identity_token="srvros.capture=wifi-rtl8822bu";
+    bool netgear_capture=cmdline_has_token(cmdline,netgear_identity_token);
     const char *realtek_desktop_token="srvros.capture=wifi-rtl8188cu-desktop";
     const char *realtek_ip_token="srvros.capture=wifi-rtl8188cu-ip";
     const char *realtek_wpa_token="srvros.capture=wifi-rtl8188cu-wpa2";
@@ -976,9 +978,11 @@ void kmain(void) {
     bool rtl8188cu_passive=rtl8188cu_wpa2 || cmdline_has_token(cmdline,realtek_passive_token);
     bool rtl8188cu_firmware=rtl8188cu_passive || cmdline_has_token(cmdline,realtek_firmware_token);
     bool rtl8188cu_capture=rtl8188cu_firmware || cmdline_has_token(cmdline,realtek_identity_token);
-    if(rtl8188cu_capture && !rtl8188cu_recipe(cmdline,rtl8188cu_desktop?realtek_desktop_token:rtl8188cu_ip?realtek_ip_token:rtl8188cu_wpa2?realtek_wpa_token:rtl8188cu_passive?realtek_passive_token:
+    if(netgear_capture && !journaled_usb_radio_recipe(cmdline,netgear_identity_token))halt_forever();
+    if(rtl8188cu_capture && !journaled_usb_radio_recipe(cmdline,rtl8188cu_desktop?realtek_desktop_token:rtl8188cu_ip?realtek_ip_token:rtl8188cu_wpa2?realtek_wpa_token:rtl8188cu_passive?realtek_passive_token:
         rtl8188cu_firmware?realtek_firmware_token:realtek_identity_token))halt_forever();
-    if(startup_journal_requested && (!(rtl8188cu_capture || wifi_reconnect5_recipe(cmdline) || wifi_early5_recipe(cmdline) ||
+    bool usb_radio_capture=rtl8188cu_capture || netgear_capture;
+    if(startup_journal_requested && (!(usb_radio_capture || wifi_reconnect5_recipe(cmdline) || wifi_early5_recipe(cmdline) ||
                                        wifi_connection5_recipe(cmdline,true)) ||
         (startup_diagnostic && reconnect_journal)))halt_forever();
     boot_verbose = boot_debug_requested(cmdline);
@@ -1115,6 +1119,8 @@ void kmain(void) {
             boot_status("Realtek passive Wi-Fi trial: checking channel 10 for Demers2.4. No input required.\n");
         else if(rtl8188cu_firmware)
             boot_status("Realtek firmware trial: checking USB identity, starting the MCU, and saving results. No input required.\n");
+        else if(netgear_capture)
+            boot_status("Netgear Wi-Fi trial: reading USB identity and saving results. No input required.\n");
         else if(rtl8188cu_capture)
             boot_status("Realtek 2.4 GHz trial: reading USB identity and saving results. No input required.\n");
         else
@@ -1162,6 +1168,7 @@ void kmain(void) {
     xhci_set_wifi_firmware_enabled(cmdline_has_token(cmdline,"srvros.capture=wifi-firmware"));
     xhci_init();
     bool rtl8188cu_sampled=rtl8188cu_capture && xhci_rtl8188cu_capture_identity();
+    bool netgear_sampled=netgear_capture && xhci_rtl8822bu_capture_identity();
     if(startup_journal_requested)startup_checkpoint(2,0);
     if(rtl8188cu_firmware && !rtl8188cu_desktop) {
         const struct initramfs_file *image=initramfs_find("/firmware/rtl8192cufw_TMSC.bin");
@@ -1481,14 +1488,14 @@ void kmain(void) {
     if(startup_journal_requested)startup_checkpoint(3,(init_ready?4u:0u)|(timer_running?8u:0u));
     workspace_boot(cmdline);
     if(startup_journal_requested)startup_checkpoint(4,(workspace_active()?1u:0u)|(init_ready?4u:0u)|(timer_running?8u:0u));
-    if (automatic_probe || automatic_wifi || rtl8188cu_capture) {
+    if (automatic_probe || automatic_wifi || usb_radio_capture) {
         /* Capture enumeration/setup failures even if firmware left a misleading
          * PS/2-ready flag. This unattended profile must not require typing. */
         xhci_print_boot_diagnostic();
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(rtl8188cu_capture || automatic_audio_listen || automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi || automatic_storage_only || automatic_storage_wait || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
+    if(usb_radio_capture || automatic_audio_listen || automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi || automatic_storage_only || automatic_storage_wait || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         if(wifi_5ghz_prereq)console_write("wifi-5ghz-prereq-progress: common init then read-only MAC/PA/RF selectors; no band/tune/RX/network OUT; warm-state inventory\n");
         bool started=false;
@@ -1851,6 +1858,7 @@ void kmain(void) {
                     sampled=false;
             } else console_write("rtl8188cu-desktop-final: connections=0 disconnects=0 return_safe=1 complete=0\n");
         } else if(rtl8188cu_capture)sampled=rtl8188cu_sampled;
+        else if(netgear_capture)sampled=netgear_sampled;
         console_printf("laptop-capture: completed=%s\n",sampled?"yes":"NO");
         bool saved=started && workspace_log_stop();
         bool unmounted=workspace_active() && workspace_unmount();

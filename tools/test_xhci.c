@@ -7442,6 +7442,92 @@ static void rtl_firmware_completion(uint64_t pointer,unsigned slot,unsigned cc,u
     };
 }
 
+enum rtl8822bu_probe_case {
+    BU_OK,BU_ABSENT,BU_DUPLICATE,BU_WRONG_REV,BU_WRONG_HUB,BU_REPLACED,BU_DESCRIPTOR,
+    BU_CONFIG_FAILED,BU_SHORT,BU_STALL,BU_WRONG_CHIP,BU_REPLACED_AFTER,
+};
+static enum rtl8822bu_probe_case bu_probe_case;
+static unsigned bu_hub_reads,bu_leaf_requests;
+
+static void rtl8822bu_probe_model(uint64_t offset,uint32_t value) {
+    if(value!=1 || offset<=xhci.db_base || offset>xhci.db_base+4*4)return;
+    unsigned slot=(offset-xhci.db_base)/4;
+    assert(slot==1 || slot==4);
+    struct xhci_device *d=&xhci.devices[slot-1];
+    bool vendor=slot==4 && bu_leaf_requests==2;
+    uint64_t pointer=vendor?strict_control.status:d->control_td[d->control_td_count-1];
+    if(slot==1) {
+        const struct xhci_trb *setup=(const void *)(uintptr_t)d->control_td[0];
+        assert(setup->parameter_low==0xa3 && setup->parameter_high==0x00040004);
+        bu_hub_reads++;
+        uint32_t status=0x503;
+        if(bu_probe_case==BU_REPLACED || (bu_probe_case==BU_REPLACED_AFTER && bu_hub_reads==2))status|=1u<<16;
+        for(unsigned i=0;i<4;i++)d->descriptor_buffer[i]=status>>(8*i);
+    } else {
+        const struct xhci_trb *setup=(const void *)(uintptr_t)(vendor?strict_control.setup:d->control_td[0]);
+        switch(++bu_leaf_requests) {
+        case 1: {
+            static const uint8_t configuration[]={
+                9,2,53,0,1,1,0,0x80,250,9,4,0,0,5,0xff,0xff,0xff,2,
+                7,5,0x84,2,0,2,0,7,5,5,2,0,2,0,7,5,6,2,0,2,0,7,5,0x87,3,64,0,3,7,5,8,2,0,2,0,
+            };
+            assert(setup->parameter_low==0x02000680 && setup->parameter_high==0x00350000);
+            memcpy(d->descriptor_buffer,configuration,sizeof configuration);
+            if(bu_probe_case==BU_DESCRIPTOR)d->descriptor_buffer[20]^=1;
+            break;
+        }
+        case 2:
+            assert(setup->parameter_low==0x00010900 && setup->parameter_high==0);
+            if(bu_probe_case==BU_CONFIG_FAILED){rtl_firmware_completion(pointer,slot,6,0);return;}
+            break;
+        case 3: {
+            assert(strict_control.device==d && strict_control.data_in && strict_control.length==4);
+            assert(setup->parameter_low==0x00f005c0 && setup->parameter_high==0x00040000);
+            uint8_t bytes[]={0x35,0x3d,0x49,bu_probe_case==BU_WRONG_CHIP?4:12};
+            memcpy(d->descriptor_buffer,bytes,sizeof bytes);
+            if(bu_probe_case==BU_STALL){rtl_firmware_completion(strict_control.setup,slot,6,0);return;}
+            if(bu_probe_case==BU_SHORT){
+                unsigned head=xhci.event_dequeue,next=(head+1)%XHCI_EVENT_TRB_COUNT;
+                rtl_firmware_completion(pointer,slot,1,0);
+                xhci.event_ring[next]=xhci.event_ring[head];
+                if(!next)xhci.event_ring[next].control^=1;
+                rtl_firmware_completion(strict_control.data,slot,13,1);
+                return;
+            }
+            break;
+        }
+        default:assert(false);
+        }
+    }
+    rtl_firmware_completion(pointer,slot,1,0);
+}
+
+static void test_rtl8822bu_probe(void) {
+    for(bu_probe_case=BU_OK;bu_probe_case<=BU_REPLACED_AFTER;bu_probe_case++) {
+        struct xhci_device *rtl=rtl_hub_fixture(),*hub=&xhci.devices[0],*d=&xhci.devices[3];
+        d->device_bcd=0x0210;d->configuration_count=1;d->ep0_max_packet=64;
+        assert(allocate_device_runtime(d));
+        if(bu_probe_case==BU_ABSENT)d->present=false;
+        if(bu_probe_case==BU_DUPLICATE){rtl->vendor_id=d->vendor_id;rtl->product_id=d->product_id;}
+        if(bu_probe_case==BU_WRONG_REV)d->device_bcd++;
+        if(bu_probe_case==BU_WRONG_HUB)hub->product_id++;
+        bu_hub_reads=bu_leaf_requests=0;
+        native_boundary_mmio_hook=rtl8822bu_probe_model;
+        assert(xhci_rtl8822bu_capture_identity()==(bu_probe_case==BU_OK));
+        unsigned leaf_requests=bu_probe_case>BU_OK && bu_probe_case<=BU_REPLACED?0:bu_probe_case==BU_DESCRIPTOR?1:
+            bu_probe_case==BU_CONFIG_FAILED?2:3;
+        assert(bu_leaf_requests==leaf_requests);
+        unsigned hub_reads=bu_probe_case==BU_OK || bu_probe_case>=BU_WRONG_CHIP?2:
+            bu_probe_case<=BU_WRONG_HUB?0:1;
+        assert(bu_hub_reads==hub_reads);
+        assert(!rtl->removed && !rtl->control_success && !xhci.devices[2].removed &&
+            !xhci.devices[2].control_success && !network_count && !d->configured);
+        assert(!xhci_rtl8822bu_capture_identity() && bu_leaf_requests==leaf_requests);
+    }
+    native_boundary_mmio_hook=NULL;
+    puts("rtl8822bu: PASS native Netgear USB2 route, one exact read, sibling isolation and eleven refusal cases");
+}
+
 static void rtl_firmware_model(uint64_t offset,uint32_t value) {
     if(value!=1 || offset<=xhci.db_base || offset>xhci.db_base+4*4)return;
     unsigned slot=(unsigned)(offset-xhci.db_base)/4;
@@ -9498,6 +9584,7 @@ static void test_repeated_init(void) {
     puts("xhci-init: PASS repeated entry preserves modeled controller/DMA/quarantine/worker state");
 }
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--rtl8822bu-identity")){test_rtl8822bu_probe();return 0;}
     if(argc==2 && !strcmp(argv[1],"--rtl8188cu-identity")){test_rtl8188cu_probe();return 0;}
     if(argc==3 && !strcmp(argv[1],"--rtl8188cu-firmware")){test_rtl8188cu_firmware(argv[2]);return 0;}
     if(argc==4 && !strcmp(argv[1],"--rtl8188cu-passive")){test_rtl8188cu_passive(argv[2],argv[3]);return 0;}
