@@ -53,6 +53,22 @@ def main():
     other=empty_image(len(data),sector_shift=10).data
     data[108]=255;data[12*1024:24*1024]=other[12*1024:24*1024]
     run('ambiguous-backups',data,'allocation-check',2)
+    fixture=empty_image(4*1024*1024)
+    data=fixture.data
+    root=fixture.offset(fixture.root)
+    bitmap=fixture.offset(3)
+    needed=(fixture.count+7)//8
+    struct.pack_into('<Q',data,root+24,needed-1)
+    run('short-bitmap-refused',data,'allocation-check',2)
+    struct.pack_into('<Q',data,root+24,fixture.cluster+1)
+    run('padded-bitmap-with-missing-fat-cluster-refused',data,'allocation-check',2)
+    struct.pack_into('<Q',data,root+24,fixture.cluster)
+    padding=bytes([0x5a])*(fixture.cluster-needed)
+    data[bitmap+needed:bitmap+fixture.cluster]=padding
+    run('padded-bitmap-writable-preflight',data,'writable-check')
+    run('padded-bitmap-writable-remount',data,'creation-mode')
+    assert image.read_bytes()[bitmap+needed:bitmap+fixture.cluster]==padding
+
     data=empty_image(4*1024*1024,cluster_shift=0).data
     run('multi-cluster-bitmap-readonly',data,'readonly')
     run('multi-cluster-bitmap-check-refused',data,'allocation-check',1)

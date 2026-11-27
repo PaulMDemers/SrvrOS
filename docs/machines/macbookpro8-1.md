@@ -497,9 +497,15 @@ released DMA, and a manual power cycle returned to Ubuntu. The trackpad
 produced 323 eight-byte responses and zero decoded reports. The photo and
 return verification are archived separately from the first attempt.
 
-The current filesystem work adds a failure reason to directory import and
-uses the same exFAT parser against the recorded partition in Ubuntu. This
-can locate the import failure without another SrvrOS boot or a media write.
+The SrvrOS parser reproduced the failure in Ubuntu. A read-only metadata
+capture verified an exFAT cluster count of 473,128, a 59,142-byte allocation
+bitmap with one byte beyond the 59,141 required bytes, and a matching up-case
+table checksum. The FAT chains for both streams terminate after one cluster.
+The parser now accepts reserved bitmap padding and validates the declared
+stream chain. The existing writable limit remains one bitmap cluster.
+The host regression checks file creation and remount with the reserved bytes
+preserved. Native report save and automatic return still need verification.
+[exFAT allocation bitmap specification](https://learn.microsoft.com/en-us/windows/win32/fileio/exfat-specification#715-allocation-bitmap)
 
 ## Capability ledger
 
@@ -508,7 +514,7 @@ can locate the import failure without another SrvrOS boot or a media write.
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
 | Trackpad | Native EHCI polling completed transfers. The first capture decoded zero type 2 frames. | Check feature-mode readback and short packet framing, then qualify motion and clicks |
-| USB workspace | Native USB block registration and MBR reads verified. The exFAT directory scan failed. | Isolate the exFAT import failure, then verify write, unmount and readback |
+| USB workspace | Native block registration and MBR reads verified. A read-only Ubuntu capture identified the bitmap padding that blocked the native mount. | Verify the updated parser on the drive, then native write, unmount and readback |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in

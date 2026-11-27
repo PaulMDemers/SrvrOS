@@ -1173,10 +1173,25 @@ static bool validate_system_stream(struct exfat_volume *volume, uint32_t cluster
 }
 
 static bool validate_system_streams(struct exfat_volume *volume) {
-    return volume->bitmap_seen && volume->upcase_seen &&
-        volume->allocation_bitmap_size == ((uint64_t)volume->cluster_count+7)/8 &&
-        validate_system_stream(volume,volume->allocation_bitmap_cluster,volume->allocation_bitmap_size,false) &&
-        validate_system_stream(volume,volume->upcase_table_cluster,volume->upcase_table_size,true);
+    if (!volume->bitmap_seen || !volume->upcase_seen) {
+        console_write("exfat: missing allocation bitmap or up-case table entry\n");
+        return false;
+    }
+    /* exFAT 7.1.5 reserves the bits beyond ClusterCount. Validate the
+     * declared stream and use only the bits corresponding to real clusters. */
+    if (volume->allocation_bitmap_size < ((uint64_t)volume->cluster_count + 7) / 8) {
+        console_write("exfat: allocation bitmap is shorter than the cluster count requires\n");
+        return false;
+    }
+    if (!validate_system_stream(volume, volume->allocation_bitmap_cluster, volume->allocation_bitmap_size, false)) {
+        console_write("exfat: allocation bitmap FAT chain failed validation\n");
+        return false;
+    }
+    if (!validate_system_stream(volume, volume->upcase_table_cluster, volume->upcase_table_size, true)) {
+        console_write("exfat: up-case table contents or FAT chain failed validation\n");
+        return false;
+    }
+    return true;
 }
 
 static bool scan_root_directory(struct exfat_mount *mount) {
@@ -1194,9 +1209,7 @@ static bool scan_root_directory(struct exfat_mount *mount) {
         return false;
     }
     if (!scan_directory(root_path, mount, root, false, 0, 0)) return false;
-    if (validate_system_streams(&mount->volume)) return true;
-    console_write("exfat: root allocation bitmap or up-case table failed validation\n");
-    return false;
+    return validate_system_streams(&mount->volume);
 }
 
 static void remember_mountpoint(struct exfat_mount *mount, const char *mountpoint) {
@@ -3703,7 +3716,7 @@ static bool check_mount(struct exfat_mount *mount, struct exfat_check_result *re
         seen_bytes,
         "/allocation-bitmap",
         volume->allocation_bitmap_cluster,
-        bitmap_bytes);
+        volume->allocation_bitmap_size);
     check_system_cluster_range(result,
         mount,
         bitmap,
@@ -4544,9 +4557,8 @@ static bool mount_block_device(const char *mountpoint, struct block_device *devi
         clear_mount(mount);
         return false;
     }
-    uint64_t bitmap_needed = ((uint64_t)mount->volume.cluster_count + 7) / 8;
-    if (mount->volume.allocation_bitmap_size != bitmap_needed ||
-        bitmap_needed > mount->volume.cluster_size) mount->volume.write_blocked = true;
+    if (mount->volume.allocation_bitmap_size > mount->volume.cluster_size)
+        mount->volume.write_blocked = true;
     /* Before sidecar recovery or any user mutation, establish allocation
      * ownership. Unsupported or inconsistent media remains available read-only. */
     if (!mount->volume.write_blocked) {
