@@ -299,6 +299,24 @@ checkpoint is one attended native desktop boot with built-in keyboard
 and trackpad input, the Text save and reopen check, both USB reports,
 and Ubuntu return before merging the bring-up PR.
 
+The integrated source `513def33` booted release `7cf2eafd5fb1972a` on
+this MacBook. The 1280 × 800 desktop checklist passed both pointer axes,
+maximize and restore, and pointer-driven exit. EHCI recorded 1,025 valid
+trackpad reports, five click presses and releases, and 28 valid keyboard
+reports. Text saved and reopened the 550-byte document. Its original
+542 bytes were preserved and the edit contained `Ehci-42` followed by
+a newline. The trial's exact-text check requires only the seven-character
+suffix and reported `INCOMPLETE` for that check. The trackpad mode was
+restored and both EHCI queues retired safely.
+
+Ubuntu consumed the one-shot entry and verified the startup and final
+reports, the recovery payloads, and all previous user files. The read-only
+allocation check passed with 156 files and 164 clusters. The exact payload
+and both reports are archived outside `build`. The exact-stage VM passed
+the desktop and keyboard-only exit paths. The integrated branch also
+passed the EHCI hub and xHCI console smokes and the Air6,1 SSD probe's
+foreign-platform refusal.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
@@ -1307,11 +1325,15 @@ Offline allocation passed for 143 files with zero writes.
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
-| Native boot and display | Console and the 1280 × 800 desktop verified on the internal panel | Qualify individual display providers |
-| Keyboard | Built-in monitor commands and desktop typing verified, including all four revised-recovery boots | Retain keyboard coverage during further topcase work |
-| Trackpad | Revised normal-mode polling passed motion, clicks and strict transport checks on four consecutive warm boots | Capture an already persistent eight-byte stream if it recurs |
-| USB workspace | Live desktop Text save and reopen and both report files verified on `75525ae902f943ab` | Qualify longer desktop file activity in a separate trial |
-| Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
+| Native boot and display | Console and the 1280 × 800 desktop verified on the internal panel | Retain desktop boot coverage during later trials |
+| Keyboard | Built-in monitor commands and desktop typing verified, including integration release `7cf2eafd5fb1972a` | Retain keyboard coverage during further topcase work |
+| Trackpad | Revised normal-mode polling passed motion, clicks and strict transport checks on four consecutive warm boots. Motion and clicks also passed on integration release `7cf2eafd5fb1972a` | Capture a persistent eight-byte stream if it recurs |
+| USB workspace | Live desktop Text save and reopen and both report files verified, including on integration release `7cf2eafd5fb1972a` | Qualify longer desktop file activity in a separate trial |
+| Brightness | Internal panel adjustment and restoration verified on `4befbb5325d5ed2f` | Retain the explicit brightness trial |
+| Audio | Built-in right speaker and stream teardown verified on `024a87e1e8d4bf42`. This unit has a broken left speaker | Qualify audible left-channel output with working hardware |
+| Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
+| Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
+| Networking | Linux inventory captured | Qualify the native wired and wireless providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native
