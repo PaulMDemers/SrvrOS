@@ -49,8 +49,33 @@ shares its Haswell address decoder.
 [Planner](../kernel/diagnostics/intel_hsw_ggtt.c)
 · [Host capture and planner fixture](../tools/test_hsw_backing.c)
 
-The next checkpoint is to observe one candidate DWORD on the actual machine
-and identify its firmware, display and DMA users while Pipe A stays on.
+## Candidate observation boot
+
+The opt-in candidate profile runs the original two Haswell backing passes,
+then samples slot 4096 at BAR0+`0x204000` twice through one temporary
+read-only alias. The first slot outside the 16 MiB fence is useful as an
+observation point. A zero entry grants no reservation. The samples are at
+least 20 ms apart within a 100 ms window. The Pipe A frame counter must
+advance, its programmed and live surface must remain the inherited surface,
+and the candidate DWORD and observed display controls must agree. The
+candidate alias must retire before a successful report.
+[Linux i915 frame counter](https://gbmc.googlesource.com/linux/%2B/5e0c67998152bdb91b056160449ee542b86271a5/drivers/gpu/drm/i915/display/intel_vblank.c)
+
+The report stores conventional PCI Command and PMCSR for IGD and display
+HDA, plus PCIe Device Status when the function exposes a PCIe capability.
+Without the capability, Transactions Pending is unknown. It also stores the
+primary, sprite and cursor controls across the three pipes, and Haswell eDP
+PSR control. Firmware/SMM access, VT-d translation state, FBC and engine or
+display DMA retirement remain unresolved.
+[PCIe Device Status](https://github.com/torvalds/linux/blob/master/include/uapi/linux/pci_regs.h)
+· [Haswell PSR register definition](https://code.googlesource.com/linux/torvalds/linux/%2B/4a22709e21c2b1bedf90f68c823daf65d8e6b491/drivers/gpu/drm/i915/i915_reg.h)
+
+Stage the isolated AP probe kernel with `--laptop-probe-volume UUID
+--haswell-backing-capture --haswell-tilectl --haswell-linux-fences
+--haswell-candidate`. It saves the receipt in the evidence USB's
+`srvros-work/Logs` and returns to Ubuntu without a desktop session.
+Decode the matching `exit.log` with `tools/hardware_haswell_candidate.py`.
+
 A later write trial requires an owner that maintains exclusion from
 admission through a posted DWORD store, Gen7 translation completion and
 exact rollback. Linux i915's Gen6/7 path follows the DWORD store with a

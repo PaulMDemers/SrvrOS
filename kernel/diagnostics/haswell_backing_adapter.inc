@@ -2,10 +2,12 @@
  * New window is supervisor/RO/NX/cache-disabled, kernel-space only, outside
  * the global mapping registry. Uncertain retirement is retained until reset. */
 #include <srvros/haswell_backing.h>
+#include <srvros/intel_hsw_ggtt.h>
 #define HWB_VA 0xffffc001f3240000ull
 static const struct pci_device *hsw_host;
 static struct hwb_result hsw_result;
 static uint64_t hsw_window_pa;
+static bool hsw_candidate_window;
 static bool hsw_window_live,hsw_window_poison,hsw_firmware,hsw_cpu_control,hsw_linux_fences;
 static bool hsw_safe_range(uint64_t base,uint64_t size,bool reserved) {
  const struct limine_memmap_response *m=memmap_request.response;
@@ -73,7 +75,8 @@ static bool hsw_map(void *ctx,uint32_t off) {
  uint64_t first=(0x200000+(hsw_result.offset/4096)*4)&~4095ull;
  uint64_t last=(0x200000+(hsw_result.offset/4096+hsw_result.count)*4-1)&~4095ull;
  if(hsw_window_live || hsw_window_poison || !kernel || vmm_current_address_space()!=kernel ||
-    (off&4095) || (off!=0x100000 && !(hsw_cpu_control && off==0x101000) && (off<first || off>last || off>=0x400000)) ||
+    (off&4095) || (hsw_candidate_window ? off!=HSW_CANDIDATE_MMIO :
+        off!=0x100000 && !(hsw_cpu_control && off==0x101000) && (off<first || off>last || off>=0x400000)) ||
     !hsw_config_valid() || !hsw_safe_range(gpu_base,0x400000,false) ||
     vmm_virt_to_phys_in_space(kernel,HWB_VA,&existing))return false;
  hsw_window_pa=gpu_base+off;
@@ -94,6 +97,7 @@ static bool hsw_read(void *ctx,uint32_t off,uint32_t *v) {
  (void)ctx;
  if(!hsw_window_live || hsw_window_poison || vmm_current_address_space()!=vmm_kernel_address_space() ||
     gpu_base+(off&~4095u)!=hsw_window_pa || (off&3) ||
+    (hsw_candidate_window && off!=HSW_CANDIDATE_MMIO) ||
     (hsw_window_pa==gpu_base+0x101000 && (!hsw_cpu_control || off!=0x101000)) ||
     (off>=0x100080 && off<0x101000 && (!hsw_linux_fences || off>=0x100100)))return false;
 #ifdef SRVROS_PLATFORM_HOST_TEST
@@ -138,7 +142,9 @@ static bool hsw_capture_bound(void) {
  if(hsw_window_poison){hsw_result.retained=1;hsw_result.status=6;ok=false;}
  hsw_report();return ok;
 }
-bool platform_haswell_backing_run(bool cpu_control,bool linux_fences) {
+#include "haswell_candidate.inc"
+
+bool platform_haswell_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot) {
  hsw_cpu_control=cpu_control;hsw_linux_fences=linux_fences;
  hsw_result=(struct hwb_result){.status=2,.version=linux_fences?3:cpu_control?2:1,.fences=linux_fences?32:HWB_FENCES};
  console_write("hsw-backing-progress: exact Air6,1 read-only identity/config preflight\n");
@@ -152,10 +158,14 @@ bool platform_haswell_backing_run(bool cpu_control,bool linux_fences) {
  uint64_t base;
  if(!candidate || !hsw_host || !timer_reference_ready() ||
     !package_graphics_bar(pci_read_config32(candidate,0x10),pci_read_config32(candidate,0x14),pci_read_config16(candidate,4),&base) ||
-    !hsw_safe_range(base,0x400000,false)) {hsw_report();return false;}
+    !hsw_safe_range(base,0x400000,false)) {hsw_report();if(candidate_slot)hsw_candidate_report();return false;}
  gpu=candidate;gpu_base=base;
- if(!hsw_config_valid()){hsw_report();return false;}
+ if(!hsw_config_valid()){hsw_report();if(candidate_slot)hsw_candidate_report();return false;}
  mapped=graphics_bind();hsw_firmware=mapped;
- if(!mapped){hsw_report();return false;}
- return hsw_capture_bound();
+ if(!mapped){hsw_report();if(candidate_slot)hsw_candidate_report();return false;}
+ bool captured=hsw_capture_bound();
+ if(!candidate_slot)return captured;
+ bool observed=captured && hsw_candidate_observe();
+ hsw_candidate_report();
+ return observed;
 }

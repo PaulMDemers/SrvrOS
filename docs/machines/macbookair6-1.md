@@ -20,6 +20,14 @@ the paths that can access it. There is no boot armed.
 The [Haswell bring-up guide](../intel-hsw-tearfree.md) records the comparison
 and the checkpoints for native ownership and presentation.
 
+The next diagnostic starts at `cf54fefc` on the same branch. It samples the
+single DWORD at BAR0+`0x204000` outside the protected 16 MiB fence, while
+checking Pipe A's inherited live surface and frame progress. Scope is an
+isolated read-only candidate alias, conventional IGD and display-HDA PCI
+requester status, and sampled display controls. Broadwell PR301 remains
+independent. This records observations and unknowns before an owner can be
+designed for a native bind.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

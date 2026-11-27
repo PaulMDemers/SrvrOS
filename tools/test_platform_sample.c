@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -9,6 +10,9 @@ static uint32_t rc=50;
 static unsigned well_reads,map_calls,map_failure;
 static uint64_t occupied;
 static uint32_t well_value;
+static bool test_candidate;
+static unsigned candidate_frames, candidate_ptes;
+static bool candidate_frozen, candidate_drift, candidate_late, candidate_bad_route;
 static unsigned backing_mode,backing_reads,backing_bad,backing_change,backing_emit;
 static uint32_t backing_values[9]={0x98000000,5632,0,0x100000,0,(1365u<<16)|767,0x100000,0x98000000,0x100000};
 static unsigned resource_reads,resource_bad,well_drop_at,dep_reads,dep_bad;
@@ -24,6 +28,19 @@ static uint32_t platform_test_well_read(unsigned off) {
     assert(off==0x400+4*(well_reads%4));well_reads++;return well_drop_at && well_reads>=well_drop_at?0:well_value;
 }
 static uint32_t platform_test_resource_read(unsigned off) {
+    if(test_candidate) {
+        switch(off) {
+        case 0x70040: return candidate_frozen ? 90 : (uint32_t)(UINT32_MAX + candidate_frames++);
+        case 0x7f008: return candidate_bad_route ? 0 : 0xc0000018;
+        case 0x6f400: return 0x82200000;
+        case 0x64000: return 0x80000011;
+        case 0x70180: return 0x98004400;
+        case 0x7019c: case 0x701ac: case 0x71180: case 0x72180:
+        case 0x70280: case 0x71280: case 0x72280: case 0x70080:
+        case 0x71080: case 0x72080: case 0x64800: return 0;
+        default: assert(!"unexpected candidate register");
+        }
+    }
     if(backing_mode) {
         static const unsigned expected[]={0x70180,0x70188,0x70184,0x7019c,0x701a4,0x6001c,0x701ac,0x70180,0x7019c};
         assert(backing_reads<9 && off==expected[backing_reads]);unsigned i=backing_reads++;
@@ -68,6 +85,7 @@ bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
 }
 static uint32_t pci_config[64],pch_config[64],hda_config[64],hsw_host_config[64];
 static unsigned hsw_emit,hsw_vmm_maps,hsw_vmm_unmaps,hsw_vmm_map_fail,hsw_vmm_unmap_fail;
+static uint32_t test_fence_high=0x41f02b;
 static unsigned hsw_tile_reads,hsw_tile_change,hsw_tile_value,hsw_upper_change,hsw_upper_ones;
 static bool hsw_vmm_live;static uint64_t hsw_vmm_pa,hsw_test_space=0x1000;
 static bool test_hsw_translate(uint64_t va,uint64_t *pa) {(void)va;if(hsw_vmm_live){*pa=hsw_vmm_pa;return true;}return false;}
@@ -82,6 +100,12 @@ uint32_t pci_read_config32(const struct pci_device *p,uint8_t offset) {
     assert((p==gpu || p==pch_device || p==hda_device) && !(offset&3));return p==gpu?pci_config[offset/4]:p==pch_device?pch_config[offset/4]:hda_config[offset/4];
 }
 uint64_t timer_monotonic_us(void) {return ++test_ticks;}
+bool timer_delay_us(uint64_t delay) {
+    assert(test_candidate && delay==HSW_CANDIDATE_GAP_US);
+    test_ticks+=candidate_late?HSW_CANDIDATE_LIMIT_US:delay;
+    return true;
+}
+const struct pci_device *platform_test_candidate_hda(void) {return hda_device;}
 bool vmm_virt_to_phys(uint64_t va,uint64_t *pa) {(void)pa;return va==occupied;}
 bool vmm_map_page(uint64_t va,uint64_t pa,uint64_t flags) {
     map_calls++;assert(flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE));
@@ -111,15 +135,19 @@ bool vmm_unmap_page_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
 }
 void platform_test_hsw_endpoint_start(void) {backing_reads=0;map_walks=0;}
 uint32_t platform_test_hsw_read(unsigned off) {
+    if(off==HSW_CANDIDATE_MMIO) {
+        assert(test_candidate && hsw_vmm_live && hsw_vmm_pa==gpu_base+HSW_CANDIDATE_MMIO);
+        return (candidate_ptes++ && candidate_drift) ? 0x1001 : 0;
+    }
     if(off==0x101000){hsw_tile_reads++;return hsw_tile_value^(hsw_tile_change && hsw_tile_reads==2?1u:0u);}
     if(off>=0x100080 && off<0x100100)return hsw_upper_ones?UINT32_MAX:hsw_upper_change && hsw_tile_reads?1:0;
-    if(off>=0x100000 && off<0x100080)return off>=0x100008?0:off&4?0x41f02b:1;
+    if(off>=0x100000 && off<0x100080)return off>=0x100008?0:off&4?test_fence_high:1;
     assert(off>=0x200000 && off<0x201800 && !(off&3));
     return (0x8da00000+4096*((off-0x200000)/4))|0x805;
 }
 static unsigned dependency_reports,hda_reports,dry_reports;
 void console_printf(const char *fmt,...) {
-    if(!strncmp(fmt,"hsw-backing",11)) {
+    if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {

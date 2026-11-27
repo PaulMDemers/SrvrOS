@@ -32,12 +32,12 @@ def canonical(data,size=None):
     return b
 
 
-def backing_result(text):
-    try:return _parse(text)
+def backing_result(text, *, require_completion=True):
+    try:return _parse(text, require_completion)
     except (ValueError,KeyError,IndexError,struct.error):return None
 
 
-def _parse(text):
+def _parse(text, require_completion):
     lines=[x for x in text.splitlines() if x.startswith('hsw-backing:')]
     if len(lines)!=1:return None
     m=re.fullmatch(r'hsw-backing: v=([123]) status=([0-7]) count=(\d+) cap=1536 fences=(16|32) upper=(unknown|linux-model-32) swizzle=partial maps=(\d+) retained=([01]) offset=(\d+) bytes=(\d+) table=(\d+) stolen=(\d+),(\d+) limit_us=100000 writes=0 ownership=0',lines[0])
@@ -65,7 +65,7 @@ def _parse(text):
     complete=text.count('laptop-capture: completed=yes\n')==1 and 'laptop-capture: completed=NO' not in text
     if status!=1:
         return dict(**({'source_version':version} if cpu else {}),status='REFUSED' if status==2 else 'FAILED',source_status=status,source_completed=False,hardware_authority=False,ownership=False,maps=maps,retained=bool(retained),observed_count=count,raw_metadata=[metas[0],metas[1]],partial_ptes=[vectors[0],vectors[1]],scope='Incomplete/refused readout, not backing acceptance')
-    if retained or not count or not complete:return None
+    if retained or not count or (require_completion and not complete):return None
     samples=[]
     for phase in (0,1):
         v=metas[phase];raw=vectors[phase];e,extent,tt,ss,se=endpoint(v[:50])
@@ -85,4 +85,4 @@ def _parse(text):
     ptepages=((offset//4096*4&4095)+count*4+4095)//4096
     if maps!=2*(ptepages+2+cpu) or (cpu and ptepages>2):return None
     candidates=fence_candidates(samples[0]['fences'],extent,e['pitch'])
-    return dict(**({'source_version':version,'tilectl_raw':[metas[0][base+7],metas[1][base+7]],'tilectl_scope':'Raw CPU/aperture observations only; not full-path consistency'} if cpu else {}),all_present=all(s['present']==count for s in samples),all_stolen_candidates=all(s['stolen_candidates']==count for s in samples),stolen_range_reserved=bool(e['stolen_reserved']),lower_fence_candidates=[i for i in candidates['matches'] if i<16],display_swizzle_bit=bool(e['disparb']&(1<<13)),status='OBSERVED',source_status=1,source_completed=True,count=count,maps=maps,retained=False,offset=offset,bytes=size,table_bytes=table,stolen_bounds=[start,end],samples=samples,**({'linux_model_unique_candidate':candidates['unique_candidate'],'reference_count_discrepancy_resolved':False,'linux_model_fence_candidates':candidates['matches']} if version==3 else {}),upper_fences='observed-under-linux-model' if version==3 else 'unknown',swizzle='partial',unique_fence_proven=False,hardware_authority=False,ownership=False,acceptance=False,scope='Exact Haswell Linux-model32 fence observations only; Intel count discrepancy, GT/full swizzle and ownership remain unresolved' if version==3 else 'Exact Haswell full GGTT vectors and documented lower fences only; upper fences/full swizzle/firmware exclusion/pinning unknown; original RC6 acceptance separate')
+    return dict(**({'source_version':version,'tilectl_raw':[metas[0][base+7],metas[1][base+7]],'tilectl_scope':'Raw CPU/aperture observations only; not full-path consistency'} if cpu else {}),all_present=all(s['present']==count for s in samples),all_stolen_candidates=all(s['stolen_candidates']==count for s in samples),stolen_range_reserved=bool(e['stolen_reserved']),lower_fence_candidates=[i for i in candidates['matches'] if i<16],display_swizzle_bit=bool(e['disparb']&(1<<13)),status='OBSERVED',source_status=1,source_completed=complete,count=count,maps=maps,retained=False,offset=offset,bytes=size,table_bytes=table,stolen_bounds=[start,end],samples=samples,**({'linux_model_unique_candidate':candidates['unique_candidate'],'reference_count_discrepancy_resolved':False,'linux_model_fence_candidates':candidates['matches']} if version==3 else {}),upper_fences='observed-under-linux-model' if version==3 else 'unknown',swizzle='partial',unique_fence_proven=False,hardware_authority=False,ownership=False,acceptance=False,scope='Exact Haswell Linux-model32 fence observations only; Intel count discrepancy, GT/full swizzle and ownership remain unresolved' if version==3 else 'Exact Haswell full GGTT vectors and documented lower fences only; upper fences/full swizzle/firmware exclusion/pinning unknown; original RC6 acceptance separate')

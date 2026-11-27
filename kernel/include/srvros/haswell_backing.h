@@ -43,4 +43,4 @@ struct hwb_io {
  void (*progress)(void *,unsigned);
 };
 bool hwb_capture(struct hwb_result *,const struct hwb_io *);
-bool platform_haswell_backing_run(bool cpu_control,bool linux_fences);
+bool platform_haswell_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot);

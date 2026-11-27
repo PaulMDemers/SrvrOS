@@ -24,10 +24,9 @@ static bool inherited_plane(const struct hwb_sample *sample) {
     return true;
 }
 
-bool intel_hsw_ggtt_plan_page(const struct hwb_result *backing, uint32_t gpu_offset,
-                              uint32_t original, uint64_t dma_address,
-                              struct intel_hsw_ggtt_page *page) {
-    if (!backing || !page || backing->status != 1 || backing->version != 3 ||
+bool intel_hsw_ggtt_candidate(const struct hwb_result *backing, uint32_t gpu_offset,
+                             uint32_t *mmio_offset) {
+    if (!backing || !mmio_offset || backing->status != 1 || backing->version != 3 ||
         backing->fences != HWB_FENCES_MAX || backing->retained || backing->offset ||
         backing->count != AIR61_IMAGE_PAGES || backing->bytes != AIR61_IMAGE_PAGES * HSW_PAGE_BYTES ||
         (backing->table_bytes != 0x100000 && backing->table_bytes != 0x200000) ||
@@ -35,9 +34,21 @@ bool intel_hsw_ggtt_plan_page(const struct hwb_result *backing, uint32_t gpu_off
         return false;
 
     if (gpu_offset < AIR61_FENCE_END || gpu_offset >= AIR61_APERTURE_BYTES ||
-        gpu_offset % HSW_PAGE_BYTES || !dma_address || dma_address > UINT32_MAX ||
-        dma_address % HSW_PAGE_BYTES || original == UINT32_MAX ||
-        ((original & 1) && intel_hsw_ggtt_address(original) == dma_address))
+        gpu_offset % HSW_PAGE_BYTES)
+        return false;
+    uint32_t entry_offset = gpu_offset / HSW_PAGE_BYTES * sizeof(uint32_t);
+    if (entry_offset + sizeof(uint32_t) > backing->table_bytes) return false;
+    *mmio_offset = HSW_GGTT_BAR_OFFSET + entry_offset;
+    return true;
+}
+
+bool intel_hsw_ggtt_plan_page(const struct hwb_result *backing, uint32_t gpu_offset,
+                              uint32_t original, uint64_t dma_address,
+                              struct intel_hsw_ggtt_page *page) {
+    uint32_t mmio_offset;
+    if (!page || !intel_hsw_ggtt_candidate(backing, gpu_offset, &mmio_offset) ||
+        !dma_address || dma_address > UINT32_MAX || dma_address % HSW_PAGE_BYTES ||
+        original == UINT32_MAX || ((original & 1) && intel_hsw_ggtt_address(original) == dma_address))
         return false;
 
     uint64_t table = backing->sample[0].endpoint.v[HW_BGSM] & 0xfff00000ull;
@@ -47,13 +58,9 @@ bool intel_hsw_ggtt_plan_page(const struct hwb_result *backing, uint32_t gpu_off
         (dma_address >= table && dma_address < table + backing->table_bytes))
         return false;
 
-    uint32_t index = gpu_offset / HSW_PAGE_BYTES;
-    uint32_t entry_offset = index * sizeof(uint32_t);
-    if (entry_offset + sizeof(uint32_t) > backing->table_bytes) return false;
-
     *page = (struct intel_hsw_ggtt_page){
-        .index = index,
-        .mmio_offset = HSW_GGTT_BAR_OFFSET + entry_offset,
+        .index = gpu_offset / HSW_PAGE_BYTES,
+        .mmio_offset = mmio_offset,
         .original = original,
         .replacement = (uint32_t)dma_address | 1u,
     };

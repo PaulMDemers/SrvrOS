@@ -5,6 +5,7 @@
  * D-state transition, ASPM write, or status acknowledgement. */
 struct package_pci_snapshot {
     uint32_t id, class_code, command, flags, pm, link_cap, link, ltr_cap, ltr;
+    uint32_t pcie_offset; /* Valid only when state is complete. */
     uint32_t state; /* 1 complete, 2 malformed, 3 absent, 4 unsupported header/cap */
 };
 void package_pci_read(struct package_pci_snapshot *,uint32_t (*read)(void *,unsigned),void *);

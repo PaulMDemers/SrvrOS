@@ -28,6 +28,8 @@ void package_pci_read(struct package_pci_snapshot *s,uint32_t (*read)(void *,uns
             if(pcie){s->state=2;return;}pcie=true;
             unsigned version=(h>>16)&15,type=(h>>20)&15;
             if(!version || version>2 || type==2 || type==3 || type>10){s->state=4;return;}
+            if(ptr>0xf4){s->state=2;return;}
+            s->pcie_offset=ptr;span=3; /* Through the Device Control/Status DWORD. */
             if(type!=9 && type!=10) {
                 if(ptr>0xec){s->state=2;return;}
                 s->link_cap=read(ctx,ptr+12);s->link=read(ctx,ptr+16);s->flags|=2;span=5;
