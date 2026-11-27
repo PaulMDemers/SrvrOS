@@ -2044,6 +2044,26 @@ stop positions and kept the new receipts in both bounded EFI tails.
 The handoff is in `build/bringup/pro112-rtl8188cu-rx-reuse`. Physical
 four-second reception and discovery still need the cold result.
 
+Cold session `session-0006613bb00b3053-00` passed passive
+Demers2.4 discovery and receive-ring reuse. Over 4,000,001 µs it
+posted 552 fixed 4 KiB bulk IN requests, inspected all 551 completions
+and crossed the Link TRB eight times. There were no unexpected
+transfer events. All 36 valid beacons matched Demers2.4 on channel
+10. The remaining 515 buffers contained 505 descriptor-reported CRC
+errors and ten unsupported frames, with no empty or truncated
+buffers. The counts agree across both log sinks.
+
+Stop Endpoint cancelled the last request with all 4,096 bytes
+remaining and verified the stopped dequeue address and cycle. TX
+stayed paused, and park verified `CR=0x0000` and `TXPAUSE=0xff`.
+All seven EFI checkpoints and the final workspace snapshot
+survived. The workspace unmounted cleanly before normal Ubuntu
+return, and collection verified all 644 existing files and recovery.
+This accepts passive discovery. Association, authentication and data
+transfer on this adapter remain untested. Evidence, comparison and
+the verified payload are archived under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-a662f7851095412c`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
