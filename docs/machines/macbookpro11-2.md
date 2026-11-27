@@ -1927,6 +1927,18 @@ TX paused, the 4 KiB request fixed and all three hub adapters in
 place. Qualify the native path and both log sinks before the cold
 run. [Linux CU calibration order](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L858-L874)
 
+Release `13712a298b34232a` (`49aaf69c`) is installed with recovery
+`74da74e0b57afbb8`, workspace `0E53-5900` and all three hub ports
+verified. Native fixtures covered IQ before LC, masked matrix
+retention, refusal on matrix or mux drift, and the unchanged 4 KiB
+request with TX paused. The exact image passed workspace logging,
+automatic reset and all four EFI journal modes. Decoder replay
+retained the calibration-order receipt and receive counters in both
+EFI checkpoints. The run record under
+`build/bringup/pro112-rtl8188cu-iq-before-lc` binds the RCR trial as
+the control and the two Linux calibration sequences. Reception still
+needs the cold result.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
