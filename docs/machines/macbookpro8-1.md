@@ -157,6 +157,13 @@ uses the observed eight-byte `0x02` response, keeps the captured shared
 frame list and keyboard queue, and records the result of each attempt.
 The checkpoint is a native desktop run with both reports verified.
 
+Qualification of the revised recovery begins at `4342f2a5` on `93e10a44`.
+The integration tip `d29abcf1` and open device scopes have no overlapping
+EHCI work. Reuse the `be59d55498834452` payload across three attended warm
+boots. Bind each startup and final report to its own release and collect
+each pair before arming the next boot. Reassess trackpad initialization if
+the persistent eight-byte response stream recurs.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
