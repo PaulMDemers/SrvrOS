@@ -23,6 +23,7 @@ enum {
     READ_DMA_RESERVE = 0x4900, GENERAL_MODE = 0x6800, GENERAL_CONFIG = 0x6804,
     SRAM_TX_RCB = 0x100, SRAM_RETURN_RCB = 0x200, SRAM_RX_BD_CACHE = 0x6000,
     SRAM_DATA_SIGNATURE = 0xb54, SRAM_DATA_CONFIG = 0xb58,
+    SRAM_MAC_HIGH = 0xc14, SRAM_MAC_LOW = 0xc18,
     MODE_ENABLE = 2, RCB_DISABLED = 2, HOST_STACK_UP = 0x10000,
     IRQ_MASK = 2, DMA_ERROR_BITS = 0x3fc,
     RING_SIZE = 512, RING_MASK = RING_SIZE - 1, RX_POSTED = 64,
@@ -152,15 +153,15 @@ static bool packet_firmware_idle(const struct bcm_packet *nic) {
             return false;
         }
     }
-    if ((mac_read(MAC_MODE) & (MAC_DMA_PATH | MAC_LOOPBACK)) ||
-        ((mac_read(MAC_TX) | mac_read(MAC_RX)) & MODE_ENABLE) ||
-        (mac_read(GENERAL_MODE) & HOST_STACK_UP) || pci_read_config32(nic->pci, SRAM_WINDOW))
-        return false;
-    return true;
+    uint32_t mac = mac_read(MAC_MODE), tx = mac_read(MAC_TX), rx = mac_read(MAC_RX);
+    uint32_t grc = mac_read(GENERAL_MODE), window = pci_read_config32(nic->pci, SRAM_WINDOW);
+    console_printf("bcm57765-packet: firmware mac=%x tx=%x rx=%x grc=%x sram_window=%x\n",
+        (uint64_t)mac, (uint64_t)tx, (uint64_t)rx, (uint64_t)grc, (uint64_t)window);
+    return !(mac & (MAC_DMA_PATH | MAC_LOOPBACK)) && !((tx | rx) & MODE_ENABLE) &&
+        !(grc & HOST_STACK_UP) && !window;
 }
 
-static bool packet_mac(struct bcm_packet *nic) {
-    uint32_t high = mac_read(MAC_ADDRESS_HIGH), low = mac_read(MAC_ADDRESS_LOW);
+static bool packet_mac_words(struct bcm_packet *nic, uint32_t high, uint32_t low) {
     nic->mac[0] = high >> 8;
     nic->mac[1] = high;
     nic->mac[2] = low >> 24;
@@ -168,6 +169,35 @@ static bool packet_mac(struct bcm_packet *nic) {
     nic->mac[4] = low >> 8;
     nic->mac[5] = low;
     return !(nic->mac[0] & 1) && ((high & 0xffff) || low);
+}
+
+static bool packet_mac(struct bcm_packet *nic) {
+    uint32_t high = mac_read(MAC_ADDRESS_HIGH), low = mac_read(MAC_ADDRESS_LOW);
+    const char *source = "registers";
+    if (!packet_mac_words(nic, high, low)) {
+        high = sram_read(nic, SRAM_MAC_HIGH);
+        low = sram_read(nic, SRAM_MAC_LOW);
+        source = "firmware-mailbox";
+        if ((high >> 16) != 0x484b || !packet_mac_words(nic, high, low)) {
+            uint32_t capability;
+            /* Ubuntu's PCIe serial exposes the same low 48 bits as the station
+             * address on this captured controller. Keep the fallback scoped. */
+            if (!pci_read_extended_config32(nic->pci, 0x13c, &capability) ||
+                (capability & 0xffff) != 3 ||
+                !pci_read_extended_config32(nic->pci, 0x144, &high) || (high >> 16) ||
+                !pci_read_extended_config32(nic->pci, 0x140, &low) ||
+                !packet_mac_words(nic, high, low)) {
+                console_write("bcm57765-packet: no valid station address\n");
+                return false;
+            }
+            source = "pcie-serial";
+        }
+    }
+    mac_write(MAC_ADDRESS_HIGH, high & 0xffff);
+    mac_write(MAC_ADDRESS_LOW, low);
+    bool verified = mac_read(MAC_ADDRESS_HIGH) == (high & 0xffff) && mac_read(MAC_ADDRESS_LOW) == low;
+    console_printf("bcm57765-packet: station_source=%s verified=%u\n", source, (uint64_t)verified);
+    return verified;
 }
 
 static uint64_t packet_buffer(uint64_t dma, size_t area, unsigned slot) {
@@ -200,6 +230,7 @@ static bool program_rings(struct bcm_packet *nic) {
     if (signature == UINT32_MAX || config == UINT32_MAX ||
         (signature == 0x4b657654 && (config & 0x80))) return false; /* Active ASF firmware. */
     nic->programmed = true;
+    if (!packet_mac(nic)) return false;
     uint32_t host = pci_read_config32(nic->pci, HOST_CONTROL);
     pci_write_config32(nic->pci, HOST_CONTROL, (host & ~1u) | IRQ_MASK);
     if (!(pci_read_config32(nic->pci, HOST_CONTROL) & IRQ_MASK)) return false;
@@ -483,9 +514,12 @@ enum bcm57765_probe_result bcm57765_packet_trial(void) {
     }
     bool pending = false;
     uint16_t aux;
-    if (!packet_map(&nic) || !packet_firmware_idle(&nic) || !packet_mac(&nic) ||
-        !mdio_read(MII_AUX_STATUS, &aux, &pending) || (aux & 0x704) != 0x704) {
-        console_write("bcm57765-packet: refused firmware state, station address or link mode\n");
+    bool mapped = packet_map(&nic);
+    bool firmware_idle = mapped && packet_firmware_idle(&nic);
+    bool link_ready = firmware_idle && mdio_read(MII_AUX_STATUS, &aux, &pending) && (aux & 0x704) == 0x704;
+    console_printf("bcm57765-packet: preflight mapped=%u firmware_idle=%u gigabit_full=%u\n",
+        (uint64_t)mapped, (uint64_t)firmware_idle, (uint64_t)link_ready);
+    if (!link_ready) {
         return !packet_unmap(&nic) || pending ? BCM57765_UNSAFE : BCM57765_REFUSED;
     }
     uint16_t disabled = (nic.original_command | PCI_INT_DISABLE) & ~PCI_BUS_MASTER;
