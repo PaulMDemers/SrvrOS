@@ -478,6 +478,13 @@ The no-store hardware trial still requires a native source of a sustained
 request. Ubuntu and the existing recovery remain installed.
 [Broadwell register reference, pp. 587–592, 606–607 and 859](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
 
+The provider review at `a1d7de5b` checked main `dc4a48d3`, the Broadwell
+graphics initialization in coreboot and U-Boot, and the published PCODE
+mailbox commands. It found no maintained GO request available to the OS
+with the observed firmware lock. The [rollback plan](../intel-tearfree-roadmap.md#native-rollback-admission-after-the-air-checkpoint)
+records what could unblock the occupied-slot test and the acceptance
+requirements for a driver-owned interval. No new hardware run was armed.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

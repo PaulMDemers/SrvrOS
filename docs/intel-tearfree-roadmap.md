@@ -179,11 +179,39 @@ write to one of those messages would require a documented ownership and
 release protocol before it could serve as the provider.
 [Air native request evidence](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
 
+The Broadwell initialization paths in coreboot and U-Boot both program
+`MISC_CTRL0` with CPD GO messaging off and set ECOLOCK during graphics
+initialization. Intel specifies that FLR leaves this policy locked. U-Boot
+also refuses its low-level Broadwell initialization after a prior EFI
+boot. The boot application on the reference Air already inherits an active
+GOP, so moving the same policy operation from the kernel to that application
+does not put it in charge of early graphics initialization.
+[Intel register reference, pp. 606–607](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+· [coreboot initialization](https://github.com/coreboot/coreboot/blob/a13e296046cfe95e6cdca9303a03a752aa520c67/src/northbridge/intel/broadwell/gma.c#L139-L155)
+· [coreboot lock](https://github.com/coreboot/coreboot/blob/a13e296046cfe95e6cdca9303a03a752aa520c67/src/northbridge/intel/broadwell/gma.c#L221-L229)
+· [U-Boot initialization](https://github.com/u-boot/u-boot/blob/ece349ade2973e220f524ce59e59711cc919263f/drivers/video/broadwell_igd.c#L209-L220)
+· [U-Boot lock](https://github.com/u-boot/u-boot/blob/ece349ade2973e220f524ce59e59711cc919263f/drivers/video/broadwell_igd.c#L293-L305)
+· [U-Boot EFI entry check](https://github.com/u-boot/u-boot/blob/ece349ade2973e220f524ce59e59711cc919263f/drivers/video/broadwell_igd.c#L660-L678)
+
+The documented driver-to-PCODE mailbox command list contains no GAM hold.
+The PCU block-request status bit is unused by GT cores. `GFX_PAUSE` controls
+execution-unit and sampler clock transitions. These interfaces supply no
+maintained hold that can be tied to fresh engine and L3 acknowledgements.
+Keep the occupied-slot no-store test pending a documented GPM request
+and release interface, or a platform firmware contract that exposes one.
+[Intel PCIe register reference, pp. 23 and 31–33](https://cdrdv2-public.intel.com/690865/intel-gfx-prm-osrc-bdw-vol-12-pcie-config-registers.pdf)
+· [Intel register reference, pp. 1476–1477](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+
 If the occupied interval cannot be transferred, the boot allocator needs
 an interval explicitly yielded before any firmware or device client can
 use it. The existing Air capture identifies preserved mappings and reserved
 RAM. Slot 12292 still requires its own transfer. Use an explicit ownership
-contract to qualify any new candidate.
+contract to qualify any new candidate. The first independent checkpoint is
+a one-page bind and rollback under the new owner with the original Pipe A
+surface pinned. Its acceptance needs a named source for the range, exact
+translation invalidation and proof that every possible user of that range
+is excluded or accounted for through retirement. This is the driver-owned
+path described under [Boot ownership decision](#boot-ownership-decision).
 
 ## Earlier qualifications
 
