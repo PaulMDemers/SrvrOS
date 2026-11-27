@@ -2161,6 +2161,29 @@ Reconnect the hub to the same laptop port, restore hub power and
 start the laptop. SrvrOS saves its outcome and returns to Ubuntu.
 Retire the private image after collection as in the prior trial.
 
+Cold session `session-0006613cc68ad841-00` found all three adapters
+on the hub and 32 Demers2.4 beacons on channel 10 across 652 completed
+4 KiB IN requests. The first 62-byte Auth request went to slot 2,
+bulk OUT `0x02` (DCI 4), at TRB `0x6c3000`. There was no OUT event
+during the 250,564 µs wait or between the deadline and teardown.
+The endpoint was Running with dequeue `0x6c3001` before the doorbell
+and at the deadline. Stop Endpoint returned code 26 (Stopped) for
+the submitted TRB with Event Data clear and all 62 bytes remaining.
+The Stopped context retained dequeue `0x6c3001`. The host controller
+reported no bytes moved by the time it stopped the transfer. The
+remaining question is why the bulk OUT transfer made no progress.
+The next comparison is USB OUT readiness and transmit queue setup
+against the working Linux path.
+[xHCI 1.2b §4.6.9 and Table 6-90](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf)
+
+The workspace exit log and independent EFI journal matched, and all
+seven checkpoints survived. Both endpoints stopped, keys were erased,
+the radio parked, and the guest recorded its automatic return to Ubuntu.
+The workspace check verified all 648 pre-existing files. Archived logs
+are in `/var/local/srvros-recovery/macbookpro11-2/evidence-172a04f4aebc3243`.
+The private image was retired and the accepted passive boot entry and
+original EFI mount options were restored. Association and WPA2 remain open.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
