@@ -453,8 +453,9 @@ def main():
                     marker = "air61-ssd: REFUSED platform or invalid profile; restart manually"
                     text = wait_for(serial, lambda s: marker in s, process, args.boot_wait)
                     assert "SRVROS_GRUB_CHAINLOAD_TEST" in text and not has_fatal_exception(text)
-                    assert not any(s in text for s in ("ahci: abar=", "air61-ssd-sample:", "workspace: ready",
-                                                       "init: started", "exfat: mounted"))
+                    assert not any(s in text for s in ("ahci: abar=", "air61-ssd-sample:", "air61-ssd-controller:",
+                                                       "air61-ssd-port:", "workspace: ready", "init: started",
+                                                       "exfat: mounted"))
                     result = dict(status="PASS", release=release,
                                   manifest_sha256=boot.digest(source/"manifest.json"),
                                   foreign_platform_refused=True, native_acceptance=False)

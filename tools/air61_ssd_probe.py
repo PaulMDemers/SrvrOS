@@ -14,6 +14,7 @@ SECTOR = 512
 SECTORS = 236978176
 SAMPLES = ((0, 34), (SECTORS - 33, 33), (2048, 1))
 RECEIPT = "srvros-work/air61-ssd-probe.log"
+PORT_RECEIPT = "srvros-work/air61-ssd-port-state.log"
 PCI = "0000:04:00.0"
 MODEL = "APPLE SSD SD0128F"
 EFI = uuid.UUID("c12a7328-f81f-11d2-ba4b-00a0c93ec93b").bytes_le
@@ -124,9 +125,61 @@ def ubuntu_baseline(disk):
         os.close(fd)
 
 
-def compare_receipt(receipt, release, volume, baseline):
+def probe_profile(release, volume, port_state):
     profile = ("air61-ssd: profile srvros.storage=ram srvros.capture=air61-ssd-read-only "
                f"srvros.workspace-volume={volume} srvros.ssd-release={release}")
+    return profile + (" srvros.ssd-port-state=1" if port_state else "")
+
+
+def read_port_trace(receipt, release, volume):
+    lines = receipt.splitlines()
+    require(lines.count(probe_profile(release, volume, True)) == 1, "Port trace release or workspace differs")
+    controllers = [line for line in lines if line.startswith("air61-ssd-controller:")]
+    require(len(controllers) == 1, "Missing or duplicate AHCI controller snapshot")
+    match = re.fullmatch(r"air61-ssd-controller: firmware_ghc=0x0{8}([0-9a-f]{8}) firmware_port=([01])",
+                         controllers[0])
+    require(match is not None, "Malformed AHCI controller snapshot")
+    ghc = int(match[1], 16)
+    phases = ["before-stop", "after-stop", "buffers-programmed", "fis-enabled",
+              "engine-started", "identify-return", "retire-return"]
+    rows = [line for line in lines if line.startswith("air61-ssd-port:")]
+    if match[2] == "1":
+        require(ghc & (1 << 31), "Firmware port sampled with AHCI disabled")
+        phases.insert(0, "firmware")
+    require(len(rows) == len(phases), "Incomplete or duplicate AHCI port snapshots")
+    registers = "ghc cmd tfd sig ssts sctl serr is ci sact clb fb".split()
+    fields = ["phase", "port", "us", *registers, "fis_valid", "pio", "d2h", "sdb"]
+    snapshots = []
+    for line, phase in zip(rows, phases):
+        pairs = [word.split("=", 1) for word in line.removeprefix("air61-ssd-port: ").split()]
+        require([pair[0] for pair in pairs] == fields and all(len(pair) == 2 for pair in pairs),
+                "Malformed AHCI port fields")
+        row = dict(pairs)
+        require(row["phase"] == phase, "AHCI port snapshots are out of order")
+        for key in ("port", "us", "fis_valid"):
+            require(re.fullmatch(r"0|[1-9][0-9]{0,19}", row[key]), "Malformed AHCI snapshot counter")
+            row[key] = int(row[key])
+        require(row["port"] < 32 and row["us"] < 2**64 and row["fis_valid"] in (0, 1),
+                "AHCI snapshot counter outside its range")
+        for key in (*registers, "pio", "d2h", "sdb"):
+            mask = r"0x[0-9a-f]{16}" if key in ("clb", "fb") else r"0x0{8}[0-9a-f]{8}"
+            require(re.fullmatch(mask, row[key]), "Malformed AHCI register width")
+            row[key] = int(row[key], 16)
+        if phase in ("firmware", "before-stop", "after-stop"):
+            require(not row["fis_valid"], "Firmware FIS buffer was sampled")
+        if not row["fis_valid"]:
+            require(not any(row[key] for key in ("pio", "d2h", "sdb")), "Unowned FIS data reported")
+        if phase == "firmware":
+            require(row["ghc"] & (1 << 31), "Firmware port snapshot has AHCI disabled")
+        if snapshots:
+            require(row["us"] >= snapshots[-1]["us"] and row["port"] == snapshots[-1]["port"],
+                    "AHCI port or clock changed during capture")
+        snapshots.append(row)
+    return dict(status="COMPLETE", firmware_ghc=ghc, snapshots=snapshots)
+
+
+def compare_receipt(receipt, release, volume, baseline, *, port_state=False):
+    profile = probe_profile(release, volume, port_state)
     rows = [line for line in receipt.splitlines()
             if line.startswith(("air61-ssd:", "air61-ssd-device:", "air61-ssd-sample:"))]
     require(baseline["gpt"] == "PASS", "Missing Ubuntu GPT validation")

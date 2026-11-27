@@ -151,9 +151,48 @@ static void air61_probe_contract(void) {
     now = AIR61_SSD_PROBE_US;
     assert(!air61_read_samples(&disk, 0) && !probe_count);
 }
+
+static void air61_port_trace_contract(void) {
+    static struct hba_memory controller;
+    struct ahci_port_trace trace = {0};
+    struct ahci_disk disk = {0};
+    volatile struct hba_port *port = &controller.ports[0];
+    hba = &controller;
+    controller.ghc = HBA_GHC_AHCI_ENABLE;
+    port->cmd = HBA_PORT_CMD_ST | HBA_PORT_CMD_FRE;
+    port->tfd = 0x80;
+    port->fb = 0xdeadb000;
+    dma_calls = dma_frees = dma_fail = 0;
+    trace_port(&trace, AHCI_TRACE_FIRMWARE, port, 0, NULL);
+    trace_port(&trace, AHCI_TRACE_BEFORE_STOP, port, 0, NULL);
+    assert(trace.states[AHCI_TRACE_FIRMWARE].fb == 0xdeadb000);
+    assert(!trace.states[AHCI_TRACE_FIRMWARE].fis_valid);
+    assert(prepare_port(&disk, 0, port, &trace));
+    assert(dma_calls == 4 && !dma_frees);
+    assert(trace.states[AHCI_TRACE_BEFORE_STOP].cmd == (HBA_PORT_CMD_ST | HBA_PORT_CMD_FRE));
+    assert(trace.states[AHCI_TRACE_AFTER_STOP].cmd == 0);
+    assert(trace.states[AHCI_TRACE_BUFFERS].fb == disk.fis_phys);
+    assert(trace.states[AHCI_TRACE_BUFFERS].fis_valid && !trace.states[AHCI_TRACE_BUFFERS].d2h);
+    assert(trace.states[AHCI_TRACE_FIS_ENABLED].cmd == HBA_PORT_CMD_FRE);
+    assert(trace.states[AHCI_TRACE_ENGINE_STARTED].cmd == (HBA_PORT_CMD_ST | HBA_PORT_CMD_FRE));
+    uint32_t *fis = pmm_phys_to_virt(disk.fis_phys);
+    fis[0x20 / 4] = 0x1122335f;
+    fis[0x40 / 4] = 0x44556634;
+    fis[0x58 / 4] = 0x778899a1;
+    trace_port(&trace, AHCI_TRACE_IDENTIFY_RETURN, port, 0, &disk);
+    const struct ahci_port_state *last = &trace.states[AHCI_TRACE_IDENTIFY_RETURN];
+    assert(last->fis_valid && last->pio == 0x1122335f && last->d2h == 0x44556634 && last->sdb == 0x778899a1);
+    assert(last->tfd == 0x80 && !last->ci && port->tfd == 0x80);
+    port->fb = 0xdeadb000;
+    trace_port(&trace, AHCI_TRACE_RETIRED, port, 0, &disk);
+    assert(!trace.states[AHCI_TRACE_RETIRED].fis_valid && !trace.states[AHCI_TRACE_RETIRED].d2h);
+    hba = NULL;
+    puts("air61-ahci-port: PASS stop/FRE/ST snapshots, owned status FIS, foreign buffer refusal");
+}
 int main(void) {
     allocation_contract();
     air61_probe_contract();
+    air61_port_trace_contract();
     struct ahci_disk disk=setup(0);
     assert(issue_command(&disk,ATA_CMD_IDENTIFY,0,0,false));
     assert(header.prdt_length==1 && (table.prdt[0].dbc_i&0x3fffff)==511 && current_space==2);

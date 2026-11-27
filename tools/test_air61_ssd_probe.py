@@ -29,6 +29,35 @@ def fixture(overlap=False):
 
 
 class Probe(unittest.TestCase):
+    def test_port_trace_accepts_complete_busy_probe(self):
+        version = f"ram-usb-v2-air61-ssd-{VOLUME}"
+        config = boot.limine_config(RELEASE, version)
+        v1 = boot.limine_config(RELEASE, f"ram-usb-v1-air61-ssd-{VOLUME}")
+        self.assertEqual(config.replace(" srvros.ssd-port-state=1", ""), v1)
+        header = [probe.probe_profile(RELEASE, VOLUME, True),
+                  "air61-ssd-controller: firmware_ghc=0x0000000080000000 firmware_port=1"]
+        phases = ("firmware", "before-stop", "after-stop", "buffers-programmed",
+                  "fis-enabled", "engine-started", "identify-return", "retire-return")
+        rows = []
+        registers = dict.fromkeys("ghc cmd tfd sig ssts sctl serr is ci sact clb fb".split(), 0)
+        registers.update(ghc=1 << 31, tfd=0x80, sig=0x101, ssts=0x133)
+        hexfields = " ".join(f"{key}=0x{value:016x}" for key, value in registers.items())
+        for index, phase in enumerate(phases):
+            rows.append(f"air61-ssd-port: phase={phase} port=0 us={index} {hexfields} fis_valid={int(index >= 3)} "
+                        "pio=0x0000000000000000 d2h=0x0000000000000000 sdb=0x0000000000000000")
+        failure = "air61-ssd: result=FAIL internal_mounted=no ata_writes=0"
+        result = probe.read_port_trace("\n".join([*header, *rows, failure]), RELEASE, VOLUME)
+        self.assertEqual(result["status"], "COMPLETE")
+        self.assertEqual([row["tfd"] for row in result["snapshots"]], [0x80] * 8)
+        with_ae_clear = [header[0], "air61-ssd-controller: firmware_ghc=0x0000000000000000 firmware_port=0"]
+        self.assertEqual(len(probe.read_port_trace("\n".join([*with_ae_clear, *rows[1:]]),
+                                                   RELEASE, VOLUME)["snapshots"]), 7)
+        for bad in (rows[1:], rows[:-1], rows[::-1], rows + [rows[-1]],
+                    [rows[0].replace("fis_valid=0", "fis_valid=1"), *rows[1:]],
+                    [*rows[:-1], rows[-1].replace(" us=7", " us=1")]):
+            with self.assertRaises(ValueError):
+                probe.read_port_trace("\n".join([*header, *bad]), RELEASE, VOLUME)
+
     def test_gpt_and_native_receipt(self):
         with tempfile.TemporaryFile() as disk:
             disk.truncate(probe.SECTORS * probe.SECTOR)

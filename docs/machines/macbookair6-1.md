@@ -15072,3 +15072,34 @@ confirmed the full ATA model, LBA count, logical sector size, and PCI identity.
 The privileged launcher still needs to read the actual GPT and sample hashes
 in Ubuntu before the first native run. The small stage fits the EFI space
 margin without retiring an existing release. The native trial is unarmed.
+
+The first native run of `48d92d34bff03c7f` reached the Marvell controller and
+port 0. `PxTFD` remained `0x80` (BSY) at the existing two-second readiness
+deadline for ATA IDENTIFY. The command was never submitted (`PxCI=0`), so
+there are no native GPT or sample hashes. The internal SSD stayed unmounted.
+The probe saved its failure receipt on USB and returned automatically.
+
+Both Ubuntu GPT copies validated and all three Ubuntu hashes matched before
+and after. The read-only USB replay matched the archived receipt. Ubuntu
+initialized the same port at 6 Gb/s after return. Installed and archived
+payloads match, recovery remains `c35475f62f154f1e`, and no one-shot is armed.
+The next diagnostic is a bounded comparison of the firmware-to-AHCI port
+state before and after initialization, especially task-file and received-FIS
+state. The reason BSY stayed set is open.
+
+#### AHCI port-state diagnostic scope
+
+Starting from `37de62ed` (PR555), retain bounded register snapshots at the
+firmware handoff, engine and FIS setup edges, IDENTIFY return, and teardown.
+Only the dedicated Air6,1 probe emits them. The receive buffer is sampled only
+from the driver's own DMA page. No reset, retry, timeout or SSD access change
+is in scope. The next checkpoint is a tested and staged read-only diagnostic
+with a distinct USB receipt, preserving the first failed run.
+
+Source `d98a0619`, release `e6361b7660adbb2e`, passed AHCI/block, SMBIOS,
+GPT/receipt and stage host tests. The exact EFI image refused a foreign VM
+before AHCI access or filesystem mounting. The staged kernel drops only
+debug data and retains the same entry point and loadable segments, so it fits
+alongside the installed release and recovery. The USB copy of the first probe
+receipt still matches the archive. The next native run has its own receipt,
+Ubuntu baseline and return comparison. It is staged and unarmed.
