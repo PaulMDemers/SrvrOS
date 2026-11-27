@@ -591,13 +591,31 @@ the normal mode restoration and USB save path. The EHCI host tests verified
 the request order and the retained multi-packet payload. The exact VM payload
 passed the checklist, absent-controller and Ubuntu-default rehearsal.
 
+The native `cacf59a022b41970` trial requested periodic enable 13 µs after
+observed completion of the mode write. The controller acknowledged at 15 µs.
+The first interrupt completion arrived at 474,169 µs and carried `60 02`,
+which the decoder ignored as a two-byte response. The following 366
+completions carried eight bytes, with the last sample matching the previous
+trial. The post-capture feature read was 1, the original mode was restored,
+and the topcase controller released DMA and its MMIO map. The trial timed
+out with zero decoded Type 2 reports. Prompt rendering and intermediate
+feature readback were eliminated from the mode-to-arm interval in this run.
+
+The release-matched 4,363-byte USB report was verified after remount in
+Ubuntu. The one-shot was consumed, firmware entries matched, and the
+installed and recovery payloads verified. Prior file contents were preserved,
+with the expected sidecar updates for the two reports and the workspace
+marker access time. The offline allocation check passed with 105 files and
+zero writes. The saved log ends before the final USB teardown and reset.
+The exact payload and return evidence are archived outside `build/`.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Native completed 234 transfers with zero Type 2 frames. SrvrOS's decoder accepted all 988 Ubuntu reports from the same hardware. | Test native mode-to-arm sequencing and capture the first endpoint payload |
+| Trackpad | Native activated the periodic queue in 15 µs and completed 367 transfers with zero Type 2 frames. SrvrOS's decoder accepted all 988 Ubuntu reports from the same hardware. | Compare native device initialization and split interrupt behavior with the working Ubuntu path |
 | USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
