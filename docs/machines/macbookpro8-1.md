@@ -650,13 +650,29 @@ payloads, and verified that a short HID descriptor response stops the trial
 before the mode switch. The exact VM payload passed the checklist,
 absent-controller and Ubuntu-default rehearsal with the USB report enabled.
 
+Native release `c1a658684ae3c9e1` completed all six replay requests. It
+requested the feature read at 247,975 µs and completed the mode write at
+248,783 µs after configuration. The EHCI queue became active 5 µs after
+the write. The first transfer completed at 224,369 µs with `60 02`, matching
+the previous trial's first payload. The other 386 completions were eight
+bytes each, with the same final sample as before. The gesture capture timed
+out with zero decoded Type 2 reports. The post-capture feature read was 1,
+the original mode was restored, and the controller released DMA and MMIO.
+
+Ubuntu verified the 4,507-byte USB report, consumed one-shot, current and
+recovery payloads, and unchanged firmware entries. The existing USB file
+contents were preserved apart from the expected sidecar updates. The
+read-only allocation check passed with 107 files and zero writes. The saved
+report stops before the final USB controller retirement and reset. The
+native evidence, exact payload and Ubuntu replay input are archived together.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Native activated the queue in 15 µs with zero Type 2 frames. Ubuntu matches the split masks and performs HID setup before switching modes. | Replay the captured pre-mode HID initialization with the existing native split queue |
+| Trackpad | Native completed all six Ubuntu HID setup requests and activated the queue in 5 µs, with zero decoded Type 2 reports | Compare the full feature payload and queue-head progress with the working Ubuntu path |
 | USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
