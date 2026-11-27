@@ -352,6 +352,13 @@ The seven command mappings and inherited-slot experiments remain separate
 work. The review used branch `86004738` and inspected main `5cb57eab`.
 [Boot ownership decision](../intel-tearfree-roadmap.md#boot-ownership-decision)
 
+The one-page milestone covers a boot-scoped range owner, the Broadwell GGTT
+bind and rollback transaction, and host/Q35 fault coverage. It uses the
+original display exclusion, range allocator and publication lifetime. The
+native producer must demonstrate range-specific exclusion for firmware,
+engines, DMA and display readers before a write-capable Air image is armed.
+The scope starts at `eb038ff0` with main `5cb57eab` reviewed.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
