@@ -55,6 +55,18 @@ staging tool for graphics receipts, independently of the EHCI profile.
 Coordinate shared HID, storage or initialization changes if they become
 necessary. [Device coordination](../agent-coordination.md)
 
+The next trackpad block starts from `a3e1c806` on the same `61111819` base.
+Ubuntu uses alternate setting 1 (multi-TT) on the captured `0424:2513`
+root-connected hub and submits 478-byte interrupt requests to endpoint `0x81`
+after the `08 05` to `01 05` feature-mode transition. This block matches that
+hub setting and tests consecutive requests on a single periodic queue. Scope
+is the explicit EHCI trackpad trial, its enumeration and DMA fixtures, and
+the existing release-bound USB report. Keyboard, xHCI and ordinary startup
+keep their existing paths. No overlapping EHCI work was found in PR #301,
+the Pro11,2 USB Wi-Fi branch, or PRs #551, #550 and #510. The checkpoint is an
+exact-stage VM rehearsal followed by an attended native one-shot and USB
+report collection.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
