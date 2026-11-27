@@ -962,12 +962,21 @@ default. The stage passed read-only writable admission for all 120 files
 on this unit's flash workspace. The release is installed for a one-shot
 native trial with the working console and standalone keyboard retained.
 
+In the native `159368a637be087a` run, the operator confirmed the built-in
+keyboard worked in the desktop and the trackpad did not. Ubuntu returned
+and consumed the one-shot. The automatic verifier and a subsequent remount
+both found the release report missing. All 120 pre-trial files matched
+their backups, offline allocation passed with zero writes, and the EFI
+entries and retained releases verified. The combined trial is incomplete.
+Trackpad queue progress, topcase retirement and the point at which the
+native save stopped remain unknown.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
-| Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
+| Keyboard | Operator verified built-in input and commands in the regular monitor and keyboard input in the combined desktop trial `159368a637be087a` | Capture the combined desktop keyboard counters on USB |
 | Trackpad | The instrumented native desktop trial passed on `e064782e489c1a51`, with movement, clicks, topcase retirement, and zero malformed frames. | Capture the length and bytes if the earlier malformed frame recurs |
 | USB workspace | Native desktop report save and Ubuntu readback verified on `0a4b6e655574e009` after the boot-inode fix | Capture a saved receipt for the flash controller's final retirement |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
