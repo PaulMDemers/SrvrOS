@@ -18,6 +18,12 @@
 /* Match Linux monitor admission and enable its PHY status prefix. */
 #define RTL_CU_MONITOR_RCR 0x790fu
 #define RTL_CU_RCR_PHY_STATUS (1u<<28)
+#define RTL_CU_RCR_APPEND_ICV (1u<<29)
+#define RTL_CU_RCR_APPEND_MIC (1u<<30)
+#define RTL_CU_RCR_APPEND_FCS (1u<<31)
+#define RTL_CU_PASSIVE_RCR (RTL_CU_MONITOR_RCR|RTL_CU_RCR_PHY_STATUS|RTL_CU_RCR_APPEND_ICV|\
+                            RTL_CU_RCR_APPEND_MIC|RTL_CU_RCR_APPEND_FCS)
+#define RTL_CU_FCS_BYTES 4u
 #define RTL_CU_MAC_LOOPBACK_SETTING 0x015u
 #define RTL_CU_MAC_LOOPBACK_COLD 0xa9u
 #define RTL_CU_MAC_LOOPBACK_LINUX 0xe9u
@@ -101,13 +107,13 @@ static const struct { uint16_t address,width; } rtl_cu_dma_regs[]={
     {0x104,1},{0x114,1},{0x116,2},{0x118,4},{0x280,2},{0xfe5b,1},{0xfe5c,1},{0xfe5d,1},
 };
 #define RTL_CU_DMA_COUNT (sizeof rtl_cu_dma_regs/sizeof rtl_cu_dma_regs[0])
-enum rtl_cu_enable_register { RTL_CU_ENABLE_LOOPBACK=5,RTL_CU_ENABLE_XTAL=7,RTL_CU_ENABLE_USB_IF=21 };
+enum rtl_cu_enable_register { RTL_CU_ENABLE_LOOPBACK=5,RTL_CU_ENABLE_XTAL=7,RTL_CU_ENABLE_RCR=12,RTL_CU_ENABLE_USB_IF=21 };
 static const struct { uint16_t address,width; } rtl_cu_enable_regs[]={
     {0x000,2},{0x002,2},{RTL8188CU_POWER,2},{0x008,2},{0x010,1},
     [RTL_CU_ENABLE_LOOPBACK]={RTL_CU_MAC_LOOPBACK_SETTING,1},
     {0x021,1},[RTL_CU_ENABLE_XTAL]={RTL_CU_AFE_XTAL_CONTROL,4},
     {0x028,4},{RTL8188CU_MAC_CONTROL,4},{0x600,1},{0x604,4},
-    {0x608,4},{0x60c,1},{0x60d,1},{0x60f,1},{0x668,4},{0x692,1},
+    [RTL_CU_ENABLE_RCR]={0x608,4},{0x60c,1},{0x60d,1},{0x60f,1},{0x668,4},{0x692,1},
     {0x6b4,4},{0x800,4},{0x900,4},[RTL_CU_ENABLE_USB_IF]={RTL_CU_USB_IF_BASE,1},
     {RTL_CU_USB_IF_BASE+1,1},{RTL_CU_USB_IF_BASE+2,1},
 };
@@ -179,7 +185,7 @@ static struct {
 static bool rtl_cu_verify_receive_setup(struct xhci_device *d) {
     /* Verify the frame filters and pinned baseband layout. */
     static const struct { uint16_t address,width; uint32_t expected; } regs[RTL_CU_ADMISSION_COUNT]={
-        [RTL_CU_FILTER_RCR]={0x608,4,RTL_CU_MONITOR_RCR|RTL_CU_RCR_PHY_STATUS},
+        [RTL_CU_FILTER_RCR]={0x608,4,RTL_CU_PASSIVE_RCR},
         [RTL_CU_FILTER_MGT]={0x6a0,2,RTL_CU_ALL_SUBTYPES},
         [RTL_CU_FILTER_CTL]={0x6a2,2,0}, [RTL_CU_FILTER_DATA]={0x6a4,2,RTL_CU_ALL_SUBTYPES},
         [RTL_CU_DRIVER_INFO]={0x60f,1,RTL_CU_RX_DRIVER_INFO_UNITS},
@@ -764,7 +770,7 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
        !rtl_cu_rf_read(d,0x18,channel) || (*channel&0x3ff)!=RTL_CU_CHANNEL ||
        !rtl_cu_prepare_rx_dma(d) ||
        !rtl8188cu_write_value(d,0x60f,1,RTL_CU_RX_DRIVER_INFO_UNITS) ||
-       !rtl8188cu_write_value(d,0x608,4,RTL_CU_MONITOR_RCR|RTL_CU_RCR_PHY_STATUS) ||
+       !rtl8188cu_write_value(d,0x608,4,RTL_CU_PASSIVE_RCR) ||
        !rtl8188cu_write_value(d,0x620,4,UINT32_MAX) || !rtl8188cu_write_value(d,0x624,4,UINT32_MAX) ||
        !rtl8188cu_write_value(d,0x6a0,2,RTL_CU_ALL_SUBTYPES) ||
        !rtl8188cu_write_value(d,0x6a2,2,0) ||
@@ -839,11 +845,12 @@ static void rtl_cu_rx_inspect(const uint8_t *data,size_t length) {
     uint32_t word=rtl_cu_le32(data);
     size_t offset=24+8*((word>>16)&15)+((word>>24)&3);
     size_t mpdu=word&0x3fff;
-    if((word&0xc000) || offset>length || mpdu>length-offset) {
+    if((word&0xc000) || offset>length || mpdu<RTL_CU_FCS_BYTES || mpdu>length-offset) {
         rtl_passive.rejected++;return;
     }
     struct mt76_rx_beacon beacon;
-    if(wifi_rx_beacon_frame(data+offset,mpdu,RTL_CU_CHANNEL,&beacon)!=MT76_RX_OK)return;
+    /* The beacon decoder admits plaintext beacons. Their descriptor length includes FCS. */
+    if(wifi_rx_beacon_frame(data+offset,mpdu-RTL_CU_FCS_BYTES,RTL_CU_CHANNEL,&beacon)!=MT76_RX_OK)return;
     rtl_passive.beacons++;
     if(beacon.ssid_size!=sizeof wanted-1 || !beacon.ds_present)return;
     for(unsigned i=0;i<sizeof wanted-1;i++)if(beacon.ssid[i]!=wanted[i])return;
@@ -862,6 +869,7 @@ static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
     }
     if(rtl_passive.enable_regs[RTL_CU_ENABLE_XTAL]!=RTL_CU_AFE_XTAL_LINUX ||
        rtl_passive.enable_regs[RTL_CU_ENABLE_LOOPBACK]!=RTL_CU_MAC_LOOPBACK_LINUX ||
+       rtl_passive.enable_regs[RTL_CU_ENABLE_RCR]!=RTL_CU_PASSIVE_RCR ||
        !rtl_cu_usb_interface_armed())return false;
     rtl_cu_rx_snapshot(d,RTL_CU_ARMED,true);
     if(!rtl_cu_rx_held(d))return false;
@@ -963,6 +971,8 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready) {
                        rtl_passive.enable_regs[RTL_CU_ENABLE_LOOPBACK]!=RTL_CU_MAC_LOOPBACK_LINUX)result="loopback-drift";
                     if(rtl_passive.enable_reads==RTL_CU_ENABLE_COUNT && !rtl_cu_usb_interface_armed())
                         result="usb-interface-drift";
+                    if(rtl_passive.enable_reads==RTL_CU_ENABLE_COUNT &&
+                       rtl_passive.enable_regs[RTL_CU_ENABLE_RCR]!=RTL_CU_PASSIVE_RCR)result="rcr-drift";
                 }
             } else if(rtl_passive.xtal_attempted && !rtl_passive.xtal_ready) {
                 result="xtal";
