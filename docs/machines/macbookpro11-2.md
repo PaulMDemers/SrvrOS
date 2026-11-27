@@ -1939,6 +1939,24 @@ EFI checkpoints. The run record under
 the control and the two Linux calibration sequences. Reception still
 needs the cold result.
 
+Cold session `session-0006613af88646f4-00` verified IQ correction
+47 µs before the LC submission and retained the matrix through
+channel-10 tuning. The Realtek MCU reached ready and all three hub
+adapters were present. As in the RCR control, PHY activity increased
+while the 14 receive report counters and FIFO pointer stayed at zero.
+The fixed 4 KiB USB request timed out with the full 4,096 bytes
+remaining and zero Demers2.4 beacons. Moving the retained IQ block
+earlier preserved the expected settings and left passive discovery
+failing.
+
+Stop Endpoint and radio park completed with CR `0x0000` and
+`TXPAUSE=0xff`. The verified exit snapshot and seven independent EFI
+checkpoints agreed on the calibration receipt and receive result. The
+workspace unmounted cleanly and SrvrOS requested normal Ubuntu return.
+Collection verified all 640 prior files and the installed recovery.
+Evidence, comparison and the verified payload are archived under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-13712a298b34232a`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
