@@ -890,6 +890,15 @@ reports against the release and run the read-only allocation check.
 Pair the final stream completion and amplifier stop results with the
 operator's observations for each speaker.
 
+The MacBookPro8,1 telemetry variant stages with
+`--ehci-desktop-trial UUID --ehci-desktop-telemetry`. It opens System on
+Sensors, shows a 25-second countdown, saves both flash reports, and
+returns automatically to Ubuntu. Keep the flash drive connected.
+The release-matched reports include boot-CPU and package temperatures,
+fan RPM, sample age and count, and the SMC transaction outcome. Verify
+both providers are fresh at startup and exit, the counts advance, and
+the read-only allocation check passes.
+
 Omit `--save` for a JSON report on stdout. The command reads the recorded
 model and volume UUID, checks the marker, excludes pre-existing sessions,
 and matches the release in boot-option records. An unidentified new session

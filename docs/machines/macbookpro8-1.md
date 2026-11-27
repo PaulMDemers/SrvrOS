@@ -242,6 +242,27 @@ System Sensors trial with startup and final reports on the EHCI workspace.
 The checkpoint is fresh boot-CPU and package temperatures, an exhaust fan
 RPM reading, increasing sample counts, and normal return to Ubuntu.
 
+Ubuntu exposed one Exhaust fan with a firmware range of 2,000–6,200 RPM.
+The live DSDT matched the captured table byte for byte. Its APP0001 SMC
+declares I/O `0x300–0x31f` and IRQ6. SrvrOS uses the data and command
+ports at `0x300` and `0x304` for metadata and reads of `FNum` and
+`F0Ac`. The fan remains under firmware control. The i5-2415M reported
+CPUID signature `0x206a7`, core and package thermal support, and a 100 °C
+reference from MSR `0x1a2`.
+
+SrvrOS `70118226` with SrvrApps `ab69301` passed the native telemetry
+trial in release `5e4d9efffb95d338`. System opened directly on Sensors
+and reported both providers fresh. CPU core and package read 77 °C at
+startup and 65 °C at exit. The fan read 3,100 and 2,182.75 RPM at those
+checkpoints. Both sample counts advanced from 1 to 27 during the
+25-second desktop trial. SMC completed 30 transactions with zero
+failures and reached a transaction boundary before shutdown. Ubuntu
+returned automatically, verified both flash reports and preserved all
+existing user files. The read-only allocation check passed with 151
+files and 159 clusters. The exact payload and reports are archived
+outside `build`. This verifies the boot CPU and package readings on
+this unit through the explicit `--ehci-desktop-telemetry` profile.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
