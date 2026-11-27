@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-22. State: **native desktop, input, brightness, speaker audio, CPU and two-fan telemetry, and USB Ethernet accepted on this unit. The Retina desktop selects 2× at 2880 × 1800. Demers5 desktop connection and same-boot recovery after orderly Disconnect and USB replug passed on v154. Both v155 cold runs completed native association and safely handled active USB removal. The second passed all 60 paced gateway probes before removal and returned to Ubuntu with the workspace intact. Earlier native TCP/HTTP and USB workspace results remain recorded below.**
+Updated: 2026-11-27. State: **native desktop, input, brightness, speaker audio, CPU and two-fan telemetry, and USB Ethernet accepted on this unit. The Retina desktop selects 2× at 2880 × 1800. Demers5 desktop connection and same-boot recovery after orderly Disconnect and USB replug passed on v154. Both v155 cold runs completed native association and safely handled active USB removal. The second passed all 60 paced gateway probes before removal and returned to Ubuntu with the workspace intact. The RTL8188CUS completed one cold Demers2.4 diagnostic with WPA2, DHCP, DNS and HTTP 200. Earlier native TCP/HTTP and USB workspace results remain recorded below.**
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
@@ -2441,6 +2441,29 @@ and all four EFI journal modes. The run directory
 collectors, the local Netgear control and the independent EFI journal. The
 cold trial keeps all three dongles attached and returns to Ubuntu
 after saving the receipt through the workspace and EFI journal.
+
+Cold session `session-00066145f51294bb-00` on November 27 at
+1:09 p.m. EST completed the first Demers2.4 encrypted IP run.
+All three adapters enumerated on the hub. After WPA2, the Realtek
+completed USB OUT for the 376-byte protected Discover and reported
+a MAC ACK with zero retries. Both router captures saw Discover,
+Offer, Request and ACK with the same transaction ID. The AP sample
+showed the station associated and authorized, with four successful
+decryptions and zero failures. SrvrOS accepted the Offer and ACK
+without a parser rejection, resolved DNS and received HTTP 200.
+
+The trace is corroborated by the firmware report and router receipts.
+The independent Netgear monitor ran in the Ubuntu control only.
+The reason the prior Discover failed to reach the router remains
+open. This one cold success leaves repeatability, persistent desktop
+operation and same-boot reconnect on Realtek to be verified.
+
+The clean exit and all seven EFI checkpoints agree. The provider
+retired, Ubuntu returned automatically and all 658 existing workspace
+files were preserved. The paired evidence is archived under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-9790d1223cc87ea3`.
+The private image was retired, the accepted passive entry and EFI
+mount options were restored, and the router collectors were stopped.
 
 ### Retina desktop default
 
