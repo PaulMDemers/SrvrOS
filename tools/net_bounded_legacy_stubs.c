@@ -2,6 +2,7 @@
  * callbacks win; an omitted guard dependency must remain dormant. Never link
  * this file into the kernel or the actual encrypted/bounded-probe fixtures. */
 #include <srvros/net_device.h>
+#include <srvros/scheduler.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,3 +15,7 @@ __attribute__((weak)) uint64_t timer_monotonic_us(void) { unexpected("timer_mono
 __attribute__((weak)) bool net_device_link(struct net_device_link *out) { (void)out;unexpected("net_device_link"); }
 __attribute__((weak)) const uint8_t *net_device_mac(void) { unexpected("net_device_mac"); }
 __attribute__((weak)) bool process_should_exit_current(void) { unexpected("process_should_exit_current"); }
+__attribute__((weak)) bool scheduler_wait(struct scheduler_wait_queue *queue,scheduler_wait_condition_fn ready,void *arg) {
+    (void)queue;(void)ready;(void)arg;
+    unexpected("scheduler_wait");
+}
