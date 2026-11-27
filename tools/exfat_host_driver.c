@@ -59,7 +59,9 @@ void kfree(void *p) { if(p) { struct allocation *a=(struct allocation *)p-1;live
 uint64_t timer_ticks(void) { return 100; }
 static int64_t mock_realtime=1792326896000000LL;
 int64_t timer_realtime_us(void) { return mock_realtime; }
-void console_write(const char *s) { (void)s; }
+void console_write(const char *s) {
+    if (getenv("SRVROS_EXFAT_DIAGNOSTICS")) fputs(s, stderr);
+}
 void console_printf(const char *fmt, ...) { (void)fmt; }
 uint64_t block_device_size(const struct block_device *d) { return d->block_size*d->block_count; }
 struct block_device *block_parent(struct block_device *d) { return d; }

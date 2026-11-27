@@ -490,6 +490,17 @@ absent. The installed payload and recovery images matched their manifests.
 The native stopping point and restart method remain unknown. The return
 record is archived with the exact payload.
 
+On the second attempt with `284f78cff9438b7a`, the photo shows that SrvrOS
+registered the USB disk with 512-byte sectors and found its MBR partition.
+The exFAT directory scan failed before the workspace mounted. The controller
+released DMA, and a manual power cycle returned to Ubuntu. The trackpad
+produced 323 eight-byte responses and zero decoded reports. The photo and
+return verification are archived separately from the first attempt.
+
+The current filesystem work adds a failure reason to directory import and
+uses the same exFAT parser against the recorded partition in Ubuntu. This
+can locate the import failure without another SrvrOS boot or a media write.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
@@ -497,7 +508,7 @@ record is archived with the exact payload.
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
 | Trackpad | Native EHCI polling completed transfers. The first capture decoded zero type 2 frames. | Check feature-mode readback and short packet framing, then qualify motion and clicks |
-| USB workspace | The flash drive enumerates natively on `00:1d.7` and Ubuntu mounts it | Verify native block reads, then write/sync/unmount with Ubuntu readback |
+| USB workspace | Native USB block registration and MBR reads verified. The exFAT directory scan failed. | Isolate the exFAT import failure, then verify write, unmount and readback |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
