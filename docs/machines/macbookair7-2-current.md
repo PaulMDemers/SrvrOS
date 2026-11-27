@@ -286,14 +286,23 @@ engine or L3 acknowledgements. This run closes the Pipe A CPU register lease
 diagnostic. Sustained traffic blocking, GPU ownership and tear-free scanout
 remain open. Shared baseline `54632d47` was inspected for this run.
 
-The boot-handoff adapter now extends its CPU mapping guard across the
-1,356 inherited image pages and the 128-entry fetch tail. The last native
-log places this contiguous span at `0x8c001000–0x8c5cd000` (end exclusive).
-The guard also excludes the candidate backing and all seven firmware
-command pages. Host faults cover a discontinuous tail and CPU alias
-conflicts before reset. The next physical run must verify acquisition and
-release in the same PCI and display lifetime. GPU completion evidence is
-still required before a translation store.
+Physical release `25ba8230eafc61f4` (source `c9d74941`, session
+`session-0006614506b36a3d-00`) acquired and returned the VMM guard across
+reset and PCI reopening. It protected 1,356 inherited image pages and the
+128-entry fetch tail at `0x8c001000–0x8c5cd000` (end exclusive), plus the
+candidate backing and seven firmware command pages. Both engine queue
+checks matched. PCI command readback was `7,3,3,7`, the Pipe A mapping
+returned to read-only 2.181 ms after its first sample, and the original
+framebuffer stayed programmed. The run recorded zero display register
+stores and zero GPU page-table writes.
+
+The full guarded reset sequence took 227.216 ms under the wider diagnostic
+policy. The Air returned automatically to Ubuntu at 1% volume. The four raw
+file hashes, 2,031-byte timing report, and offline exFAT allocation verified.
+All 15 source-bound checks and four exact-image QEMU cases passed before
+boot. This closes the inherited CPU backing guard diagnostic. The
+device-side traffic block and fresh engine and L3 acknowledgements remain
+unverified, so the first native translation store is still gated.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
