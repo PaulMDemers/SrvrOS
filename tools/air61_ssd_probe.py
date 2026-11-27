@@ -2,11 +2,13 @@
 """Build the read-only Ubuntu reference and compare a native Air6,1 SSD receipt."""
 
 import hashlib
+import mmap
 import os
 from pathlib import Path
 import re
 import stat
 import struct
+import subprocess
 import uuid
 import zlib
 
@@ -16,6 +18,7 @@ SAMPLES = ((0, 34), (SECTORS - 33, 33), (2048, 1))
 RECEIPT = "srvros-work/air61-ssd-probe.log"
 PORT_RECEIPT = "srvros-work/air61-ssd-port-state.log"
 RESET_RECEIPT = "srvros-work/air61-ssd-port-reset.log"
+PREVIOUS_RESET_RECEIPT = "srvros-work/air61-ssd-port-reset-mounted-baseline.log"
 PCI = "0000:04:00.0"
 MODEL = "APPLE SSD SD0128F"
 EFI = uuid.UUID("c12a7328-f81f-11d2-ba4b-00a0c93ec93b").bytes_le
@@ -78,21 +81,40 @@ def verify_gpt(primary, backup):
     return len(partitions)
 
 
-def read_samples(fd):
-    data = [os.pread(fd, count * SECTOR, start * SECTOR) for start, count in SAMPLES]
+def _direct_read(fd, size, offset):
+    # The SSD has 4 KiB physical sectors. Read aligned windows and retain
+    # exactly the requested slice for the GPT and boot-sector hashes.
+    alignment = 4096
+    start = offset // alignment * alignment
+    skip = offset - start
+    capacity = (skip + size + alignment - 1) // alignment * alignment
+    with mmap.mmap(-1, capacity) as buffer:
+        require(os.preadv(fd, [buffer], start) == capacity, "Short direct SSD read")
+        return buffer[skip:skip + size]
+
+
+def _read_samples(fd, *, direct=False):
+    read = _direct_read if direct else os.pread
+    data = [read(fd, count * SECTOR, start * SECTOR) for start, count in SAMPLES]
     require(all(len(content) == count * SECTOR for (_, count), content in zip(SAMPLES, data)),
             "Short SSD read")
     partitions = verify_gpt(*data[:2])
     require(data[2][510:512] == b"\x55\xaa", "Missing ESP boot-sector signature")
-    return {
+    report = {
         "gpt": "PASS",
         "partitions": partitions,
         "samples": [dict(lba=lba, sectors=count, sha256=hashlib.sha256(content).hexdigest())
                     for (lba, count), content in zip(SAMPLES, data)],
     }
+    return report, data[2]
 
 
-def ubuntu_baseline(disk):
+def read_samples(fd):
+    report, _ = _read_samples(fd)
+    return report
+
+
+def _ubuntu_capture(disk, *, direct=False):
     disk = Path(disk).resolve(strict=True)
     model = Path("/sys/class/dmi/id/product_name").read_text().strip()
     require(model == "MacBookAir6,1", "Wrong machine model")
@@ -115,15 +137,73 @@ def ubuntu_baseline(disk):
     require(identify_model == MODEL and int((sysfs / "size").read_text()) == SECTORS and
             int((sysfs / "queue/logical_block_size").read_text()) == SECTOR,
             "SSD model or geometry mismatch")
-    fd = os.open(disk, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+    if direct:
+        flags |= os.O_DIRECT
+    fd = os.open(disk, flags)
     try:
         info = os.fstat(fd)
         require(stat.S_ISBLK(info.st_mode) and
                 f"{os.major(info.st_rdev)}:{os.minor(info.st_rdev)}" == (sysfs / "dev").read_text().strip(),
                 "Opened device does not match sysfs")
-        return read_samples(fd)
+        return _read_samples(fd, direct=direct)
     finally:
         os.close(fd)
+
+
+def ubuntu_baseline(disk):
+    report, _ = _ubuntu_capture(disk)
+    return report
+
+
+def _find_efi(*args):
+    result = subprocess.run(("findmnt", "-rn", *args), capture_output=True, text=True, timeout=10)
+    require(result.returncode in (0, 1) and not result.stderr, "Could not verify EFI mount state")
+    return result.stdout.splitlines()
+
+
+def _efi_mount(disk, mountpoint):
+    rows = _find_efi("-M", str(mountpoint), "-o", "SOURCE,FSTYPE,OPTIONS")
+    require(len(rows) == 1, "Expected a single mounted EFI filesystem")
+    fields = rows[0].split()
+    require(len(fields) == 3 and fields[1] == "vfat" and "rw" in fields[2].split(","),
+            "Expected the normal writable Ubuntu EFI mount")
+    partition = Path(fields[0]).resolve(strict=True)
+    sysfs = Path("/sys/class/block")
+    identity = (sysfs / partition.name).resolve(strict=True)
+    backing = (sysfs / Path(disk).resolve(strict=True).name).resolve(strict=True)
+    require(identity.parent == backing and int((identity / "start").read_text()) == SAMPLES[2][0],
+            "EFI mount does not match the SSD boot-sector sample")
+    fstab = _find_efi("--fstab", "--evaluate", "-M", str(mountpoint), "-o", "SOURCE,FSTYPE")
+    fields_fstab = fstab[0].split() if len(fstab) == 1 else []
+    require(len(fields_fstab) == 2 and fields_fstab[1] == "vfat" and
+            Path(fields_fstab[0]).resolve(strict=True) == partition,
+            "EFI fstab entry does not match the mounted partition")
+    require(_find_efi("-S", str(partition), "-o", "TARGET") == [str(mountpoint)],
+            "EFI partition has another mount")
+    return partition, frozenset(fields[2].split(","))
+
+
+def clean_ubuntu_reference(disk, mountpoint=Path("/boot/efi")):
+    """Capture the whole sector in each mount state and restore Ubuntu's EFI mount."""
+    partition, options = _efi_mount(disk, mountpoint)
+    # The raw disk and its mounted partition can have different page-cache
+    # entries. Bypass the raw-device cache on both sides of the clean unmount.
+    mounted, mounted_sector = _ubuntu_capture(disk, direct=True)
+    try:
+        subprocess.run(("umount", "--", str(mountpoint)), check=True, timeout=20)
+        require(not _find_efi("-M", str(mountpoint)) and not _find_efi("-S", str(partition)),
+                "EFI partition is still mounted")
+        clean, clean_sector = _ubuntu_capture(disk, direct=True)
+        require(not _find_efi("-M", str(mountpoint)) and not _find_efi("-S", str(partition)),
+                "EFI partition was mounted during the clean capture")
+        require(clean["samples"][:2] == mounted["samples"][:2], "GPT changed across the EFI unmount")
+    finally:
+        if not _find_efi("-M", str(mountpoint)):
+            require(not _find_efi("-S", str(partition)), "EFI moved to another mount during capture")
+            subprocess.run(("mount", "--", str(mountpoint)), check=True, timeout=20)
+        require(_efi_mount(disk, mountpoint) == (partition, options), "Ubuntu EFI mount was not restored")
+    return clean, clean_sector, mounted_sector
 
 
 def probe_profile(release, volume, port_state, reset=False):

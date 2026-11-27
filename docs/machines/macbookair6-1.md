@@ -15140,3 +15140,37 @@ entry point and loadable segments and fits without retiring a release. Both
 earlier USB receipts match their archives. The native reset is staged and
 unarmed. The collector distinguishes a complete reset trace from an accepted
 read-only SSD probe and compares any native samples to the Ubuntu baseline.
+
+Native release `5ee3b01c4297be04` returned automatically. The trace verified
+one COMRESET held for 1,001 µs and a ready SATA link with fresh D2H status
+4,035 µs after release. BSY cleared, IDENTIFY matched the expected Apple SSD,
+and the probe read all 68 sectors without mounting the disk or issuing ATA
+writes. The primary and backup GPT range hashes matched Ubuntu exactly. The
+EFI boot sector at LBA 2048 differed, so the full three-sample check failed.
+
+Ubuntu's GPT checks passed and all three Ubuntu reference hashes matched before
+and after. The EFI partition is mounted read-write during those reference
+reads. Linux changes the FAT32 boot-sector dirty flag on writable mount and
+clean unmount. That is a plausible explanation for the single differing hash.
+The archived measurements contain digests, so the differing bytes are still
+unidentified. The next comparison should use the complete EFI sector after
+Ubuntu has cleanly unmounted the partition. All three USB receipts match the
+archives, the previous recovery payload matches its backup, and the one-shot
+was consumed. [Linux FAT implementation](https://github.com/torvalds/linux/blob/master/fs/fat/inode.c)
+
+#### Clean EFI sector comparison
+
+Starting at `ae1a64d8` (PR557), repeat the installed `5ee3b01c4297be04` payload
+with Ubuntu references acquired after cleanly unmounting `/boot/efi` before
+and after the trial. Retain the complete raw EFI sectors and exact digests,
+including a mounted snapshot for comparison. Scope is Ubuntu reference and
+receipt handling. The existing kernel, reset sequence, and deadlines remain
+the same. Archive the first reset receipt before reusing its USB filename.
+
+The launcher reuses the verified installed image from PR557 and leaves the
+current and recovery entries in place. Host checks cover aligned direct reads,
+exact sector slices, normal restoration, capture failure, unmount refusal and
+unexpected alternate mounts. The same exact-image VM refusal check passed.
+The native rerun is staged and unarmed. Ubuntu will save mounted and unmounted
+sector bytes at both endpoints. The collector requires the clean references to
+match and compares all three native digests against the clean reference.

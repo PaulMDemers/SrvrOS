@@ -38,6 +38,15 @@ active link and fresh device status before it starts the command engine. The
 existing IDENTIFY, read and polling bounds apply. The standalone stage saves
 its own USB receipt and leaves the internal SSD unmounted. [Intel AHCI specification, §10.4.2](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/serial-ata-ahci-spec-rev1-3-1.pdf)
 
+For a repeat of the exact EFI boot-sector comparison, use the clean Ubuntu
+reference helper. It verifies that `/boot/efi` is the sampled partition,
+captures the mounted sector, performs a normal unmount, and hashes the full
+sector while the partition is unmounted. It saves the raw sectors for byte
+comparison and restores Ubuntu's configured EFI mount, including after a
+failed read. The native hash must match the clean sector exactly. The FAT
+mount-state byte is available for analysis without altering the comparison.
+Aligned direct reads bypass the raw block-device page cache at both endpoints.
+
 ## Install with console sign-in
 
 For a new identity-bound installation that should start at the local console
