@@ -1793,6 +1793,17 @@ recovery. Evidence, the three comparisons and the verified payload
 are archived locally under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-ae5625fa39f5b7de`.
 
+The next comparison starts at `4182fac8` (integration base
+`50f1978a`, upstream inspected at `61111819`). The cold Linux trace
+records the byte write `0x015=0xe9` twice, with the first write
+3,541 µs before the first successful USB payload. SrvrOS reads
+`0xa9` at armed receive. Linux groups its write with the MAC
+loopback fix in post-calibration hardware configuration. In the
+opt-in RTL8188CUS xHCI path, match just that byte after LC with an
+exact guard and readback. Keep CR `0x02ba`, TX paused, the 4 KiB
+request and all three hub ports. Qualify native refusal and both
+log sinks before the cold run. [Linux CU hardware configuration](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L767-L780)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
