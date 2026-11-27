@@ -122,6 +122,9 @@ static struct {
     uint64_t event_trb;
     unsigned events,event_code,event_residue;
     uint32_t rx_cr;
+    uint32_t early_rx_before,early_rx_after;
+    uint64_t early_rx_us;
+    unsigned early_rx_reads;
     uint32_t startup_rf_channel;
     uint64_t profile_wait_us;
     unsigned profile_waits;
@@ -319,6 +322,10 @@ static void rtl_cu_rx_log(void) {
         console_printf("rtl8188cu-xtal: %u %u %x\n",(uint64_t)rtl_passive.xtal_ready,
             (uint64_t)rtl_passive.xtal_reads,((uint64_t)rtl_passive.xtal_before<<32)|rtl_passive.xtal_after);
     rtl8188cu_power_log(rtl_passive.owner,"passive");
+    if(rtl_passive.early_rx_reads)
+        console_printf("rtl8188cu-rx-timing: %u %x %u %u\n",(uint64_t)rtl_passive.early_rx_reads,
+            ((uint64_t)rtl_passive.early_rx_before<<32)|rtl_passive.early_rx_after,
+            rtl_passive.early_rx_us,rtl_passive.started_us);
     for(unsigned i=0;i<RTL_CU_SAMPLE_COUNT;i++) {
         const struct rtl_cu_rx_sample *s=&rtl_passive.samples[i];
         if(!s->present)continue;
@@ -384,6 +391,22 @@ static bool rtl_cu_tx_parked(struct xhci_device *d) {
     uint32_t mac,pause;
     return rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&mac) && !(mac&RTL_CU_TX_GATES) &&
         rtl8188cu_read(d,RTL_CU_TX_PAUSE,1,&pause) && pause==0xff;
+}
+
+static bool rtl_cu_open_rx_early(struct xhci_device *d) {
+    /* APSD is ready, the packet buffer is built, and RF is still off.
+     * Start the receive blocks before baseband programming. */
+    uint32_t rf;
+    if(!rtl_cu_tx_parked(d) || !rtl8188cu_read(d,RTL8188CU_RF_CONTROL,1,&rf) ||
+       (rf&RTL8188CU_RF_ENABLE) || !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&rtl_passive.early_rx_before))
+        return false;
+    rtl_passive.early_rx_reads=1;
+    if(rtl_passive.early_rx_before || !rtl8188cu_write_value(d,RTL8188CU_MAC_CONTROL,1,RTL_CU_RX_ENABLE) ||
+       !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&rtl_passive.early_rx_after))return false;
+    rtl_passive.early_rx_reads=2;
+    if(rtl_passive.early_rx_after!=RTL_CU_RX_ENABLE)return false;
+    rtl_passive.early_rx_us=timer_monotonic_us();
+    return true;
 }
 
 /* The CU packet buffer needs its page links even with MAC TX and TX DMA
@@ -467,7 +490,7 @@ static bool rtl_cu_capture_phy_radio(struct xhci_device *d) {
 
 static bool rtl_cu_apply_iq_matrix(struct xhci_device *d) {
     /* Retained path-A matrix from the working Linux capture on this board.
-     * The MAC gates stay closed and none of the IQK trigger registers are written. */
+     * TX stays parked and none of the IQK trigger registers are written. */
     static const struct { uint16_t address; uint32_t mask,value; } fields[RTL_CU_IQ_FIELDS]={
         [RTL_CU_IQ_RX]={RTL_CU_RX_IQ,0x0000ffff,0x04f7},
         [RTL_CU_IQ_RX_EXT]={RTL_CU_RX_IQ_EXT,0xf0000000,0},
@@ -478,7 +501,7 @@ static bool rtl_cu_apply_iq_matrix(struct xhci_device *d) {
     rtl_passive.iq_attempted=true;
     uint32_t mac,sifs_before=0,iq_mode=0,e4c_before=0;
     if(!rtl_cu_tx_parked(d) || !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&mac) ||
-       (mac&RTL_CU_RX_ENABLE))return false;
+       mac!=RTL_CU_RX_ENABLE)return false;
     for(unsigned i=0;i<RTL_CU_IQ_STARTUP_COUNT;i++) {
         uint16_t address=rtl_cu_iq_startup_regs[i];
         if(!rtl8188cu_read(d,address,4,&rtl_passive.iq_startup[i]))return false;
@@ -533,7 +556,7 @@ static bool rtl_cu_post_profile_lc(struct xhci_device *d,struct xhci_device *hub
     /* Use the normal 1T LC branch observed on this board. No IQK test
      * transmission, RF mode override or TX queue release is needed. */
     if(!rtl_cu_tx_parked(d) ||
-       !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&mac) || (mac&RTL_CU_RX_ENABLE) ||
+       !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&mac) || mac!=RTL_CU_RX_ENABLE ||
        !rtl8188cu_read(d,0xd03,1,&test_mode) || (test_mode&0x70) ||
        !rtl8188cu_write_value(d,0x840,4,0x01800000u|RTL_CU_RF_START_CHANNEL|RTL_CU_LC_START))return false;
     rtl_passive.post_lc_triggered=true;
@@ -607,6 +630,7 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
        !rtl8188cu_power_sample(d,RTL8188CU_POWER_AFTER_RF_RELEASE) ||
        !rtl8188cu_update(d,0x600,1,1u<<6,0) ||
        !rtl8188cu_poll(d,0x600,1,1u<<7,0,32,&state) ||
+       !rtl_cu_open_rx_early(d) ||
        !rtl8188cu_update(d,RTL8188CU_SYS_FUNC,2,0,0x2003) ||
        !rtl8188cu_write_value(d,0x28,1,0x83) || !rtl8188cu_write_value(d,0x29,1,0xdb) ||
        !rtl8188cu_write_value(d,RTL8188CU_RF_CONTROL,1,7) ||
@@ -732,10 +756,10 @@ static void rtl_cu_rx_inspect(const uint8_t *data,size_t length) {
 }
 
 static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
-    if(!rtl_cu_tx_parked(d) || !rtl8188cu_update(d,RTL8188CU_MAC_CONTROL,1,0,RTL_CU_RX_ENABLE) ||
+    if(!rtl_cu_tx_parked(d) ||
        !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,1,&rtl_passive.rx_cr))return false;
     rtl_passive.rx_cr_valid=true;
-    if((rtl_passive.rx_cr&(RTL_CU_RX_ENABLE|RTL_CU_TX_GATES))!=RTL_CU_RX_ENABLE)return false;
+    if(rtl_passive.rx_cr!=RTL_CU_RX_ENABLE)return false;
     for(unsigned i=0;i<RTL_CU_ENABLE_COUNT;i++) {
         if(!rtl8188cu_read(d,rtl_cu_enable_regs[i].address,rtl_cu_enable_regs[i].width,
                           &rtl_passive.enable_regs[i]))return false;
@@ -831,6 +855,8 @@ bool xhci_rtl8188cu_capture_passive(const uint8_t *blob,uint64_t size) {
                     if(rtl_passive.enable_reads==RTL_CU_ENABLE_COUNT &&
                        rtl_passive.enable_regs[RTL_CU_ENABLE_XTAL]!=RTL_CU_AFE_XTAL_LINUX)result="xtal-drift";
                 }
+            } else if(rtl_passive.early_rx_reads && rtl_passive.early_rx_after!=RTL_CU_RX_ENABLE) {
+                result="early-rx-gate";
             } else if(rtl_passive.xtal_attempted && !rtl_passive.xtal_ready) {
                 result="xtal";
             } else if(rtl_passive.aps_attempted && !rtl_passive.aps_ready)result="mac-power";
