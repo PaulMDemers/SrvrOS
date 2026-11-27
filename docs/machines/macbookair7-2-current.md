@@ -408,6 +408,13 @@ and missing ACPI vector refused the trial. The review image was staged
 locally. Ubuntu and installed recovery `9aa8dbf6fbda8252` were left in place
 with an empty GRUB one-shot entry.
 
+The authorized physical checkpoint uses the same GT flush recipe after
+reviewing main `dc4a48d3`, which changes the separate Air6,1 storage trial.
+It will save the pre-reopen slot 12292 observations to the Air7,2 exFAT
+workspace at the existing 1% host volume. The follow-up will compare the
+saved WiDi, GAM, translation, Pipe A and SMI samples with the held owner
+requirements for a native rollback. This run changes no GGTT entries.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
