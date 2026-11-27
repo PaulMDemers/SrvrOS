@@ -286,6 +286,12 @@ engine or L3 acknowledgements. This run closes the Pipe A CPU register lease
 diagnostic. Sustained traffic blocking, GPU ownership and tear-free scanout
 remain open. Shared baseline `54632d47` was inspected for this run.
 
+The next boot-handoff step extends the existing CPU mapping guard across
+the full inherited physical scanout backing, including the 128-entry fetch
+tail. Scope is the Air range adapter, its receipt and local qualification.
+The guard continues to exclude the candidate backing and firmware command
+pages. GPU completion evidence is still required before a translation store.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
