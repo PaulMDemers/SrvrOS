@@ -263,6 +263,10 @@ static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x1
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000};
 #endif
 struct wake_adapter {struct fw_observer fw;bool mapped[WAKE_MAPS],uncertain;unsigned maps,retired,guards,cache_checks;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ bool park_releasing;
+ uint64_t park_request_store_us;
+#endif
 #ifdef SRVROS_INTEL_HDA_SHUTDOWN
  struct shutdown_trial *shutdown_trial;
  struct intel_gt_access *shutdown_owner;
@@ -411,7 +415,11 @@ static enum intel_gt_write wake_write(void *context,uint32_t reg,uint32_t value)
     struct wake_adapter *a=context;
     if(reg!=INTEL_GT_REQUEST || (value!=0xffff0000u && value!=0x10001 && value!=0x10000) || !a->mapped[0] || !wake_guard(a))return GT_WRITE_NONE;
 #ifdef SRVROS_INTEL_HDA_PAIR
-    if(!now(a))return GT_WRITE_NONE;
+    uint64_t at=now(a);
+    if(!at)return GT_WRITE_NONE;
+#ifdef SRVROS_INTEL_GT_FLUSH
+    if(a->park_releasing && value==0x10000)a->park_request_store_us=at;
+#endif
 #endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
     return intel_display_test_wake_write(value);

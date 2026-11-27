@@ -333,6 +333,12 @@ class FlushAcknowledgements(unittest.TestCase):
         cold = park['cold']
         self.assertEqual(cold['residency_delta_mod32'], 4000)
         self.assertEqual(cold['wake']['writes'], 2)
+        wake = cold['wake']
+        self.assertEqual(wake['v'], 2)
+        self.assertLessEqual(wake['write_enter_us'], wake['store_us'])
+        self.assertLessEqual(wake['store_us'], wake['write_exit_us'])
+        self.assertLessEqual(wake['write_exit_us'], wake['ack_clear_us'])
+        self.assertLessEqual(wake['ack_clear_us'], wake['guard_exit_us'])
         self.assertLessEqual(cold['samples'][1]['end'], cold['wake']['rewake_us'])
         origin = park['summary']['poll_origin_us']
         self.assertGreaterEqual(cold['samples'][1]['begin'], origin + 5000)
@@ -351,6 +357,11 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertFalse(park['complete'])
         self.assertEqual(park['cold']['wake']['rewake_us'], 0)
         self.assertEqual(retained['reset']['reset_writes'], 0)
+        late = bootstrap_result(observe('park-cold-release-late'))
+        park = late['flush']['park']
+        self.assertEqual(park['cold']['deadline_phase'], 'closing_guard')
+        self.assertFalse(park['complete'])
+        self.assertEqual(late['reset']['reset_writes'], 0)
 
     def test_air_post_reset_baseline_refuses_software_park(self):
         flush = bootstrap_result(observe('park-reset-reasons'))['flush']

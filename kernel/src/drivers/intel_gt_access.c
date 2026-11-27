@@ -32,9 +32,16 @@ static bool write_request(struct intel_gt_access *g,uint32_t value,bool idle) {
     if(!guarded(g) || !clock_ok(g,g->last))return false;
     unsigned *attempts = idle ? &g->idle_attempts : &g->write_attempts;
     unsigned *writes = idle ? &g->idle_writes : &g->writes;
+    bool releasing = idle && value == 0x10000u;
+    if(releasing)g->idle_release.write_enter_us=g->last;
     ++*attempts;
     enum intel_gt_write result=g->io.write(g->io.context,INTEL_GT_REQUEST,value);
-    if(result==GT_WRITE_DONE){++*writes;return clock_ok(g,g->last);}
+    if(result==GT_WRITE_DONE) {
+        ++*writes;
+        if(!clock_ok(g,g->last))return false;
+        if(releasing)g->idle_release.write_exit_us=g->last;
+        return true;
+    }
     /* Only a definitely unissued FIRST write can drop the pin immediately.
      * After initialization even a later zero-write refusal needs recovery. */
     if(!idle && result==GT_WRITE_NONE && !g->writes && g->write_attempts==1) {
@@ -45,7 +52,8 @@ static bool write_request(struct intel_gt_access *g,uint32_t value,bool idle) {
 static bool write_reg(struct intel_gt_access *g,uint32_t value) {
     return write_request(g,value,false);
 }
-static bool wait_state_until(struct intel_gt_access *g,uint32_t desired,bool c0,uint64_t deadline) {
+static bool wait_state_until(struct intel_gt_access *g,uint32_t desired,bool c0,uint64_t deadline,
+                             struct intel_gt_release_timing *release) {
     uint64_t phase=g->last;
     for(unsigned i=0;i<GT_ACCESS_POLL_CAP;i++) {
         g->polls++;
@@ -56,8 +64,12 @@ static bool wait_state_until(struct intel_gt_access *g,uint32_t desired,bool c0,
          * appearance is ownership loss, never a bit we may clear or borrow. */
         if((g->requests&0xffffu)!=desired || (g->ack&~1u))return fail(g,GT_ACCESS_FOREIGN);
         if(g->ack==desired) {
-            if(!c0)return guarded(g) && clock_ok(g,phase) &&
-                (g->last<=deadline || fail(g,GT_ACCESS_TIMEOUT));
+            if(!c0) {
+                if(release)release->ack_clear_us=g->last;
+                if(!guarded(g) || !clock_ok(g,phase))return false;
+                if(release)release->guard_exit_us=g->last;
+                return g->last<=deadline || fail(g,GT_ACCESS_TIMEOUT);
+            }
             if(!read_reg(g,INTEL_GT_THREAD,&g->thread))return false;
             if(!(g->thread&7))return guarded(g) && clock_ok(g,phase) &&
                 (g->last<=deadline || fail(g,GT_ACCESS_TIMEOUT));
@@ -67,7 +79,7 @@ static bool wait_state_until(struct intel_gt_access *g,uint32_t desired,bool c0,
     return fail(g,GT_ACCESS_TIMEOUT);
 }
 static bool wait_state(struct intel_gt_access *g,uint32_t desired,bool c0) {
-    return wait_state_until(g,desired,c0,UINT64_MAX);
+    return wait_state_until(g,desired,c0,UINT64_MAX,0);
 }
 static bool open_access(struct intel_gt_access *g,const struct display_access_token *t,
                         uint32_t grants,struct intel_gt_io io,bool guarded_snapshot) {
@@ -141,7 +153,10 @@ bool intel_gt_access_idle_diagnostic(struct intel_gt_access *g,const struct inte
        !intel_gt_access_check(g) || g->last>=deadline)return false;
     /* The HDA parent accepts OPENING, while all awake access paths refuse it. */
     g->state=GT_ACCESS_OPENING;
-    if(!write_request(g,0x10000u,true) || !wait_state_until(g,0,false,deadline))return false;
+    bool released=write_request(g,0x10000u,true) &&
+        wait_state_until(g,0,false,deadline,&g->idle_release);
+    g->idle_release.stop_us=g->last;
+    if(!released)return false;
     bool observed=observe(context);
     if(!read_pair(g) || (g->requests&0xffffu) || g->ack)return fail(g,GT_ACCESS_FOREIGN);
     /* Reacquire the original request to permit safe policy rollback even

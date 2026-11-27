@@ -300,8 +300,10 @@ static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
     unsigned first = 0;
     if (park_cold_trial()) {
         if (begin > UINT64_MAX - BDW_TRAFFIC_BLOCK_US) return false;
+        a->park_releasing = true;
         bool observed = intel_gt_access_idle_diagnostic(g,&gt_bootstrap_native.borrow,
                             begin+BDW_TRAFFIC_BLOCK_US,park_observe_cold,NULL);
+        a->park_releasing = false;
         if (g->state == GT_ACCESS_AWAKE && g->idle_writes == 2) air_park.rewake_us = g->last;
         if (!observed || !park_owner(a,g) || !bootstrap_guard()) return false;
         first = PARK_COLD_FIRST_POLL;
@@ -383,8 +385,12 @@ static void park_report(void)
             console_printf("intel-park-rc6: v=1 n=%u begin=%u end=%u core=%x residency=%x\n",
                 (uint64_t)n,p->begin_us,p->end_us,(uint64_t)p->core_status,(uint64_t)p->residency);
         }
-        console_printf("intel-park-forcewake: v=1 attempted=%u writes=%u rewake_us=%u\n",
-            (uint64_t)(g ? g->idle_attempts : 0),(uint64_t)(g ? g->idle_writes : 0),air_park.rewake_us);
+        struct intel_gt_release_timing release = g ? g->idle_release : (struct intel_gt_release_timing){0};
+        uint64_t store_us = air_park.adapter ? air_park.adapter->park_request_store_us : 0;
+        console_printf("intel-park-forcewake: v=2 attempted=%u writes=%u rewake_us=%u write_enter_us=%u store_us=%u write_exit_us=%u ack_clear_us=%u guard_exit_us=%u stop_us=%u\n",
+            (uint64_t)(g ? g->idle_attempts : 0),(uint64_t)(g ? g->idle_writes : 0),air_park.rewake_us,
+            release.write_enter_us,store_us,release.write_exit_us,release.ack_clear_us,release.guard_exit_us,
+            release.stop_us);
     }
     for (unsigned i=0; i<air_park.frames_used; ++i) {
         const struct park_frame *f = &air_park.frames[i];
@@ -394,7 +400,7 @@ static void park_report(void)
             (uint64_t)i,(uint64_t)f->op,f->begin,f->end,(uint64_t)f->count,encoded);
     }
     console_printf("intel-park: v=%u poll_origin_us=%u returned_us=%u prepare_us=%u smi_checks=%u smi_last=%u panel_checks=%u plane=%x surface=%x live=%x attempts=%u returns=%u opened=%u unmapped=%u sampled=%u held=%u reopened=%u returned=%u ctl=%x target=%x set_ctl=%x set_target=%x final_ctl=%x final_target=%x restore_ctl=%x restore_target=%x\n",
-        (uint64_t)(park_cold_trial() ? 4 : 3),air_park.poll_origin_us,air_park.returned_us,air_park.prepare_us,(uint64_t)air_park.smi_checks,(uint64_t)air_park.smi_last,
+        (uint64_t)(park_cold_trial() ? 5 : 3),air_park.poll_origin_us,air_park.returned_us,air_park.prepare_us,(uint64_t)air_park.smi_checks,(uint64_t)air_park.smi_last,
         (uint64_t)air_park.panel_checks,(uint64_t)air_park.plane,(uint64_t)air_park.surface,(uint64_t)air_park.live,
         (uint64_t)air_park.attempts,(uint64_t)air_park.returns,(uint64_t)air_park.mapped,
         (uint64_t)air_park.unmapped,(uint64_t)air_park.sampled,(uint64_t)air_park.held,

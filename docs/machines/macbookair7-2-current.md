@@ -113,6 +113,12 @@ reviewing both sessions. The release path needs separate timestamps for the
 store, the first clear ACK and the closing guard to determine where the
 10 ms budget was spent.
 
+The follow-up adds release timing to the GT access core and park receipt.
+It records entry to the guarded write, the adapter timestamp immediately
+before the store, the completed write callback, the first verified clear
+request and ACK, and the closing guard. The original 10 ms deadline
+still governs the observation.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

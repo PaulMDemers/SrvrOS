@@ -50,6 +50,9 @@ struct intel_gt_io {
      * No submission, reset, ownership or asynchronous-context permission. */
     bool (*snapshot)(void *,uint32_t *,uint32_t *,uint32_t *);
 };
+struct intel_gt_release_timing {
+    uint64_t write_enter_us, write_exit_us, ack_clear_us, guard_exit_us, stop_us;
+};
 struct intel_gt_access {
     const struct intel_gt_access *object;
     struct display_access_token exclusion;
@@ -60,6 +63,7 @@ struct intel_gt_access {
     uint32_t clock_cause,snapshots;
     uint32_t state,reason,requests,ack,thread,write_attempts,writes,polls;
     unsigned idle_attempts, idle_writes;
+    struct intel_gt_release_timing idle_release;
     bool pinned,guarded_snapshot;
     unsigned borrows;
     /* Engine observations cannot cross a possibly issued destructive reset.

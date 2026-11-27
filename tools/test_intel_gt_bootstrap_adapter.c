@@ -575,6 +575,14 @@ static bool intel_display_test_bootstrap_expected(void) {
 #endif
  return !strcmp(bootstrap_mode,"pass") || !strcmp(bootstrap_mode,"preserved") || !strcmp(bootstrap_mode,"maintain-slow") || !strcmp(bootstrap_mode,"seconds-slow") || !strcmp(bootstrap_mode,"practical-slow");}
 static bool intel_display_test_bootstrap_clock(uint64_t *out) {
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(!strcmp(bootstrap_mode,"park-cold-release-late") && air_park.owner && air_park.adapter->park_releasing &&
+    air_park.owner->idle_release.ack_clear_us && !air_park.owner->idle_release.guard_exit_us &&
+    ticks-air_park.owner->idle_release.ack_clear_us<BDW_TRAFFIC_BLOCK_US) {
+  *out=(ticks+=BDW_TRAFFIC_BLOCK_US);
+  return true;
+ }
+#endif
  if(!gt_bootstrap_native.returned || gt_bootstrap_native.complete || hit)return false;
  if(bf("return-zero",1))*out=0;
  else if(bf("return-back",1))*out=gt_bootstrap_native.last-1;
@@ -1171,6 +1179,12 @@ int main(int argc,char **argv) {
   assert(air_park.cold_count==2 && air_park.owner->idle_writes==2 && !air_park.rewake_us &&
          !air_park.returned && !air_park.returns && !pulses && !bcs_stop.writes &&
          intel_gt_wake_retained() && !display_access_allowed());
+  return code;
+ }
+ if(!strcmp(bootstrap_mode,"park-cold-release-late")) {
+  assert(!air_park.cold_count && air_park.owner->idle_writes==1 && !air_park.rewake_us &&
+         air_park.owner->reason==GT_ACCESS_TIMEOUT && !air_park.returns && !pulses &&
+         !bcs_stop.writes && intel_gt_wake_retained() && !display_access_allowed());
   return code;
  }
  if(!strcmp(bootstrap_mode,"idle-drift") || !strcmp(bootstrap_mode,"idle-capture-mismatch") || !strcmp(bootstrap_mode,"idle-apply-mismatch") ||
