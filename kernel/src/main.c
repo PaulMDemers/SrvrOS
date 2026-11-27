@@ -17,6 +17,7 @@
 #include <srvros/workspace_image.h>
 #include <srvros/workspace_log.h>
 #include <srvros/battery_diagnostic.h>
+#include <srvros/battery_service.h>
 #include <srvros/desktop_session.h>
 #include <srvros/laptop_probe.h>
 #include <srvros/backlight.h>
@@ -1025,8 +1026,19 @@ static bool ehci_saved_document(const char *path, const uint8_t *seed, uint64_t 
 }
 
 enum ehci_workspace_trial {
-    EHCI_WORKSPACE_FILE, EHCI_WORKSPACE_BRIGHTNESS, EHCI_WORKSPACE_AUDIO, EHCI_WORKSPACE_TELEMETRY
+    EHCI_WORKSPACE_FILE, EHCI_WORKSPACE_BRIGHTNESS, EHCI_WORKSPACE_AUDIO, EHCI_WORKSPACE_TELEMETRY, EHCI_WORKSPACE_BATTERY
 };
+
+static bool ehci_battery_report(const char *phase) {
+    struct battery_service_status status;
+    smc_battery_status(&status);
+    bool fresh=(status.flags&BATTERY_CACHE_FRESH)!=0,ac=(status.flags&BATTERY_CACHE_AC_PRESENT)!=0;
+    console_printf("pro81-battery: phase=%s state=%u fresh=%u ac=%u generation=%u soc=%u voltage_uv=%u current_ua=%d remaining_uah=%u full_uah=%u attempts=%u rejected=%u error=%u\n",
+        phase,(uint64_t)status.state,(uint64_t)fresh,(uint64_t)ac,status.sample.generation,
+        (uint64_t)status.sample.relative_soc,status.sample.voltage_uv,status.sample.current_ua,
+        status.sample.remaining_capacity,status.sample.full_capacity,status.attempts,status.rejected,(uint64_t)status.error);
+    return fresh && ac && status.sample.current_ua>=0;
+}
 
 struct ehci_telemetry_sample {
     uint64_t cpu_samples, fan_samples;
@@ -1062,8 +1074,8 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
     for (unsigned i = 0; i < 16; i++) path[sizeof("/work/srvros-work/ehci-desktop-") - 1 + i] = release[i];
     boot_set_framebuffer_quiet(false);
     bool file_trial=kind==EHCI_WORKSPACE_FILE, audio_trial=kind==EHCI_WORKSPACE_AUDIO;
-    bool telemetry_trial=kind==EHCI_WORKSPACE_TELEMETRY;
-    if (!file_trial && !telemetry_trial) laptop_pro81_brightness_init();
+    bool telemetry_trial=kind==EHCI_WORKSPACE_TELEMETRY,battery_trial=kind==EHCI_WORKSPACE_BATTERY;
+    if (!file_trial && !telemetry_trial && !battery_trial) laptop_pro81_brightness_init();
     if (audio_trial) {
         audio_init_pro81();
         struct srv_audio_status audio;
@@ -1086,6 +1098,19 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
         }
         first=ehci_telemetry_report("startup");
     }
+    if (battery_trial) {
+        console_write("Starting the battery and charger trial. Keep the charger and flash drive connected until prompted.\n");
+        console_sync();
+        smc_battery_init();
+        uint64_t start=timer_monotonic_us();
+        struct battery_service_status status;
+        smc_battery_status(&status);
+        while(status.state==BATTERY_SERVICE_STARTING && timer_monotonic_us()-start<2000000) {
+            scheduler_yield();
+            smc_battery_status(&status);
+        }
+        ehci_battery_report("startup");
+    }
     ehci_desktop_startup_trace(release, trackpad_ready);
     bool mounted = ehci_desktop_workspace_start(volume);
     bool checkpoint_saved = mounted && ehci_desktop_workspace_report(release, true);
@@ -1097,16 +1122,20 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
         vfs_read_all(checklist, &seed, &seed_size) && exfat_write_file(path, seed, seed_size) && workspace_flush_committed();
     __asm__ volatile ("sti" : : : "memory");
     console_printf("ehci-desktop: opening desktop release=%s\n", release);
-    const char *desktop_args=telemetry_trial?"--ehci-telemetry-trial":audio_trial?"--ehci-audio-trial":
+    const char *desktop_args=battery_trial?"--ehci-battery-trial":telemetry_trial?"--ehci-telemetry-trial":audio_trial?"--ehci-audio-trial":
         file_trial?args:"--ehci-brightness-trial";
     bool desktop_passed = (!file_trial || seeded) && timer_running &&
         process_run_elf_args("/fat/bin/deskd",desktop_args);
     bool sound_quiet = audio_trial && audio_listen_control(SRV_AUDIO_STOP,0) && audio_pro81_quiet();
-    bool smc_stopped = telemetry_trial && smc_quiesce();
+    bool smc_stopped = (telemetry_trial || battery_trial) && smc_quiesce();
     bool retired = ehci_desktop_trackpad_stop();
     __asm__ volatile ("cli" : : : "memory");
     bool checked=false;
-    if (telemetry_trial) {
+    if (battery_trial) {
+        bool reconnected=ehci_battery_report("final");
+        checked=desktop_passed && reconnected && smc_stopped;
+        console_printf("pro81-battery: result=%s smc_quiesced=%u\n",checked?"PASS":"INCOMPLETE",(uint64_t)smc_stopped);
+    } else if (telemetry_trial) {
         struct ehci_telemetry_sample last=ehci_telemetry_report("final");
         checked=first.fresh && last.fresh && last.cpu_samples>=first.cpu_samples+10 &&
             last.fan_samples>=first.fan_samples+10 && smc_stopped;
@@ -1134,7 +1163,7 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
             checked?"PASS":"INCOMPLETE",audio.tests_started,audio.tests_completed,(uint64_t)audio.last_position,
             (uint64_t)sound_quiet,(uint64_t)audio.error);
     }
-    bool input_checked = telemetry_trial || (trackpad_ready && ehci_desktop_trackpad_verified());
+    bool input_checked = telemetry_trial || battery_trial || (trackpad_ready && ehci_desktop_trackpad_verified());
     bool passed = checkpoint_saved && input_checked && desktop_passed && retired && checked;
     console_printf("ehci-desktop: release=%s result=%s desktop=%s retirement=%s\n", release,
         passed ? "PASS" : "INCOMPLETE", desktop_passed ? "passed" : "unverified", retired ? "safe" : "unverified");
@@ -1143,7 +1172,7 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
         ehci_desktop_workspace_report(release, false);
     bool flash_retired = ehci_desktop_workspace_stop();
     console_printf("ehci-desktop-%s: report=%s flash-retirement=%s\n",
-        telemetry_trial?"telemetry":audio_trial?"audio":file_trial?"file":"brightness",
+        battery_trial?"battery":telemetry_trial?"telemetry":audio_trial?"audio":file_trial?"file":"brightness",
         saved ? "saved" : "unverified",
         flash_retired ? "safe" : "unverified");
     ehci_desktop_return(saved && retired && flash_retired, checkpoint_saved);
@@ -1160,7 +1189,8 @@ void kmain(void) {
     bool ehci_brightness_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-brightness");
     bool ehci_audio_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-audio");
     bool ehci_telemetry_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-telemetry");
-    const char *ehci_workspace_mode = ehci_telemetry_trial ? "desktop-telemetry" :
+    bool ehci_battery_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-battery");
+    const char *ehci_workspace_mode = ehci_battery_trial ? "desktop-battery" : ehci_telemetry_trial ? "desktop-telemetry" :
         ehci_audio_trial ? "desktop-audio" : ehci_brightness_trial ? "desktop-brightness" :
         ehci_file_trial ? "desktop-file" : NULL;
     bool ehci_desktop_trace = ehci_workspace_mode || cmdline_has_token(cmdline, "srvros.ehci=topcase-desktop");
@@ -1595,7 +1625,7 @@ void kmain(void) {
     console_write("srvros: kernel bootstrap complete\n");
     if (ehci_workspace_mode)
         ehci_desktop_workspace_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running,
-            ehci_telemetry_trial?EHCI_WORKSPACE_TELEMETRY:ehci_audio_trial?EHCI_WORKSPACE_AUDIO:
+            ehci_battery_trial?EHCI_WORKSPACE_BATTERY:ehci_telemetry_trial?EHCI_WORKSPACE_TELEMETRY:ehci_audio_trial?EHCI_WORKSPACE_AUDIO:
             ehci_brightness_trial?EHCI_WORKSPACE_BRIGHTNESS:EHCI_WORKSPACE_FILE);
     if (ehci_trackpad_desktop_trial)
         ehci_desktop_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running, ehci_desktop_trace);

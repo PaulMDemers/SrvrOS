@@ -2420,9 +2420,11 @@ int main(int argc,char **argv) {
     int retina_screenshot=argc==2 && !strcmp(argv[1],"--retina-screenshot");
     int retina_trial=retina_screenshot || (argc==2 && !strcmp(argv[1],"--retina-trial"));
     int ehci_file_trial=argc==3 && !strcmp(argv[1],"--ehci-file-trial");
+    int ehci_battery_trial=argc==2 && !strcmp(argv[1],"--ehci-battery-trial");
     int ehci_telemetry_trial=argc==2 && !strcmp(argv[1],"--ehci-telemetry-trial");
     int ehci_settings_trial=argc==2 && (!strcmp(argv[1],"--ehci-brightness-trial") || !strcmp(argv[1],"--ehci-audio-trial"));
-    int ehci_topcase_trial=ehci_file_trial || ehci_settings_trial || ehci_telemetry_trial || (argc==2 && !strcmp(argv[1],"--ehci-topcase-trial"));
+    int ehci_topcase_trial=ehci_file_trial || ehci_settings_trial || ehci_telemetry_trial || ehci_battery_trial ||
+        (argc==2 && !strcmp(argv[1],"--ehci-topcase-trial"));
     int ehci_trial=ehci_topcase_trial || (argc==2 && !strcmp(argv[1],"--ehci-trackpad-trial"));
     int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
@@ -2519,12 +2521,13 @@ int main(int argc,char **argv) {
     else if(audio_io || capacity_capture) { /* Launch serially after each rendered admission below. */ }
     else if(navigation_trial) spawn_app(&s,DESK_APP_HELP,"window-navigation-trial");
     else if(lifecycle_trial) spawn_app(&s,DESK_APP_HELP,"lifecycle-trial");
-    else if(ehci_telemetry_trial) spawn_app(&s,DESK_APP_SYSTEM,"--sensors");
+    else if(ehci_telemetry_trial || ehci_battery_trial) spawn_app(&s,DESK_APP_SYSTEM,"--sensors");
     else if(ehci_trial) spawn_app(&s,DESK_APP_TEXT,ehci_file_trial?argv[2]:"/fat/share/Trackpad trial.txt");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(battery_work)strcpy(s.scene.notice,"5-minute test: type, save NEW file, reopen, use Files. Keep AC/USB connected.");
     if(battery_guided)strcpy(s.scene.notice,"1/3 Keep AC and USB connected. Waiting for three fresh battery readings.");
+    if(ehci_battery_trial)strcpy(s.scene.notice,"1/3 Keep the charger and USB connected. Battery percentage is from the SMC.");
     if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
     /* Diagnostic: no app menus, preferences, Home or screenshot jobs.
      * The study client exercises independent IPC/surface publication. Generated
@@ -2600,7 +2603,7 @@ int main(int argc,char **argv) {
                 desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
             }
         }
-        if(ehci_trial && (!s.exiting || (ehci_topcase_trial && !ehci_telemetry_trial)) && loop_now>=ehci_deadline) {
+        if(ehci_trial && !ehci_battery_trial && (!s.exiting || (ehci_topcase_trial && !ehci_telemetry_trial)) && loop_now>=ehci_deadline) {
             ehci_timeout=1;
             /* Only this RAM trial may force cleanup of an unresponsive checklist. */
             if(ehci_topcase_trial && !ehci_telemetry_trial) { quit=1;break; }
@@ -3469,7 +3472,7 @@ int main(int argc,char **argv) {
                 } else if(now>=work_due)failed=1;
             }
         }
-        if(battery_guided && !failed) {
+        if((battery_guided || (ehci_battery_trial && !s.exiting)) && !failed) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(battery_saving) {
                 if(s.capture_finished>battery_shot_serial) {
@@ -3489,7 +3492,13 @@ int main(int argc,char **argv) {
                 } else if(now>=battery_shot_due)failed=1;
             } else {
                 int ready=desk_battery_trial_step(&battery_trial,s.battery_result?NULL:&s.battery_status,now);
-                if(ready<0) {desk_log("desktop-ac: timeout-or-invalid phase=%u\n",battery_trial.phase);failed=1;}
+                int unavailable=ehci_battery_trial && now-battery_trial.began>=5000000u &&
+                    (s.battery_status.state==SRV_BATTERY_UNAVAILABLE || s.battery_status.state==SRV_BATTERY_FAULTED);
+                if(ready<0 || unavailable) {
+                    desk_log("desktop-ac: %s phase=%u\n",unavailable?"provider-unavailable":"timeout-or-invalid",battery_trial.phase);
+                    failed=1;
+                    if(ehci_battery_trial)global_menu_action(&s,GLOBAL_EXIT);
+                }
                 else if(ready) {
                     const struct srv_battery_status *v=&s.battery_status;
                     desk_log("desktop-ac: accepted=%u stable=3 epoch=%llu first_gen=%llu last_gen=%llu ac=%u soc=%u current_ua=%lld voltage_uv=%llu remaining=%llu full=%llu unit=%u ac_us=%llu sampled_us=%llu age_us=%llu label=%s\n",
@@ -3498,11 +3507,22 @@ int main(int argc,char **argv) {
                         (long long)v->current_ua,(unsigned long long)v->voltage_uv,(unsigned long long)v->remaining_capacity,
                         (unsigned long long)v->full_capacity,v->capacity_unit,(unsigned long long)v->ac_sampled_us,
                         (unsigned long long)v->sampled_us,(unsigned long long)v->age_us,s.scene.battery);
-                    strcpy(s.scene.notice,battery_trial.phase==1?"Battery confirmed. Saving screenshot; keep AC unplugged until the next instruction.":
-                        "AC confirmed. Saving screenshot; keep AC connected until the next instruction.");
+                    if(ehci_battery_trial) {
+                        desk_battery_trial_advance(&battery_trial,now);
+                        if(battery_trial.phase==3)global_menu_action(&s,GLOBAL_EXIT);
+                        else {
+                            strcpy(s.scene.notice,battery_trial.phase==1?
+                                "2/3 Unplug the charger now. Leave USB connected and wait for the reconnect prompt.":
+                                "3/3 Reconnect the charger now. Wait for the reports and automatic reboot.");
+                            desk_log("desktop-ac: prompt phase=%u\n",battery_trial.phase);
+                        }
+                    } else {
+                        strcpy(s.scene.notice,battery_trial.phase==1?"Battery confirmed. Saving screenshot; keep AC unplugged until the next instruction.":
+                            "AC confirmed. Saving screenshot; keep AC connected until the next instruction.");
+                        battery_saving=1;battery_shot_serial=s.capture_finished;battery_shot_due=now+30000000;
+                        capture_request(&s);
+                    }
                     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
-                    battery_saving=1;battery_shot_serial=s.capture_finished;battery_shot_due=now+30000000;
-                    capture_request(&s);
                 }
             }
         }
@@ -3742,7 +3762,10 @@ int main(int argc,char **argv) {
     }
     if(retina_screenshot)desk_log("retina-screenshot: result=%s scale=%u completed=%u\n",
         !failed && s.capture_success?"PASS":"FAIL",session_output_scale(&s),s.capture_finished);
-    if(ehci_telemetry_trial) {
+    if(ehci_battery_trial) {
+        if(battery_trial.phase!=3 || s.child_errors)failed=1;
+        desk_log("ehci-desktop-battery-ui: result=%s phases=%u\n",failed?"INCOMPLETE":"PASS",battery_trial.phase);
+    } else if(ehci_telemetry_trial) {
         if(!ehci_timeout || s.child_errors)failed=1;
         desk_log("ehci-desktop-telemetry-ui: result=%s planned-exit=%u\n",failed?"INCOMPLETE":"PASS",ehci_timeout);
     } else if(ehci_trial) {

@@ -128,7 +128,8 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
     brightness = mode == "desktop-brightness"
     audio = mode == "desktop-audio"
     telemetry = mode == "desktop-telemetry"
-    live_workspace = saved_file or brightness or audio or telemetry
+    battery = mode == "desktop-battery"
+    live_workspace = saved_file or brightness or audio or telemetry or battery
     serial = logs / "trial-serial.log"
     serial.unlink(missing_ok=True)
     qmp = temp / "qmp.sock"
@@ -152,17 +153,24 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                                    f"ehci-desktop-startup: USB checkpoint={saved}"):
                         assert first.index(marker) < first.index("ehci-desktop: opening desktop"), marker
                 ui = QMP(qmp)
-                if telemetry:
+                if telemetry or battery:
                     wait_for(serial, lambda s: "desktools: system-page=sensors" in s, vm, 15)
                     time.sleep(1)
                     ui.call("screendump", {"filename": str(logs / "vm-screen.ppm")})
                     final = wait_for(serial, lambda s: "USB report saved. Restarting into Ubuntu." in s, vm, 40)
-                    for marker in ("pro81-telemetry: phase=startup cpu_state=1 cpu_fresh=0",
+                    markers = ("pro81-telemetry: phase=startup cpu_state=1 cpu_fresh=0",
                                    "pro81-telemetry: phase=startup fan_state=1 fan_fresh=0",
                                    "ehci-desktop-telemetry-ui: result=PASS planned-exit=1",
                                    "pro81-telemetry: result=INCOMPLETE smc_quiesced=1",
                                    f"ehci-desktop: release={release} result=INCOMPLETE desktop=passed retirement=safe",
-                                   "ehci-desktop-telemetry: report=saved flash-retirement=safe"):
+                                   "ehci-desktop-telemetry: report=saved flash-retirement=safe") if telemetry else (
+                                   "pro81-battery: phase=startup state=5 fresh=0",
+                                   "desktop-ac: provider-unavailable phase=0",
+                                   "ehci-desktop-battery-ui: result=INCOMPLETE phases=0",
+                                   "pro81-battery: result=INCOMPLETE smc_quiesced=1",
+                                   f"ehci-desktop: release={release} result=INCOMPLETE desktop=unverified retirement=safe",
+                                   "ehci-desktop-battery: report=saved flash-retirement=safe")
+                    for marker in markers:
                         assert marker in final, marker
                     assert not has_fatal_exception(final)
                     ui.sock.close()
@@ -301,6 +309,10 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
         assert b"pro81-telemetry: phase=startup fan_state=1 fan_fresh=0" in startup
         assert b"pro81-telemetry: result=INCOMPLETE smc_quiesced=1" in final
         assert b"desktools: system-page=sensors" in final
+    elif mode == "desktop-battery":
+        assert b"pro81-battery: phase=startup state=5 fresh=0" in startup
+        assert b"pro81-battery: result=INCOMPLETE smc_quiesced=1" in final
+        assert b"desktools: system-page=sensors" in final
     elif file_checklist is None:
         assert b"pro81-backlight: provider=unavailable identity mismatch" in startup
         assert b"pro81-backlight: result=INCOMPLETE initial_duty=0 last_duty=0 writes=0" in final
@@ -329,6 +341,7 @@ def main():
     brightness = version.startswith(boot.EHCI_DESKTOP_BRIGHTNESS_VERSION)
     audio = version.startswith((boot.EHCI_DESKTOP_AUDIO_VERSION, boot.EHCI_DESKTOP_AUDIO_V7_VERSION))
     telemetry = version.startswith(boot.EHCI_DESKTOP_TELEMETRY_VERSION)
+    battery = version.startswith(boot.EHCI_DESKTOP_BATTERY_VERSION)
     file_checklist = boot.EHCI_DESKTOP_FILE_V4_CHECKLIST if version.startswith(boot.EHCI_DESKTOP_FILE_V4_VERSION) else boot.EHCI_DESKTOP_FILE_CHECKLIST
     desktop_trace = version.startswith(boot.EHCI_DESKTOP_VERSION)
     keyboard_checklist = desktop_trace or brightness or audio or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
@@ -342,7 +355,8 @@ def main():
     trackpad_trial = version == boot.EHCI_TRACKPAD_VERSION or bool(log_match)
     if (keyboard_monitor or trackpad_trial or desktop_match) and args.stall_hub_status:
         parser.error("the emulated hub is for the split and typing trials")
-    mode = ("desktop-telemetry" if telemetry else "desktop-audio" if audio else "desktop-brightness" if brightness else "desktop-file" if desktop_file
+    mode = ("desktop-battery" if battery else "desktop-telemetry" if telemetry else "desktop-audio" if audio else
+            "desktop-brightness" if brightness else "desktop-file" if desktop_file
             else "topcase-desktop" if desktop_trace else "trackpad-desktop" if desktop_match else
             "trackpad-trial" if log_match else boot.EHCI_TRIAL_MODES[version])
     logs = boot.ROOT / "build/review" / f"macbookpro8-1-ehci-trial-{release}"
@@ -406,14 +420,14 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
             exercise_monitor(command.copy(), temp, logs, release)
         elif desktop_match:
             trial_command = command.copy()
-            if desktop_file or brightness or audio or telemetry:
+            if desktop_file or brightness or audio or telemetry or battery:
                 stick, volume = desktop_workspace_image(temp, log_volume)
                 trial_command += ["-device", "qemu-xhci,id=xhci", "-drive", f"if=none,id=stick,format=raw,file={stick}",
                                   "-device", "usb-storage,drive=stick,bus=xhci.0"]
             if audio:
                 trial_command += ["-device", "ich9-intel-hda"]
             exercise_desktop(trial_command, temp, logs, release, log_volume, mode, keyboard_checklist, args.keyboard_exit, file_checklist)
-            if desktop_file or brightness or audio or telemetry:
+            if desktop_file or brightness or audio or telemetry or battery:
                 verify_desktop_workspace(stick, volume, release, args.keyboard_exit,
                                          file_checklist if desktop_file else None, mode)
         elif trackpad_trial:
@@ -452,6 +466,9 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
         if telemetry:
             result.update(startup_checkpoint="verified", final_report="verified", vm_mouse="unused",
                           sensor_providers="refused", planned_exit=True)
+        if battery:
+            result.update(startup_checkpoint="verified", final_report="verified", vm_mouse="unused",
+                          battery_provider="refused", desktop_ui="INCOMPLETE")
     elif trackpad_trial:
         result.update(guest_trial_result="INCOMPLETE", unrelated_controller_skipped=True, trackpad_reports=0)
     else:

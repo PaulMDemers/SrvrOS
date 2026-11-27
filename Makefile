@@ -3530,9 +3530,9 @@ test-smc: build/tests/smc-host$(HOST_EXE) build/tests/smc-service-host$(HOST_EXE
 build/tests/smc-host$(HOST_EXE): tools/test_smc.c tools/smc_model.h kernel/src/drivers/smc_transport.c kernel/include/srvros/smc_transport.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_smc.c kernel/src/drivers/smc_transport.c -o $@
-build/tests/smc-service-host$(HOST_EXE): tools/test_smc_service.c tools/smc_model.h kernel/src/drivers/smc.c kernel/src/drivers/smc_transport.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/smc-service-host$(HOST_EXE): tools/test_smc_service.c tools/smc_model.h kernel/src/drivers/smc.c kernel/src/drivers/smc_transport.c kernel/src/drivers/battery_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_smc_service.c kernel/src/drivers/smc_transport.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_smc_service.c kernel/src/drivers/smc_transport.c kernel/src/drivers/battery_cache.c -Wl,--gc-sections -o $@
 
 $(USER_PLAYWAV): $(ZIG) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o build/userspace/playwav/convert.c.o build/userspace/playwav/io_stress.c.o $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
