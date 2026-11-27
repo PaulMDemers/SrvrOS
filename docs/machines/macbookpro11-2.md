@@ -2465,6 +2465,19 @@ files were preserved. The paired evidence is archived under
 The private image was retired, the accepted passive entry and EFI
 mount options were restored, and the router collectors were stopped.
 
+#### RTL8188CUS Demers2.4 cold repeats
+
+Start from `4bd0d0ba` on the Pro hub branch. Inspected main
+`5cb57eab` and the Air6,1 SSD work in #563–564. Keep the kernel,
+firmware, radio profile, WPA2 station binding and 4 KiB USB requests
+from the successful `9790d1223cc87ea3` diagnostic. Repeat with fresh
+EFI journal and router capture records. Each cold boot keeps the three
+adapters on the same hub ports and the workspace on its separate port.
+Compare WPA2, DHCP through both router taps, DNS, HTTP and clean
+automatic return across the runs. Revisit the first failing boundary
+if either repeat fails. After two fresh successful repeats, start the
+Realtek desktop Connect, Disconnect and same-boot reconnect trial.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
