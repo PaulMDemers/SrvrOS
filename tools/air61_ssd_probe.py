@@ -15,6 +15,7 @@ SECTORS = 236978176
 SAMPLES = ((0, 34), (SECTORS - 33, 33), (2048, 1))
 RECEIPT = "srvros-work/air61-ssd-probe.log"
 PORT_RECEIPT = "srvros-work/air61-ssd-port-state.log"
+RESET_RECEIPT = "srvros-work/air61-ssd-port-reset.log"
 PCI = "0000:04:00.0"
 MODEL = "APPLE SSD SD0128F"
 EFI = uuid.UUID("c12a7328-f81f-11d2-ba4b-00a0c93ec93b").bytes_le
@@ -125,23 +126,72 @@ def ubuntu_baseline(disk):
         os.close(fd)
 
 
-def probe_profile(release, volume, port_state):
+def probe_profile(release, volume, port_state, reset=False):
     profile = ("air61-ssd: profile srvros.storage=ram srvros.capture=air61-ssd-read-only "
                f"srvros.workspace-volume={volume} srvros.ssd-release={release}")
-    return profile + (" srvros.ssd-port-state=1" if port_state else "")
+    if port_state or reset:
+        profile += " srvros.ssd-port-state=1"
+    if reset:
+        profile += " srvros.ssd-reset=port0"
+    return profile
 
 
-def read_port_trace(receipt, release, volume):
+def read_reset_status(lines):
+    rows = [line for line in lines if line.startswith("air61-ssd-reset:")]
+    require(len(rows) == 1, "Missing or duplicate SATA reset status")
+    match = re.fullmatch(r"air61-ssd-reset: result=(ready|refused|pulse-unproved|timeout|"
+                         r"release-unproved|ownership-lost) attempts=([01]) hold_us=([0-9]{1,20}) "
+                         r"wait_us=([0-9]{1,20})", rows[0])
+    require(match is not None, "Malformed SATA reset status")
+    status, attempts, hold, wait = match[1], *map(int, match.groups()[1:])
+    require(bool(attempts) == (status != "refused") and hold < 2**64 and wait < 2**64,
+            "Invalid SATA reset counters")
+    if status in ("ready", "timeout"):
+        require(hold >= 1000, "Unproved SATA reset hold")
+    return dict(status=status, attempts=attempts, hold_us=hold, wait_us=wait)
+
+
+def verify_reset_trace(status, snapshots):
+    stages = {row["phase"]: row for row in snapshots}
+    in_reset = [stages["fis-enabled"], stages["reset-return"]]
+    if status["attempts"]:
+        in_reset.extend((stages["reset-asserted"], stages["reset-released"]))
+    require(all(row["port"] == 0 and not row["cmd"] & 0x8001 and not (row["ci"] | row["sact"])
+                for row in in_reset), "Unsafe port state around SATA reset")
+    if status["status"] != "ready":
+        return
+    before, asserted, released, ready = (stages[phase] for phase in
+        ("fis-enabled", "reset-asserted", "reset-released", "reset-return"))
+    control = before["sctl"]
+    require(not control & 0xf and asserted["sctl"] == (control | 1) and
+            released["sctl"] == ready["sctl"] == control, "SATA reset pulse or restore differs")
+    require(all(row["fis_valid"] and row["fb"] == before["fb"] for row in in_reset) and
+            not before["d2h"] and not asserted["d2h"], "Unproved fresh device status")
+    d2h = ready["d2h"]
+    ata_status = (d2h >> 16) & 0xff
+    require(d2h & 0xfff == 0x34 and ata_status and not ata_status & 0xa9 and ready["sig"] == 0x101 and
+            ready["ssts"] & 0xf0f == 0x103 and not ready["tfd"] & 0x88 and status["wait_us"] < 2000000,
+            "Missing ready post-reset device status")
+
+
+def read_port_trace(receipt, release, volume, *, reset=False):
     lines = receipt.splitlines()
-    require(lines.count(probe_profile(release, volume, True)) == 1, "Port trace release or workspace differs")
+    require(lines.count(probe_profile(release, volume, True, reset)) == 1, "Port trace release or workspace differs")
     controllers = [line for line in lines if line.startswith("air61-ssd-controller:")]
     require(len(controllers) == 1, "Missing or duplicate AHCI controller snapshot")
     match = re.fullmatch(r"air61-ssd-controller: firmware_ghc=0x0{8}([0-9a-f]{8}) firmware_port=([01])",
                          controllers[0])
     require(match is not None, "Malformed AHCI controller snapshot")
     ghc = int(match[1], 16)
-    phases = ["before-stop", "after-stop", "buffers-programmed", "fis-enabled",
-              "engine-started", "identify-return", "retire-return"]
+    phases = ["before-stop", "after-stop", "buffers-programmed", "fis-enabled"]
+    reset_status = read_reset_status(lines) if reset else None
+    if reset_status:
+        if reset_status["attempts"]:
+            phases.extend(("reset-asserted", "reset-released"))
+        phases.append("reset-return")
+    if not reset_status or reset_status["status"] == "ready":
+        phases.extend(("engine-started", "identify-return"))
+    phases.append("retire-return")
     rows = [line for line in lines if line.startswith("air61-ssd-port:")]
     if match[2] == "1":
         require(ghc & (1 << 31), "Firmware port sampled with AHCI disabled")
@@ -175,11 +225,15 @@ def read_port_trace(receipt, release, volume):
             require(row["us"] >= snapshots[-1]["us"] and row["port"] == snapshots[-1]["port"],
                     "AHCI port or clock changed during capture")
         snapshots.append(row)
-    return dict(status="COMPLETE", firmware_ghc=ghc, snapshots=snapshots)
+    result = dict(status="COMPLETE", firmware_ghc=ghc, snapshots=snapshots)
+    if reset_status:
+        verify_reset_trace(reset_status, snapshots)
+        result["reset"] = reset_status
+    return result
 
 
-def compare_receipt(receipt, release, volume, baseline, *, port_state=False):
-    profile = probe_profile(release, volume, port_state)
+def compare_receipt(receipt, release, volume, baseline, *, port_state=False, reset=False):
+    profile = probe_profile(release, volume, port_state, reset)
     rows = [line for line in receipt.splitlines()
             if line.startswith(("air61-ssd:", "air61-ssd-device:", "air61-ssd-sample:"))]
     require(baseline["gpt"] == "PASS", "Missing Ubuntu GPT validation")

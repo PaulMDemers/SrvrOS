@@ -897,19 +897,22 @@ static bool startup_journal_admitted;
 
 static void air61_ssd_trial(const char *cmdline) {
     bool port_state = cmdline_has_token(cmdline, "srvros.ssd-port-state=1");
-    const char *receipt = port_state ? "/work/srvros-work/air61-ssd-port-state.log"
-                                     : "/work/srvros-work/air61-ssd-probe.log";
+    bool reset = cmdline_has_token(cmdline, "srvros.ssd-reset=port0");
+    const char *receipt = "/work/srvros-work/air61-ssd-probe.log";
+    if (port_state) receipt = "/work/srvros-work/air61-ssd-port-state.log";
+    if (reset) receipt = "/work/srvros-work/air61-ssd-port-reset.log";
     boot_set_framebuffer_quiet(false);
     console_clear();
     console_write("Air6,1 read-only SSD probe. Checking controller and sampling raw sectors.\n");
     if (!display_profile_is_air61() || !cmdline_tokens_unique(cmdline) ||
+        (reset && !port_state) ||
         !cmdline_has_token(cmdline, "srvros.storage=ram")) {
         console_write("air61-ssd: REFUSED platform or invalid profile; restart manually\n");
         console_sync();
         halt_forever();
     }
     console_printf("air61-ssd: profile %s\n", cmdline);
-    enum ahci_probe_result result = ahci_air61_probe(port_state);
+    enum ahci_probe_result result = ahci_air61_probe(port_state, reset);
     if (result == AHCI_PROBE_UNSAFE || result == AHCI_PROBE_REFUSED) {
         console_printf("air61-ssd: %s; photograph this screen and restart manually\n",
             result == AHCI_PROBE_UNSAFE ? "HALTED AHCI quiescence unproved" : "REFUSED controller or disk");

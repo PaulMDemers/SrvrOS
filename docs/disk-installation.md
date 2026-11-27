@@ -30,6 +30,14 @@ matched the controller's buffer address. Snapshots are sequential observations.
 Logging happens after the command waits. The build keeps its debug symbols
 locally, and `objcopy --strip-debug` reduces the staged EFI payload. [Intel AHCI specification](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/serial-ata-ahci-spec-rev1-3-1.pdf)
 
+Add `--air61-ssd-reset` to that profile to test one COMRESET on the captured
+Marvell port 0. The command engine must be stopped, both slot registers empty,
+and the receive engine running on the probe-owned page. The probe holds reset
+for at least 1 ms, restores SATA control, and waits at most two seconds for the
+active link and fresh device status before it starts the command engine. The
+existing IDENTIFY, read and polling bounds apply. The standalone stage saves
+its own USB receipt and leaves the internal SSD unmounted. [Intel AHCI specification, §10.4.2](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/serial-ata-ahci-spec-rev1-3-1.pdf)
+
 ## Install with console sign-in
 
 For a new identity-bound installation that should start at the local console

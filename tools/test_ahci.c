@@ -20,6 +20,11 @@ static uint64_t failure_ci,failure_is,failure_elapsed;
 static unsigned failure_logs;
 static uint64_t probe_reads[68];
 static unsigned probe_count;
+static volatile struct hba_port *reset_port;
+static uint32_t *reset_fis;
+static unsigned reset_pulses;
+enum reset_case { RESET_READY, RESET_NO_STATUS, RESET_FROZEN, RESET_SHORT_PULSE, RESET_STAYS_BUSY };
+static enum reset_case reset_case;
 void latency_enter(enum latency_site site) { assert(site==LATENCY_AHCI); profile_depth++; }
 void latency_leave(enum latency_site site) { assert(site==LATENCY_AHCI && profile_depth); profile_depth--; }
 bool scheduler_io_begin(void) {
@@ -63,7 +68,25 @@ uint64_t vmm_kernel_address_space(void) { return 1; }
 void vmm_switch_address_space(uint64_t s) { current_space=s; }
 bool vmm_virt_to_phys(uint64_t v, uint64_t *p) { *p=v; return true; }
 bool vmm_map_page(uint64_t v, uint64_t p, uint64_t f) { (void)v;(void)p;(void)f; return true; }
+bool timer_reference_ready(void) { return true; }
+bool timer_delay_us(uint64_t delay) {
+    assert(reset_port && delay == 1000 && reset_port->sctl == 0x301 && !reset_pulses);
+    reset_pulses++;
+    if (reset_case == RESET_SHORT_PULSE) return false;
+    now += delay;
+    return true;
+}
 uint64_t timer_monotonic_us(void) {
+    if (reset_port) {
+        polls++;
+        if (reset_case != RESET_FROZEN) now += 250000;
+        if (reset_pulses && reset_port->sctl == 0x300 &&
+            (reset_case == RESET_READY || reset_case == RESET_STAYS_BUSY)) {
+            *reset_fis = 0x00504034;
+            if (reset_case == RESET_READY) reset_port->tfd = 0x50;
+        }
+        return now;
+    }
     if (behavior != 4 && behavior != 15 && behavior != 16 && behavior != 17) now += behavior >= 5 ? 1000 : 100000;
     polls++;
     if(behavior==14 && model.tfd && polls==2) { model.tfd=0;now+=AHCI_COMMAND_TIMEOUT_US; }
@@ -168,6 +191,8 @@ static void air61_port_trace_contract(void) {
     assert(trace.states[AHCI_TRACE_FIRMWARE].fb == 0xdeadb000);
     assert(!trace.states[AHCI_TRACE_FIRMWARE].fis_valid);
     assert(prepare_port(&disk, 0, port, &trace));
+    enable_fis(&disk, &trace);
+    start_port(&disk, &trace);
     assert(dma_calls == 4 && !dma_frees);
     assert(trace.states[AHCI_TRACE_BEFORE_STOP].cmd == (HBA_PORT_CMD_ST | HBA_PORT_CMD_FRE));
     assert(trace.states[AHCI_TRACE_AFTER_STOP].cmd == 0);
@@ -189,10 +214,59 @@ static void air61_port_trace_contract(void) {
     hba = NULL;
     puts("air61-ahci-port: PASS stop/FRE/ST snapshots, owned status FIS, foreign buffer refusal");
 }
+
+static void air61_reset_contract(void) {
+    static struct hba_memory controller;
+    hba = &controller;
+    reset_port = &controller.ports[0];
+    struct ahci_disk disk = {.port = reset_port, .fis_phys = 4096};
+    reset_fis = (uint32_t *)pmm_phys_to_virt(disk.fis_phys) + 0x40 / 4;
+    reset_port->cmd = HBA_PORT_CMD_FRE | HBA_PORT_CMD_FR;
+    reset_port->ssts = 0x133;
+    reset_port->sig = SATA_SIG_ATA;
+    reset_port->fb = disk.fis_phys;
+    reset_port->sctl = 0x300;
+    for (reset_case = RESET_READY; reset_case <= RESET_STAYS_BUSY; reset_case++) {
+        struct ahci_port_trace trace = {0};
+        *reset_fis = 0;
+        reset_port->tfd = 0x80;
+        polls = reset_pulses = 0;
+        now = 0;
+        enum ahci_probe_result status = air61_link_reset(&disk, &trace);
+        assert(status == (reset_case == RESET_READY ? AHCI_PROBE_PASS : AHCI_PROBE_FAILED));
+        assert(reset_pulses == 1 && trace.reset_attempts == 1 && reset_port->sctl == 0x300);
+        assert(trace.states[AHCI_TRACE_RESET_ASSERTED].sctl == 0x301);
+        assert(trace.states[AHCI_TRACE_RESET_RELEASED].sctl == 0x300);
+        assert(!(reset_port->cmd & HBA_PORT_CMD_ST) && !reset_port->ci && !reset_port->sact);
+        if (reset_case == RESET_READY) assert(!strcmp(trace.reset_result, "ready") && trace.reset_wait_us < 2000000);
+        else if (reset_case == RESET_SHORT_PULSE) assert(!strcmp(trace.reset_result, "pulse-unproved"));
+        else {
+            assert(!strcmp(trace.reset_result, "timeout"));
+            if (reset_case == RESET_FROZEN) assert(!trace.reset_wait_us && polls <= AHCI_POLL_LIMIT + 10);
+            else assert(trace.reset_wait_us == AHCI_COMMAND_TIMEOUT_US);
+        }
+    }
+    struct ahci_port_trace trace = {0};
+    reset_pulses = 0;
+    *reset_fis = 0;
+    reset_port->ci = 1;
+    assert(air61_link_reset(&disk, &trace) == AHCI_PROBE_FAILED && !trace.reset_attempts);
+    reset_port->ci = 0;
+    disk.port_index = 1;
+    assert(air61_link_reset(&disk, &trace) == AHCI_PROBE_FAILED && !trace.reset_attempts);
+    disk.port_index = 0;
+    *reset_fis = 0x00504034;
+    assert(air61_link_reset(&disk, &trace) == AHCI_PROBE_FAILED && !trace.reset_attempts);
+    assert(reset_port->sctl == 0x300 && !reset_pulses);
+    reset_port = NULL;
+    hba = NULL;
+    puts("air61-ahci-reset: PASS one pulse, control restore, fresh FIS, BSY and clock bounds, foreign and active refusal");
+}
 int main(void) {
     allocation_contract();
     air61_probe_contract();
     air61_port_trace_contract();
+    air61_reset_contract();
     struct ahci_disk disk=setup(0);
     assert(issue_command(&disk,ATA_CMD_IDENTIFY,0,0,false));
     assert(header.prdt_length==1 && (table.prdt[0].dbc_i&0x3fffff)==511 && current_space==2);
