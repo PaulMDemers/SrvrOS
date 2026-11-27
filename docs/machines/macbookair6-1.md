@@ -2,6 +2,11 @@
 
 Updated: 2026-11-13. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
+The [bounded internal SSD probe](#clean-efi-sector-comparison) passed on
+2026-11-27. The primary GPT region, backup GPT region, and complete EFI boot
+sector matched a cleanly unmounted Ubuntu reference. The probe issued zero
+ATA writes and left the SSD unmounted.
+
 Current diagnostic milestone: the exact-source pre-user two-pass read-only
 sampler is physically accepted on release `2ddbd3b285f6bf41`. All24 DWORD reads
 completed with identical raw samples and borrowed mapping graphs, verified
@@ -15174,3 +15179,19 @@ unexpected alternate mounts. The same exact-image VM refusal check passed.
 The native rerun is staged and unarmed. Ubuntu will save mounted and unmounted
 sector bytes at both endpoints. The collector requires the clean references to
 match and compares all three native digests against the clean reference.
+
+The native rerun passed on release `5ee3b01c4297be04`. The single port 0 SATA
+reset was held for 1,001 µs and the link was ready 4,038 µs after release.
+The receipt contains all 11 AHCI port snapshots, a successful IDENTIFY, and
+matching hashes for all 68 sampled sectors (the primary GPT region, the backup
+GPT region, and the full 512-byte EFI boot sector). SrvrOS left the internal
+SSD unmounted and reported zero ATA writes.
+
+Ubuntu's clean references were identical before and after the test. At both
+endpoints, the only difference between the mounted and clean EFI sectors
+was the FAT32 dirty flag at byte offset 65 (`0x01` mounted, `0x00` clean).
+The mounted snapshot reproduces the original Ubuntu hash, and the clean
+snapshot reproduces both native EFI hashes. Ubuntu returned with its EFI
+mount restored and recovery release `c35475f62f154f1e` retained. All four
+USB receipts matched the local archives. This accepts the bounded read-only
+probe on this unit.
