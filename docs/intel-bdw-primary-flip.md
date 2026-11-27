@@ -431,9 +431,11 @@ report records how many pages were pinned and restored, including partial
 progress after a failure. Device-side WiDi and cache completion still require
 their own evidence.
 
-The next native milestone is to import the boot framebuffer and establish
-exclusive use of one candidate range in the same driver epoch. This requires
-accounting for inherited queues, cache and posted traffic, and WiDi across
-both changes of slot 12291. The physical private-address comparison and the
-Q35 flip validate later lifetime rules. The first native GGTT store still
-depends on that handoff.
+The first native desktop path will import and preserve the boot framebuffer
+under a boot-scoped driver owner. Its allocator must establish exclusive use
+of a disjoint interval under the same epoch, accounting for inherited queues,
+posted traffic, cache visibility and every reader that can reach it. Its first
+bind and rollback involve one private page while Pipe A stays on the original
+surface. Slot 12291 remains the target of the inherited-slot diagnostic. The
+physical i915 comparison and the Q35 flip cover later lifetime rules.
+[Boot ownership decision and checkpoints](intel-tearfree-roadmap.md#boot-ownership-decision)

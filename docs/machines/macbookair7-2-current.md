@@ -332,16 +332,25 @@ close and to pulse on a later guarded read under the same block. It brackets
 the L3 register with WiDi GO reads for the mapping, submission and PCI-reset
 paths. The Air park recipe uses the same verifier and keeps its existing wire
 format and deadlines. This scope covers the traffic verifier and its modeled
-consumers. The next physical run needs a documented way to hold the request
-while observing the acknowledgements. The locked CPD policy survives PCI
-function reset, and the WiDi-only soft-reset control clears when its reset
-finishes. Neither provides that hold. Main `d29abcf1` was inspected and
-contains separate Air6,1 SSD work.
+consumers. The inherited-slot loan still needs a documented way to hold the
+request while observing the acknowledgements. The locked CPD policy survives
+PCI function reset, and the WiDi-only soft-reset request clears on completion.
+Main `d29abcf1` was inspected and contains separate Air6,1 SSD work.
 
 The diagnostic image built and all five local suites passed. Q35 passed 44
 one-page and 33 blitter cases. Removing either the closed-low requirement or
 the WiDi read immediately after L3 reproduced the corresponding regression.
 The saved RC1e hardware receipt still replays with zero fresh acknowledgements.
+
+The architecture review traced i915's startup reset, firmware framebuffer
+adoption, GGTT binding and per-mapping retirement. Ubuntu's current boot on
+this Air logged `simpledrm` followed by i915 (`8086:1626`) with eDP enabled at
+1440 × 900. For native presentation, the next SrvrOS milestone is a boot-scoped
+owner that pins the live framebuffer and qualifies a separate one-page bind
+and rollback. The first display path will use CPU-rendered scanout buffers.
+The seven command mappings and inherited-slot experiments remain separate
+work. The review used branch `86004738` and inspected main `5cb57eab`.
+[Boot ownership decision](../intel-tearfree-roadmap.md#boot-ownership-decision)
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

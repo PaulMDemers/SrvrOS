@@ -1,18 +1,111 @@
 # Air7,2 native tear-free desktop roadmap
 
-The next milestone is a reviewable ownership protocol that can support one
-private GPU mapping. Repeating successful observations will not by itself
-make inherited graphics memory available. The inherited framebuffer remains
-the desktop backend until the native ownership and publication gates pass.
+The next milestone is a boot-scoped Broadwell display driver that can bind
+one private page while the inherited framebuffer stays live. The driver must
+establish ownership before that first bind and keep it through rollback.
+Native presentation can use CPU-rendered buffers and synchronous Pipe A
+flips. GPU command submission has its own bring-up sequence.
 
 This roadmap orders the work in the [managed-memory plan](intel-managed-memory-plan.md).
 The [Air7,2 unit record](machines/macbookair7-2.md) owns physical acceptance;
 the [coordination guide](agent-coordination.md) governs shared implementation.
 It does not accept another Mac's firmware or graphics profile.
 
-The latest hardware result completes the read-only CPU backing guard for two
-existing6MiB candidates; the earlier original full-GT reset/memory/private CPU
-arena lifetime remains separate evidence. See the
+## Boot ownership decision
+
+SrvrOS currently approaches the first bind as a loan of firmware's populated
+address space. The native observer reserves an interval and records the original
+entries, then intentionally leaves firmware, engine, DMA, cache and reader
+assurances unset. The transfer needs those assurances before activation. The
+single-page writer and seven-page command handoff also require the native owner
+to request a device-wide traffic block and witness five engine ACKs and a fresh
+L3 ACK before modifying inherited entries. The GPU command path needs those
+same mappings to load its own context, so it cannot supply the first owner's
+flush evidence. These gates are appropriate for that live loan. Making the
+loan mandatory for the first framebuffer left a gap in boot ownership.
+[Native observer](../kernel/src/drivers/intel_stolen_probe.c)
+· [Transfer admission](../kernel/src/scanout_transfer.c)
+· [Live slot writer](../kernel/diagnostics/intel_bdw_scanout_page_store.c)
+
+Intel describes `GO_GAM_REQ` as power-manager-to-arbiter messaging and the
+L3 acknowledgements as self-clearing when the power manager samples them.
+The reference Air reported the same locked CPD policy under Ubuntu and
+SrvrOS. Its RC1e request read back while GAM and WiDi stayed open in every
+sample. The public register manual and Linux driver paths reviewed for this
+decision expose no OS interface that holds that transaction open for a GGTT
+loan. Extending the poll window would only widen observation of the same
+request. [Broadwell register reference, printed pp. 587–592, 606–607 and 859](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+· [Physical RC1e result](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
+
+Booted Ubuntu on this Air shows `simpledrm` giving way to i915 on `8086:1626`,
+with the internal 1440 × 900 eDP panel enabled. In the reviewed Linux v6.12
+source, probe sanitizes the GT with an engine reset where that reset preserves
+display, takes over the framebuffer aperture, and reconstructs the initial
+plane as a pinned buffer. The Gen8 bind path writes the allocator's exact GGTT
+entries and then orders translation invalidation. Unbind synchronizes with use
+of that mapping and checks its pins. These paths contain no device-wide GAM/L3
+acknowledgement prerequisite for the bind. Gen8 also uses a no-op for the
+generic clear-range callback, so this is no precedent for sweeping or clearing
+the firmware's entire table. The running Ubuntu driver and reviewed v6.12
+source are separate references. In three earlier i915 comparisons on this Air,
+the driver rebound slot 12291 and restored the original PTE while eDP advanced.
+The sampled GAM and WiDi permissions stayed open, with engine and L3 flush
+ACK bits clear. Those runs started with i915 already owning the device.
+[i915 early reset](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/i915_driver.c#L184-L192)
+· [Aperture takeover](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/i915_driver.c#L452-L482)
+· [Initial plane](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_plane_initial.c#L127-L243)
+· [Gen8 binding](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L408-L472)
+· [Gen8 callbacks](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L1157-L1174)
+· [Mapping retirement](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/i915_vma.c#L1969-L1995)
+· [Air slot comparison](intel-bdw-primary-flip.md#independent-slot-comparison-under-i915)
+
+Implement the boot-owned path in this order.
+
+1. **Take ownership while Pipe A stays live.** Before desktop clients start,
+   one driver claims graphics MMIO and the CPU framebuffer aperture. It
+   imports and pins the original backing, translations, fence and fetch tail,
+   excludes competing writers, and performs the already qualified bounded GT
+   reset and new census with the original scanout preserved. Keep render
+   submission disabled. The same owner must establish what earlier traffic can
+   still reach the candidate range through the remapper, GT, display proxy or
+   firmware. Bind the existing remapper and System Agent operations where their
+   documented scope applies. Queue idle, a reset receipt, GOP handoff and
+   sampled register stability each supply only their own evidence. Fail
+   admission if the source or continuing ownership of any relevant reader is
+   unresolved. [Native guard result](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
+   · [System Agent ordering](intel-ggtt-invalidation.md#hardware-scope)
+2. **Bind and restore one private page.** Choose one allocator-managed interval
+   outside every protected active extent. Prove that no previous or future
+   requester can reference it during the test. The raw PTE value alone cannot
+   make that decision, including a zero entry or a repeated scratch mapping.
+   Write one entry to pinned OS RAM, order and invalidate the translation,
+   verify a marker through the aperture, restore the original word and verify
+   translation retirement before freeing RAM. Keep Pipe A on the original
+   surface and keep the existing inherited-slot gates. Test refusal at every
+   boundary, especially an active proxy, alias loss, stale translation and
+   uncertain rollback. [Existing GGTT exchange](../kernel/diagnostics/intel_bdw_ggtt.c)
+3. **Flip CPU-rendered buffers.** Map two full buffers in the driver-owned
+   range, including the required alignment and 128-PTE fetch tail. Render
+   into the inactive buffer in the captured format, establish visibility,
+   and arm the synchronous `PRI_SURF` update. Verify live-base latch, frame
+   progress and primary CRC, then restore the original surface and prove
+   reader retirement. Keep backing pinned on any uncertain latch or return.
+   This uses the display engine directly. [Existing flip and CRC trial](intel-bdw-primary-flip.md#reset-free-hardware-trial)
+4. **Connect the presentation backend.** Reuse the current compositor lease
+   and front/back lifetime. Qualify repeated physical flips and input under
+   load, console restoration, and fallback when admission fails. Add blitter
+   or render contexts later, with their own queue, cache and completion proofs.
+   [Desktop presentation contract](display-presentation.md)
+
+The next boot candidate should answer step 2 with a live driver owner. The
+RC1e/RC6 diagnostics and inherited-slot rollback tests remain recorded for the
+different ownership model they exercise.
+
+## Earlier qualifications
+
+The read-only CPU backing guard has been qualified for two existing 6 MiB
+candidates. The earlier original full-GT reset, memory and private CPU arena
+lifetime remains separate evidence. See the
 [current Air record](machines/macbookair7-2-current.md).
 The mapping core now supports the selected practical timing aliases in host
 qualification. A separate [primary-envelope classifier](intel-bdw-primary-range.md)
