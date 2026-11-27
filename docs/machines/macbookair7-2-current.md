@@ -434,6 +434,13 @@ The occupied slot stays outside the writable allocator until its native
 owner can prove the [drain and rollback lifetime](../intel-tearfree-roadmap.md#native-rollback-admission-after-the-air-checkpoint).
 Main `dc4a48d3` was reviewed for this trial.
 
+The follow-up starts at `baff806d` with main `dc4a48d3` reviewed. It adds
+an owner qualification without a GGTT store before PCI bus mastering
+reopens. The diagnostic will exercise acquisition, fresh drain witnesses,
+original-slot and Pipe A preservation, and release through the existing
+Broadwell traffic verifier. Local models include the Air's captured
+pre-reopen state. A physical run requires a documented request provider.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
