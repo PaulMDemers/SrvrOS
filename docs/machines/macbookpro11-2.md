@@ -2064,6 +2064,28 @@ transfer on this adapter remain untested. Evidence, comparison and
 the verified payload are archived under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-a662f7851095412c`.
 
+#### RTL8188CUS Demers2.4 association and WPA2
+
+Start at `9d11068e` (integration base `50f1978a`, upstream inspected
+at `37de62ed`). Scope the active trial to the accepted channel-10
+Realtek USB route, its station framing, xHCI IN and OUT ownership,
+and the existing WPA2/CCMP handshake engine. Preserve the passive
+recipe. Use a separate, explicit one-shot profile with private
+credentials and both saved log sinks. The trial stops at WPA2
+authentication and teardown.
+
+Ubuntu on the actual Realtek adapter reached WPA2-PSK and CCMP
+on channel 10 twice with the other adapters in place. The second
+capture confirms 32-byte TX descriptors, USB OUT endpoint `0x02`
+for Auth, Association, EAPOL M2/M4 and Leave, and matching Auth,
+Association, M1 and M3 receipts. The fixture will bind peer addresses,
+queue and USB completion ownership, full M3 MIC/key validation,
+retirement, and refusal to accept uncertain DMA or cleanup.
+Both Linux default routes and the managed adapter state survived
+collection. Captures in `build/bringup/pro112-rtl8188cu-wpa2`
+contain metadata only.
+[Linux CU TX descriptor and queue implementation](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/trx.c)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
