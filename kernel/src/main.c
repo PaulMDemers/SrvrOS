@@ -1155,11 +1155,13 @@ void kmain(void) {
     if(startup_journal_requested)startup_checkpoint(2,0);
     if(rtl8188cu_firmware) {
         const struct initramfs_file *image=initramfs_find("/firmware/rtl8192cufw_TMSC.bin");
-        rtl8188cu_sampled=xhci_rtl8188cu_capture_firmware(image?image->data:NULL,image?image->size:0);
-    }
-    if(rtl8188cu_passive) {
-        const struct initramfs_file *profile=initramfs_find("/rtl8188cu-passive.bin");
-        rtl8188cu_sampled=xhci_rtl8188cu_capture_passive(profile?profile->data:NULL,profile?profile->size:0);
+        if(rtl8188cu_passive) {
+            const struct initramfs_file *profile=initramfs_find("/rtl8188cu-passive.bin");
+            rtl8188cu_sampled=xhci_rtl8188cu_capture_passive(image?image->data:NULL,image?image->size:0,
+                profile?profile->data:NULL,profile?profile->size:0);
+        } else {
+            rtl8188cu_sampled=xhci_rtl8188cu_capture_firmware(image?image->data:NULL,image?image->size:0);
+        }
     }
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",

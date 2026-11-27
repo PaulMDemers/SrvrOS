@@ -619,6 +619,7 @@ struct xhci_device {
     bool rtl8188cu_probe_attempted,rtl8188cu_identified;
     bool rtl8188cu_firmware_attempted,rtl8188cu_firmware_active;
     bool rtl8188cu_firmware_ready;
+    uint64_t rtl8188cu_download_started_us;
     uint32_t rtl8188cu_power_samples[RTL8188CU_POWER_PHASE_COUNT];
     unsigned rtl8188cu_power_valid;
     struct mt76_identity wifi_identity;
@@ -3087,9 +3088,13 @@ static bool rtl8188cu_select_page(struct xhci_device *d,unsigned page) {
         rtl8188cu_setup_read(d,"page-readback",RTL8188CU_MCU_PAGE,1,&check) && (check&7)==page;
 }
 
+static const char *rtl_cu_prepare_passive_start(struct xhci_device *d,struct xhci_device *hub);
+static bool rtl_cu_rx_held(struct xhci_device *d);
+static void rtl_cu_park(struct xhci_device *d,struct xhci_device *hub);
+
 static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hub,
                                   const uint8_t *image,unsigned *bytes,uint32_t *status,
-                                  bool *download_touched) {
+                                  bool *download_touched,bool passive) {
     const unsigned body=RTL8188CU_IMAGE_SIZE-RTL8188CU_HEADER_SIZE;
     if(!rtl8188cu_check_port(d,hub))return "port";
     uint32_t sys_cfg,boot;
@@ -3099,6 +3104,10 @@ static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hu
        (*status&(RTL8188CU_DL_READY|RTL8188CU_INT_READY|RTL8188CU_RAM_SELECTED)))return "cold-state";
     if(!rtl8188cu_digital_power(d))return "power";
     if(!rtl8188cu_radio_parked(d))return "rf-baseline";
+    if(passive) {
+        const char *failure=rtl_cu_prepare_passive_start(d,hub);
+        if(failure)return failure;
+    }
     if(!rtl8188cu_update(d,RTL8188CU_SYS_FUNC,2,0,RTL8188CU_CPU_ENABLE))return "cpu-enable";
     const uint32_t running=RTL8188CU_DL_READY|RTL8188CU_INT_READY|RTL8188CU_RAM_SELECTED;
     if(!rtl8188cu_setup_read(d,"enable-before",RTL8188CU_MCU_STATUS,4,status) ||
@@ -3117,6 +3126,7 @@ static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hu
            !rtl8188cu_select_page(d,*bytes/RTL8188CU_PAGE_SIZE)))return "page";
         unsigned remaining=body-*bytes;
         unsigned n=remaining>=RTL8188CU_BLOCK_SIZE?RTL8188CU_BLOCK_SIZE:remaining>=8?8:1;
+        if(passive && !*bytes)d->rtl8188cu_download_started_us=timer_monotonic_us();
         if(timer_monotonic_us()-start>=3000000 ||
            !rtl8188cu_write(d,RTL8188CU_WINDOW+offset,image+RTL8188CU_HEADER_SIZE+*bytes,n))return "image-write";
         *bytes+=n;
@@ -3136,12 +3146,13 @@ static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hu
     if((*status&running) || !rtl8188cu_setup_write(d,"ready-write",RTL8188CU_MCU_STATUS,4,
         *status|RTL8188CU_DL_READY))return "start";
     if(!rtl8188cu_poll(d,RTL8188CU_MCU_STATUS,4,running|RTL8188CU_DL_ENABLE,running,192,status))return "ready";
-    if(!rtl8188cu_check_port(d,hub) || !rtl8188cu_radio_parked(d))return "final-gates";
+    if(!rtl8188cu_check_port(d,hub) || !rtl8188cu_radio_parked(d) ||
+       (passive && !rtl_cu_rx_held(d)))return "final-gates";
     if(!rtl8188cu_power_sample(d,RTL8188CU_POWER_FIRMWARE_READY))return "power-sample";
     return NULL;
 }
 
-bool xhci_rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size) {
+static bool rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size,bool passive) {
     struct xhci_device *d=NULL;
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)
         if(xhci.devices[i].rtl8188cu_identified){d=&xhci.devices[i];break;}
@@ -3154,12 +3165,13 @@ bool xhci_rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size) {
         struct xhci_device *hub=device_by_slot(d->parent_slot_id);
         failure="admission";
         if(hub && !hub->control_pending && !d->control_pending && !d->control_failed && !d->ep0_quarantined &&
-           !d->rtl8188cu_firmware_attempted && !xhci.sync_users && wifi_hub_path_present(d) && timer_reference_ready()) {
+           !d->rtl8188cu_firmware_attempted && !xhci.sync_users && !strict_control.device &&
+           wifi_hub_path_present(d) && timer_reference_ready()) {
             d->rtl8188cu_firmware_attempted=true;
             failure="image";
             if(rtl8188cu_image_matches(image,size)) {
                 d->rtl8188cu_firmware_active=true;
-                failure=rtl8188cu_upload(d,hub,image,&bytes,&status,&touched);
+                failure=rtl8188cu_upload(d,hub,image,&bytes,&status,&touched,passive);
                 if(failure && touched && !d->ep0_quarantined && !d->control_failed && !d->control_pending &&
                    rtl8188cu_check_port(d,hub)) {
                     uint32_t check;
@@ -3169,6 +3181,7 @@ bool xhci_rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size) {
                         rtl8188cu_setup_read(d,"cleanup-readback",RTL8188CU_MCU_STATUS,4,&check) &&
                         !(check&clear);
                 }
+                if(failure && passive)rtl_cu_park(d,hub);
                 d->rtl8188cu_firmware_active=false;
                 d->rtl8188cu_firmware_ready=!failure;
             }
@@ -3180,6 +3193,10 @@ bool xhci_rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size) {
         (uint64_t)(d && d->ep0_quarantined));
     rtl8188cu_power_log(d,"firmware");
     return !failure;
+}
+
+bool xhci_rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size) {
+    return rtl8188cu_capture_firmware(image,size,false);
 }
 
 #include "xhci_rtl8188cu_passive.inc"
