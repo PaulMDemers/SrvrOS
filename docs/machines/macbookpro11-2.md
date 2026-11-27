@@ -1628,6 +1628,15 @@ workspace, all 624 prior files and the installed recovery. Evidence
 and the verified payload are archived locally under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-cb30e13ebd413f9e`.
 
+The next `0bda:8176` comparison starts at `d2c4d5e7` (integration
+base `50f1978a`, upstream inspected at `61111819`). In the opt-in
+passive xHCI path, finish APS and release RF digital isolation after
+MAC auto-on. Wait for APSD, enable receive-only CR, build the packet
+buffer, then download firmware. Firmware-only startup stays parked.
+Keep TX paused, the single 4 KiB request and all three hub ports.
+Exercise the combined native entry and failure retirement before
+staging and rehearsing the unattended image with both log sinks.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
