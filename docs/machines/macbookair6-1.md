@@ -15225,3 +15225,14 @@ retained recovery release `c35475f62f154f1e`. All five USB receipts matched the
 local archives. The return collector's exFAT and allocation checks found zero
 leaks, FAT/bitmap mismatches, or errors. This accepts the bounded native
 read-only partition path on this unit.
+
+#### Normal boot SSD discovery scope
+
+From main `77b4d3c3` (PR561), qualify the ordinary AHCI discovery path at
+the normal storage initialization point with a one-shot read-only Air6,1
+profile. Reuse the accepted controller, port 0 reset and disk identity.
+Keep the internal SSD unmounted, compare the same GPT and EFI partition
+samples against a clean Ubuntu baseline, and save separate cold and warm
+receipts. Scope is AHCI discovery, boot profile, and its test tooling.
+Ordinary boot policy and all timeouts stay unchanged. PR550's installed-root
+and account scope remains separate.

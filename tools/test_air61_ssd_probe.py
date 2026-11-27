@@ -259,3 +259,18 @@ class Probe(unittest.TestCase):
         for bad in mutations:
             with self.assertRaises(ValueError):
                 probe.compare_receipt(bad, RELEASE, VOLUME, baseline, reset=True, partition=True)
+
+        discovery_flag = " srvros.ssd-discovery=normal"
+        v5 = boot.limine_config(RELEASE, f"ram-usb-v5-air61-ssd-{VOLUME}")
+        self.assertEqual(v5.replace(discovery_flag, ""), v4)
+        with self.assertRaisesRegex(ValueError, "requires the partition-read profile"):
+            boot.stage(air61_ssd_probe_volume=VOLUME, air61_ssd_discovery=True)
+        discovery = "\n".join([rows[0] + discovery_flag, probe.DISCOVERY_PROOF, *rows[1:]])
+        result = probe.compare_receipt(discovery, RELEASE, VOLUME, baseline,
+                                       reset=True, partition=True, discovery=True)
+        self.assertEqual(result["initializer"], "normal")
+        for bad in (receipt, discovery.replace(probe.DISCOVERY_PROOF, ""),
+                    discovery.replace("read_only=yes", "read_only=no"),
+                    discovery + "\n" + probe.DISCOVERY_PROOF):
+            with self.assertRaises(ValueError):
+                probe.compare_receipt(bad, RELEASE, VOLUME, baseline, reset=True, partition=True, discovery=True)

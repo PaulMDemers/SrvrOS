@@ -26,6 +26,7 @@ static unsigned batched_sectors[128], batch_count;
 static volatile struct hba_port *reset_port;
 static uint32_t *reset_fis;
 static unsigned reset_pulses;
+static struct hba_port *discovery_port;
 enum reset_case { RESET_READY, RESET_NO_STATUS, RESET_FROZEN, RESET_SHORT_PULSE, RESET_STAYS_BUSY };
 static enum reset_case reset_case;
 void latency_enter(enum latency_site site) { assert(site==LATENCY_AHCI); profile_depth++; }
@@ -81,7 +82,36 @@ bool timer_delay_us(uint64_t delay) {
     now += delay;
     return true;
 }
+static void make_air61_identify(uint8_t *identify) {
+    const char name[] = "APPLE SSD SD0128F";
+    for (unsigned i = 0; i < 40; i++) identify[54 + (i ^ 1)] = i < sizeof(name) - 1 ? name[i] : ' ';
+    for (unsigned i = 0; i < 8; i++) identify[200 + i] = AIR61_SSD_SECTORS >> (8 * i);
+    identify[167] = 4;
+}
+
 uint64_t timer_monotonic_us(void) {
+    if (discovery_port) {
+        struct ahci_disk *disk = &disks[0];
+        now += 10;
+        if (discovery_port->cmd & HBA_PORT_CMD_ST) {
+            discovery_port->cmd &= ~HBA_PORT_CMD_FR;
+            if (discovery_port->ci) {
+                assert(disk->command_table->cfis[2] == ATA_CMD_IDENTIFY);
+                assert(!(disk->command_list->flags & (1u << 6)));
+                make_air61_identify(disk->io_buffer);
+                disk->command_list->prdbc = AHCI_SECTOR_SIZE;
+                discovery_port->ci = 0;
+            }
+        } else if (discovery_port->cmd & HBA_PORT_CMD_FRE) {
+            discovery_port->cmd |= HBA_PORT_CMD_FR;
+            if (reset_pulses && discovery_port->sctl == 0x300) {
+                uint32_t *fis = pmm_phys_to_virt(disk->fis_phys);
+                fis[0x40 / 4] = 0x00504034;
+                discovery_port->tfd = 0x50;
+            }
+        }
+        return now;
+    }
     if (reset_port) {
         polls++;
         if (reset_case != RESET_FROZEN) now += 250000;
@@ -167,10 +197,7 @@ static void air61_probe_contract(void) {
     pci.revision++;
     assert(!air61_controller(&pci));
     uint8_t identify[512] = {0};
-    const char name[] = "APPLE SSD SD0128F";
-    for (unsigned i = 0; i < 40; i++) identify[54 + (i ^ 1)] = i < sizeof(name) - 1 ? name[i] : ' ';
-    for (unsigned i = 0; i < 8; i++) identify[200 + i] = AIR61_SSD_SECTORS >> (8 * i);
-    identify[167] = 4;
+    make_air61_identify(identify);
     assert(air61_identify(identify));
     identify[213] = 0x50;
     identify[235] = 2;
@@ -239,7 +266,7 @@ static void air61_partition_contract(void) {
     struct ahci_disk disk = setup(20);
     disk.probe_partition = true;
     batch_count = 0;
-    assert(air61_partition_samples(&disk, 0) && batch_count >= 4);
+    assert(air61_register_probe(&disk, 0) && batch_count >= 4);
     const uint64_t want[] = {2048, 2080, 2088, 4088};
     for (unsigned i = 0; i < 4; i++) {
         unsigned n = batch_count - 4 + i;
@@ -261,13 +288,13 @@ static void air61_partition_contract(void) {
     disk = setup(21);
     disk.probe_partition = true;
     batch_count = 0;
-    assert(!air61_partition_samples(&disk, 0) && batch_count == 1);
+    assert(!air61_register_probe(&disk, 0) && batch_count == 1);
     block_init();
     disk = setup(20);
     disk.probe_partition = true;
     now = AIR61_SSD_PROBE_US;
     batch_count = 0;
-    assert(!air61_partition_samples(&disk, 0) && batch_count == 0);
+    assert(!air61_register_probe(&disk, 0) && batch_count == 0);
     puts("air61-ahci-partition: PASS GPT views, four 4 KiB reads, deadline, short DMA and write refusal");
 }
 
@@ -358,12 +385,52 @@ static void air61_reset_contract(void) {
     hba = NULL;
     puts("air61-ahci-reset: PASS one pulse, control restore, fresh FIS, BSY and clock bounds, foreign and active refusal");
 }
+
+static void air61_normal_init_contract(void) {
+    static struct hba_memory controller;
+    for (unsigned read_only = 0; read_only <= 1; read_only++) {
+        struct ahci_port_trace trace = {0};
+        (void)setup(0);
+        block_init();
+        memset(disks, 0, sizeof(disks));
+        disk_count = dma_calls = reset_pulses = 0;
+        hba = &controller;
+        discovery_port = &controller.ports[0];
+        *discovery_port = (struct hba_port){.ssts=0x133, .sig=SATA_SIG_ATA, .sctl=0x300,
+            .tfd=read_only ? 0x80 : 0x50};
+        reset_port = discovery_port;
+        reset_case = RESET_READY;
+        if (read_only) {
+            discovery_port->ci = 1;
+            assert(init_port(0, discovery_port, &trace) == AHCI_PROBE_UNSAFE);
+            assert(!dma_calls && !reset_pulses && !disk_count);
+            discovery_port->ci = 0;
+            memset(&trace, 0, sizeof(trace));
+        }
+        assert(init_port(0, discovery_port, read_only ? &trace : NULL) == AHCI_PROBE_PASS);
+        struct block_device *view = block_find("ahci0");
+        assert(disk_count == 1 && view == disks[0].block && view->read == ahci_read && reset_pulses == read_only);
+        if (read_only) {
+            assert(!view->write && !view->flush && view->max_transfer_bytes == AHCI_IO_PAGE_BYTES);
+            assert(trace.states[AHCI_TRACE_IDENTIFY_RETURN].valid && !trace.states[AHCI_TRACE_IDENTIFY_RETURN].ci);
+            assert(air61_retire(&disks[0], &trace, AHCI_PROBE_PASS) == AHCI_PROBE_PASS);
+            assert(view->offline && !trace.states[AHCI_TRACE_RETIRED].cmd);
+        } else {
+            assert(view->write == ahci_write && view->flush == ahci_flush && !view->max_transfer_bytes);
+        }
+        reset_port = discovery_port = NULL;
+        hba = NULL;
+        disk_count = 0;
+    }
+    puts("air61-ahci-discovery: PASS ordinary and read-only registration, one reset, ownership and retirement");
+}
 int main(void) {
     allocation_contract();
     air61_probe_contract();
     air61_partition_contract();
     air61_port_trace_contract();
     air61_reset_contract();
+    air61_normal_init_contract();
     struct ahci_disk disk=setup(0);
     assert(issue_command(&disk,ATA_CMD_IDENTIFY,0,0,false));
     assert(header.prdt_length==1 && (table.prdt[0].dbc_i&0x3fffff)==511 && current_space==2);

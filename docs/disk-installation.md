@@ -64,6 +64,20 @@ partition layout and every digest against clean, unmounted Ubuntu captures
 taken before and after the trial. A PASS also requires proof that the AHCI
 engine and receive FIS engine stopped with both slot registers clear.
 
+Add `--air61-ssd-discovery` to run the same checks from the normal storage
+initialization point. The shared AHCI discovery and registration path admits
+only the captured controller and port. It applies the existing bounded reset
+and registers `ahci0` with read-only callbacks. The trial retires the disk and
+returns before installed-root selection or any internal mount. Ordinary boot
+keeps its existing AHCI policy.
+
+Use the same staged release twice. Arm the cold run from Ubuntu, perform an
+orderly shutdown, and power the Mac on after it is fully off. The native test
+returns automatically to Ubuntu after saving its receipt. The warm run starts
+with an Ubuntu reboot and uses its own evidence directory. The collector must
+verify both phases against the clean Ubuntu GPT and sample baselines. Preserve
+the cold USB receipt before reusing the discovery receipt path.
+
 ## Install with console sign-in
 
 For a new identity-bound installation that should start at the local console

@@ -895,7 +895,14 @@ static void boot_virtio_gpu_probe(void) {
 
 static bool startup_journal_admitted;
 
-static void air61_ssd_trial(const char *cmdline) {
+static void air61_ssd_refuse(void) {
+    boot_set_framebuffer_quiet(false);
+    console_write("air61-ssd: REFUSED platform or invalid profile; restart manually\n");
+    console_sync();
+    halt_forever();
+}
+
+static void air61_ssd_trial(const char *cmdline, bool discovery) {
     bool port_state = cmdline_has_token(cmdline, "srvros.ssd-port-state=1");
     bool reset = cmdline_has_token(cmdline, "srvros.ssd-reset=port0");
     bool partition = cmdline_has_token(cmdline, "srvros.ssd-partition-read=1");
@@ -903,19 +910,17 @@ static void air61_ssd_trial(const char *cmdline) {
     if (port_state) receipt = "/work/srvros-work/air61-ssd-port-state.log";
     if (reset) receipt = "/work/srvros-work/air61-ssd-port-reset.log";
     if (partition) receipt = "/work/srvros-work/air61-ssd-partition-read.log";
+    if (discovery) receipt = "/work/srvros-work/air61-ssd-discovery.log";
     boot_set_framebuffer_quiet(false);
     console_clear();
     console_write(partition ? "Air6,1 read-only SSD probe. Checking GPT and EFI partition reads.\n" :
         "Air6,1 read-only SSD probe. Checking controller and sampling raw sectors.\n");
     if (!display_profile_is_air61() || !cmdline_tokens_unique(cmdline) ||
         (reset && !port_state) || (partition && !reset) ||
-        !cmdline_has_token(cmdline, "srvros.storage=ram")) {
-        console_write("air61-ssd: REFUSED platform or invalid profile; restart manually\n");
-        console_sync();
-        halt_forever();
-    }
+        (discovery && !partition) || !cmdline_has_token(cmdline, "srvros.storage=ram"))
+        air61_ssd_refuse();
     console_printf("air61-ssd: profile %s\n", cmdline);
-    enum ahci_probe_result result = ahci_air61_probe(port_state, reset, partition);
+    enum ahci_probe_result result = discovery ? ahci_air61_discovery() : ahci_air61_probe(port_state, reset, partition);
     if (result == AHCI_PROBE_UNSAFE || result == AHCI_PROBE_REFUSED) {
         console_printf("air61-ssd: %s; photograph this screen and restart manually\n",
             result == AHCI_PROBE_UNSAFE ? "HALTED AHCI quiescence unproved" : "REFUSED controller or disk");
@@ -925,7 +930,7 @@ static void air61_ssd_trial(const char *cmdline) {
     console_printf("air61-ssd: result=%s internal_mounted=no ata_writes=0\n",
         result == AHCI_PROBE_PASS ? "PASS" : "FAIL");
     console_write("Saving the SSD probe receipt to the USB workspace.\n");
-    xhci_init();
+    if (!discovery) xhci_init();
     arch_enable_interrupts();
     workspace_boot(cmdline);
     bool saved = workspace_active() && !vfs_lookup(receipt) && bootlog_persist(receipt);
@@ -1112,8 +1117,13 @@ void kmain(void) {
 #endif
     }
     pci_init();
-    if (cmdline_has_token(cmdline, "srvros.capture=air61-ssd-read-only")) {
-        air61_ssd_trial(cmdline);
+    bool ssd_discovery = cmdline_has_token(cmdline, "srvros.ssd-discovery=normal");
+    bool ssd_capture = cmdline_has_token(cmdline, "srvros.capture=air61-ssd-read-only");
+    if (ssd_discovery && (!ssd_capture || startup_journal_requested || !display_profile_is_air61() ||
+        !cmdline_tokens_unique(cmdline) || !cmdline_has_token(cmdline, "srvros.storage=ram")))
+        air61_ssd_refuse();
+    if (ssd_capture && !ssd_discovery) {
+        air61_ssd_trial(cmdline, false);
         halt_forever();
     }
     if(startup_journal_requested) {
@@ -1185,6 +1195,10 @@ void kmain(void) {
     if(!cmdline_has_token(cmdline,"srvros.capture=haswell-backing") && !cmdline_has_token(cmdline,"srvros.capture=haswell-firmware")) intel_gfx_init();
     if(cmdline_has_token(cmdline,"srvros.sensors=cpu")) thermal_init();
     if(cmdline_has_token(cmdline,"srvros.power=read-only")) power_init();
+    if (ssd_discovery) {
+        air61_ssd_trial(cmdline, true);
+        halt_forever();
+    }
     if (cmdline_has_token(cmdline, "srvros.storage=ram")) {
         console_write("storage: RAM-only mode; AHCI disabled\n");
     } else {
