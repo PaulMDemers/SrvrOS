@@ -90,12 +90,28 @@ by 84,605 ticks over 105,435 µs. A follow-up can use a bounded forcewake
 release during the pre-reset park and measure residency across it. That
 measurement alone cannot establish a device-wide traffic block.
 
-The next Air diagnostic pauses the original forcewake request with the
+The Air diagnostic pauses the original forcewake request with the
 display and HDA leases pinned and PCI bus mastering inhibited. It samples
 the always-on RC6 counter with request and ACK clear at the start and
 again at 5 ms. It then reacquires the same request before checking
 powered engine and L3 status at 7.5 and 8.75 ms. The park receipt binds
 both samples and reacquisition to the existing 10 ms interval.
+
+Release `b273f44d500cb3f3` at `fce8e91c` saved two incomplete sessions,
+`session-000661126088712d-00` and `session-000661371c93d279-00`.
+Both retained the same failure. The software park writes read back, and
+the driver issued the masked forcewake release. The last recorded
+request and ACK were clear, but release verification timed out before
+either RC6 sample. Neither run attempted reacquisition, policy restoration,
+engine preparation or a GT reset. The initial enabled Pipe A plane and
+original live surface matched. The saved records end before a final
+display or ownership return.
+
+Ubuntu verified both saved checkpoints, launch recipes and log hashes.
+The offline exFAT check found zero errors. The run closed as rejected after
+reviewing both sessions. The release path needs separate timestamps for the
+store, the first clear ACK and the closing guard to determine where the
+10 ms budget was spent.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
