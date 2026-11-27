@@ -1426,7 +1426,27 @@ workspace logging and all four journal availability cases. Both
 bounded EFI checkpoints retained the crystal record and all receive
 counter samples in the decoder check. The source table, captured
 sequence, monitor reference and run record are saved locally under
-`build/bringup/pro112-rtl8188cu-xtal`. Physical receive remains open.
+`build/bringup/pro112-rtl8188cu-xtal`.
+
+Cold session `session-0006613722b440bd-00` measured
+`AFE_XTAL_CTRL=0x0391800f` before the write and `0x0011800f` both
+immediately afterward and with RX armed. The armed PLL remained
+`0x00ffdb83`, matching Linux. The crystal control was the only raw
+enablement difference cleared since the previous trial.
+
+OFDM parity failures rose from 17 to 3,231 and illegal-rate detections
+from 17 to 3,224. All 14 receive reports and the FIFO pointer stayed
+zero. The fixed 4 KiB request delivered no bytes or Demers2.4 beacons.
+Stop Endpoint reported code 26 with 4,096 bytes remaining, and RX and
+the radio were parked. The other nine raw enablement differences remain
+open. The two crystal readbacks and the 24-register receive snapshot
+matched in the workspace and EFI records.
+
+The probe saved `exit.log` and all seven EFI checkpoints, unmounted
+the workspace and requested the normal Ubuntu return. The collector
+verified clean exFAT, all 618 existing files and Ubuntu's default boot.
+Evidence and the verified payload are archived locally under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-08712adbde733426`.
 
 ### Retina desktop default
 
