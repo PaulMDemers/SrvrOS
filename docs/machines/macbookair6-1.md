@@ -14957,3 +14957,23 @@ readback, flush/fsync/rename, file/allocation and worker/reap/battery retirement
 checks. Heavy audit remains off; no input is needed. Native acceptance requires
 positive directory counts and all original matching results after return. No
 new physical acceptance or recovery promotion is claimed before that review.
+
+### System window startup under capture
+
+The matching PR500 return (source `1ca5c2bd`, release `ed12574bea281328`, run
+`ec1ebf7c48ec4bfb`) reached 461 completed application cycles and 656 admitted
+directory calls with 9915 entries. The 30-minute trial failed during its second
+screenshot. System PID 612 initialized and the compositor opened its window.
+The window stayed awaiting its first frame and the app exited with status 1.
+The saved logs retain a 6.26-second mmap admission wait in the same interval,
+with the disk workload as initial owner. The collector reported incomplete
+capture history. Both local copies of the matching logs verify and the original
+return includes a clean exFAT and allocation check.
+
+Working from `61111819`, qualify retaining compositor buffers large enough for
+the standard System window through the Text/Files/System sequence. Scope is
+compositor cache sizing and reuse, the desktop session regression and this unit
+record. The existing two retained slots, cache byte budget, retirement accounting,
+complete-frame copy checks and deadlines apply. PR301 and PR550 were checked
+for shared compositor scope. The next checkpoint is a matched loaded VM and
+native stage qualification followed by the existing automated 1% workload.
