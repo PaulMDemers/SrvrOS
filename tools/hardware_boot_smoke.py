@@ -910,6 +910,9 @@ def main():
                                         writer = proof['flush']['pipe_writer']
                                         assert not writer['complete'] and not writer['frames']
                                         assert not any(value for key, value in writer['summary'].items() if key != 'v')
+                                    if manifest.get('scanout_backing_guard_version') == 1:
+                                        guard = proof['range']['scanout_backing_guard']
+                                        assert guard['v'] == 1 and not any(value for key, value in guard.items() if key != 'v')
                                     if proof['range'].get('command_slots',{}).get('v')==2:
                                         boot_owner=proof['range']['efi_handoff']['summary']
                                         assert (boot_owner['table'],boot_owner['backing'],boot_owner['state'],boot_owner['grants'])==(1,1,0,0)

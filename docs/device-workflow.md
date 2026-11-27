@@ -159,6 +159,16 @@ before the second queue census temporarily maps Pipe A for scanout validation.
 The actual display register stores, firmware and device reader ownership,
 and a native second surface are separate prerequisites.
 
+The Air's inherited backing receipt in `exit.log` joins all 1,356 image
+translations to the 128-entry fetch tail. The original physical span and
+the candidate's original page enter the same VMM alias guard before PCI
+inhibit. All seven firmware command pages remain excluded, and their PMM
+reservation is checked before admission and again at return. The receipt
+records the protected physical base, page count, command coverage, final
+return and any VMM refusal code. A noncontiguous tail or a competing CPU
+alias refuses admission before reset. This guard covers CPU mappings.
+GPU traffic and cache completion require device-side proof.
+
 The opt-in [private CPU context-image](intel-bdw-bcs-context.md) profile
 `intel-bcs-context-v46` selects a separate `--intel-bcs-context` image/recipe
 and exact wire8. It retains all42 v45 slots and adds context image/model slots.

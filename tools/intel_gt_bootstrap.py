@@ -254,13 +254,17 @@ def bootstrap_result(text,*,native=False):
     if range_check:
         from intel_gt_range import range_result
         range_proof=range_result(text,s,r,memory_proof,retire,owner_complete,post)
-    elif any(l.startswith('intel-range-') for l in text.splitlines()):raise ValueError('Foreign GGTT range receipt')
+    elif any(l.startswith(('intel-range-','intel-scanout-backing-guard:')) for l in text.splitlines()):raise ValueError('Foreign GGTT range receipt')
     primary_proof=None
     if primary:
         from intel_gt_primary import primary_result,verify_primary_backing
         primary_proof=primary_result(text,s,range_proof,retire,display)
         if native and owner_complete:
             verify_primary_backing(backing,range_proof,primary_proof)
+            inherited_guard=range_proof.get('scanout_backing_guard')
+            if inherited_guard and (inherited_guard['physical'] != backing['ptes'][0]-1 or
+                                    inherited_guard['pages'] != len(backing['ptes'])+128):
+                raise ValueError('Inherited guard differs from original scanout backing')
     elif any(l.startswith('intel-primary-') for l in text.splitlines()):raise ValueError('Foreign primary receipt')
     aux_proof=None
     if aux:
@@ -324,7 +328,7 @@ def verify_bootstrap_checkpoint(pre,text,*,native=False):
         if len(boots)!=1:raise ValueError('Bootstrap boot provenance')
         bootstrap_recipe(boots[0],seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary,aux=aux,flush=flush)
         if value.count('init: deferred=gt-bootstrap-preinit;')!=1 or 'init: started pid=' in value:raise ValueError('Bootstrap preinit provenance')
-    if any(l.startswith(('intel-bootstrap-','intel-range-','intel-primary-','intel-aux-','intel-flush-','intel-l3-power:','intel-smi-guard:','intel-slot-widi:','intel-widi-','intel-slot-reopened:','intel-slot-queues:','intel-command-slots:')) for l in pre.splitlines()):raise ValueError('Bootstrap late prerequisite checkpoint')
+    if any(l.startswith(('intel-bootstrap-','intel-range-','intel-primary-','intel-aux-','intel-flush-','intel-l3-power:','intel-smi-guard:','intel-slot-widi:','intel-widi-','intel-slot-reopened:','intel-slot-queues:','intel-command-slots:','intel-scanout-backing-guard:')) for l in pre.splitlines()):raise ValueError('Bootstrap late prerequisite checkpoint')
     verify_entry_checkpoint(historical_view(pre,seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary,aux=aux,flush=flush),historical_view(text,seconds=seconds,practical=practical,memory=memory,arena=arena,context=context,range_check=range_check,primary=primary,aux=aux,flush=flush),native=native,seconds=seconds,practical=practical)
     if not bootstrap_result(text,native=native):raise ValueError('Bootstrap missing final receipt')
     return True

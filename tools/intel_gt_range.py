@@ -156,6 +156,9 @@ def range_result(text, parent, reset, memory, retire, owner_complete, post):
     guard_rows = [line for line in text.splitlines() if line.startswith("intel-slot-widi:")]
     if len(guard_rows) != int(summary["v"] >= 5):
         raise ValueError("Missing or duplicate WiDi guard receipt")
+    backing_guard_rows = [line for line in text.splitlines() if line.startswith("intel-scanout-backing-guard:")]
+    if len(backing_guard_rows) > len(guard_rows):
+        raise ValueError("Unexpected inherited backing guard receipt")
     producers = [line for line in text.splitlines() if line.startswith("intel-widi-producers:")]
     messages = [line for line in text.splitlines() if line.startswith("intel-widi-device:")]
     reopened = [line for line in text.splitlines() if line.startswith("intel-slot-reopened:")]
@@ -174,6 +177,23 @@ def range_result(text, parent, reset, memory, retire, owner_complete, post):
                 or (guard["closed"] and not second["reopen_verified"]) or (b["freed"] and not guard["closed"])
                 or (owner_complete and not guard["closed"])):
             raise ValueError("Invalid WiDi guard lifetime")
+        if backing_guard_rows:
+            held = fields(backing_guard_rows[0], "intel-scanout-backing-guard:",
+                          ("v", "physical", "pages", "command_pages", "closed", "vmm_reason"), ("physical",))
+            base, pages, commands = (held[key] for key in ("physical", "pages", "command_pages"))
+            end = base + pages * 4096
+            if (held["closed"] != guard["closed"] or pages != 1484 * guard["acquired"]
+                    or held["vmm_reason"] > 15 or (held["closed"] and held["vmm_reason"])
+                    or commands not in (0, 7) or (commands and guard["pages"] != 3)
+                    or ((phase or b["acquired"] or held["closed"]) and commands != 7)
+                    or (not pages and base)
+                    or (pages and (base & 4095 or not 0 < base < end <= 2**32
+                                   or len(vectors[0]) != 132
+                                   or vectors[0][:128] != tuple(range(base + 1356 * 4096 + 1, end + 1, 4096))
+                                   or any(base <= entry - 1 < end for entry in vectors[0][128:])
+                                   or (base < 0x8ede8000 and end > 0x8ede1000)))):
+                raise ValueError("Invalid inherited scanout backing guard")
+            result["scanout_backing_guard"] = held
         words = "strap function well_before codec_before control codec_after well_after".split()
         prod = fields(producers[0], "intel-widi-producers:",
                       ("v", "disabled", *words, "maps", "retired", "live", "reads"), (*words, "live"))

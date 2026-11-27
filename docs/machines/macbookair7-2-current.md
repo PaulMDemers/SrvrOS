@@ -286,11 +286,14 @@ engine or L3 acknowledgements. This run closes the Pipe A CPU register lease
 diagnostic. Sustained traffic blocking, GPU ownership and tear-free scanout
 remain open. Shared baseline `54632d47` was inspected for this run.
 
-The next boot-handoff step extends the existing CPU mapping guard across
-the full inherited physical scanout backing, including the 128-entry fetch
-tail. Scope is the Air range adapter, its receipt and local qualification.
-The guard continues to exclude the candidate backing and firmware command
-pages. GPU completion evidence is still required before a translation store.
+The boot-handoff adapter now extends its CPU mapping guard across the
+1,356 inherited image pages and the 128-entry fetch tail. The last native
+log places this contiguous span at `0x8c001000–0x8c5cd000` (end exclusive).
+The guard also excludes the candidate backing and all seven firmware
+command pages. Host faults cover a discontinuous tail and CPU alias
+conflicts before reset. The next physical run must verify acquisition and
+release in the same PCI and display lifetime. GPU completion evidence is
+still required before a translation store.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

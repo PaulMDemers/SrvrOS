@@ -802,6 +802,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             manifest["software_park_version"] = 9
             manifest["park_timing_file_version"] = 1
             manifest["pipe_writer_version"] = 1
+            manifest["scanout_backing_guard_version"] = 1
         if intel_stolen_capture:manifest['stolen_progress_version']=1
         if bind_source:
             manifest["source_bound"] = True

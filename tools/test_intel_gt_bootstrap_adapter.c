@@ -296,6 +296,7 @@ static bool intel_display_test_command_ram(uint64_t base,volatile const uint32_t
 }
 static const uint64_t host_widi_pages[]={0xc0014000,0xc006e000,0xc0065000};
 static bool host_widi_held;
+static bool host_command_backing_held;
 static unsigned host_widi_count;
 static bool host_aperture[GT_COMMAND_PAGES];
 static bool intel_display_test_command_aperture_map(unsigned i,uint64_t va,uint64_t pa) {
@@ -415,17 +416,27 @@ bool vmm_reserved_guard_hold_readonly_registers(const struct vmm_reserved_guard 
 bool vmm_reserved_guard_begin_io_page(struct vmm_reserved_guard *g,uint64_t root,
  const struct vmm_physical_span *spans,unsigned count,unsigned bits,const struct vmm_alias_ram *ram,
  unsigned ranges,uint64_t aperture,struct vmm_alias_inventory *out,struct vmm_unmapped_detail *detail) {
- (void)detail;
  assert(!host_widi_held && !g->object && root==gt_bootstrap_native.root && wake_irq && gpu_command==7);
- assert(count==2 && spans[1].physical==0x8ede1000 && spans[1].pages==GT_COMMAND_PAGES && spans[0].physical==0x8f004000 && spans[0].pages==1 && bits>=36 &&
+ assert(count==2 && spans[1].physical==0x8c001000 && spans[1].pages==1484 && spans[0].physical==0x8f004000 && spans[0].pages==1 && bits>=36 &&
         ranges && ram && out && aperture==0xb3003000);
  if(bf("widi-begin",1))return false;
+ if(bf("inherited-physical-alias",1)) {
+  assert(detail);
+  detail->walk.reason=VMM_ALIAS_PRESENT;
+  return false;
+ }
  g->object=g;g->epoch=1;host_widi_held=true;return true;
 }
 bool vmm_reserved_guard_io_page_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page) {
  return g->object==g && wake_irq && root==gt_bootstrap_native.root && page==0xb3003000 && host_widi_held;
 }
 bool vmm_reserved_guard_exclude_io_range(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,unsigned n) {
+ if(page==GT_FIRMWARE_COMMAND_PHYS) {
+  assert(vmm_reserved_guard_io_page_held(g,root,0xb3003000) && host_widi_count==3 &&
+         !host_command_backing_held && n==GT_COMMAND_PAGES && gpu_command==7);
+  if(bf("firmware-command-alias",1))return false;
+  host_command_backing_held=true;return true;
+ }
  assert(vmm_reserved_guard_io_page_held(g,root,0xb3003000) && host_widi_count<3 &&
         n==1 && page==host_widi_pages[host_widi_count] && gpu_command==7);
  if(bf("widi-alias",1+host_widi_count))return false;
@@ -451,10 +462,10 @@ bool vmm_reserved_guard_excludes_io_page(const struct vmm_reserved_guard *g,uint
 bool vmm_reserved_guard_close(struct vmm_reserved_guard *g,struct vmm_alias_inventory *out,
                              struct vmm_unmapped_detail *detail) {
  (void)detail;
- assert(g->object==g && host_widi_held && host_widi_count==3 && out && independent_reopened &&
+ assert(g->object==g && host_widi_held && host_widi_count==3 && host_command_backing_held && out && independent_reopened &&
         gpu_command==7 && bcommands==2 && gt_bootstrap_native.pci_samples==4);
  if(bf("widi-retire",1))return false;
- host_widi_held=false;return true;
+ host_widi_held=false;host_command_backing_held=false;return true;
 }
 static void intel_display_test_backing_access(void) {
  if(slot_backing.checks && bf("backing-content",slot_backing.checks))test_backing_page[511]^=1;
@@ -1003,6 +1014,9 @@ static bool intel_display_test_range_read(uint32_t offset,uint32_t *out) {
  uint64_t value=0x200000001ull+(uint64_t)slot*4096;
 #ifdef SRVROS_INTEL_GT_PRIMARY
  value=0x8c001001ull+(uint64_t)slot*4096;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(slot==1483 && !(offset&4) && bf("inherited-tail-gap",1))value^=4096;
+#endif
  if(slot==8704 && !strcmp(bootstrap_mode,"primary-physical-overlap")) {
   value=0x8c54d001;
   if(gt_range.completed)bf("primary-physical-overlap",1);

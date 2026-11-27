@@ -665,6 +665,8 @@ uint64_t pmm_alloc_frame_tagged(enum pmm_frame_tag tag) {
 }
 bool pmm_frame_has_tag(uint64_t pa,enum pmm_frame_tag tag) {
  if(pa==TEST_METADATA_PA)return tag==PMM_FRAME_RESERVED;
+ if(pa>=GT_FIRMWARE_COMMAND_PHYS && pa<GT_FIRMWARE_COMMAND_PHYS+4096ull*GT_COMMAND_PAGES && !(pa&4095))
+  return tag==PMM_FRAME_RESERVED;
  if(pa>=TEST_COMMAND_PA && pa<TEST_COMMAND_PA+sizeof(test_command_ram) && !(pa&4095))
   return tag==PMM_FRAME_RESERVED;
  return pa==TEST_BACKING_PA && tag==(test_backing_allocated?PMM_FRAME_DMA:PMM_FRAME_FREE);

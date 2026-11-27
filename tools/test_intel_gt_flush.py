@@ -648,6 +648,28 @@ class FlushAcknowledgements(unittest.TestCase):
                 self.assertEqual(failed['summary']['commands'], commands)
                 self.assertEqual(writer['summary']['returned'], 0)
 
+    def test_inherited_scanout_guard_covers_image_and_tail_before_reset(self):
+        text = observe('pipe-writer')
+        result = bootstrap_result(text)
+        self.assertTrue(result['complete'])
+        self.assertEqual(result['range']['scanout_backing_guard'],
+                         dict(v=1, physical=0x8c001000, pages=1484, command_pages=7, closed=1, vmm_reason=0))
+        row = next(line for line in text.splitlines() if line.startswith('intel-scanout-backing-guard:'))
+        for old, new in (('pages=1484', 'pages=1356'), ('command_pages=7', 'command_pages=0'),
+                         ('closed=1', 'closed=0')):
+            with self.subTest(old=old), self.assertRaises(ValueError):
+                bootstrap_result(text.replace(row, row.replace(old, new)))
+        for fault, pages, reason in (('inherited-tail-gap', 0, 0), ('inherited-physical-alias', 0, 12),
+                                     ('firmware-command-alias', 1484, 0)):
+            with self.subTest(fault=fault):
+                failed = bootstrap_result(observe(fault, 1))
+                self.assertFalse(failed['complete'])
+                self.assertEqual(failed['summary']['commands'], 0)
+                self.assertEqual(failed['reset']['reset_attempts'], 0)
+                held = failed['range']['scanout_backing_guard']
+                self.assertEqual((held['pages'], held['command_pages'], held['closed']), (pages, 0, 0))
+                self.assertEqual(held['vmm_reason'], reason)
+
     def test_bcs_register_loan_before_requester_reopens(self):
         text = observe("pass")
         receipt = bootstrap_result(text)["range"]["reopened_pte"]
@@ -725,7 +747,7 @@ class FlushAcknowledgements(unittest.TestCase):
                     re.sub(r"planned=\S+", "planned=0x1", row)):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
-        legacy = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6|idle-change|idle-engine|park|park-frame):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=8 ", "intel-range-summary: v=3 ")
+        legacy = re.sub(r"^intel-(?:command-slots|scanout-backing-guard|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6|idle-change|idle-engine|park|park-frame):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=8 ", "intel-range-summary: v=3 ")
         self.assertTrue(bootstrap_result(legacy)["complete"])
 
     def test_primary_backing_with_independent_slot(self):
@@ -848,7 +870,7 @@ class FlushAcknowledgements(unittest.TestCase):
         old_power = re.sub(r"^intel-slot-summary:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-independent-slot:.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-slot-backing:.*\n", "", old_power, flags=re.M)
-        old_power = re.sub(r"^intel-(?:command-slots|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6|idle-change|idle-engine|park|park-frame):.*\n", "", old_power, flags=re.M)
+        old_power = re.sub(r"^intel-(?:command-slots|scanout-backing-guard|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6|idle-change|idle-engine|park|park-frame):.*\n", "", old_power, flags=re.M)
         old_power = old_power.replace("intel-range-summary: v=8 ", "intel-range-summary: v=1 ")
         old_power = old_power.replace("maps=6 retired=6 live=0 reads=792",
                                       "maps=4 retired=4 live=0 reads=774")
