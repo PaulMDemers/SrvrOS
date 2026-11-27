@@ -5,6 +5,7 @@
 #define EHCI_TRACKPAD_POLL_US 250u
 #define EHCI_TRACKPAD_MOVE_UNITS 32
 #define EHCI_TRACKPAD_BATCH_SIZE 6u
+#define EHCI_TRACKPAD_FEATURE_READ_OFFSET_US 247973u
 
 struct ehci_trackpad_slot {
     _Alignas(32) struct ehci_qtd td;
@@ -21,6 +22,21 @@ _Static_assert(EHCI_TRACKPAD_REPORT_MAX <= sizeof(((struct ehci_trackpad_capture
     "trackpad capture retains the whole first payload");
 
 static const struct ehci_periodic_endpoint trackpad_endpoint = { 0x81, 64, 1, EHCI_TRACKPAD_REPORT_MAX };
+
+/* Submission offsets from the same Ubuntu capture as the keyboard LED bytes. */
+static const struct {
+    unsigned offset_us;
+    struct usb_setup_packet request;
+    const char *failure;
+} trackpad_hid_requests[] = {
+    {   627, { 0x21, EHCI_HID_SET_IDLE, 0, 0, 0 }, "HID interface 0 SET_IDLE failed" },
+    {   904, { 0x81, USB_REQ_GET_DESCRIPTOR, 0x2200, 0, 156 }, "HID interface 0 report descriptor failed" },
+    {  7017, { 0x21, 9, 0x0201, 0, 2 }, "first keyboard output report failed" },
+    { 61657, { 0x21, 9, 0x0201, 0, 2 }, "second keyboard output report failed" },
+    { 82006, { 0x21, EHCI_HID_SET_IDLE, 0, 1, 0 }, "HID interface 1 SET_IDLE failed" },
+    { 84321, { 0x81, USB_REQ_GET_DESCRIPTOR, 0x2200, 1, 27 }, "HID interface 1 report descriptor failed" },
+};
+enum { EHCI_TRACKPAD_HID_REQUEST_COUNT = sizeof(trackpad_hid_requests) / sizeof(trackpad_hid_requests[0]) };
 
 static bool captured_trackpad_interfaces(const uint8_t *configuration, uint16_t length) {
     if (!configuration || length < 9 || configuration[5] != 1) return false;
@@ -56,6 +72,30 @@ static bool read_trackpad_mode(struct ehci_control_path *path, uint8_t data[8]) 
     const struct usb_setup_packet request = { 0xa1, 1, 0x0300, 0, 8 };
     unsigned received;
     return control_transfer(path, &path->report->trackpad_target, &request, data, &received) && received == 8;
+}
+
+static bool wait_trackpad_hid_offset(uint64_t configured_at, unsigned offset_us) {
+    uint64_t elapsed = timer_monotonic_us() - configured_at;
+    return elapsed >= offset_us || timer_delay_us(offset_us - elapsed);
+}
+
+static const char *replay_trackpad_hid(struct ehci_control_path *path, uint64_t configured_at) {
+    struct ehci_trackpad_capture *capture = &path->report->trackpad;
+    const uint8_t keyboard_output[] = { 0x01, 0x00 };
+    uint8_t descriptor[EHCI_DESCRIPTOR_BYTES];
+    capture->hid_replay_started = true;
+    for (unsigned i = 0; i < EHCI_TRACKPAD_HID_REQUEST_COUNT; i++) {
+        if (!wait_trackpad_hid_offset(configured_at, trackpad_hid_requests[i].offset_us))
+            return "HID replay timer failed";
+        const struct usb_setup_packet *request = &trackpad_hid_requests[i].request;
+        bool input = request->request_type & USB_ENDPOINT_IN;
+        unsigned received;
+        if (!control_transfer_payload(path, &path->report->trackpad_target, request,
+            input ? descriptor : NULL, !input && request->length ? keyboard_output : NULL, &received, NULL) ||
+            received != request->length) return trackpad_hid_requests[i].failure;
+        capture->hid_replay_completed++;
+    }
+    return NULL;
 }
 
 static bool write_trackpad_mode(struct ehci_control_path *path, const uint8_t data[8], uint64_t *completed_us) {
@@ -204,12 +244,21 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
     struct ehci_trackpad_capture *capture = &report->trackpad;
     capture->result = "captured trackpad interfaces unavailable";
     if (!report->trackpad_target.address) return;
+    capture->result = "captured keyboard interface unavailable for HID replay";
+    if (report->keyboard_target.address != report->trackpad_target.address) return;
     const struct usb_setup_packet configuration = { 0, USB_REQ_SET_CONFIGURATION, 1, 0, 0 };
     unsigned received;
+    uint64_t configured_at;
     capture->result = "SET_CONFIGURATION failed";
-    if (!control_transfer(path, &report->trackpad_target, &configuration, NULL, &received)) return;
+    if (!control_transfer_payload(path, &report->trackpad_target, &configuration, NULL, NULL, &received,
+        &configured_at)) return;
+    capture->result = replay_trackpad_hid(path, configured_at);
+    if (capture->result) return;
+    capture->result = "HID replay feature-read timer failed";
+    if (!wait_trackpad_hid_offset(configured_at, EHCI_TRACKPAD_FEATURE_READ_OFFSET_US)) return;
     uint8_t original[8];
     capture->result = "feature mode read failed";
+    capture->configuration_to_feature_read_us = timer_monotonic_us() - configured_at;
     if (!read_trackpad_mode(path, original)) return;
     capture->mode_before_read = true;
     capture->mode_before = original[0];
@@ -235,6 +284,7 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
     uint64_t mode_completed_us;
     if (write_trackpad_mode(path, mode, &mode_completed_us)) {
         capture->result = poll_trackpad(path, dma, (uint32_t)physical, mode_completed_us);
+        capture->configuration_to_mode_us = mode_completed_us - configured_at;
         if (schedules_idle(path) && read_trackpad_mode(path, mode)) {
             capture->mode_after_read = true;
             capture->mode_after = mode[0];

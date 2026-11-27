@@ -123,12 +123,14 @@ struct ehci_trackpad_capture {
     unsigned batches, completions;
     uint64_t last_eight_byte_sample;
     uint64_t mode_to_arm_us, mode_to_active_us, mode_to_first_completion_us;
+    uint64_t configuration_to_feature_read_us, configuration_to_mode_us;
+    unsigned hid_replay_completed;
     unsigned first_payload_length;
     uint8_t first_payload[EHCI_DESCRIPTOR_BYTES];
     uint32_t token, overlay, status;
     int16_t first_x, first_y;
     uint8_t mode_before, mode_after, last_eight_byte_id;
-    bool mode_before_read, mode_after_read;
+    bool hid_replay_started, mode_before_read, mode_after_read;
     bool arm_requested, arm_acknowledged;
     bool have_position, moved, pressed, released, mode_restored;
     const char *result;
@@ -1101,6 +1103,16 @@ bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
         capture->released ? "pressed and released" : capture->pressed ? "pressed" : "unverified",
         capture->mode_restored ? "restored" : "unverified");
     console_printf("Invalid %u. Ignored %u.\n", (uint64_t)capture->invalid, (uint64_t)capture->ignored);
+    if (capture->hid_replay_started) {
+        console_printf("Trackpad HID replay completed=%u/%u.\n", (uint64_t)capture->hid_replay_completed,
+            (uint64_t)EHCI_TRACKPAD_HID_REQUEST_COUNT);
+    }
+    if (capture->configuration_to_feature_read_us) {
+        console_printf("Trackpad configuration-to-feature-read request %u us.\n",
+            capture->configuration_to_feature_read_us);
+    }
+    if (capture->arm_requested) console_printf("Trackpad configuration-to-mode completion %u us.\n",
+        capture->configuration_to_mode_us);
     if (capture->mode_before_read) {
         if (capture->mode_after_read) console_printf("Feature mode before=%u after capture=%u (expected 1).\n",
             (uint64_t)capture->mode_before, (uint64_t)capture->mode_after);
