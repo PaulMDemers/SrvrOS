@@ -3,6 +3,7 @@
 #define RTL_CU_PROFILE_BYTES (RTL_CU_PROFILE_WRITES*6u)
 #define RTL_CU_RX_DCI 3u
 #define RTL_CU_RX_BYTES 4096u
+#define RTL_CU_RX_WINDOW_US 4000000u
 /* Enable the scheduler and security block during passive RX with TX closed. */
 #define RTL_CU_PROTOCOL_ENABLE (1u<<4)
 #define RTL_CU_SCHEDULE_ENABLE (1u<<5)
@@ -73,6 +74,12 @@ enum rtl_cu_sample_phase {
     RTL_CU_ARMED,RTL_CU_PENDING,RTL_CU_BEFORE_STOP,RTL_CU_AFTER_STOP,RTL_CU_SAMPLE_COUNT
 };
 enum rtl_cu_rx_register { RTL_CU_CR,RTL_CU_RCR,RTL_CU_RXFF_PTR,RTL_CU_RXPKT_NUM,RTL_CU_RXDMA_STATUS,RTL_CU_RX_REG_COUNT };
+enum rtl_cu_rx_disposition {
+    RTL_CU_RX_EMPTY,RTL_CU_RX_SHORT_DESC,RTL_CU_RX_CRC,RTL_CU_RX_ICV,RTL_CU_RX_CRC_ICV,
+    RTL_CU_RX_SHORT_PREFIX,RTL_CU_RX_SHORT_FCS,RTL_CU_RX_SHORT_MPDU,
+    RTL_CU_RX_UNSUPPORTED,RTL_CU_RX_MALFORMED,RTL_CU_RX_WRONG_CHANNEL,
+    RTL_CU_RX_NO_CHANNEL,RTL_CU_RX_OTHER_SSID,RTL_CU_RX_TARGET,RTL_CU_RX_DISPOSITIONS,
+};
 enum rtl_cu_phy_register { RTL_CU_OFDM1,RTL_CU_OFDM2,RTL_CU_OFDM3,RTL_CU_SYNC,RTL_CU_PHY_COUNT };
 enum rtl_cu_report {
     RTL_CU_OFDM_OK,RTL_CU_CCK_OK,RTL_CU_HT_OK,RTL_CU_FIFO_DROP,
@@ -151,8 +158,9 @@ static struct {
     struct xhci_device *owner;
     struct xhci_bulk_endpoint ep;
     uint8_t *buffer;
-    uint64_t physical,trb,started_us,first_completion_us;
-    unsigned posted,completed,actual,beacons,matches,rejected;
+    uint64_t physical,trb,started_us,first_completion_us,elapsed_us;
+    unsigned posted,completed,inspected,actual,beacons,matches,rejected;
+    unsigned dispositions[RTL_CU_RX_DISPOSITIONS],unexpected_events;
     struct rtl_cu_rx_sample samples[RTL_CU_SAMPLE_COUNT];
     uint64_t event_trb;
     unsigned events,event_code,event_residue;
@@ -197,7 +205,7 @@ static struct {
     unsigned usb_if_before_reads,usb_if_writes,usb_if_after_reads;
     bool usb_if_ready;
     bool event_data,rx_cr_valid,listen_written;
-    bool configured,pending,failed;
+    bool configured,pending,trb_cycle,stopping,failed;
 } rtl_passive;
 
 static bool rtl_cu_verify_receive_setup(struct xhci_device *d) {
@@ -849,9 +857,16 @@ static bool rtl8188cu_passive_event(const struct xhci_device *d,uint8_t dci,uint
     rtl_passive.event_code=completion;
     rtl_passive.event_residue=remaining;
     rtl_passive.event_data=event_data;
-    if(pointer!=rtl_passive.trb)return false;
-    if(!rtl_passive.pending)return true;
-    if(event_data || (completion!=1 && completion!=13) || remaining>RTL_CU_RX_BYTES) {
+    if(rtl_passive.stopping && completion>=26 && completion<=28 && !event_data &&
+       !(pointer&15) && pointer>=rtl_passive.ep.ring_phys &&
+       pointer-rtl_passive.ep.ring_phys<XHCI_TRB_COUNT*sizeof(struct xhci_trb)) {
+        /* Stop events are evidence, not completion credit. The saved
+         * dequeue and cycle are checked after the Stop command completes. */
+        return true;
+    }
+    if(!rtl_passive.pending || pointer!=rtl_passive.trb || event_data ||
+       (completion!=1 && completion!=13) || remaining>RTL_CU_RX_BYTES) {
+        rtl_passive.unexpected_events++;
         rtl_passive.failed=true;
         return true;
     }
@@ -861,32 +876,77 @@ static bool rtl8188cu_passive_event(const struct xhci_device *d,uint8_t dci,uint
     return true;
 }
 
-static void rtl_cu_rx_post(struct xhci_device *d) {
+static bool rtl_cu_rx_drain(void) {
+    /* Ownership is empty between transfers. Fail on any additional event for
+     * this endpoint before a reused pointer can denote a new transfer. */
+    for(unsigned i=0;i<XHCI_TRB_COUNT;i++) {
+        struct xhci_trb event;
+        if(!poll_event(&event))return true;
+        dispatch_transfer_event(&event);
+        if(rtl_passive.failed)return false;
+    }
+    return false;
+}
+
+static bool rtl_cu_rx_post(struct xhci_device *d) {
     struct xhci_bulk_endpoint *ep=&rtl_passive.ep;
+    if(rtl_passive.pending || rtl_passive.failed || rtl_passive.posted!=rtl_passive.completed ||
+       rtl_passive.inspected!=rtl_passive.completed || ep->enqueue>=XHCI_TRB_COUNT-1 ||
+       device_removed(d))return false;
+    zero_bytes(rtl_passive.buffer,RTL_CU_RX_BYTES);
     const struct xhci_trb transfer={.parameter_low=(uint32_t)rtl_passive.physical,
         .parameter_high=rtl_passive.physical>>32,.status=RTL_CU_RX_BYTES,
         .control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
-    rtl_passive.trb=ring_push(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&transfer);
+    struct xhci_trb *entry=&ep->ring[ep->enqueue];
+    rtl_passive.trb_cycle=ep->cycle;
+    rtl_passive.trb=ring_push_owned(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&transfer,true);
     rtl_passive.actual=0;rtl_passive.pending=true;rtl_passive.posted++;
+    /* Publish only after the single-transfer owner and any updated Link
+     * TRB exist. Doorbell is the last operation. */
+    __atomic_thread_fence(__ATOMIC_RELEASE);
+    ((volatile struct xhci_trb *)entry)->control=(transfer.control&~1u)|rtl_passive.trb_cycle;
     db_write32(d->slot_id,RTL_CU_RX_DCI);
+    return true;
 }
 
-static void rtl_cu_rx_inspect(const uint8_t *data,size_t length) {
+static enum rtl_cu_rx_disposition rtl_cu_rx_classify(const uint8_t *data,size_t length) {
     static const uint8_t wanted[]="Demers2.4";
-    if(length<24){rtl_passive.rejected++;return;}
+    if(!length)return RTL_CU_RX_EMPTY;
+    if(length<24)return RTL_CU_RX_SHORT_DESC;
     uint32_t word=rtl_cu_le32(data);
+    switch(word&0xc000) {
+    case 0x4000:return RTL_CU_RX_CRC;
+    case 0x8000:return RTL_CU_RX_ICV;
+    case 0xc000:return RTL_CU_RX_CRC_ICV;
+    }
     size_t offset=24+8*((word>>16)&15)+((word>>24)&3);
     size_t mpdu=word&0x3fff;
-    if((word&0xc000) || offset>length || mpdu<RTL_CU_FCS_BYTES || mpdu>length-offset) {
-        rtl_passive.rejected++;return;
-    }
+    if(offset>length)return RTL_CU_RX_SHORT_PREFIX;
+    if(mpdu<RTL_CU_FCS_BYTES)return RTL_CU_RX_SHORT_FCS;
+    if(mpdu>length-offset)return RTL_CU_RX_SHORT_MPDU;
     struct mt76_rx_beacon beacon;
-    /* The beacon decoder admits plaintext beacons. Their descriptor length includes FCS. */
-    if(wifi_rx_beacon_frame(data+offset,mpdu-RTL_CU_FCS_BYTES,RTL_CU_CHANNEL,&beacon)!=MT76_RX_OK)return;
-    rtl_passive.beacons++;
-    if(beacon.ssid_size!=sizeof wanted-1 || !beacon.ds_present)return;
-    for(unsigned i=0;i<sizeof wanted-1;i++)if(beacon.ssid[i]!=wanted[i])return;
-    rtl_passive.matches++;
+    /* The descriptor's MPDU length includes the four-byte FCS. */
+    switch(wifi_rx_beacon_frame(data+offset,mpdu-RTL_CU_FCS_BYTES,RTL_CU_CHANNEL,&beacon)) {
+    case MT76_RX_CHANNEL_MISMATCH:return RTL_CU_RX_WRONG_CHANNEL;
+    case MT76_RX_UNSUPPORTED:return RTL_CU_RX_UNSUPPORTED;
+    case MT76_RX_OK:break;
+    default:return RTL_CU_RX_MALFORMED;
+    }
+    if(!beacon.ds_present)return RTL_CU_RX_NO_CHANNEL;
+    if(beacon.ssid_size!=sizeof wanted-1 || !bytes_equal(beacon.ssid,wanted,sizeof wanted-1))
+        return RTL_CU_RX_OTHER_SSID;
+    return RTL_CU_RX_TARGET;
+}
+
+static void rtl_cu_rx_inspect(void) {
+    if(rtl_passive.inspected==rtl_passive.completed)return;
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
+    enum rtl_cu_rx_disposition disposition=rtl_cu_rx_classify(rtl_passive.buffer,rtl_passive.actual);
+    rtl_passive.inspected++;
+    rtl_passive.dispositions[disposition]++;
+    if(disposition>=RTL_CU_RX_NO_CHANNEL)rtl_passive.beacons++;
+    else rtl_passive.rejected++;
+    if(disposition==RTL_CU_RX_TARGET)rtl_passive.matches++;
 }
 
 static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
@@ -917,20 +977,18 @@ static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
     console_write("rtl8188cu-passive-progress: listening on channel 10; no input required\n");
     uint64_t start=timer_monotonic_us(),last=start,clock=start,stalled=0;
     rtl_passive.started_us=start;
-    rtl_cu_rx_post(d);
+    if(!rtl_cu_rx_post(d))return false;
     for(uint64_t spins=0;;spins++) {
         struct xhci_trb event;
         if(poll_event(&event))dispatch_transfer_event(&event);
         if(rtl_passive.failed || device_removed(d))return false;
-        if(!rtl_passive.pending) {
-            rtl_cu_rx_inspect(rtl_passive.buffer,rtl_passive.actual);
-            zero_bytes(rtl_passive.buffer,RTL_CU_RX_BYTES);
-            if(rtl_passive.matches>=2 || rtl_passive.posted==62)return rtl_cu_mac_held(d,RTL_CU_LISTEN_CR);
-            rtl_cu_rx_post(d);
-        }
-        if((spins&255)==0) {
+        bool ready=!rtl_passive.pending;
+        if(ready)rtl_cu_rx_inspect();
+        if(ready || (spins&255)==0) {
+            if(ready && !rtl_cu_rx_drain())return false;
             uint64_t now=timer_monotonic_us();
-            if(now-start>=4000000)return rtl_cu_mac_held(d,RTL_CU_LISTEN_CR);
+            rtl_passive.elapsed_us=now-start;
+            if(rtl_passive.elapsed_us>=RTL_CU_RX_WINDOW_US)return rtl_cu_mac_held(d,RTL_CU_LISTEN_CR);
             stalled=now==clock?stalled+256:0;
             clock=now;
             if(stalled>=XHCI_TRANSFER_TIMEOUT)return false;
@@ -943,6 +1001,7 @@ static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
                 }
             }
         }
+        if(ready && !rtl_cu_rx_post(d))return false;
         __asm__ volatile("pause");
     }
 }
@@ -950,17 +1009,28 @@ static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
 /* Keep the ring and buffer pinned until reboot, including failed stops. */
 static bool rtl_cu_rx_stop(struct xhci_device *d) {
     uint64_t slot=UINT64_MAX;
+    rtl_passive.stopping=true;
     bool ok=submit_command(XHCI_TRB_TYPE_STOP_ENDPOINT,
        ((uint32_t)d->slot_id<<24)|(RTL_CU_RX_DCI<<16),&slot);
+    rtl_passive.stopping=false;
     if(slot!=UINT64_MAX && slot!=d->slot_id)xhci.command_failed=true;
     if(!ok || slot!=d->slot_id)return false;
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
+    const struct xhci_bulk_endpoint *ep=&rtl_passive.ep;
     uint64_t dequeue=rtl_cu_rx_dequeue(d);
-    uint64_t cursor=dequeue&~15ull;
-    bool stopped=(context_read32(d->output_context,RTL_CU_RX_DCI,0)&7)==3 &&
-        cursor>=rtl_passive.ep.ring_phys && cursor-rtl_passive.ep.ring_phys<1024 &&
-        (dequeue&15)==1;
-    if(stopped){rtl_passive.pending=false;zero_bytes(rtl_passive.buffer,RTL_CU_RX_BYTES);}
-    return stopped;
+    if((context_read32(d->output_context,RTL_CU_RX_DCI,0)&7)!=3)return false;
+    uint64_t cursor=rtl_passive.pending?rtl_passive.trb:ep->ring_phys+ep->enqueue*sizeof(struct xhci_trb);
+    bool cycle=rtl_passive.pending?rtl_passive.trb_cycle:ep->cycle;
+    uint64_t link=ep->ring_phys+(XHCI_TRB_COUNT-1)*sizeof(struct xhci_trb);
+    /* If the consumer is at the wrap boundary, Stop may win before it
+     * consumes the Link TRB and flips DCS, even with slot zero posted. */
+    bool before_link=cursor==ep->ring_phys && rtl_passive.completed &&
+        dequeue==(link|!cycle);
+    if(dequeue!=(cursor|cycle) && !before_link)return false;
+    rtl_cu_rx_inspect();
+    rtl_passive.pending=false;
+    zero_bytes(rtl_passive.buffer,RTL_CU_RX_BYTES);
+    return true;
 }
 
 static void rtl_cu_park(struct xhci_device *d,struct xhci_device *hub) {
@@ -998,10 +1068,11 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready) {
                 if(phy_radio && rtl_cu_rx_configure(d)) {
                     window=rtl_cu_listen(d,hub);
                     rtl_cu_rx_snapshot(d,RTL_CU_BEFORE_STOP,window);
-                    window=window && !rtl_passive.failed && !d->control_failed && !d->ep0_quarantined;
                     stopped=rtl_cu_rx_stop(d);
+                    window=window && !rtl_passive.failed && !d->control_failed && !d->ep0_quarantined;
                     rtl_cu_rx_snapshot(d,RTL_CU_AFTER_STOP,false);
                     result=window && !rtl_passive.completed?"rx-timeout":"window";
+                    if(rtl_passive.unexpected_events)result="rx-event";
                     if(rtl_passive.listen_written && (!rtl_passive.rx_cr_valid ||
                        rtl_passive.rx_cr!=RTL_CU_LISTEN_CR || rtl_passive.listen_pause!=0xff))
                         result="mac-listen-readback";
@@ -1034,6 +1105,22 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready) {
     if(rtl_passive.owner)
         console_printf("rtl8188cu-packet-buffer: ready=%u linked=%u first_completion_us=%u\n",
             (uint64_t)rtl_passive.buffer_ready,(uint64_t)rtl_passive.linked,rtl_passive.first_completion_us);
+    if(rtl_passive.started_us) {
+        unsigned entries=XHCI_TRB_COUNT-1;
+        console_printf("rtl8188cu-rx-window: elapsed_us=%u inspected=%u wraps=%u reused=%u unexpected=%u\n",
+            rtl_passive.elapsed_us,(uint64_t)rtl_passive.inspected,(uint64_t)(rtl_passive.posted/entries),
+            (uint64_t)(rtl_passive.posted>entries?rtl_passive.posted-entries:0),
+            (uint64_t)rtl_passive.unexpected_events);
+        const unsigned *counts=rtl_passive.dispositions;
+        console_printf("rtl8188cu-rx-disposition: empty=%u short_desc=%u crc=%u icv=%u crc_icv=%u short_prefix=%u short_fcs=%u short_mpdu=%u unsupported=%u malformed=%u wrong_channel=%u no_channel=%u other_ssid=%u target=%u\n",
+            (uint64_t)counts[RTL_CU_RX_EMPTY],(uint64_t)counts[RTL_CU_RX_SHORT_DESC],
+            (uint64_t)counts[RTL_CU_RX_CRC],(uint64_t)counts[RTL_CU_RX_ICV],(uint64_t)counts[RTL_CU_RX_CRC_ICV],
+            (uint64_t)counts[RTL_CU_RX_SHORT_PREFIX],(uint64_t)counts[RTL_CU_RX_SHORT_FCS],
+            (uint64_t)counts[RTL_CU_RX_SHORT_MPDU],(uint64_t)counts[RTL_CU_RX_UNSUPPORTED],
+            (uint64_t)counts[RTL_CU_RX_MALFORMED],(uint64_t)counts[RTL_CU_RX_WRONG_CHANNEL],
+            (uint64_t)counts[RTL_CU_RX_NO_CHANNEL],(uint64_t)counts[RTL_CU_RX_OTHER_SSID],
+            (uint64_t)counts[RTL_CU_RX_TARGET]);
+    }
     console_printf("rtl8188cu-passive: result=%s writes=%u rf_channel=%x posted=%u completed=%u beacons=%u target=%u rejected=%u stopped=%u parked=%u\n",
         result,(uint64_t)writes,(uint64_t)channel,(uint64_t)rtl_passive.posted,(uint64_t)rtl_passive.completed,
         (uint64_t)rtl_passive.beacons,(uint64_t)rtl_passive.matches,(uint64_t)rtl_passive.rejected,
