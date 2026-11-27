@@ -1,6 +1,6 @@
 # MacBookPro8,1 bring-up record
 
-Updated November 24, 2026. State **Native console output, EHCI enumeration
+Updated November 26, 2026. State **Native console output, EHCI enumeration
 of the built-in topcase and workspace flash drive, and return to Ubuntu
 verified. Both controllers completed their scans and released DMA in the
 enumeration trial. The operator verified built-in keyboard input, command
@@ -449,6 +449,19 @@ so a report with two slots spans multiple packets. Mode selection uses an
 eight-byte HID feature read/modify/write with value `0x0300` and index 0.
 [Linux bcm5974 reference](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/input/mouse/bcm5974.c)
 
+Native release `b47bd60baf233327` scanned the controller and reached the
+gesture prompt. The capture timed out with zero decoded frames, 656 invalid
+transfers, one ignored two-byte response and an eight-byte last transfer.
+The recorded restoration, DMA and MMIO release checks passed. A changed
+Ubuntu boot ID and empty GRUB one-shot entry confirmed return. The photo
+and verified payload are archived outside `build/`.
+
+The next trial checks feature-mode readback before polling and records the
+longest completed transfer and the count of eight-byte responses. It also
+counts eight-byte responses starting with report ID `0x44`, which appears in
+this unit's Linux interface 1 HID descriptor. The failure sample had no
+report bytes or activation readback, so its cause remains open.
+
 Stage the capture with `python3 tools/hardware_boot.py stage --ehci-trackpad-trial`
 and rehearse it with `python3 tools/ehci_trial_smoke.py <release>`. The attended
 RAM-only profile opens the checklist before polling and holds the result for a
@@ -464,7 +477,7 @@ archive. Power-cycle the Mac after recording the result to return to Ubuntu.
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Native topcase and Ubuntu endpoint schedule verified | Qualify native type 2 contact reports and click transitions, then map pointer input |
+| Trackpad | Native EHCI polling completed transfers. The first capture decoded zero type 2 frames. | Check feature-mode readback and short packet framing, then qualify motion and clicks |
 | USB workspace | The flash drive enumerates natively on `00:1d.7` and Ubuntu mounts it | Verify native block reads, then write/sync/unmount with Ubuntu readback |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
