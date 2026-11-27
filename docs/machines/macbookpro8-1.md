@@ -127,6 +127,14 @@ transfer descriptor. Scope is diagnostic capture and its fixture. The
 attended retry will use the same desktop checklist and release-bound USB
 report.
 
+The combined desktop input block starts at `ecc9e0c4` on `93e10a44`.
+`origin/main` at `37de62ed` and open PRs #551, #550, #510 and #301
+have no overlapping EHCI input work. The captured keyboard and trackpad
+share one transaction translator and will run under one EHCI worker. Scope
+covers the periodic queues, the desktop checklist and its VM rehearsal.
+Native acceptance requires built-in typing, pointer motion and clicking in
+the compositor, safe retirement and a release-matched flash report.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
