@@ -1,6 +1,6 @@
 # MacBookAir7,2 current status
 
-Updated 2026-11-26 (America/New_York). Reference A1466 with partial desktop/device acceptance.
+Updated 2026-11-27 (America/New_York). Reference A1466 with partial desktop/device acceptance.
 The [dated journal](macbookair7-2.md) preserves exact-source history.
 
 The inherited-framebuffer desktop remains usable, with independent evidence for
@@ -202,15 +202,30 @@ against the full exit log and verified the checkpoint, raw hashes and offline
 exFAT integrity. All 19 source-bound host checks and four exact-image QEMU
 cases passed before the physical trial.
 
-The follow-up on PR 301 isolates the inherited VCS1 MAX_IDLE value of 64.
-The other four engines already read 10 in the pre-reset capture. The Air
-park diagnostic will test the Broadwell i915 value of 10 on VCS1 alone and
-verify restoration before engine preparation. Scope is the existing GT
-park owner, its USB receipt and the source-bound host and VM fixtures.
-The panel and HDA exclusions, 10 ms window and fresh traffic acknowledgements
-remain required. Shared baseline `c523e036` was inspected. The timing
-comparison builds on this device branch's qualified `84d038a6` runtime.
+Release `ca0caeabad167f12` at `98c44e49` completed the VCS1-only MAX_IDLE
+diagnostic in `session-0006613b397dc42a-00`. The other four engines already
+read 10 before reset. VCS1 read 64 at admission, read 10 after programming
+and again before restoration, and read 64 after restoration. Restoration
+finished at 9.322 ms, before the temporary alias retired at 9.427 ms and
+engine preparation started at 9.428 ms. The original panel and HDA
+exclusions remained in force. Shared baseline `c523e036` was inspected.
 [Broadwell i915 RC6 initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_rc6.c#L216-L234)
+
+Both cold samples reported core status `0x10800303`. The RC6 counter
+advanced by 1,676 ticks, from 1,543,470 to 1,545,146. The samples completed
+at 2.929 and 5.072 ms, forcewake ACK and thread C0 verified at 5.210 ms,
+and the closing guard finished at 6.573 ms. All timings use the unchanged
+10 ms window origin. The powered polls at 7.502 and 8.751 ms still saw
+GAM request and response at `0xff/0x7f`, WiDi open at `0x1f`, and zero
+fresh engine and L3 acknowledgements. The diagnostic recorded RC6 entry
+and safe restoration. A sustained device-side traffic block and native
+GPU ownership remain unverified.
+
+The Air returned to Ubuntu at 1% volume. Ubuntu matched the 1,897-byte
+USB `park-timing.log` to the full exit log and verified the checkpoint,
+raw hashes, and offline exFAT integrity. All 19 source-bound host checks
+and four exact-image QEMU cases passed before this run. The result is
+closed as a diagnostic, with tear-free scanout still pending.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
