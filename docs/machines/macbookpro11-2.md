@@ -2136,6 +2136,31 @@ the doorbell, at wait exit, and after Stop Endpoint. Keep teardown
 events distinct from the live completion. Preserve the independent
 EFI checkpoint path, Ubuntu recovery and private image retirement.
 
+The first Auth OUT receipt records slot, DCI, submitted TRB and
+length, wait outcome and elapsed time. Separate wait, late and
+Stop Endpoint event rows preserve presence, completion code,
+residue, pointer and Event Data bit. Each output-context sample
+reports the state and raw dequeue, including the dequeue cycle
+bit. The Linux comparison uses physical endpoint `0x02` (DCI 4).
+USB completion establishes delivery to the adapter. The separately
+recorded Auth response establishes an over-the-air exchange.
+
+The native xHCI fixture for `2acff8a1` exercises the normal
+Auth/Association/WPA2 exchange, a deadline with no event, the
+spin cap, a late completion during stop, and rejects bad completion
+code, nonzero residue, wrong TRB and Event Data. The exact release
+`172a04f4aebc3243` passed the GPT workspace rehearsal and all four
+EFI journal rehearsals. The saved-result decoder also fit the new
+receipt into the previous physical run's bounded EFI tail.
+
+Use `build/bringup/pro112-rtl8188cu-auth-out` to collect the matching
+workspace and EFI logs on return. Keep all three dongles in place.
+With the laptop off, disconnect the hub's upstream cable and any
+external hub power for 10 seconds. Leave the workspace connected.
+Reconnect the hub to the same laptop port, restore hub power and
+start the laptop. SrvrOS saves its outcome and returns to Ubuntu.
+Retire the private image after collection as in the prior trial.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
