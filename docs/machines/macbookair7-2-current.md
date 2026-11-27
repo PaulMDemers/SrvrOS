@@ -485,6 +485,13 @@ with the observed firmware lock. The [rollback plan](../intel-tearfree-roadmap.m
 records what could unblock the occupied-slot test and the acceptance
 requirements for a driver-owned interval. No new hardware run was armed.
 
+The driver-owned range work starts at `e83f19e0` with main `dc4a48d3`
+reviewed. It covers the Broadwell boot page transaction, its range claim
+and retirement, and the shared host and Q35 fixture. The Air6,1 Haswell
+observer in PR 567 is independent. Qualify a one-page bind and rollback
+with the original plane pinned and keep the occupied-slot protocol intact.
+Physical staging depends on a same-boot source of authority for the range.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
