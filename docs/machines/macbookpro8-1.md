@@ -716,6 +716,13 @@ open PRs have no overlapping EHCI changes. The next checkpoint is an exact
 VM rehearsal and an attended one-shot with USB logging and Ubuntu recovery.
 [Linux EHCI queue publication](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/usb/host/ehci-q.c)
 
+Source `1462416f`, release `bc98fee76d0e18c3`, is the staged running-queue
+candidate. It records submissions, completions and the first six queue
+snapshots. The host fixture verified one schedule start and stop across
+11 requests, retained the hardware toggle, and refused to republish when
+the fake controller advanced into the inactive dummy. The exact VM payload
+passed the checklist, absent-controller and Ubuntu-default rehearsal.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
