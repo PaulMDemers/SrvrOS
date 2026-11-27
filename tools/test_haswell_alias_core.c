@@ -18,8 +18,30 @@ static bool read_word(void *x,uint64_t pa,unsigned i,uint64_t *v){
  *v=words[(pa-0x100000)/4096][i];if(mode==5 && reads>4096)*v^=32;return true;
 }
 static void setup(void){memset(words,0,sizeof(words));ticks=reads=mode=0;words[0][0]=0x101003;words[1][0]=0x102003;words[2][0]=0x103003;words[3][0]=0xfed90019;}
-int main(void){
+static void setup_large_graph(void) {
+ setup();words[3][0]=0;
+ for(unsigned page=3;page<42;page++) {
+  words[2][page-3]=(0x100000ull+4096*page)|3;
+  uint64_t base=0x8000000020000000ull+(uint64_t)page*0x200000;
+  for(unsigned i=13;i<76;i++)words[page][i]=base+4096*i+0x23;
+  for(unsigned i=91;i<118;i++)words[page][i]=base+4096*i+0x63;
+  for(unsigned i=126;i<502;i++)words[page][i]=base+4096*i+0x23;
+  words[page][509]=0xfffffffffffffff0ull;
+  words[page][511]=0x10;
+ }
+}
+int main(int argc,char **argv){
  const struct hac_io io={.read=read_word,.now=now};
+ setup_large_graph();
+ assert(hac_capture(&r,&io,0x100000) && r.pages==42 && r.prepare_pages==42);
+ assert(r.prepare_reads==21504 && r.reads[0]==21504 && r.reads[1]==21504);
+ assert(r.bytes[0]<=HAC_DATA_CAP && r.bytes[0]==r.bytes[1]);
+ assert(!memcmp(r.data[0],r.data[1],r.bytes[0]));
+ if(argc==2 && !strcmp(argv[1],"--dump-large")) {
+  for(unsigned pass=0;pass<2;pass++)
+   if(fwrite(r.data[pass],1,r.bytes[pass],stdout)!=r.bytes[pass])return 1;
+  return 0;
+ }
  setup();assert(hac_capture(&r,&io,0x100000) && r.pages==4 && r.prepare_pages==4 && r.prepare_reads==2048 && r.begin<r.prepare_end && r.prepare_end<r.end && r.reads[0]==2048 && r.reads[1]==2048 && r.target_leaves==1 && r.bytes[0]==r.bytes[1] && !memcmp(r.data[0],r.data[1],r.bytes[0]));
  setup();words[1][0]=0xc0000083;assert(hac_capture(&r,&io,0x100000) && r.pages==2 && r.target_leaves==1);
  setup();words[2][0]=0xfec00083;assert(hac_capture(&r,&io,0x100000) && r.pages==3 && r.target_leaves==1);
@@ -35,7 +57,9 @@ int main(void){
  setup();words[0][0]|=1ull<<39;assert(!hac_capture(&r,&io,0x100000));
  setup();memset(words,0,sizeof(words));for(unsigned i=0;i<63;i++)words[0][i]=(0x101000+4096*i)|3;assert(hac_capture(&r,&io,0x100000) && r.pages==64 && r.reads[0]==32768 && r.reads[1]==32768);
  setup();for(unsigned i=0;i<64;i++)words[0][i]=(0x101000+4096*i)|3;assert(!hac_capture(&r,&io,0x100000) && r.status==2);
- setup();words[0][0]=0;for(unsigned i=0;i<512;i++)words[0][i]=(uint64_t)(i*i*17)<<12;assert(!hac_capture(&r,&io,0x100000) && r.status==2); /* Lossless output exhaustion. */
+ setup();
+ for(unsigned i=0;i<512;i++)words[0][i]=((uint64_t)(i*i*17)<<12)|((i&1)?0xb570000000000000ull:0xa550000000000000ull);
+ assert(!hac_capture(&r,&io,0x100000) && r.status==2 && r.reads[1]==0); /* Lossless output exhaustion. */
  setup();assert(!hac_capture(&r,&io,0x100001));
- puts("haswell-alias-core PASS complete/shared/4KiB/2MiB/1GiB graphs, bounded first-touch preparation, exact A/D/address-change rejection, source/change/clock/cycle/physical/table/output bounds; no target loads");return 0;
+ puts("haswell-alias-core PASS complete/shared/4KiB/2MiB/1GiB graphs, 42-table compact receipt, bounded first-touch preparation, exact A/D/address-change rejection, source/change/clock/cycle/physical/table/output bounds; no target loads");return 0;
 }

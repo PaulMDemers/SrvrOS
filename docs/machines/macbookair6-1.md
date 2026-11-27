@@ -72,6 +72,13 @@ consumed. The archived snapshots, installed recovery and offline USB
 filesystem check verified. Keep slot 4096 protected and recover a complete
 alias receipt before another requester observation.
 
+The retry keeps the same draft and boot profile. Its scope is the alias
+census encoder and the host decoder shared by the Haswell ECAM, window
+and read-sampler receipts. Both exact passes keep their 4 KiB cap, RAM
+provenance, entry count and deadline. The physical checkpoint is the
+same read-only VT-d and slot 4096 audit on the inherited Pipe A surface.
+Air7,2 PR301 at `9edfbe67` retains its separate GPU ownership scope.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

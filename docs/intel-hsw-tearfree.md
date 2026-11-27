@@ -201,6 +201,19 @@ before the IGD requester bracket, GT sample, and slot 4096 probe. Slot
 returned with the one-shot consumed, and the saved snapshots, installed
 recovery, and unmounted USB filesystem check verified.
 
+#### Lossless alias receipt encoding
+
+The retry preserves the full ordered page-table graph in each pass. Each
+arithmetic run retains its count, initial 64-bit word, and 64-bit stride.
+The compact encoding omits only leading zero bytes on the two operands
+and uses a tag in the first table address's alignment bits. The decoder
+also accepts archived receipts with fixed-width operands. It reconstructs
+all entries, including nonpresent words, and rechecks exact pass equality,
+graph reachability, RAM provenance and the cache-walk bindings. A receipt
+that exceeds 4 KiB still refuses, with the original clock and entry limits.
+
+### Private bind prerequisites
+
 A later write trial requires an owner that maintains exclusion from
 admission through a posted DWORD store, Gen7 translation completion and
 exact rollback. Linux i915's Gen6/7 path follows the DWORD store with a

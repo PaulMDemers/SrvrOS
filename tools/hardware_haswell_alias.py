@@ -12,16 +12,35 @@ SUMMARY = (r'hsw-alias: v=1 status=([1-5]) step=([0-6]) pages=(\d+) reads=(\d+),
 
 
 def decode_pages(data, count):
+    if not 1 <= count <= 64 or not 1 <= len(data) <= 4096:
+        raise ValueError('table receipt bounds')
+    compact = data[0] == 1  # The legacy first PA is aligned.
     pos = 0; pages = {}
-    for _ in range(count):
+    for index in range(count):
         if pos+9 > len(data): raise ValueError('table header')
         pa, level = struct.unpack_from('<QB', data, pos); pos += 9
+        if compact and index == 0:
+            pa &= ~1
         if not pa or pa & 4095 or pa >= 1 << 39 or level > 3 or pa in pages:
             raise ValueError('table identity')
         words = []
         while len(words) < 512:
-            if pos+18 > len(data): raise ValueError('table run')
-            n, first, step = struct.unpack_from('<HQQ', data, pos); pos += 18
+            if compact:
+                if pos+2 > len(data): raise ValueError('run control')
+                control, = struct.unpack_from('<H', data, pos); pos += 2
+                n = (control & 511)+1
+                first_bytes, step_bytes = divmod(control >> 9, 9)
+                split = pos+first_bytes
+                end = split+step_bytes
+                if first_bytes > 8 or end > len(data): raise ValueError('run operands')
+                if (first_bytes and not data[split-1]) or (step_bytes and not data[end-1]):
+                    raise ValueError('noncanonical run width')
+                first = int.from_bytes(data[pos:split], 'little')
+                step = int.from_bytes(data[split:end], 'little')
+                pos = end
+            else:
+                if pos+18 > len(data): raise ValueError('table run')
+                n, first, step = struct.unpack_from('<HQQ', data, pos); pos += 18
             if not 1 <= n <= 512-len(words) or (n == 1 and step): raise ValueError('run length')
             words.extend((first+step*i) & ((1 << 64)-1) for i in range(n))
         pages[pa] = dict(level=level, raw=words)

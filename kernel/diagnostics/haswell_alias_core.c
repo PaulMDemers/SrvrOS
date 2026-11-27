@@ -15,12 +15,23 @@ static bool emit(struct hac_result *r,unsigned pass,uint64_t v,unsigned n) {
  for(unsigned i=0;i<n;i++)r->data[pass][r->bytes[pass]++]=(uint8_t)(v>>(8*i));
  return true;
 }
+static unsigned word_bytes(uint64_t word) {
+ return word?(64u-(unsigned)__builtin_clzll(word)+7u)/8u:0;
+}
 static bool encode(struct hac_result *r,unsigned pass,const struct hac_page *p) {
- if(!emit(r,pass,p->pa,8) || !emit(r,pass,p->level,1))return false;
+ /* Tag only the first PA in its unused alignment bit. Legacy streams start
+  * with an aligned PA and store both run operands in full. */
+ uint64_t address=p->pa|(!r->bytes[pass]?1ull:0);
+ if(!emit(r,pass,address,8) || !emit(r,pass,p->level,1))return false;
  for(unsigned i=0;i<512;) {
   unsigned count=1;uint64_t first=p->word[i],step=0;
   if(i+1<512){step=p->word[i+1]-first;count=2;while(i+count<512 && p->word[i+count]==first+step*count)count++;}
-  if(!emit(r,pass,count,2) || !emit(r,pass,first,8) || !emit(r,pass,step,8))return false;
+  /* The low nine bits store count-1. The remaining bits encode the two
+   * byte widths (each 0..8). Run boundaries and uint64_t arithmetic match
+   * the legacy codec, so every run is at most as large as before. */
+  unsigned first_bytes=word_bytes(first),step_bytes=word_bytes(step);
+  unsigned control=(first_bytes*9u+step_bytes)*512u+count-1u;
+  if(!emit(r,pass,control,2) || !emit(r,pass,first,first_bytes) || !emit(r,pass,step,step_bytes))return false;
   i+=count;
  }return true;
 }
