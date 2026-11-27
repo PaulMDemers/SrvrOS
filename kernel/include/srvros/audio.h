@@ -6,6 +6,8 @@
 struct srv_audio_status;
 struct srv_pcm_status;
 void audio_init(void);
+void audio_init_pro81(void);
+bool audio_pro81_quiet(void);
 void audio_status(struct srv_audio_status *);
 int audio_request(unsigned operation,unsigned value);
 void audio_print_status(void);

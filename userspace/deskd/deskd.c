@@ -2420,8 +2420,8 @@ int main(int argc,char **argv) {
     int retina_screenshot=argc==2 && !strcmp(argv[1],"--retina-screenshot");
     int retina_trial=retina_screenshot || (argc==2 && !strcmp(argv[1],"--retina-trial"));
     int ehci_file_trial=argc==3 && !strcmp(argv[1],"--ehci-file-trial");
-    int ehci_brightness_trial=argc==2 && !strcmp(argv[1],"--ehci-brightness-trial");
-    int ehci_topcase_trial=ehci_file_trial || ehci_brightness_trial || (argc==2 && !strcmp(argv[1],"--ehci-topcase-trial"));
+    int ehci_settings_trial=argc==2 && (!strcmp(argv[1],"--ehci-brightness-trial") || !strcmp(argv[1],"--ehci-audio-trial"));
+    int ehci_topcase_trial=ehci_file_trial || ehci_settings_trial || (argc==2 && !strcmp(argv[1],"--ehci-topcase-trial"));
     int ehci_trial=ehci_topcase_trial || (argc==2 && !strcmp(argv[1],"--ehci-trackpad-trial"));
     int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
@@ -2570,7 +2570,7 @@ int main(int argc,char **argv) {
     struct srv_scheduler_status idle_before={0};
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
-    uint64_t ehci_deadline=ehci_trial?(uint64_t)srv_monotonic_us()+(ehci_brightness_trial?150000000u:90000000u):0;
+    uint64_t ehci_deadline=ehci_trial?(uint64_t)srv_monotonic_us()+(ehci_settings_trial?150000000u:90000000u):0;
     unsigned ehci_axes=0,ehci_zoom_clicks=0,ehci_pointer_exit=0,ehci_timeout=0;
     const char ehci_expected[]="Ehci-42";
     unsigned ehci_typed=0,ehci_find_open=0,ehci_keyboard=0;

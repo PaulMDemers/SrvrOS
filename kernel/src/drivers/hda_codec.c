@@ -1,5 +1,9 @@
 #include <srvros/hda_codec.h>
 
+#define PRO81_HEADPHONE_GPIO 2u
+#define PRO81_SPEAKER_GPIO 8u
+#define PRO81_OUTPUT_GPIOS (PRO81_HEADPHONE_GPIO|PRO81_SPEAKER_GPIO)
+
 static bool verb(struct hda_codec *c,unsigned node,unsigned op,unsigned value,uint32_t *out) {
     uint32_t ignored;
     return hda_core_verb(c->controller,c->address,node,op,value,out?out:&ignored);
@@ -40,6 +44,39 @@ static bool validate_route(struct hda_codec *c,unsigned r) {
     if((c->pin_caps[r]&4) && !parameter(c,(c->pin_caps[r]&8)?c->pin[r]:c->afg,18,&c->pin_amp[r])) return false;
     return true;
 }
+static bool pro81_identity(struct hda_codec *c) {
+    uint32_t revision, gpio_caps, widget;
+    if(!parameter(c,0,2,&revision) || revision!=0x100302 ||
+       !parameter(c,c->afg,0x11,&gpio_caps) || (gpio_caps&0xff)!=4 ||
+       !parameter(c,0x11,9,&widget) || widget!=0xf00040) return false;
+    const uint32_t expected[]={0x90100120,0x0e2b4030,0x90100121};
+    for(unsigned r=0;r<c->routes;r++) {
+        uint32_t config;
+        if(!verb(c,c->pin[r],0xf1c,0,&config) || config!=expected[r]) return false;
+    }
+    return true;
+}
+static bool pro81_initialize(struct hda_codec *c) {
+    uint32_t coefficient;
+    if(!power_on(c,c->afg) ||
+       !verb(c,c->afg,0xf16,0,&c->gpio_mask) || !verb(c,c->afg,0xf17,0,&c->gpio_direction) ||
+       !verb(c,c->afg,0xf15,0,&c->gpio_data)) return false;
+    /* CS4206 DAC ramp, FIFO-error mute and high-pass filter. */
+    return verb(c,0x11,0x703,1,0) && verb(c,0x11,0x500,3,0) &&
+        verb(c,0x11,0x400,0x146a,0) && verb(c,0x11,0xc00,0,&coefficient) && coefficient==0x146a;
+}
+static bool pro81_speaker_power(struct hda_codec *c,bool enabled) {
+    if(c->controller->playing) return false;
+    uint32_t data;
+    unsigned expected=(c->gpio_data&~PRO81_OUTPUT_GPIOS)|(enabled?PRO81_SPEAKER_GPIO:0);
+    return verb(c,c->afg,0x715,expected,0) && verb(c,c->afg,0xf15,0,&data) &&
+        (data&PRO81_OUTPUT_GPIOS)==(expected&PRO81_OUTPUT_GPIOS);
+}
+bool hda_codec_pro81_quiet(struct hda_codec *c) {
+    uint32_t data;
+    return c && c->pro81 && c->available && c->muted && !c->controller->playing &&
+        verb(c,c->afg,0xf15,0,&data) && !(data&PRO81_OUTPUT_GPIOS);
+}
 bool hda_codec_discover(struct hda_codec *c,struct hda_core *h,enum hda_profile profile) {
     if(!c||!h||!h->ready) return false;
     *c=(struct hda_codec){.controller=h};
@@ -55,13 +92,22 @@ bool hda_codec_discover(struct hda_codec *c,struct hda_core *h,enum hda_profile 
         if(!verb(c,1,0xf20,0,&c->subsystem)) return false;
         bool pro=profile==HDA_PRO11_2 && c->vendor==0x10134208 && c->subsystem==0x106b5e00;
         bool air61=profile==HDA_AIR6_1 && c->vendor==0x10134208 && c->subsystem==0x106b7100;
+        c->pro81=profile==HDA_PRO8_1 && address==0 && c->vendor==0x10134206 && c->subsystem==0x106b1c00;
         c->apple=air61 || pro || (profile==HDA_AIR7_2 && c->vendor==0x10134208 && c->subsystem==0x106b7e00);
         bool qemu=profile==HDA_GENERIC && (c->vendor==0x1af40012||c->vendor==0x1af40022||c->vendor==0x1af40032);
-        if(!c->apple&&!qemu) continue;
+        if(!c->apple&&!c->pro81&&!qemu) continue;
         c->pin[0]=c->apple?0x12:3; c->dac[0]=c->apple?3:2;
         c->pin[1]=0x10; c->dac[1]=2;
         c->routes=pro?3:c->apple?2:1;
         c->pin[2]=0x13;c->dac[2]=4;
+        if(c->pro81) {
+            /* Main, inactive headphone, and bass routes in that order. */
+            c->routes=3;
+            c->pin[0]=0x0b;c->dac[0]=4;
+            c->pin[1]=0x09;
+            c->pin[2]=0x0a;c->dac[2]=3;
+            if(!pro81_identity(c)) return false;
+        }
         if(pro || air61) {
             uint32_t value;
             if(!parameter(c,0,2,&value)||value!=0x100300) return false;
@@ -78,7 +124,9 @@ bool hda_codec_discover(struct hda_codec *c,struct hda_core *h,enum hda_profile 
                       defaults[2]!=0x90100112) return false;
         }
         for(unsigned r=0;r<c->routes;r++) if(!validate_route(c,r)) return false;
-        if(c->apple) {
+        if(c->pro81) {
+            if(!pro81_initialize(c)) return false;
+        } else if(c->apple) {
             /* CS4208 A1 coefficient setup, gated by the observed codec + board
              * subsystem. Register values are documented in the audio bring-up
              * note; only explicitly matched boards use these coefficients. */
@@ -110,18 +158,33 @@ bool hda_codec_route(struct hda_codec *c,enum hda_output output) {
            !verb(c,c->pin[r],0x707,active?(r==1?0xc0:0x40):0,0)) goto fail;
     }
     if(c->apple&&!verb(c,1,0x715,(c->gpio_data&~1u)|(output==HDA_SPEAKERS),0)) goto fail;
-    c->output=output;c->muted=true; return true;
+    c->muted=true;
+    if(c->pro81) {
+        uint32_t mask,direction;
+        if(!verb(c,c->afg,0x715,c->gpio_data&~PRO81_OUTPUT_GPIOS,0) ||
+           !verb(c,c->afg,0x716,c->gpio_mask|PRO81_OUTPUT_GPIOS,0) ||
+           !verb(c,c->afg,0x717,c->gpio_direction|PRO81_OUTPUT_GPIOS,0) ||
+           !verb(c,c->afg,0xf16,0,&mask) || (mask&PRO81_OUTPUT_GPIOS)!=PRO81_OUTPUT_GPIOS ||
+           !verb(c,c->afg,0xf17,0,&direction) || (direction&PRO81_OUTPUT_GPIOS)!=PRO81_OUTPUT_GPIOS ||
+           !hda_codec_pro81_quiet(c)) goto fail;
+    }
+    c->output=output;return true;
 fail:
     c->available=false; return false;
 }
 bool hda_codec_mute(struct hda_codec *c,bool mute) {
     if(!c||!c->available) return false;
+    if(c->pro81 && !mute && c->muted && !pro81_speaker_power(c,true)) goto fail;
     for(unsigned r=0;r<c->routes;r++) {
         if((r==1)!=(c->output==HDA_HEADPHONES)) continue;
         if(!amp(c,c->dac[r],c->dac_caps[r],c->dac_amp[r],mute)||
-           !amp(c,c->pin[r],c->pin_caps[r],c->pin_amp[r],mute)) { c->available=false;return false; }
+           !amp(c,c->pin[r],c->pin_caps[r],c->pin_amp[r],mute)) goto fail;
     }
+    if(c->pro81 && mute && !pro81_speaker_power(c,false)) goto fail;
     c->muted=mute;return true;
+fail:
+    if(c->pro81) (void)pro81_speaker_power(c,false);
+    c->available=false;return false;
 }
 bool hda_codec_headphones(struct hda_codec *c,bool *present) {
     uint32_t sense;

@@ -126,7 +126,8 @@ def exercise_trackpad(command, temp, logs, release, log_volume):
 def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_checklist, keyboard_exit, file_checklist):
     saved_file = mode == "desktop-file"
     brightness = mode == "desktop-brightness"
-    live_workspace = saved_file or brightness
+    audio = mode == "desktop-audio"
+    live_workspace = saved_file or brightness or audio
     serial = logs / "trial-serial.log"
     serial.unlink(missing_ok=True)
     qmp = temp / "qmp.sock"
@@ -200,7 +201,7 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                         wait_for(serial, lambda s: f"file-result role=text op=1 status=0 bytes={seed + 7}" in s, vm, 25)
                         time.sleep(.4)
                         ui.call("screendump", {"filename": str(logs / "vm-reopened-document.ppm")})
-                    if brightness:
+                    if brightness or audio:
                         click(790, 750)  # Settings in the 1280 × 800 dock.
                         wait_for(serial, lambda s: "desktools: brightness percent=-1" in s, vm, 20)
                     click(33, 20)  # SrvrOS menu.
@@ -212,7 +213,13 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                 for marker in (f"ehci-desktop-ui: result={ui_status}",
                                f"ehci-desktop: release={release} result=INCOMPLETE desktop={desktop_status} retirement=safe"):
                     assert marker in final, marker
-                if brightness:
+                if audio:
+                    assert "pro81-audio: provider=unavailable controller identity mismatch" in first
+                    assert "pro81-audio: phase=startup provider=unavailable volume=25" in first
+                    assert "pro81-audio: phase=final result=INCOMPLETE started=0 completed=0 position=0 quiet=0 error=0" in final
+                    assert "ehci-desktop-workspace: backend=usb mounted=1" in final
+                    assert "ehci-desktop-audio: report=saved flash-retirement=safe" in final
+                elif brightness:
                     assert "pro81-backlight: provider=unavailable identity mismatch" in first
                     assert "pro81-backlight: result=INCOMPLETE initial_duty=0 last_duty=0 writes=0 low=0 high=0 restored=0" in final
                     assert "ehci-desktop-workspace: backend=usb mounted=1" in final
@@ -258,7 +265,7 @@ def desktop_workspace_image(temp, serial):
     return stick, volume
 
 
-def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checklist):
+def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checklist, audio):
     with stick.open("rb") as stream:
         stream.seek(2048 * 512)
         saved = stream.read()
@@ -276,6 +283,9 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
     if file_checklist is None:
         assert b"pro81-backlight: provider=unavailable identity mismatch" in startup
         assert b"pro81-backlight: result=INCOMPLETE initial_duty=0 last_duty=0 writes=0" in final
+    if audio:
+        assert b"pro81-audio: phase=startup provider=unavailable" in startup
+        assert b"pro81-audio: phase=final result=INCOMPLETE started=0 completed=0" in final
 
 
 def main():
@@ -296,10 +306,11 @@ def main():
     desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
     desktop_file = version.startswith((boot.EHCI_DESKTOP_FILE_VERSION, boot.EHCI_DESKTOP_FILE_V4_VERSION))
     brightness = version.startswith(boot.EHCI_DESKTOP_BRIGHTNESS_VERSION)
+    audio = version.startswith(boot.EHCI_DESKTOP_AUDIO_VERSION)
     file_checklist = boot.EHCI_DESKTOP_FILE_V4_CHECKLIST if version.startswith(boot.EHCI_DESKTOP_FILE_V4_VERSION) else boot.EHCI_DESKTOP_FILE_CHECKLIST
     desktop_trace = version.startswith(boot.EHCI_DESKTOP_VERSION)
-    keyboard_checklist = desktop_trace or brightness or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
-    if args.keyboard_exit and not (desktop_trace or desktop_file or brightness):
+    keyboard_checklist = desktop_trace or brightness or audio or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
+    if args.keyboard_exit and not (desktop_trace or desktop_file or brightness or audio):
         parser.error("keyboard exit needs a v3 or later desktop stage")
     log_volume = (log_match or desktop_match)[1] if log_match or desktop_match else None
     if version not in boot.EHCI_TRIAL_VERSIONS and not log_volume:
@@ -309,7 +320,9 @@ def main():
     trackpad_trial = version == boot.EHCI_TRACKPAD_VERSION or bool(log_match)
     if (keyboard_monitor or trackpad_trial or desktop_match) and args.stall_hub_status:
         parser.error("the emulated hub is for the split and typing trials")
-    mode = "desktop-brightness" if brightness else "desktop-file" if desktop_file else "topcase-desktop" if desktop_trace else "trackpad-desktop" if desktop_match else "trackpad-trial" if log_match else boot.EHCI_TRIAL_MODES[version]
+    mode = ("desktop-audio" if audio else "desktop-brightness" if brightness else "desktop-file" if desktop_file
+            else "topcase-desktop" if desktop_trace else "trackpad-desktop" if desktop_match else
+            "trackpad-trial" if log_match else boot.EHCI_TRIAL_MODES[version])
     logs = boot.ROOT / "build/review" / f"macbookpro8-1-ehci-trial-{release}"
     if args.keyboard_exit:
         logs /= "keyboard-exit"
@@ -371,13 +384,16 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
             exercise_monitor(command.copy(), temp, logs, release)
         elif desktop_match:
             trial_command = command.copy()
-            if desktop_file or brightness:
+            if desktop_file or brightness or audio:
                 stick, volume = desktop_workspace_image(temp, log_volume)
                 trial_command += ["-device", "qemu-xhci,id=xhci", "-drive", f"if=none,id=stick,format=raw,file={stick}",
                                   "-device", "usb-storage,drive=stick,bus=xhci.0"]
+            if audio:
+                trial_command += ["-device", "ich9-intel-hda"]
             exercise_desktop(trial_command, temp, logs, release, log_volume, mode, keyboard_checklist, args.keyboard_exit, file_checklist)
-            if desktop_file or brightness:
-                verify_desktop_workspace(stick, volume, release, args.keyboard_exit, None if brightness else file_checklist)
+            if desktop_file or brightness or audio:
+                verify_desktop_workspace(stick, volume, release, args.keyboard_exit,
+                                         file_checklist if desktop_file else None, audio)
         elif trackpad_trial:
             exercise_trackpad(command, temp, logs, release, log_volume)
         else:
@@ -408,6 +424,9 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
         if brightness:
             result.update(startup_checkpoint="verified", final_report="verified", keyboard_exit=args.keyboard_exit,
                           brightness_provider="refused")
+        if audio:
+            result.update(startup_checkpoint="verified", final_report="verified", keyboard_exit=args.keyboard_exit,
+                          audio_provider="refused")
     elif trackpad_trial:
         result.update(guest_trial_result="INCOMPLETE", unrelated_controller_skipped=True, trackpad_reports=0)
     else:

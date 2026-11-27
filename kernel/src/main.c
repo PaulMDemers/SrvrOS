@@ -1024,13 +1024,23 @@ static bool ehci_saved_document(const char *path, const uint8_t *seed, uint64_t 
     return exact;
 }
 
+enum ehci_workspace_trial { EHCI_WORKSPACE_FILE, EHCI_WORKSPACE_BRIGHTNESS, EHCI_WORKSPACE_AUDIO };
+
 static void ehci_desktop_workspace_trial(const char *release, const char *volume, bool trackpad_ready,
-    bool timer_running, bool brightness) {
+    bool timer_running, enum ehci_workspace_trial kind) {
     char args[] = "--ehci-file-trial /work/srvros-work/ehci-desktop-0000000000000000.txt";
     char *path = args + sizeof("--ehci-file-trial ") - 1;
     for (unsigned i = 0; i < 16; i++) path[sizeof("/work/srvros-work/ehci-desktop-") - 1 + i] = release[i];
     boot_set_framebuffer_quiet(false);
-    if (brightness) laptop_pro81_brightness_init();
+    bool file_trial=kind==EHCI_WORKSPACE_FILE, audio_trial=kind==EHCI_WORKSPACE_AUDIO;
+    if (!file_trial) laptop_pro81_brightness_init();
+    if (audio_trial) {
+        audio_init_pro81();
+        struct srv_audio_status audio;
+        audio_status(&audio);
+        console_printf("pro81-audio: phase=startup provider=%s volume=%u\n",
+            audio.state==SRV_AUDIO_READY?"ready":"unavailable",(uint64_t)audio.volume);
+    }
     ehci_desktop_startup_trace(release, trackpad_ready);
     bool mounted = ehci_desktop_workspace_start(volume);
     bool checkpoint_saved = mounted && ehci_desktop_workspace_report(release, true);
@@ -1038,16 +1048,17 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
     const struct vfs_node *checklist = vfs_lookup("/fat/share/Trackpad trial.txt");
     const uint8_t *seed = NULL;
     uint64_t seed_size = 0;
-    bool seeded = !brightness && checkpoint_saved && checklist && checklist->size <= 1024 && !vfs_lookup(path) &&
+    bool seeded = file_trial && checkpoint_saved && checklist && checklist->size <= 1024 && !vfs_lookup(path) &&
         vfs_read_all(checklist, &seed, &seed_size) && exfat_write_file(path, seed, seed_size) && workspace_flush_committed();
     __asm__ volatile ("sti" : : : "memory");
     console_printf("ehci-desktop: opening desktop release=%s\n", release);
-    bool desktop_passed = (brightness || seeded) && timer_running &&
-        process_run_elf_args("/fat/bin/deskd", brightness ? "--ehci-brightness-trial" : args);
+    bool desktop_passed = (!file_trial || seeded) && timer_running &&
+        process_run_elf_args("/fat/bin/deskd", audio_trial?"--ehci-audio-trial":file_trial?args:"--ehci-brightness-trial");
+    bool sound_quiet = audio_trial && audio_listen_control(SRV_AUDIO_STOP,0) && audio_pro81_quiet();
     bool retired = ehci_desktop_trackpad_stop();
     __asm__ volatile ("cli" : : : "memory");
-    bool checked;
-    if (brightness) {
+    bool checked=false;
+    if (!file_trial) {
         struct backlight_trial result=backlight_pro81_finish();
         checked=result.low && result.high && result.restored;
         console_printf("pro81-backlight: result=%s initial_duty=%u last_duty=%u writes=%u low=%u high=%u restored=%u\n",
@@ -1060,6 +1071,14 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
         console_printf("ehci-desktop-file: release=%s path=%s seeded=%u exact=%u\n", release, path,
             (uint64_t)seeded, (uint64_t)checked);
     }
+    if (audio_trial) {
+        struct srv_audio_status audio;
+        audio_status(&audio);
+        checked=audio.tests_completed>0 && sound_quiet && audio.state==SRV_AUDIO_READY && !audio.error;
+        console_printf("pro81-audio: phase=final result=%s started=%u completed=%u position=%u quiet=%u error=%u\n",
+            checked?"PASS":"INCOMPLETE",audio.tests_started,audio.tests_completed,(uint64_t)audio.last_position,
+            (uint64_t)sound_quiet,(uint64_t)audio.error);
+    }
     bool passed = checkpoint_saved && trackpad_ready && desktop_passed && retired && checked && ehci_desktop_trackpad_verified();
     console_printf("ehci-desktop: release=%s result=%s desktop=%s retirement=%s\n", release,
         passed ? "PASS" : "INCOMPLETE", desktop_passed ? "passed" : "unverified", retired ? "safe" : "unverified");
@@ -1067,7 +1086,7 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
     bool saved = mounted && vmm_diagnostic_sole_kernel_root(vmm_kernel_address_space()) &&
         ehci_desktop_workspace_report(release, false);
     bool flash_retired = ehci_desktop_workspace_stop();
-    console_printf("ehci-desktop-%s: report=%s flash-retirement=%s\n", brightness ? "brightness" : "file",
+    console_printf("ehci-desktop-%s: report=%s flash-retirement=%s\n", audio_trial?"audio":file_trial?"file":"brightness",
         saved ? "saved" : "unverified",
         flash_retired ? "safe" : "unverified");
     ehci_desktop_return(saved && retired && flash_retired, checkpoint_saved);
@@ -1082,7 +1101,8 @@ void kmain(void) {
     bool ehci_trackpad_trial = cmdline_has_token(cmdline, "srvros.ehci=trackpad-trial");
     bool ehci_file_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-file");
     bool ehci_brightness_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-brightness");
-    const char *ehci_workspace_mode = ehci_brightness_trial ? "desktop-brightness" :
+    bool ehci_audio_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-audio");
+    const char *ehci_workspace_mode = ehci_audio_trial ? "desktop-audio" : ehci_brightness_trial ? "desktop-brightness" :
         ehci_file_trial ? "desktop-file" : NULL;
     bool ehci_desktop_trace = ehci_workspace_mode || cmdline_has_token(cmdline, "srvros.ehci=topcase-desktop");
     bool ehci_trackpad_desktop_trial = ehci_desktop_trace || cmdline_has_token(cmdline, "srvros.ehci=trackpad-desktop");
@@ -1515,7 +1535,8 @@ void kmain(void) {
 
     console_write("srvros: kernel bootstrap complete\n");
     if (ehci_workspace_mode)
-        ehci_desktop_workspace_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running, ehci_brightness_trial);
+        ehci_desktop_workspace_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running,
+            ehci_audio_trial?EHCI_WORKSPACE_AUDIO:ehci_brightness_trial?EHCI_WORKSPACE_BRIGHTNESS:EHCI_WORKSPACE_FILE);
     if (ehci_trackpad_desktop_trial)
         ehci_desktop_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running, ehci_desktop_trace);
     if (auth_mode == LOCAL_AUTH_SIGNIN) {
