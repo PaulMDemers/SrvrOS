@@ -456,6 +456,12 @@ the interval and display exclusion pinned. All 299 host cases and 78
 QEMU cases passed, including 17 new cases. The Air stays in Ubuntu at
 1% volume while the native request provider is pending.
 
+The native provider follow-up starts at `d588f83a` with main `dc4a48d3`
+reviewed. It checks the real GPM policy under the original pre-reopen
+owner and keeps that evidence bound to the PTE, Pipe A and WiDi sample.
+The first no-store request needs a documented request source and a
+clear opening state before it can run on this Air.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
