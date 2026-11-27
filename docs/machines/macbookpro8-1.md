@@ -484,6 +484,12 @@ The trial saves `srvros-work/ehci-trackpad-<release>.txt` and returns to
 Ubuntu after verified unmount and controller retirement. The result screen
 stays visible on a save or retirement failure.
 
+After the `284f78cff9438b7a` one-shot, Ubuntu returned and mounted the
+expected workspace with its marker intact. The release-named report was
+absent. The installed payload and recovery images matched their manifests.
+The native stopping point and restart method remain unknown. The return
+record is archived with the exact payload.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
