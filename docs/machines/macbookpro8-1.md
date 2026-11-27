@@ -149,6 +149,14 @@ EHCI work. It reuses the accepted `3388f68afd5dc712` payload and checklist.
 Only the staging identity changes so each boot can write two new files to
 the same workspace. Collect and verify each run before arming the next.
 
+The persistent Wellspring recovery block starts at `5086e27a` on
+`93e10a44`. The integration tip `917e7c5c` and the open device scopes have
+no overlapping EHCI work. Scope is the model-gated desktop trackpad's
+startup retry policy, transport fixture and native reports. The retry
+uses the observed eight-byte `0x02` response, keeps the captured shared
+frame list and keyboard queue, and records the result of each attempt.
+The checkpoint is a native desktop run with both reports verified.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
