@@ -19,6 +19,9 @@ RECEIPT = "srvros-work/air61-ssd-probe.log"
 PORT_RECEIPT = "srvros-work/air61-ssd-port-state.log"
 RESET_RECEIPT = "srvros-work/air61-ssd-port-reset.log"
 PARTITION_RECEIPT = "srvros-work/air61-ssd-partition-read.log"
+DISCOVERY_RECEIPT = "srvros-work/air61-ssd-discovery.log"
+DISCOVERY_COLD_RECEIPT = "srvros-work/air61-ssd-discovery-cold.log"
+DISCOVERY_PROOF = "air61-ssd-discovery: initializer=normal device=ahci0 read_only=yes"
 PREVIOUS_RESET_RECEIPT = "srvros-work/air61-ssd-port-reset-mounted-baseline.log"
 PCI = "0000:04:00.0"
 MODEL = "APPLE SSD SD0128F"
@@ -226,7 +229,7 @@ def clean_ubuntu_reference(disk, mountpoint=Path("/boot/efi"), *, partition=Fals
     return clean, clean_sector, mounted_sector
 
 
-def probe_profile(release, volume, port_state, reset=False, partition=False):
+def probe_profile(release, volume, port_state, reset=False, partition=False, discovery=False):
     profile = ("air61-ssd: profile srvros.storage=ram srvros.capture=air61-ssd-read-only "
                f"srvros.workspace-volume={volume} srvros.ssd-release={release}")
     if port_state or reset:
@@ -235,6 +238,8 @@ def probe_profile(release, volume, port_state, reset=False, partition=False):
         profile += " srvros.ssd-reset=port0"
     if partition:
         profile += " srvros.ssd-partition-read=1"
+    if discovery:
+        profile += " srvros.ssd-discovery=normal"
     return profile
 
 
@@ -276,9 +281,9 @@ def verify_reset_trace(status, snapshots):
             "Missing ready post-reset device status")
 
 
-def read_port_trace(receipt, release, volume, *, reset=False, partition=False):
+def read_port_trace(receipt, release, volume, *, reset=False, partition=False, discovery=False):
     lines = receipt.splitlines()
-    require(lines.count(probe_profile(release, volume, True, reset, partition)) == 1,
+    require(lines.count(probe_profile(release, volume, True, reset, partition, discovery)) == 1,
             "Port trace release or workspace differs")
     controllers = [line for line in lines if line.startswith("air61-ssd-controller:")]
     require(len(controllers) == 1, "Missing or duplicate AHCI controller snapshot")
@@ -335,8 +340,9 @@ def read_port_trace(receipt, release, volume, *, reset=False, partition=False):
     return result
 
 
-def compare_receipt(receipt, release, volume, baseline, *, port_state=False, reset=False, partition=False):
-    profile = probe_profile(release, volume, port_state, reset, partition)
+def compare_receipt(receipt, release, volume, baseline, *, port_state=False, reset=False, partition=False,
+                    discovery=False):
+    profile = probe_profile(release, volume, port_state, reset, partition, discovery)
     rows = [line for line in receipt.splitlines()
             if line.startswith(("air61-ssd:", "air61-ssd-device:", "air61-ssd-sample:"))]
     require(baseline["gpt"] == "PASS", "Missing Ubuntu GPT validation")
@@ -353,9 +359,14 @@ def compare_receipt(receipt, release, volume, baseline, *, port_state=False, res
     require(samples == baseline["samples"], "Native sample hashes differ from Ubuntu")
     result = dict(status="PASS", release=release, gpt="primary-and-backup-match-verified-ubuntu",
                   partitions=baseline["partitions"], samples=samples, internal_mounted=False, ata_writes=0)
+    if discovery:
+        require(partition and reset, "Discovery requires the partition and reset profile")
+        proof = [line for line in receipt.splitlines() if line.startswith("air61-ssd-discovery:")]
+        require(proof == [DISCOVERY_PROOF], "Missing or invalid read-only normal AHCI discovery evidence")
+        result["initializer"] = "normal"
     if partition:
         require(reset, "Partition samples require the reset profile")
-        trace = read_port_trace(receipt, release, volume, reset=True, partition=True)
+        trace = read_port_trace(receipt, release, volume, reset=True, partition=True, discovery=discovery)
         retired = trace["snapshots"][-1]
         require(trace["reset"]["status"] == "ready" and not retired["cmd"] & 0xc011 and
                 not (retired["ci"] | retired["sact"]), "Unproved AHCI reset or retirement")
