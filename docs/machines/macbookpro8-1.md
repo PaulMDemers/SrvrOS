@@ -337,6 +337,24 @@ against the full register. The native probe refused before MMIO and
 returned to Ubuntu. The privileged Ubuntu PCI read confirms raw ASIC
 revision `0x57785100`. The retry uses that exact value.
 
+Source `a23334fc` and release `c12c6db3391e7bc4` passed the native
+link checkpoint. PCI memory decoding and bus mastering were already
+enabled in D0. The probe used the existing decode, issued read commands
+to PHY address 1, and observed ID `0362:5e44`, BMSR `0x796d`, and
+auxiliary status `0x871c`. These decoded to carrier at 1,000 Mb/s
+full duplex and matched Ubuntu. The temporary BAR mapping retired with
+MDIO idle and the captured PCI state intact. Both startup and final
+reports verified after the automatic Ubuntu return. The read-only
+allocation check passed with 160 files and 168 clusters. The exact
+payload and both native attempts are archived outside `build`.
+
+The link checkpoint used no packet rings or DMA and registered no
+network provider. The next acceptance step is a BCM57765 packet test
+with bounded DMA ownership and retirement, followed by the normal
+network stack's DHCP and local gateway checks. The Linux
+[tg3 register definitions](https://github.com/torvalds/linux/blob/master/drivers/net/ethernet/broadcom/tg3.h)
+provide the PHY status reference.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
@@ -1353,7 +1371,8 @@ Offline allocation passed for 143 files with zero writes.
 | Audio | Built-in right speaker and stream teardown verified on `024a87e1e8d4bf42`. This unit has a broken left speaker | Qualify audible left-channel output with working hardware |
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
-| Networking | Linux inventory captured | Qualify the native wired and wireless providers |
+| Wired Ethernet | BCM57765 PCI/PHY identity and 1 Gb/s full-duplex carrier verified on `c12c6db3391e7bc4` | Qualify transmit, receive, DMA retirement and network stack integration |
+| Wi-Fi | Linux inventory captured | Qualify the native BCM4331 provider |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native
