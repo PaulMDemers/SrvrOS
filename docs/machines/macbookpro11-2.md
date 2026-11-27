@@ -2339,6 +2339,26 @@ of the hub with all three dongles still attached and the workspace
 drive kept on the laptop. It saves the receipts and returns to
 Ubuntu for collection and private-image retirement.
 
+Cold session `session-0006614563c2964d-00` found all three
+adapters on the hub and 37 Demers2.4 beacons. Auth completed
+on USB OUT in 16 µs, the AP accepted association with AID 17,
+and the WPA2 trace again verified M3 and local M4 completion.
+The IP provider posted one protected OUT, the initial DHCP
+Discover, and received its USB completion. Two incoming CCMP
+frames passed authentication and reached the Ethernet stack.
+No lease was acquired, so DNS and HTTP were skipped. The
+receipt contains frame counts and phase outcomes; an incoming
+Offer and the Discover's receipt at the AP remain unverified.
+
+Both log paths agreed, including the verified exit snapshot
+and all seven EFI checkpoints. The provider drained and retired,
+Leave completed, keys were erased, both endpoints stopped and
+the radio parked. Ubuntu returned and the workspace check
+verified all 654 pre-existing files. The archive is
+`/var/local/srvros-recovery/macbookpro11-2/evidence-a77dbe98a73728cb`.
+The private image was retired and the accepted passive boot entry
+and original EFI mount options restored.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
