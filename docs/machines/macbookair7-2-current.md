@@ -578,6 +578,13 @@ reviewed. It covers the Broadwell PCI reset core and its host and Q35
 fixtures. The same registered remapper source, result and callbacks must
 remain in place from the initial traffic request through PCI reopen.
 The Haswell work in PR 567 has a separate hardware lifetime.
+All 20 joined cases passed on the host and in Q35. The new cases reject
+a replaced I/O callback, a changed source sequence, lost drain completion,
+and a changed result root. None reaches the reset store or a range grant.
+A replay of the saved Air RC1e run found zero fresh engine and L3
+acknowledgements in eight powered samples. The pre-reopen EFI record still
+has zero range grants. Ubuntu remained at 1% volume with no trial armed.
+[Traffic and remapper owner lifetime](../intel-bdw-edp-recovery.md#display-owner-block-lifetime)
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

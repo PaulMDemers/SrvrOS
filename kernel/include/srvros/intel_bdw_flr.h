@@ -25,7 +25,8 @@ struct bdw_flr_report {
  * The separate remapping unit remains accessible with IGD memory decode off. */
 struct bdw_flr_drain {
     /* One-use claim on the original registered descriptor. Keep the descriptor
-     * and report alive through any retained failure, including before VT-d. */
+     * and report alive through any retained failure, including before VT-d.
+     * The registration and source identity stay fixed through PCI reopen. */
     const struct bdw_flr_report *attempt;
     struct intel_vtd_drain_source *source;
     struct intel_vtd_drain *result;

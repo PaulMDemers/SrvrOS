@@ -225,7 +225,9 @@ class EdpBaseline(unittest.TestCase):
                                    check=True, timeout=45)
                     if fixture == "restore":
                         for mode in ("takeover-roundtrip", "takeover-range-protected", "takeover-bad-crc",
-                                     "takeover-reset-declined", "takeover-traffic-open", "takeover-stale-rollback"):
+                                     "takeover-reset-declined", "takeover-traffic-open", "takeover-stale-rollback",
+                                     "takeover-drain-io", "takeover-drain-sequence", "takeover-drain-completion",
+                                     "takeover-drain-result-owner"):
                             subprocess.run([binary, mode], cwd=ROOT, env={**os.environ, "ASAN_OPTIONS": "halt_on_error=1"},
                                            check=True, timeout=45)
 

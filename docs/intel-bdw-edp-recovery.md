@@ -701,6 +701,13 @@ acknowledgement, a previously blocked engine resuming, an L3 unblock or
 a foreign FLR preparation. The final PCI profile check precedes the final
 queue, engine, idle, L3 and arbiter reads.
 
+The reset core also checks the original remapper registration before and
+after the provider guard and clock callbacks. It keeps the source, result,
+binding and I/O callbacks fixed through PCI reopen. After the drain, it
+requires the same completed result and timestamp to remain valid through
+alias retirement and the reset write. Losing this evidence after a possible
+traffic request retains the owner and stops the reset sequence.
+
 The active trigger in the recovery test is modeled. On Broadwell,
 `GO_GAM_REQ` carries GPM's request to the arbiter. `MSG_GO_GAM`, the
 five engine messages and the L3 message report hardware state. Intel
@@ -708,6 +715,17 @@ describes the GPM as the originator and the L3 events as self-clearing.
 The register descriptions do not establish a CPU protocol for acquiring
 and holding ownership by overwriting the message bits.
 [Intel Broadwell register reference, pp. 587–592, 805–814, 859](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
+The saved powered RC1e run saw `GO_GAM_REQ=0xff` and `MSG_GO_GAM=0x7f`
+in all eight polls, with WiDi GO still set and no fresh acknowledgement
+from any engine or L3. The pre-reopen run also recorded `grants=0` in
+the EFI handoff, despite verifying the backing reservations. These
+results keep reset and the first translation write gated on this Air.
+The Broadwell manual also documents that an RC6-blocked read can return
+zeros under this unit's `MISC_CTRL0` policy. A zero traffic sample without
+valid powered access cannot witness closure.
+[Air evidence](machines/macbookair7-2-current.md#current-air72-work-on-pr-301) ·
+[Intel Broadwell register reference, pp. 606–607](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
 
 Broadwell's `MI_MODE[8]` Stop Rings has a documented erratum. Stopping a
 running batch can reset its memory access type, so software cannot use this

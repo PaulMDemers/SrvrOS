@@ -86,6 +86,7 @@ enum flr_admission_fault {
     GT_LOST_AT_RESET, GT_CLOSE_UNCERTAIN, GT_BLOCK_CLOCK_FROZEN, GT_AIR_MEDIA_TRACE, GT_READ_FAILED, GT_BLOCK_REFUSED,
     GT_REQUEST_REOPENS_ONCE, GT_RESPONSE_REOPENS_ONCE, GT_ENGINE_LOSES_ACK, GT_ENGINE_RESUMES, GT_ENGINE_GO_REOPEN,
     GT_FOREIGN_FLR_AFTER_BLOCK, GT_OWNER_NOT_REGISTERED, GT_OWNER_REPLACED, GT_OWNER_LOST_AT_DRAIN, GT_REOPEN_AT_CONFIG, GT_PROGRESSIVE_BLOCK,
+    DRAIN_IO_REPLACED, DRAIN_SEQUENCE_CHANGED, DRAIN_COMPLETION_LOST, DRAIN_RESULT_OWNER_CHANGED,
 };
 
 #define TEST_REFERENCE_CRC 0x5d3928e4u
@@ -983,6 +984,7 @@ static enum intel_gt_write flr_gt_block(void *context, const struct bdw_flr_repo
         s->block_epoch = s->image.epoch;
     }
     if (s->flr_fault == GT_LATE_BLOCK) s->panel.time += 10000;
+    if (s->flr_fault == DRAIN_IO_REPLACED) s->flr_drain.io.pause = NULL;
     if (s->flr_fault == GT_BLOCK_REFUSED) return GT_WRITE_NONE;
     return s->flr_fault == GT_BLOCK_UNCERTAIN ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
 }
@@ -1049,6 +1051,9 @@ static bool drain_retire_alias(void *context, const struct intel_vtd_drain_sourc
     assert(drain_held(s, source) && result == &s->drain && result->source == source);
     assert(result->complete && !result->retained && result->p.final == 0x1203000000000000ull);
     s->drain_alias_retired = s->flr_fault != DRAIN_ALIAS_RETAINED;
+    if (s->flr_fault == DRAIN_SEQUENCE_CHANGED) ++s->drain_source.binding.sequence;
+    if (s->flr_fault == DRAIN_COMPLETION_LOST) s->drain.complete = false;
+    if (s->flr_fault == DRAIN_RESULT_OWNER_CHANGED) s->drain.binding.root += 4096;
     return s->drain_alias_retired;
 }
 
@@ -1445,6 +1450,11 @@ static int test_takeover(const char *mode)
 {
     struct takeover_fixture f = {.display={.exercise_flr=true},.mode=mode};
     if (takeover_is(&f,"takeover-traffic-open")) f.display.flr_fault = GT_AIR_MEDIA_TRACE;
+    if (takeover_is(&f,"takeover-drain-io")) f.display.flr_fault = DRAIN_IO_REPLACED;
+    if (takeover_is(&f,"takeover-drain-sequence")) f.display.flr_fault = DRAIN_SEQUENCE_CHANGED;
+    if (takeover_is(&f,"takeover-drain-completion")) f.display.flr_fault = DRAIN_COMPLETION_LOST;
+    if (takeover_is(&f,"takeover-drain-result-owner")) f.display.flr_fault = DRAIN_RESULT_OWNER_CHANGED;
+    bool drain_fault = f.display.flr_fault >= DRAIN_IO_REPLACED;
     if (takeover_is(&f,"takeover-bad-crc")) f.display.fault = SOURCE_SECOND_CRC_WRONG;
     bool l3_before = takeover_is(&f,"takeover-l3-before"), l3_held = takeover_is(&f,"takeover-l3-held");
     bool l3_selector = takeover_is(&f,"takeover-l3-selector");
@@ -1466,7 +1476,7 @@ static int test_takeover(const char *mode)
     bool ok = intel_bdw_display_takeover(&takeover,&f.lease,&io,&f.display.image,&reference);
     assert(!intel_bdw_display_takeover(&takeover,&f.lease,&io,&f.display.image,&reference));
     bool stale = takeover_is(&f,"takeover-stale-rollback");
-    bool retained = stale || l3_held || l3_selector || takeover_is(&f,"takeover-traffic-open") ||
+    bool retained = stale || drain_fault || l3_held || l3_selector || takeover_is(&f,"takeover-traffic-open") ||
                     takeover_is(&f,"takeover-bad-crc");
     assert(ok == (takeover_is(&f,"takeover-roundtrip") || takeover_is(&f,"takeover-range-protected")));
     assert(f.recovery_loan_tested == takeover_is(&f,"takeover-range-protected"));
@@ -1474,7 +1484,13 @@ static int test_takeover(const char *mode)
     assert(display_access_release(&f.lease,true) == !retained);
     assert(scanout_interval_held(&f.occupied,takeover_mmio,takeover_aperture,takeover_bytes,takeover_fence,f.occupied.pages));
     assert(takeover.reset.reset_issued == (!takeover_is(&f,"takeover-reset-declined") &&
-                                         !takeover_is(&f,"takeover-traffic-open") && !l3_before && !l3_held && !l3_selector));
+                                         !takeover_is(&f,"takeover-traffic-open") && !drain_fault &&
+                                         !l3_before && !l3_held && !l3_selector));
+    if (drain_fault) {
+        bool remapper_ran = f.display.flr_fault != DRAIN_IO_REPLACED;
+        assert(f.display.block_calls == 1 && !f.grants && !f.display.flr_writes &&
+               f.display.drain_stores == (unsigned)remapper_ran && f.display.drain_alias_retired == remapper_ran);
+    }
     if (l3_held) assert(takeover.reset.engine_acks == 31u && takeover.reset.l3_ack &&
                         takeover.reset.l3_policy_checks == 1 && !f.display.decode_closes);
     if (l3_selector) assert(takeover.reset.l3_selector_retained && !takeover.reset.block_issued);

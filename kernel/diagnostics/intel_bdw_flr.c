@@ -12,23 +12,57 @@
 #define FLR_QUIET_US 100000u
 #define FLR_LIMIT_US 5000000u
 
+struct drain_registration {
+    struct intel_vtd_drain_source *source;
+    struct intel_vtd_drain *result;
+    struct intel_vtd_drain_binding binding;
+    struct intel_vtd_drain_io io;
+    bool (*retire_alias)(void *, const struct intel_vtd_drain_source *, const struct intel_vtd_drain *);
+};
+
 struct attempt {
     const struct bdw_flr_io *io;
     struct bdw_flr_report *report;
     const struct bdw_flr_pci_image *image;
     const struct bdw_flr_drain *drain;
-    uint64_t issued, last, traffic_begin;
+    const struct drain_registration *registration;
+    uint64_t issued, last, traffic_begin, drain_end;
     bool l3_select_uncertain;
 };
 
+static bool same_binding(const struct intel_vtd_drain_binding *a, const struct intel_vtd_drain_binding *b)
+{
+    return a->owner == b->owner && a->provider == b->provider && a->lifetime == b->lifetime &&
+           a->root == b->root && a->epoch == b->epoch && a->sequence == b->sequence &&
+           a->hash == b->hash && a->unit == b->unit && a->vendor == b->vendor && a->device == b->device &&
+           a->prepare_begin == b->prepare_begin && a->gt_begin == b->gt_begin &&
+           a->hda_begin == b->hda_begin && a->outer_begin == b->outer_begin;
+}
+
+static bool registered(const struct attempt *a)
+{
+    const struct bdw_flr_drain *d = a->drain;
+    const struct drain_registration *r = a->registration;
+    if (d->attempt != a->report || d->source != r->source || d->result != r->result ||
+        r->source->object != r->source || !same_binding(&r->source->binding,&r->binding) ||
+        d->retire_alias != r->retire_alias ||
+        d->io.ctx != r->io.ctx || d->io.guard != r->io.guard || d->io.read != r->io.read ||
+        d->io.write != r->io.write || d->io.now != r->io.now || d->io.pause != r->io.pause)
+        return false;
+    return !a->drain_end || (r->source->consumer == r->result && r->result->object == r->result &&
+           r->result->source == r->source && r->result->complete && !r->result->retained &&
+           r->result->p.state == VTD_DRAIN_COMPLETE && r->result->end == a->drain_end &&
+           same_binding(&r->result->binding,&r->binding));
+}
+
 static bool check(struct attempt *a)
 {
-    if (a->drain->attempt != a->report || !a->io->held(a->io->context) ||
+    if (!registered(a) || !a->io->held(a->io->context) ||
         !a->io->admitted(a->io->context, a->image, a->drain) ||
         (a->report->block_issued && !a->io->block_held(a->io->context, a->report)))
         return false;
     uint64_t now = a->io->now(a->io->context);
-    if (!now || now == UINT64_MAX || now < a->last)
+    if (!registered(a) || !now || now == UINT64_MAX || now < a->last)
         return false;
     a->last = now;
     if (a->traffic_begin && now - a->traffic_begin >= BDW_TRAFFIC_BLOCK_US)
@@ -204,8 +238,11 @@ bool intel_bdw_flr(const struct bdw_flr_io *io, const struct bdw_flr_pci_image *
         return false;
     const struct bdw_flr_pci_image saved = *image;
     drain->attempt = report;
-    const struct bdw_flr_drain child = *drain;
-    struct attempt a = {.io = io, .report = report, .image = &saved, .drain = drain};
+    const struct drain_registration child = {
+        .source = drain->source, .result = drain->result, .binding = drain->source->binding,
+        .io = drain->io, .retire_alias = drain->retire_alias,
+    };
+    struct attempt a = {.io = io, .report = report, .image = &saved, .drain = drain, .registration = &child};
     if (child.source->consumer || child.result->object || !check(&a) ||
         !profile(&a, PCI_INTX_DISABLE | PCI_MEMORY | PCI_IO) || !saved_resources(&a, &saved) ||
         !block_traffic(&a) ||
@@ -221,7 +258,8 @@ bool intel_bdw_flr(const struct bdw_flr_io *io, const struct bdw_flr_pci_image *
         return false;
     if (!intel_vtd_drain_run(child.result, child.source, child.io))
         return false;
-    if (child.result->p.begin < a.last || !check(&a) || a.last < child.result->end ||
+    a.drain_end = child.result->end;
+    if (!a.drain_end || child.result->p.begin < a.last || !check(&a) || a.last < a.drain_end ||
         !child.retire_alias(child.io.ctx, child.source, child.result)) {
         report->retained = true;
         return false;
