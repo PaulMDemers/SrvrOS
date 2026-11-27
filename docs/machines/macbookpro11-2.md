@@ -2485,6 +2485,20 @@ exact-image rehearsals passed. The fresh Linux control verified the
 router DHCP captures and station decryption view. The local run record
 is `build/bringup/pro112-rtl8188cu-radio-repeat1/run.json`.
 
+The first repeat passed in `session-000661466b736197-00` at
+1:42 p.m. EST on November 27. All three adapters enumerated. The
+Realtek completed WPA2 and reported a MAC ACK with zero retries
+for the Discover. Both router capture points recorded Discover,
+Offer, Request and ACK, and the AP reported successful decryption
+with no failures. SrvrOS obtained the lease, resolved DNS and
+received HTTP 200. Exit and all seven EFI checkpoints agreed, all
+660 existing workspace files were preserved, and Ubuntu returned
+automatically. The paired evidence is saved under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-2cbeb0e63aac144d`.
+The private image was retired, the passive entry restored and the
+router collectors stopped. Inspected main `94a65bc9` and the
+independent AHCI persistence coverage in #565 before the final repeat.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
