@@ -221,6 +221,13 @@ The native fixture must cover that exact signature and refuse different
 entry values, a running MCU and busy DMA. Preserve the existing RF and
 flash-selection checks, 40 firmware transfers and unattended log capture.
 
+Release `30a249384a9b9f08` on `94201a6d` cleared the observed latch in
+the native xHCI fixture, completed all 40 firmware transfers and parked
+the adapter. The fixture refused the changed signatures, running MCU and
+busy DMA. Both sibling desktop regressions, 329 boot and trial tests and
+all five exact-image VM rehearsals passed. Physical firmware startup is
+pending. Run record `build/bringup/pro112-rtl8822bu-cold-latch/run.json`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
