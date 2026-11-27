@@ -135,9 +135,11 @@ and halts. Version 3 of the flush receipt also records the raw and decoded
 graphics memory arbitration state. It closes only as a diagnostic. This
 profile is silent and saves and returns to Ubuntu on a safe outcome.
 The Air park check uses one fresh adapter admission for each request/ACK
-pair and an independent closing guard before RC6 observation. The 10 ms
-window covers both. The compact USB `park-timing.log` records the release
-store, verified clear ACK and closing guard times alongside the outcome.
+pair and an independent closing guard before RC6 observation. Reacquisition
+reads the powered thread register only after a fresh, matching request and
+ACK, then runs an independent closing guard. The park window stays at 10 ms.
+The compact USB `park-timing.log` records the release and reacquisition
+clocks and the stage reached by each RC6 sample attempt.
 
 The opt-in [private CPU context-image](intel-bdw-bcs-context.md) profile
 `intel-bcs-context-v46` selects a separate `--intel-bcs-context` image/recipe

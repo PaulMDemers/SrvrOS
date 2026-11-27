@@ -155,6 +155,12 @@ contained no fresh engine or L3 acknowledgements. Ubuntu matched the
 1,217-byte USB `park-timing.log` to the exit log and verified the raw hashes,
 checkpoint and exFAT integrity. The run is closed as an incomplete GPU trial.
 
+The follow-up keeps the park and powered poll deadlines and the original
+display/HDA/PCI checks. It measures both RC6 sample boundaries and groups
+forcewake reacquisition reads under one fresh admission per poll. The existing
+provider checks the two park stores immediately before issuing them. The
+changes are confined to GT access, the Air park adapter and its USB receipt.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

@@ -10,13 +10,13 @@ static uint32_t request,ack,thread,trace[8];
 static unsigned calls,fail_at,write_calls,pause_calls,ack_wait,guard_calls,snapshot_fault;
 enum idle_fault {IDLE_OK,IDLE_PAIR_GUARD,IDLE_FOREIGN,IDLE_FLOAT,IDLE_LATE_ACK,IDLE_CLOSE_GUARD};
 static enum idle_fault idle_fault;
-static unsigned idle_pairs, idle_observations, release_guards;
+static unsigned idle_pairs, rewake_pairs, idle_observations, release_guards, rewake_guards;
 static bool never_ack,never_c0,frozen,backward,unissued,uncertain;
 static uint64_t ticks;
 static bool step(void){return ++calls!=fail_at;}
 static bool guard(void *p){
     assert(p==&g);++guard_calls;
-    if(idle_fault==IDLE_CLOSE_GUARD && g.idle_release.ack_clear_us && !g.idle_release.guard_exit_us)
+    if(idle_fault==IDLE_CLOSE_GUARD && g.idle_release.ack_us && !g.idle_release.guard_exit_us)
         return false;
     return step() && display_access_held(&token);
 }
@@ -24,6 +24,8 @@ static bool read_reg(void *p,uint32_t reg,uint32_t *v) {
     assert(p==&g);if(!step())return false;
     assert(reg==INTEL_GT_REQUEST || reg==INTEL_GT_ACK || reg==INTEL_GT_THREAD);
     assert(reg!=INTEL_GT_THREAD || g.idle_writes!=1);
+    if(reg==INTEL_GT_THREAD && g.state==GT_ACCESS_OPENING && g.idle_writes==2)
+        assert((request&0xffffu)==1 && ack==1);
     *v=reg==INTEL_GT_REQUEST?request:reg==INTEL_GT_ACK?ack:thread;return true;
 }
 static bool snapshot(void *p,uint32_t *r,uint32_t *a,uint32_t *t) {
@@ -39,15 +41,16 @@ static bool snapshot(void *p,uint32_t *r,uint32_t *a,uint32_t *t) {
     if(snapshot_fault==9)ticks=0;
     return true;
 }
-static bool read_always_on(void *p,uint32_t *r,uint32_t *a) {
-    assert(g.state==GT_ACCESS_OPENING && g.pinned && g.idle_writes==1);
-    ++idle_pairs;
+static bool idle_sample(void *p,uint32_t *r,uint32_t *a,uint32_t *t) {
+    assert(g.state==GT_ACCESS_OPENING && g.pinned && g.idle_writes==(t ? 2u : 1u));
+    if(t)++rewake_pairs;
+    else ++idle_pairs;
     if(idle_fault==IDLE_PAIR_GUARD || !guard(p) ||
        !read_reg(p,INTEL_GT_REQUEST,r) || !read_reg(p,INTEL_GT_ACK,a))return false;
     if(idle_fault==IDLE_FOREIGN)*r|=2;
     if(idle_fault==IDLE_FLOAT)*a=UINT32_MAX;
     if(idle_fault==IDLE_LATE_ACK && !*a)ticks+=10000;
-    return true;
+    return !t || (*r&0xffffu)!=1 || *a!=1 || read_reg(p,INTEL_GT_THREAD,t);
 }
 static bool observe_idle(void *p) {
     assert(p==&g && !ack && !(request&0xffffu) && g.idle_release.guard_exit_us);
@@ -58,7 +61,11 @@ static bool observe_idle(void *p) {
 static enum intel_gt_write write_reg(void *p,uint32_t reg,uint32_t value) {
     assert(p==&g && reg==INTEL_GT_REQUEST && !display_access_allowed());
     assert(write_calls<8);trace[write_calls++]=value;
-    if(value==0x10000u && g.idle_attempts==1)release_guards=guard_calls;
+    if(g.state==GT_ACCESS_OPENING && g.idle_attempts) {
+        if(!guard(p))return GT_WRITE_NONE;
+        if(value==0x10000u)release_guards=guard_calls;
+        else rewake_guards=guard_calls;
+    }
     if(unissued)return GT_WRITE_NONE;
     request=(value&0xffff0000u)|((request&0xffffu)&~(value>>16))|(value&65535);ack_wait=2;
     if(!step() || uncertain)return GT_WRITE_UNCERTAIN;
@@ -75,7 +82,7 @@ static void fresh(void) {
     state=epoch=owner=pins=0;fault=false;
     memset(&g,0,sizeof(g));request=ack=0;thread=7;memset(trace,0,sizeof(trace));
     calls=fail_at=write_calls=pause_calls=ack_wait=guard_calls=snapshot_fault=0;never_ack=never_c0=frozen=backward=unissued=uncertain=false;ticks=1000;
-    idle_fault=IDLE_OK;idle_pairs=idle_observations=release_guards=0;
+    idle_fault=IDLE_OK;idle_pairs=rewake_pairs=idle_observations=release_guards=rewake_guards=0;
     assert(display_access_acquire(33,&token));
 }
 static void retained(void) {
@@ -93,16 +100,18 @@ static void test_idle_pair(void) {
         assert(intel_gt_access_borrow(&g,&borrow));
         idle_fault=scenario;
         uint64_t deadline=ticks+10000;
-        bool ok=intel_gt_access_idle_diagnostic(&g,&borrow,deadline,read_always_on,observe_idle,&g);
+        bool ok=intel_gt_access_idle_diagnostic(&g,&borrow,deadline,idle_sample,observe_idle,&g);
         if(ok) {
             assert(scenario==IDLE_OK && idle_pairs==4 && idle_observations==1 && g.idle_writes==2);
-            assert(g.idle_release.ack_clear_us<g.idle_release.guard_exit_us && g.last<=deadline);
+            assert(rewake_pairs==3 && guard_calls-rewake_guards==rewake_pairs+1);
+            assert(g.idle_release.ack_us<g.idle_release.guard_exit_us && g.last<=deadline);
+            assert(g.idle_rewake.ack_us<g.idle_rewake.guard_exit_us && g.idle_rewake.stop_us==g.last);
             assert(intel_gt_access_return(&borrow) && intel_gt_access_close(&g) && display_access_release(&token,true));
         } else {
             assert(scenario!=IDLE_OK && idle_pairs && g.reason==reasons[scenario]);
             assert(!idle_observations && g.idle_writes==1 && write_calls==3 && borrow.active);
-            if(scenario==IDLE_LATE_ACK)assert(g.idle_release.ack_clear_us>deadline);
-            if(scenario==IDLE_CLOSE_GUARD)assert(g.idle_release.ack_clear_us && !g.idle_release.guard_exit_us);
+            if(scenario==IDLE_LATE_ACK)assert(g.idle_release.ack_us>deadline);
+            if(scenario==IDLE_CLOSE_GUARD)assert(g.idle_release.ack_us && !g.idle_release.guard_exit_us);
             retained();
         }
     }

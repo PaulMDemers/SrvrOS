@@ -580,9 +580,15 @@ static bool intel_display_test_bootstrap_expected(void) {
  return !strcmp(bootstrap_mode,"pass") || !strcmp(bootstrap_mode,"preserved") || !strcmp(bootstrap_mode,"maintain-slow") || !strcmp(bootstrap_mode,"seconds-slow") || !strcmp(bootstrap_mode,"practical-slow");}
 static bool intel_display_test_bootstrap_clock(uint64_t *out) {
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(!strcmp(bootstrap_mode,"park-cold-sample-over") && air_park.cold_attempts==1 &&
+    air_park.cold_timing[0].failure==PARK_RC6_CLOSE &&
+    ticks<=air_park.poll_origin_us+BDW_TRAFFIC_BLOCK_US) {
+  *out=(ticks=air_park.poll_origin_us+BDW_TRAFFIC_BLOCK_US+1);
+  return true;
+ }
  if(!strcmp(bootstrap_mode,"park-cold-release-late") && air_park.owner && air_park.adapter->park_releasing &&
-    air_park.owner->idle_release.ack_clear_us && !air_park.owner->idle_release.guard_exit_us &&
-    ticks-air_park.owner->idle_release.ack_clear_us<BDW_TRAFFIC_BLOCK_US) {
+    air_park.owner->idle_release.ack_us && !air_park.owner->idle_release.guard_exit_us &&
+    ticks-air_park.owner->idle_release.ack_us<BDW_TRAFFIC_BLOCK_US) {
   *out=(ticks+=BDW_TRAFFIC_BLOCK_US);
   return true;
  }
@@ -1174,7 +1180,7 @@ int main(int argc,char **argv) {
  }
  if(!strcmp(bootstrap_mode,"park-early-l3") || !strcmp(bootstrap_mode,"park-panel-drift") ||
     !strcmp(bootstrap_mode,"park-missed-slot") || !strcmp(bootstrap_mode,"park-wait-failed") ||
-    !strcmp(bootstrap_mode,"park-cold-float")) {
+    !strcmp(bootstrap_mode,"park-cold-float") || !strcmp(bootstrap_mode,"park-cold-sample-over")) {
   assert(air_park.returned && !air_park.sampled && !air_park.held && air_park.reopened &&
          air_park.returns==2 && park_model[0]==PARK_AUTO && !wake_ack && display_access_allowed());
   return code;

@@ -799,7 +799,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             manifest["bcs_stop_version"] = 1
             manifest["cold_rc6_version"] = 3
             manifest["idle_policy_version"] = 1
-            manifest["software_park_version"] = 5
+            manifest["software_park_version"] = 6
             manifest["park_timing_file_version"] = 1
         if intel_stolen_capture:manifest['stolen_progress_version']=1
         if bind_source:

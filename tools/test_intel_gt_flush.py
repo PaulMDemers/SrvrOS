@@ -340,6 +340,15 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertLessEqual(wake['write_exit_us'], wake['ack_clear_us'])
         self.assertLessEqual(wake['ack_clear_us'], wake['guard_exit_us'])
         self.assertLessEqual(cold['samples'][1]['end'], cold['wake']['rewake_us'])
+        self.assertEqual([t['failure'] for t in cold['sample_clocks']], [0, 0])
+        self.assertEqual(cold['rewake']['close'], wake['rewake_us'])
+        self.assertLessEqual(cold['samples'][1]['end'], cold['rewake']['write_enter'])
+        for row in (l for l in text.splitlines() if l.startswith(('intel-park-rc6-clock:', 'intel-park-rewake:'))):
+            with self.assertRaises(ValueError):
+                bootstrap_result(text.replace(row + '\n', ''))
+        legacy = re.sub(r'^intel-park-(?:rc6-clock|rewake): .*\n', '', text, flags=re.M)
+        old = bootstrap_result(legacy.replace('intel-park: v=6 ', 'intel-park: v=5 '))['flush']['park']
+        self.assertTrue(old['complete'])
         origin = park['summary']['poll_origin_us']
         self.assertGreaterEqual(cold['samples'][1]['begin'], origin + 5000)
         polls = [frame for frame in park['frames'] if frame['op'] == 1]
@@ -352,6 +361,15 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertEqual(fault['cold']['wake']['writes'], 2)
         self.assertGreater(fault['cold']['wake']['rewake_us'], 0)
         self.assertEqual(fault['summary']['returns'], 2)
+        self.assertEqual([t['failure'] for t in fault['cold']['sample_clocks']], [0, 4])
+        late_sample = bootstrap_result(observe('park-cold-sample-over'))['flush']['park']
+        self.assertFalse(late_sample['complete'])
+        self.assertEqual(late_sample['cold']['samples'], [])
+        clock, = late_sample['cold']['sample_clocks']
+        self.assertEqual(clock['failure'], 6)
+        self.assertGreater(clock['end'], late_sample['summary']['poll_origin_us'] + 10000)
+        self.assertGreater(late_sample['cold']['rewake']['close'], clock['end'])
+        self.assertTrue(late_sample['summary']['returned'])
         retained = bootstrap_result(observe('park-cold-rewake'))
         park = retained['flush']['park']
         self.assertFalse(park['complete'])

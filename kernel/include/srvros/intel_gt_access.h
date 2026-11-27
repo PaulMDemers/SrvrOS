@@ -50,9 +50,10 @@ struct intel_gt_io {
      * No submission, reset, ownership or asynchronous-context permission. */
     bool (*snapshot)(void *,uint32_t *,uint32_t *,uint32_t *);
 };
-struct intel_gt_release_timing {
-    uint64_t write_enter_us, write_exit_us, ack_clear_us, guard_exit_us, stop_us;
+struct intel_gt_idle_timing {
+    uint64_t write_enter_us, write_exit_us, ack_us, guard_exit_us, stop_us;
 };
+typedef bool (*intel_gt_idle_sample_fn)(void *,uint32_t *,uint32_t *,uint32_t *);
 struct intel_gt_access {
     const struct intel_gt_access *object;
     struct display_access_token exclusion;
@@ -63,7 +64,7 @@ struct intel_gt_access {
     uint32_t clock_cause,snapshots;
     uint32_t state,reason,requests,ack,thread,write_attempts,writes,polls;
     unsigned idle_attempts, idle_writes;
-    struct intel_gt_release_timing idle_release;
+    struct intel_gt_idle_timing idle_release, idle_rewake;
     bool pinned,guarded_snapshot;
     unsigned borrows;
     /* Engine observations cannot cross a possibly issued destructive reset.
@@ -81,13 +82,15 @@ struct intel_gt_borrow {
  * close and requester restoration. Only a clean dependent may return its pin. */
 bool intel_gt_access_borrow(struct intel_gt_access *,struct intel_gt_borrow *);
 bool intel_gt_access_return(struct intel_gt_borrow *);
-/* One diagnostic pause with the sole dependent held. The provider must
- * freshly admit the request and ACK aliases together before the two ordered
- * reads. The core validates the values and clock and runs a separate closing
- * guard before observation. The observer may only use always-on registers
- * and must leave the owner and pin intact. */
+/* One diagnostic pause with the sole dependent held. Each provider write
+ * must freshly apply the full adapter guard immediately before the store.
+ * The sample provider must admit the exact aliases with the same full guard
+ * and read request then ACK. It may read a nonnull thread output only after
+ * the pair proves that our request is asserted and solely acknowledged.
+ * The core validates values and clocks and independently guards completion
+ * of release and reacquisition. The observer uses only always-on registers. */
 bool intel_gt_access_idle_diagnostic(struct intel_gt_access *, const struct intel_gt_borrow *,
-                                    uint64_t deadline, bool (*read_always_on)(void *,uint32_t *,uint32_t *),
+                                    uint64_t deadline, intel_gt_idle_sample_fn,
                                     bool (*observe)(void *), void *);
 bool intel_gt_access_open(struct intel_gt_access *,const struct display_access_token *,uint32_t grants,struct intel_gt_io);
 /* The snapshot provider must run the full fresh adapter guard immediately
