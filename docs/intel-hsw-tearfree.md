@@ -212,6 +212,24 @@ all entries, including nonpresent words, and rechecks exact pass equality,
 graph reachability, RAM provenance and the cache-walk bindings. A receipt
 that exceeds 4 KiB still refuses, with the original clock and entry limits.
 
+#### Native retry halted at the sampler deadline
+
+Source `8ff59622` and release `d8bd670a63111f65` reached the first VT-d
+sampler pass. The boot requires the pre-user alias gate to pass before
+entering the sampler. The photographed pass also reached private frame
+allocation, which requires its own fresh alias census to pass. The halt
+preceded USB logging, so the exact graph and encoded sizes could not be
+verified from a saved receipt.
+
+Pass zero hit the 100 ms `clock/deadline` limit before attempting a
+parent link. The last reported firmware checkpoint was
+`stable-MCFG-copy`. The screen gives the location of that checkpoint,
+while the distribution of time across the pass remains unknown. Neither
+pass attempted a VT-d register load. Pass one and the slot 4096 probe
+were never reached, and Pipe A continuity has no new evidence.
+Ubuntu returned after the halt. The one-shot was consumed, and the
+installed recovery and offline USB filesystem check verified.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

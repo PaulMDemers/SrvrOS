@@ -79,6 +79,15 @@ provenance, entry count and deadline. The physical checkpoint is the
 same read-only VT-d and slot 4096 audit on the inherited Pipe A surface.
 Air7,2 PR301 at `9edfbe67` retains its separate GPU ownership scope.
 
+The [native retry](../intel-hsw-tearfree.md#native-retry-halted-at-the-sampler-deadline)
+on `8ff59622` / `d8bd670a63111f65` passed the pre-user alias gate and the
+first sampler census in the kernel. The photographed halt reports the
+first sampler's 100 ms deadline and `stable-MCFG-copy` checkpoint before
+any parent link or VT-d target read. The halt preceded USB logging, so
+raw alias sizes and graph equality could not be independently checked.
+The second sampler pass and slot 4096 probe remain pending. Ubuntu
+returned and both recovery and the offline USB check verified.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
