@@ -1546,6 +1546,23 @@ three-port hub topology. Scope is the existing pinned RTL8188CUS
 firmware capture and its native fixtures. Main `61111819` and open
 reviews have no overlap.
 
+Installed cold candidate `4754d4d28671317e` from `845bb203` with
+recovery `74da74e0b57afbb8`, workspace `0E53-5900` and all three
+hub ports verified. Native tests covered the one-byte write before
+regulator setup, the already-clear path, unexpected initial state,
+failed readback and high-byte change. Exact-image rehearsals passed
+GPT workspace logging and all four journal availability cases. Both
+bounded journal checkpoints preserved the eight-step trace and RX
+counters in decoder tests. The cold Linux reference and next run
+record are under `build/bringup/pro112-rtl8188cu-iso-low`.
+
+Before arming, reclaimed 7.99 GiB by losslessly compressing 34 retired
+VM images and staged initramfs tarballs. Verified the compressed
+stream and original SHA-256 before removing each original. The
+cleanup ledger and restorable archives are under
+`/var/local/srvros-recovery/macbookpro11-2/retired-artifacts`. The
+existing acceptance logs and installed recovery were preserved.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
