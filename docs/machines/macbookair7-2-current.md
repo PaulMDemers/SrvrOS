@@ -1,6 +1,6 @@
 # MacBookAir7,2 current status
 
-Updated 2026-11-24 (America/New_York). Reference A1466 with partial desktop/device acceptance.
+Updated 2026-11-26 (America/New_York). Reference A1466 with partial desktop/device acceptance.
 The [dated journal](macbookair7-2.md) preserves exact-source history.
 
 The inherited-framebuffer desktop remains usable, with independent evidence for
@@ -137,6 +137,14 @@ closing guard finished at 12.265 ms. Times are measured from the start of
 the 10 ms park window. The repeat missed the deadline during ACK sampling
 and ended before RC6 sampling, engine preparation or GT reset. The run is
 closed as an incomplete GPU trial with verified physical log persistence.
+
+The next Air trial groups the two always-on forcewake reads under a single
+fresh adapter admission. It covers the GT access core and the Air park
+adapter. The separate closing guard, original panel, HDA lease, PCI checks
+and 10 ms deadline remain in force. PR 301 is the device work branch, with
+`61111819` reviewed as the upstream integration reference. The next
+checkpoint is exact-image VM qualification and one native run with a matched
+USB timing report.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

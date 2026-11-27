@@ -123,6 +123,26 @@ static bool park_panel(void)
     return true;
 }
 
+/* Used only after fresh wake_guard admission with both aliases present. The
+ * thread register is powered and must stay outside this pair. */
+static bool park_always_on_raw(uint32_t *request, uint32_t *ack)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_wake_read(INTEL_GT_REQUEST,request) &&
+           intel_display_test_wake_read(INTEL_GT_ACK,ack);
+#else
+    *request = *(volatile const uint32_t *)(WAKE_VA + (INTEL_GT_REQUEST & 4095));
+    *ack = *(volatile const uint32_t *)(WAKE_VA + 4096 + (INTEL_GT_ACK & 4095));
+    return true;
+#endif
+}
+
+static bool park_always_on(void *context, uint32_t *request, uint32_t *ack)
+{
+    struct wake_adapter *a = context;
+    return a->mapped[0] && a->mapped[1] && wake_guard(a) && park_always_on_raw(request,ack);
+}
+
 static bool park_cold_guard(void)
 {
     struct wake_adapter *a = air_park.adapter;
@@ -140,8 +160,7 @@ static bool park_cold_guard(void)
         a->uncertain = true;
         return false;
     }
-    return wake_read(a,INTEL_GT_REQUEST,&request) && !(request & 0xffffu) &&
-           wake_read(a,INTEL_GT_ACK,&ack) && !ack;
+    return park_always_on_raw(&request,&ack) && !(request & 0xffffu) && !ack;
 }
 
 static bool park_cold_point(void)
@@ -302,7 +321,7 @@ static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
         if (begin > UINT64_MAX - BDW_TRAFFIC_BLOCK_US) return false;
         a->park_releasing = true;
         bool observed = intel_gt_access_idle_diagnostic(g,&gt_bootstrap_native.borrow,
-                            begin+BDW_TRAFFIC_BLOCK_US,park_observe_cold,NULL);
+                            begin+BDW_TRAFFIC_BLOCK_US,park_always_on,park_observe_cold,NULL);
         a->park_releasing = false;
         if (g->state == GT_ACCESS_AWAKE && g->idle_writes == 2) air_park.rewake_us = g->last;
         if (!observed || !park_owner(a,g) || !bootstrap_guard()) return false;

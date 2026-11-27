@@ -28,6 +28,13 @@ static bool read_reg(struct intel_gt_access *g,uint32_t reg,uint32_t *v) {
 static bool read_pair(struct intel_gt_access *g) {
     return read_reg(g,INTEL_GT_REQUEST,&g->requests) && read_reg(g,INTEL_GT_ACK,&g->ack);
 }
+static bool read_idle_pair(struct intel_gt_access *g,bool (*read_always_on)(void *,uint32_t *,uint32_t *)) {
+    if(g->object!=g || g->state!=GT_ACCESS_OPENING || !g->pinned || !display_access_held(&g->exclusion))
+        return fail(g,GT_ACCESS_GUARD);
+    if(!read_always_on(g->io.context,&g->requests,&g->ack) ||
+       g->requests==UINT32_MAX || g->ack==UINT32_MAX)return fail(g,GT_ACCESS_IO);
+    return clock_ok(g,g->last);
+}
 static bool write_request(struct intel_gt_access *g,uint32_t value,bool idle) {
     if(!guarded(g) || !clock_ok(g,g->last))return false;
     unsigned *attempts = idle ? &g->idle_attempts : &g->write_attempts;
@@ -53,21 +60,21 @@ static bool write_reg(struct intel_gt_access *g,uint32_t value) {
     return write_request(g,value,false);
 }
 static bool wait_state_until(struct intel_gt_access *g,uint32_t desired,bool c0,uint64_t deadline,
-                             struct intel_gt_release_timing *release) {
+                             bool (*read_always_on)(void *,uint32_t *,uint32_t *)) {
     uint64_t phase=g->last;
     for(unsigned i=0;i<GT_ACCESS_POLL_CAP;i++) {
         g->polls++;
         if(!clock_ok(g,phase))return false;
         if(g->last>=deadline)return fail(g,GT_ACCESS_TIMEOUT);
-        if(!read_pair(g))return false;
+        if(!(read_always_on ? read_idle_pair(g,read_always_on) : read_pair(g)))return false;
         /* All other requesters were retired by the audited caller. Their
          * appearance is ownership loss, never a bit we may clear or borrow. */
         if((g->requests&0xffffu)!=desired || (g->ack&~1u))return fail(g,GT_ACCESS_FOREIGN);
         if(g->ack==desired) {
             if(!c0) {
-                if(release)release->ack_clear_us=g->last;
+                if(read_always_on)g->idle_release.ack_clear_us=g->last;
                 if(!guarded(g) || !clock_ok(g,phase))return false;
-                if(release)release->guard_exit_us=g->last;
+                if(read_always_on)g->idle_release.guard_exit_us=g->last;
                 return g->last<=deadline || fail(g,GT_ACCESS_TIMEOUT);
             }
             if(!read_reg(g,INTEL_GT_THREAD,&g->thread))return false;
@@ -147,18 +154,20 @@ bool intel_gt_access_close(struct intel_gt_access *g) {
     g->pinned=false;g->state=GT_ACCESS_CLOSED;return true;
 }
 bool intel_gt_access_idle_diagnostic(struct intel_gt_access *g,const struct intel_gt_borrow *b,
-                                    uint64_t deadline,bool (*observe)(void *),void *context) {
-    if(!g || !b || !observe || g->idle_attempts || g->idle_writes || g->borrows!=1 ||
+                                    uint64_t deadline,bool (*read_always_on)(void *,uint32_t *,uint32_t *),
+                                    bool (*observe)(void *),void *context) {
+    if(!g || !b || !read_always_on || !observe || g->idle_attempts || g->idle_writes || g->borrows!=1 ||
        g->dependents!=b || b->object!=b || b->parent!=g || !b->active || b->next ||
        !intel_gt_access_check(g) || g->last>=deadline)return false;
     /* The HDA parent accepts OPENING, while all awake access paths refuse it. */
     g->state=GT_ACCESS_OPENING;
     bool released=write_request(g,0x10000u,true) &&
-        wait_state_until(g,0,false,deadline,&g->idle_release);
+        wait_state_until(g,0,false,deadline,read_always_on);
     g->idle_release.stop_us=g->last;
     if(!released)return false;
     bool observed=observe(context);
-    if(!read_pair(g) || (g->requests&0xffffu) || g->ack)return fail(g,GT_ACCESS_FOREIGN);
+    if(!read_idle_pair(g,read_always_on))return false;
+    if((g->requests&0xffffu) || g->ack)return fail(g,GT_ACCESS_FOREIGN);
     /* Reacquire the original request to permit safe policy rollback even
      * when the observation itself timed out. Never qualify a late wake. */
     if(!write_request(g,0x10001u,true) || !wait_state(g,1,true))return false;
