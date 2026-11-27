@@ -18,6 +18,9 @@
 /* Match Linux monitor admission and enable its PHY status prefix. */
 #define RTL_CU_MONITOR_RCR 0x790fu
 #define RTL_CU_RCR_PHY_STATUS (1u<<28)
+#define RTL_CU_MAC_LOOPBACK_SETTING 0x015u
+#define RTL_CU_MAC_LOOPBACK_COLD 0xa9u
+#define RTL_CU_MAC_LOOPBACK_LINUX 0xe9u
 #define RTL_CU_RX_DRIVER_INFO_UNITS 4u
 #define RTL_CU_ALL_SUBTYPES 0xffffu
 #define RTL_CU_RF_DATA_MASK 0xfffffu
@@ -93,9 +96,10 @@ static const struct { uint16_t address,width; } rtl_cu_dma_regs[]={
     {0x104,1},{0x114,1},{0x116,2},{0x118,4},{0x280,2},{0xfe5b,1},{0xfe5c,1},{0xfe5d,1},
 };
 #define RTL_CU_DMA_COUNT (sizeof rtl_cu_dma_regs/sizeof rtl_cu_dma_regs[0])
-enum rtl_cu_enable_register { RTL_CU_ENABLE_XTAL=7 };
+enum rtl_cu_enable_register { RTL_CU_ENABLE_LOOPBACK=5,RTL_CU_ENABLE_XTAL=7 };
 static const struct { uint16_t address,width; } rtl_cu_enable_regs[]={
-    {0x000,2},{0x002,2},{RTL8188CU_POWER,2},{0x008,2},{0x010,1},{0x015,1},
+    {0x000,2},{0x002,2},{RTL8188CU_POWER,2},{0x008,2},{0x010,1},
+    [RTL_CU_ENABLE_LOOPBACK]={RTL_CU_MAC_LOOPBACK_SETTING,1},
     {0x021,1},[RTL_CU_ENABLE_XTAL]={RTL_CU_AFE_XTAL_CONTROL,4},
     {0x028,4},{RTL8188CU_MAC_CONTROL,4},{0x600,1},{0x604,4},
     {0x608,4},{0x60c,1},{0x60d,1},{0x60f,1},{0x668,4},{0x692,1},
@@ -157,6 +161,8 @@ static struct {
     uint32_t xtal_before,xtal_after;
     unsigned xtal_reads;
     bool xtal_attempted,xtal_ready;
+    uint32_t loopback_before,loopback_after;
+    unsigned loopback_reads;
     bool event_data,rx_cr_valid;
     bool configured,pending,failed;
 } rtl_passive;
@@ -323,6 +329,9 @@ static void rtl_cu_rx_log(void) {
     if(rtl_passive.xtal_attempted)
         console_printf("rtl8188cu-xtal: %u %u %x\n",(uint64_t)rtl_passive.xtal_ready,
             (uint64_t)rtl_passive.xtal_reads,((uint64_t)rtl_passive.xtal_before<<32)|rtl_passive.xtal_after);
+    if(rtl_passive.loopback_reads)
+        console_printf("rtl8188cu-mac-loopback: %u %x\n",(uint64_t)rtl_passive.loopback_reads,
+            ((uint64_t)rtl_passive.loopback_before<<32)|rtl_passive.loopback_after);
     rtl8188cu_power_log(rtl_passive.owner,"passive");
     if(rtl_passive.early_rx_reads)
         console_printf("rtl8188cu-rx-timing: %u %x %u %u\n",(uint64_t)rtl_passive.early_rx_reads,
@@ -629,6 +638,20 @@ static bool rtl_cu_prepare_xtal(struct xhci_device *d) {
     return rtl_passive.xtal_ready;
 }
 
+static bool rtl_cu_prepare_mac_loopback(struct xhci_device *d) {
+    /* Linux groups this byte with its MAC loopback fix after calibration. */
+    if(!rtl_cu_rx_held(d) ||
+       !rtl8188cu_read(d,RTL_CU_MAC_LOOPBACK_SETTING,1,&rtl_passive.loopback_before))return false;
+    rtl_passive.loopback_reads=1;
+    uint32_t before=rtl_passive.loopback_before;
+    if((before!=RTL_CU_MAC_LOOPBACK_COLD && before!=RTL_CU_MAC_LOOPBACK_LINUX) ||
+       (before==RTL_CU_MAC_LOOPBACK_COLD &&
+        !rtl8188cu_write_value(d,RTL_CU_MAC_LOOPBACK_SETTING,1,RTL_CU_MAC_LOOPBACK_LINUX)) ||
+       !rtl8188cu_read(d,RTL_CU_MAC_LOOPBACK_SETTING,1,&rtl_passive.loopback_after))return false;
+    rtl_passive.loopback_reads=2;
+    return rtl_passive.loopback_after==RTL_CU_MAC_LOOPBACK_LINUX;
+}
+
 static const char *rtl_cu_prepare_passive_start(struct xhci_device *d,struct xhci_device *hub) {
     uint32_t state;
     if(rtl_passive.owner || !rtl8188cu_check_port(d,hub))return "passive-admission";
@@ -677,7 +700,7 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
     rtl_passive.startup_rf_valid=true;
     if((rtl_passive.startup_rf_channel&RTL_CU_RF_DATA_MASK)!=RTL_CU_RF_START_CHANNEL ||
        !rtl_cu_apply_linux_radio_settings(d) ||
-       !rtl_cu_post_profile_lc(d,hub))return false;
+       !rtl_cu_post_profile_lc(d,hub) || !rtl_cu_prepare_mac_loopback(d))return false;
     /* Verify the channel through RF path A and keep both aggregation paths
      * off so a single receive buffer describes one frame. */
     if(!rtl8188cu_update(d,0x603,1,0,4) ||
@@ -783,7 +806,8 @@ static bool rtl_cu_listen(struct xhci_device *d,struct xhci_device *hub) {
                           &rtl_passive.enable_regs[i]))return false;
         rtl_passive.enable_reads++;
     }
-    if(rtl_passive.enable_regs[RTL_CU_ENABLE_XTAL]!=RTL_CU_AFE_XTAL_LINUX)return false;
+    if(rtl_passive.enable_regs[RTL_CU_ENABLE_XTAL]!=RTL_CU_AFE_XTAL_LINUX ||
+       rtl_passive.enable_regs[RTL_CU_ENABLE_LOOPBACK]!=RTL_CU_MAC_LOOPBACK_LINUX)return false;
     rtl_cu_rx_snapshot(d,RTL_CU_ARMED,true);
     if(!rtl_cu_rx_held(d))return false;
     console_write("rtl8188cu-passive-progress: listening on channel 10; no input required\n");
@@ -880,9 +904,13 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready) {
                     result=window && !rtl_passive.completed?"rx-timeout":"window";
                     if(rtl_passive.enable_reads==RTL_CU_ENABLE_COUNT &&
                        rtl_passive.enable_regs[RTL_CU_ENABLE_XTAL]!=RTL_CU_AFE_XTAL_LINUX)result="xtal-drift";
+                    if(rtl_passive.enable_reads==RTL_CU_ENABLE_COUNT &&
+                       rtl_passive.enable_regs[RTL_CU_ENABLE_LOOPBACK]!=RTL_CU_MAC_LOOPBACK_LINUX)result="loopback-drift";
                 }
             } else if(rtl_passive.xtal_attempted && !rtl_passive.xtal_ready) {
                 result="xtal";
+            } else if(rtl_passive.loopback_reads && rtl_passive.loopback_after!=RTL_CU_MAC_LOOPBACK_LINUX) {
+                result="loopback";
             }
             rtl_cu_park(d,hub);
             d->rtl8188cu_firmware_active=false;
