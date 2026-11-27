@@ -61,12 +61,30 @@ static bool rtl_cu_station_prepare(struct xhci_device *d,struct xhci_device *hub
     return rtl_station.enabled;
 }
 
+static struct rtl_cu_out_context rtl_cu_station_out_context(const struct xhci_device *d) {
+    if(!d->output_context)return (struct rtl_cu_out_context){0};
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
+    return (struct rtl_cu_out_context){
+        .dequeue=context_read32(d->output_context,RTL_CU_TX_DCI,2)|
+            ((uint64_t)context_read32(d->output_context,RTL_CU_TX_DCI,3)<<32),
+        .state=context_read32(d->output_context,RTL_CU_TX_DCI,0)&7,
+        .sampled=true,
+    };
+}
+
 static bool rtl_cu_station_event(const struct xhci_device *d,uint8_t dci,uint64_t pointer,
                                   uint8_t completion,uint32_t remaining,bool event_data) {
     if(!rtl_station.requested || !d || d!=rtl_passive.owner || dci!=RTL_CU_TX_DCI ||
        !rtl_passive.configured)return false;
-    if(rtl_station.stopping && completion>=26 && completion<=28 && !event_data &&
-       !(pointer&15) && pointer>=rtl_station.ep.ring_phys &&
+    bool stop_event=rtl_station.stopping && completion>=26 && completion<=28;
+    struct rtl_cu_auth_trace *trace=&rtl_station.auth_out;
+    if(trace->trb && rtl_station.sends==1) {
+        struct rtl_cu_out_event *event=stop_event?&trace->stop:trace->outcome?&trace->late:&trace->wait;
+        if(!event->seen)*event=(struct rtl_cu_out_event){
+            .trb=pointer,.residue=remaining,.code=completion,.seen=true,.event_data=event_data,
+        };
+    }
+    if(stop_event && !event_data && !(pointer&15) && pointer>=rtl_station.ep.ring_phys &&
        pointer-rtl_station.ep.ring_phys<XHCI_TRB_COUNT*sizeof(struct xhci_trb))return true;
     if(!rtl_station.pending || pointer!=rtl_station.trb || event_data || completion!=1 || remaining) {
         rtl_station.failed=true;
@@ -84,6 +102,13 @@ static bool rtl_cu_station_owned(struct xhci_device *d) {
         rtl_cu_station_same_hub(d);
 }
 
+static void rtl_cu_auth_wait_end(struct xhci_device *d,struct rtl_cu_auth_trace *trace,
+                                 uint64_t start,const char *outcome) {
+    trace->wait_end=rtl_cu_station_out_context(d);
+    trace->elapsed_us=timer_monotonic_us()-start;
+    trace->outcome=outcome;
+}
+
 static bool rtl_cu_station_send(struct xhci_device *d,enum rtl_cu_station_tx type,
                                  const uint8_t *key,size_t size) {
     struct xhci_bulk_endpoint *ep=&rtl_station.ep;
@@ -99,21 +124,38 @@ static bool rtl_cu_station_send(struct xhci_device *d,enum rtl_cu_station_tx typ
     rtl_station.trb=ring_push_owned(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&transfer,true);
     rtl_station.pending=true;
     rtl_station.sends++;
+    bool first_auth=type==RTL_CU_AUTH && rtl_station.sends==1;
+    struct rtl_cu_auth_trace *trace=&rtl_station.auth_out;
+    if(first_auth) {
+        trace->trb=rtl_station.trb;
+        trace->slot=d->slot_id;
+        trace->length=length;
+        trace->before=rtl_cu_station_out_context(d);
+    }
     __atomic_thread_fence(__ATOMIC_RELEASE);
     ((volatile struct xhci_trb *)entry)->control=transfer.control|1;
     db_write32(d->slot_id,RTL_CU_TX_DCI);
     uint64_t start=timer_monotonic_us();
+    const char *outcome="spin-limit";
     for(uint64_t spins=0;spins<XHCI_TRANSFER_TIMEOUT;spins++) {
         struct xhci_trb event;
         if(poll_event(&event))dispatch_transfer_event(&event);
-        if(!rtl_cu_station_owned(d))break;
+        if(!rtl_cu_station_owned(d)) {
+            outcome=rtl_station.failed?"event-rejected":"ownership-lost";
+            break;
+        }
         if(!rtl_station.pending) {
+            if(first_auth)rtl_cu_auth_wait_end(d,trace,start,"complete");
             rtl_cu_erase(rtl_station.buffer,RTL_CU_STATION_TX_MAX);
             return true;
         }
-        if((spins&255)==0 && timer_monotonic_us()-start>=RTL_CU_STATION_TX_US)break;
+        if((spins&255)==0 && timer_monotonic_us()-start>=RTL_CU_STATION_TX_US) {
+            outcome="deadline";
+            break;
+        }
         __asm__ volatile("pause");
     }
+    if(first_auth)rtl_cu_auth_wait_end(d,trace,start,outcome);
     rtl_station.failed=true;
     return false;
 }
@@ -275,19 +317,29 @@ static bool rtl_cu_station_stop(struct xhci_device *d,struct xhci_device *hub) {
     rtl_station.stopping=true;
     bool stopped=submit_command(XHCI_TRB_TYPE_STOP_ENDPOINT,((uint32_t)d->slot_id<<24)|(RTL_CU_TX_DCI<<16),&slot);
     rtl_station.stopping=false;
+    struct rtl_cu_out_context context=rtl_cu_station_out_context(d);
+    if(rtl_station.auth_out.trb)rtl_station.auth_out.stop_end=context;
     if(slot!=UINT64_MAX && slot!=d->slot_id)xhci.command_failed=true;
     if(!stopped || slot!=d->slot_id)return false;
-    __atomic_thread_fence(__ATOMIC_ACQUIRE);
-    uint64_t got=context_read32(d->output_context,RTL_CU_TX_DCI,2)|
-        ((uint64_t)context_read32(d->output_context,RTL_CU_TX_DCI,3)<<32);
     uint64_t at=rtl_station.pending?rtl_station.trb:
         rtl_station.ep.ring_phys+rtl_station.ep.enqueue*sizeof(struct xhci_trb);
-    rtl_station.tx_stopped=(context_read32(d->output_context,RTL_CU_TX_DCI,0)&7)==3 && got==(at|1);
+    rtl_station.tx_stopped=context.sampled && context.state==3 && context.dequeue==(at|1);
     if(rtl_station.tx_stopped) {
         rtl_station.pending=false;
         rtl_cu_erase(rtl_station.buffer,RTL_CU_STATION_TX_MAX);
     }
     return paused && rtl_station.tx_stopped;
+}
+
+static void rtl_cu_auth_log_context(const char *stage,const struct rtl_cu_out_context *context) {
+    console_printf("rtl8188cu-auth-context: stage=%s sampled=%u state=%u dequeue=%x\n",
+        stage,(uint64_t)context->sampled,(uint64_t)context->state,context->dequeue);
+}
+
+static void rtl_cu_auth_log_event(const char *stage,const struct rtl_cu_out_event *event) {
+    console_printf("rtl8188cu-auth-event: stage=%s seen=%u code=%u residue=%u trb=%x ed=%u\n",
+        stage,(uint64_t)event->seen,(uint64_t)event->code,(uint64_t)event->residue,event->trb,
+        (uint64_t)event->event_data);
 }
 
 static void rtl_cu_station_log(bool complete) {
@@ -299,4 +351,15 @@ static void rtl_cu_station_log(bool complete) {
         (uint64_t)rtl_station.leave,(uint64_t)rtl_station.keys_erased,(uint64_t)rtl_station.tx_stopped,
         (uint64_t)rtl_station.sends,(uint64_t)rtl_station.completed,(uint64_t)rtl_station.last_rx,
         (uint64_t)rtl_station.failed,(uint64_t)complete);
+    const struct rtl_cu_auth_trace *trace=&rtl_station.auth_out;
+    if(!trace->trb)return;
+    console_printf("rtl8188cu-auth-out: outcome=%s slot=%u dci=%u trb=%x length=%u elapsed_us=%u\n",
+        trace->outcome,(uint64_t)trace->slot,(uint64_t)RTL_CU_TX_DCI,trace->trb,
+        (uint64_t)trace->length,trace->elapsed_us);
+    rtl_cu_auth_log_context("before",&trace->before);
+    rtl_cu_auth_log_context("wait-end",&trace->wait_end);
+    rtl_cu_auth_log_context("stop-end",&trace->stop_end);
+    rtl_cu_auth_log_event("wait",&trace->wait);
+    rtl_cu_auth_log_event("late",&trace->late);
+    rtl_cu_auth_log_event("stop",&trace->stop);
 }

@@ -7789,7 +7789,18 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
             rtl_radio_model.rx_cycle=true;
         } else if(rtl_station.requested && rtl_radio_model.commands==1) {
             assert(type==XHCI_TRB_TYPE_STOP_ENDPOINT && ((cmd->control>>16)&31)==4);
-            uint64_t pointer=(rtl_station.pending?rtl_station.trb:rtl_station.ep.ring_phys+rtl_station.ep.enqueue*16)|1;
+            bool pending=rtl_station.pending;
+#ifdef SRVROS_RTL8188CU_STATION_TEST
+            if(rtl_station_fixture==RTL_STATION_USB_LATE) {
+                assert(pending);
+                rtl_radio_out_event(event_offset++,rtl_station.trb,1,0,false);
+                pending=false;
+            }
+#endif
+            uint64_t pointer=(pending?rtl_station.trb:rtl_station.ep.ring_phys+rtl_station.ep.enqueue*16)|1;
+#ifdef SRVROS_RTL8188CU_STATION_TEST
+            if(pending)rtl_radio_out_event(event_offset++,pointer&~1ull,26,rtl_station.auth_out.length,false);
+#endif
             context_write32(d->output_context,4,0,3);
             context_write32(d->output_context,4,2,(uint32_t)pointer);
             context_write32(d->output_context,4,3,pointer>>32);
@@ -7817,7 +7828,7 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
         uint64_t pointer=xhci.command_ring_phys+index*16;
         unsigned event_index=xhci.event_dequeue+event_offset;
         bool event_cycle=xhci.event_cycle;
-        if(event_index==XHCI_EVENT_TRB_COUNT){event_index=0;event_cycle=!event_cycle;}
+        if(event_index>=XHCI_EVENT_TRB_COUNT){event_index-=XHCI_EVENT_TRB_COUNT;event_cycle=!event_cycle;}
         xhci.event_ring[event_index]=(struct xhci_trb){.parameter_low=(uint32_t)pointer,
             .parameter_high=pointer>>32,.status=1u<<24,
             .control=(33u<<10)|(2u<<24)|event_cycle};
@@ -8318,11 +8329,10 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
             } else if(rtl_station_fixture==RTL_STATION_BAD_MIC) {
                 assert(rtl_station.last_rx==WPA2_HS_RX_MIC && rtl_station.m1 && rtl_station.m2 &&
                        !rtl_station.m3 && !rtl_station.m4 && rtl_station.leave && rtl_station.sends==4);
-            } else if(rtl_station_fixture==RTL_STATION_USB_TIMEOUT) {
-                assert(rtl_station.failed && rtl_station.sends==1 && !rtl_station.completed && !rtl_station.leave);
             } else {
-                assert(!rtl_station.ready && !rtl_station.sends && !rtl_station.enabled);
+                assert(!rtl_station.leave);
             }
+            rtl_radio_assert_auth_trace();
             continue;
         }
 #endif

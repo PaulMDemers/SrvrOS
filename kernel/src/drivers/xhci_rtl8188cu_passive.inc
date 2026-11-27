@@ -213,12 +213,35 @@ static struct {
     bool configured,pending,trb_cycle,stopping,failed;
 } rtl_passive;
 
+struct rtl_cu_out_event {
+    uint64_t trb;
+    uint32_t residue;
+    uint8_t code;
+    bool seen,event_data;
+};
+
+struct rtl_cu_out_context {
+    uint64_t dequeue;
+    unsigned state;
+    bool sampled;
+};
+
+struct rtl_cu_auth_trace {
+    uint64_t trb,elapsed_us;
+    size_t length;
+    uint8_t slot;
+    const char *outcome;
+    struct rtl_cu_out_context before,wait_end,stop_end;
+    struct rtl_cu_out_event wait,late,stop;
+};
+
 /* One opt-in owner. Ring and DMA pages stay pinned even on failed teardown. */
 static struct {
     struct rtl_cu_station_peer peer;
     struct wpa2_handshake handshake;
     struct wpa2_ccmp keys;
     struct xhci_bulk_endpoint ep;
+    struct rtl_cu_auth_trace auth_out;
     uint8_t *buffer;
     uint64_t physical,trb;
     unsigned sends,completed,reply_status,aid,last_rx;

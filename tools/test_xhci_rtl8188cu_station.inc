@@ -1,10 +1,19 @@
 #include "fixtures/wpa2-handshake-synthetic.h"
 
 enum rtl_station_fixture {
-    RTL_STATION_OFF,RTL_STATION_OK,RTL_STATION_BAD_MIC,RTL_STATION_USB_TIMEOUT,RTL_STATION_NO_SIBLING,
+    RTL_STATION_OFF,RTL_STATION_OK,RTL_STATION_BAD_MIC,RTL_STATION_USB_TIMEOUT,RTL_STATION_USB_SPIN_LIMIT,
+    RTL_STATION_USB_LATE,RTL_STATION_USB_BAD_CODE,RTL_STATION_USB_RESIDUE,RTL_STATION_USB_WRONG_TRB,
+    RTL_STATION_USB_EVENT_DATA,RTL_STATION_NO_SIBLING,
 };
 static enum rtl_station_fixture rtl_station_fixture;
 static bool rtl_station_test_m1;
+
+static void rtl_radio_out_event(unsigned offset,uint64_t trb,unsigned code,unsigned residue,bool event_data) {
+    rtl_radio_transfer_event(offset,trb,code,residue);
+    unsigned index=(xhci.event_dequeue+offset)%XHCI_EVENT_TRB_COUNT;
+    xhci.event_ring[index].control^=(3u^RTL_CU_TX_DCI)<<16;
+    if(event_data)xhci.event_ring[index].control|=4;
+}
 
 bool rtl_cu_station_test_nonce(uint8_t out[32]) {
     memcpy(out,hs_sn,sizeof hs_sn);
@@ -66,13 +75,21 @@ static bool rtl_radio_station_doorbell(uint64_t value) {
         assert(packet[5]==((!leaving && (sent==3 || sent==4))?7:0x12));
         if(!leaving && sent==3)assert(!memcmp(packet+66,hs_m2,sizeof hs_m2));
         if(!leaving && sent==4)assert(!memcmp(packet+66,hs_m4,sizeof hs_m4));
-        if(rtl_station_fixture==RTL_STATION_USB_TIMEOUT) {
+        if(rtl_station_fixture>=RTL_STATION_USB_TIMEOUT && rtl_station_fixture<=RTL_STATION_USB_LATE) {
             assert(sent==1);
-            test_time_step=50000;
+            test_time_step=rtl_station_fixture==RTL_STATION_USB_SPIN_LIMIT?1:300000;
             return true;
         }
-        rtl_radio_transfer_event(0,rtl_station.trb,1,0);
-        xhci.event_ring[xhci.event_dequeue].control^=(3u^RTL_CU_TX_DCI)<<16;
+        if(rtl_station_fixture>=RTL_STATION_USB_BAD_CODE && rtl_station_fixture<=RTL_STATION_USB_EVENT_DATA) {
+            assert(sent==1);
+            bool bad_code=rtl_station_fixture==RTL_STATION_USB_BAD_CODE;
+            if(bad_code)context_write32(rtl_passive.owner->output_context,RTL_CU_TX_DCI,0,2);
+            rtl_radio_out_event(0,rtl_station.trb+(rtl_station_fixture==RTL_STATION_USB_WRONG_TRB?16:0),
+                bad_code?4:1,rtl_station_fixture==RTL_STATION_USB_RESIDUE?7:0,
+                rtl_station_fixture==RTL_STATION_USB_EVENT_DATA);
+            return true;
+        }
+        rtl_radio_out_event(0,rtl_station.trb,1,0,false);
         if(sent==1)rtl_radio_station_response(1,0xb0,NULL,0);
         if(sent==2)rtl_radio_station_response(1,0x10,NULL,0);
         if(sent==3 && !leaving)rtl_radio_station_response(1,0x88,hs_m3,sizeof hs_m3);
@@ -86,4 +103,45 @@ static bool rtl_radio_station_doorbell(uint64_t value) {
         return true;
     }
     return false;
+}
+
+static void rtl_radio_assert_auth_trace(void) {
+    const struct rtl_cu_auth_trace *trace=&rtl_station.auth_out;
+    if(rtl_station_fixture==RTL_STATION_NO_SIBLING) {
+        assert(!rtl_station.ready && !rtl_station.sends && !rtl_station.enabled && !trace->trb);
+        return;
+    }
+    assert(trace->trb==rtl_station.ep.ring_phys && trace->slot==2 && trace->length==62 && trace->elapsed_us);
+    assert(trace->before.sampled && trace->before.state==1 && trace->before.dequeue==(trace->trb|1));
+    bool bad_code=rtl_station_fixture==RTL_STATION_USB_BAD_CODE;
+    assert(trace->wait_end.sampled && trace->wait_end.state==(bad_code?2u:1u));
+    assert(trace->stop_end.sampled && trace->stop_end.state==3);
+    if(rtl_station_fixture==RTL_STATION_OK || rtl_station_fixture==RTL_STATION_BAD_MIC) {
+        assert(!strcmp(trace->outcome,"complete") && trace->wait.seen && trace->wait.code==1 &&
+               trace->wait.trb==trace->trb && !trace->wait.residue && !trace->wait.event_data);
+        assert(!trace->late.seen && !trace->stop.seen);
+        return;
+    }
+    bool late=rtl_station_fixture==RTL_STATION_USB_LATE;
+    assert(rtl_station.failed && rtl_station.sends==1 && rtl_station.completed==(unsigned)late &&
+           !rtl_station.auth_sent && !rtl_station.auth_ok);
+    assert(trace->late.seen==late && trace->stop.seen!=late);
+    if(late) {
+        assert(trace->late.code==1 && trace->late.trb==trace->trb && !trace->late.residue);
+        assert(trace->stop_end.dequeue==((trace->trb+16)|1));
+    } else {
+        assert(trace->stop.code==26 && trace->stop.trb==trace->trb && trace->stop.residue==trace->length);
+        assert(trace->stop_end.dequeue==(trace->trb|1));
+    }
+    if(rtl_station_fixture<=RTL_STATION_USB_LATE) {
+        bool spin=rtl_station_fixture==RTL_STATION_USB_SPIN_LIMIT;
+        assert(!strcmp(trace->outcome,spin?"spin-limit":"deadline") && !trace->wait.seen);
+        assert((trace->elapsed_us<RTL_CU_STATION_TX_US)==spin);
+    } else {
+        assert(!strcmp(trace->outcome,"event-rejected") && trace->wait.seen);
+        assert(trace->wait.code==(bad_code?4:1));
+        assert(trace->wait.trb==trace->trb+(rtl_station_fixture==RTL_STATION_USB_WRONG_TRB?16:0));
+        assert(trace->wait.residue==(rtl_station_fixture==RTL_STATION_USB_RESIDUE?7:0));
+        assert(trace->wait.event_data==(rtl_station_fixture==RTL_STATION_USB_EVENT_DATA));
+    }
 }
