@@ -304,12 +304,27 @@ boot. This closes the inherited CPU backing guard diagnostic. The
 device-side traffic block and fresh engine and L3 acknowledgements remain
 unverified, so the first native translation store is still gated.
 
-The next traffic trial will request the documented RC1e software target with
-forcewake held, before any GT reset, and use the original 10 ms window to
-look for a sustained block and fresh engine and L3 acknowledgements. Scope
-is the Air park adapter, exact read-only proof and rollback. Pipe A keeps
-the inherited framebuffer and no GPU mapping stores are authorized. The
-shared baseline `0d764d9f` was inspected.
+Physical RC1e release `0b8aeb4fce7c1c8d` (source `6ec3a815`, session
+`session-00066145876393dc-00`) read back the software target `0x20000` with
+forcewake held before GT reset. Across eight polls, ending 8.751 ms into
+the 10 ms window, GAM request and response stayed at `0xff` and `0x7f`,
+WiDi stayed open at `0x1f`, and the L3 acknowledgement stayed at zero.
+The fresh engine acknowledgement mask was zero. Native `MISC_CTRL0` was
+`0xc5280000` before the request and after rollback, with the firmware lock
+and CPD GO-message disable bits set. The run restored both RC control words
+and confirmed the original open state 9.257 ms after the poll origin.
+
+Pipe A kept the inherited framebuffer across reset and PCI reopening.
+The backing guard covered 1,484 inherited pages and seven firmware command
+pages. PCI command readback was `7,3,3,7`, both engine queue checks matched,
+and the Pipe A mapping returned to read-only in 2.136 ms. The run recorded
+zero display register stores and zero GPU page-table writes. All 15
+source-bound checks and four exact-image QEMU cases passed before boot.
+The Air returned automatically to Ubuntu at 1% volume. The collector
+verified the USB checkpoint, all four file hashes, the 1,266-byte park
+timing report and offline exFAT integrity. The run is closed as a diagnostic.
+Device-wide traffic stayed open, so the first native translation store
+remains gated. Shared baseline `0d764d9f` was inspected.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
