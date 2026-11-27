@@ -551,6 +551,14 @@ and open-state policy only. The Air still needs a real maintained GPM
 request and post-reset address range before a takeover can run. No
 hardware test was armed. [Reset admission](../intel-bdw-edp-recovery.md#joined-pci-reset-and-panel-recovery-fixture)
 
+The panel-recovery checkpoint starts from `5857dc46` with main
+`dc4a48d3` reviewed. It extends the existing Broadwell PCI decode hold
+and collector to sample slot 12292 and its neighbors before blanking,
+with memory decode reopened and bus mastering off, and after native
+panel recovery. The trial checks the original display CRCs and does
+not write a PTE or trigger function reset. The independent Haswell
+scope in PR 567 is unaffected.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
