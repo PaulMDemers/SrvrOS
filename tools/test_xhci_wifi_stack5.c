@@ -36,6 +36,9 @@ void net_notify_rx(void);
 #undef net_handle_ethernet_frame
 #undef net_notify_rx
 #include "fixtures/mt76-stack5-peer.h"
+#ifdef SRVROS_RTL8188CU_IP_TEST
+#include <openssl/evp.h>
+#endif
 static bool stack_test_nonce(uint8_t out[32]){return stack5_peer_nonce(out);}
 static bool stack_test_message3(uint8_t *out,size_t cap,size_t *size){return stack5_peer_message3(out,cap,size);}
 #include <sys/wait.h>
@@ -336,6 +339,14 @@ static void rtl_test_ap_tx(const uint8_t *raw,size_t length) {
  unsigned check=0;
  for(unsigned i=0;i<32;i+=2)check^=raw[i]|(unsigned)raw[i+1]<<8;
  assert(!check && raw[2]==32 && raw[3]==0x8c && raw[5]==7 && pad<=1 && n+32+8*pad==length);
+ if(!ap.tx_pn){
+  const uint8_t *mpdu=raw+32+8*pad;
+  uint8_t digest[32];unsigned bytes=0;uint64_t fingerprint=0;
+  assert(n>40 && EVP_Digest(mpdu+32,n-32,digest,&bytes,EVP_sha256(),NULL) && bytes==sizeof digest);
+  for(unsigned i=0;i<8;i++)fingerprint=(fingerprint<<8)|digest[i];
+  assert(rtl_ip.first_tx.fingerprint==fingerprint && rtl_ip.first_tx.mpdu==n &&
+         rtl_ip.first_tx.sequence==5 && (mpdu[22]>>4)==5);
+ }
  uint8_t wire[1580]={0},eth[1514];
  unsigned span=(20+n+3)&~3u,descriptor=span|(1u<<19)|(1u<<24)|(2u<<25);
  for(unsigned i=0;i<4;i++)wire[i]=descriptor>>(i*8);
@@ -1345,14 +1356,40 @@ static void connection_dhcp_receipt(unsigned fault){
 #endif
 int STACK5_TEST_MAIN(int argc,char **argv){
 #ifdef SRVROS_RTL8188CU_IP_TEST
- if(argc==4 && (!strcmp(argv[1],"--rtl8188cu-ip") || !strcmp(argv[1],"--rtl8188cu-no-offer"))){
+ if(argc==4 && (!strcmp(argv[1],"--rtl8188cu-ip") || !strcmp(argv[1],"--rtl8188cu-no-offer") ||
+       !strcmp(argv[1],"--rtl8188cu-no-report") || !strcmp(argv[1],"--rtl8188cu-stale-report") ||
+       !strcmp(argv[1],"--rtl8188cu-other-report"))){
   rtl_station_ip_fixture=true;
   rtl_station_no_offer=!strcmp(argv[1],"--rtl8188cu-no-offer");
+  rtl_station_report_fixture=!strcmp(argv[1],"--rtl8188cu-no-report")?RTL_CU_CCX_MISSING:
+   !strcmp(argv[1],"--rtl8188cu-stale-report")?RTL_CU_CCX_UNAVAILABLE:
+   !strcmp(argv[1],"--rtl8188cu-other-report")?RTL_CU_CCX_OTHER_EVENT:
+   rtl_station_no_offer?RTL_CU_CCX_NO_ACK:RTL_CU_CCX_ACKED;
   assert(stack5_peer_generation(1));
   test_rtl8188cu_passive(argv[2],argv[3]);
   const struct net_dhcp_observation *dhcp=&rtl_ip.probe.dhcp_observation;
   assert(rtl_ip.opened && rtl_ip.retired && rtl_ip.drained && dhcp->started && dhcp->finished &&
          dhcp->discover_queued==dhcp->discovers && dhcp->discover_queued);
+  assert(rtl_ip.first_tx.result==rtl_station_report_fixture);
+  switch(rtl_station_report_fixture){
+   case RTL_CU_CCX_ACKED:
+   case RTL_CU_CCX_NO_ACK:
+    assert(rtl_ip.first_tx.requested && rtl_ip.first_tx.polls==1 && rtl_ip.first_tx.event==0x83 &&
+           rtl_ip.first_tx.retries==2 && !rtl_radio_model.reg[RTL_CU_C2H_OWNER]);
+    assert(!!(rtl_ip.first_tx.status&RTL_CU_CCX_ACK)==(rtl_station_report_fixture==RTL_CU_CCX_ACKED));
+    break;
+   case RTL_CU_CCX_MISSING:
+    assert(rtl_ip.first_tx.requested && rtl_ip.first_tx.polls && !rtl_ip.first_tx.event);
+    break;
+   case RTL_CU_CCX_UNAVAILABLE:
+    assert(!rtl_ip.first_tx.requested && !rtl_ip.first_tx.polls && rtl_ip.first_tx.initial_owner==0xff &&
+           rtl_radio_model.reg[RTL_CU_C2H_OWNER]==0xff);
+    break;
+   default:
+    assert(rtl_ip.first_tx.requested && rtl_ip.first_tx.polls==1 && rtl_ip.first_tx.event==0x81 &&
+           rtl_radio_model.reg[RTL_CU_C2H_OWNER]==0xff);
+  }
+  printf("rtl8188cu: PASS native Discover fingerprint and CCX result %u\n",rtl_ip.first_tx.result);
   if(rtl_station_no_offer){
    assert(!rtl_ip.dhcp && !rtl_ip.dns && !rtl_ip.http && !dhcp->offers &&
           !dhcp->accepted_offer && !dhcp->requests && !dhcp->accepted_ack && !dhcp->rejected);

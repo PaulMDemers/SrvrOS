@@ -2,8 +2,19 @@
  * callbacks run under the station's existing IRQ exclusion. */
 #define RTL_CU_IP_QUEUE 4u
 #define RTL_CU_IP_DRAIN_SPINS 200000u
+#define RTL_CU_C2H_EVENT 0x01a0u
+#define RTL_CU_C2H_OWNER 0x01afu
+#define RTL_CU_C2H_CCX 3u
+#define RTL_CU_CCX_ACK 0x40u
+#define RTL_CU_CCX_POLL_US 5000u
+#define RTL_CU_CCX_MAX_POLLS 192u
 _Static_assert(RTL_CU_DATA_TX_LIMIT+5u<XHCI_TRB_COUNT-1,"station OUT cannot wrap");
 _Static_assert(RTL_CU_DATA_TX_MAX<=PMM_FRAME_SIZE,"station data must fit its pinned DMA page");
+
+enum rtl_cu_ccx_result {
+    RTL_CU_CCX_NOT_RUN, RTL_CU_CCX_UNAVAILABLE, RTL_CU_CCX_WAITING, RTL_CU_CCX_ACKED,
+    RTL_CU_CCX_NO_ACK, RTL_CU_CCX_MISSING, RTL_CU_CCX_IO_ERROR, RTL_CU_CCX_OTHER_EVENT,
+};
 
 static struct {
     struct net_bounded_probe probe;
@@ -12,9 +23,74 @@ static struct {
     uint8_t plain[WPA2_CCMP_DATA_MAX],rx[RTL_CU_ETH_MAX];
     unsigned head,queued,posted,completed,received,protected_rx,ignored;
     uint64_t tx_start,deadline;
+    struct {
+        uint64_t started,next,elapsed_us,fingerprint;
+        unsigned mpdu,sequence,polls,initial_owner,event,retries,status;
+        enum rtl_cu_ccx_result result;
+        bool requested;
+    } first_tx;
     bool live,registered,retired,opened,dhcp,dns,drained,failed;
     unsigned http;
 } rtl_ip;
+
+/* Only the first protected MPDU (the initial Discover) requests a report.
+ * This firmware mailbox has no frame identifier. Refuse a nonempty mailbox
+ * and leave unsolicited events alone. The checksum covers the report bit. */
+static void rtl_cu_ip_trace_first(struct xhci_device *d,uint8_t *usb) {
+    size_t mpdu=usb[0]|(unsigned)usb[1]<<8;
+    const uint8_t *frame=usb+32+8u*(usb[7]>>2);
+    uint8_t digest[32];
+    sha256_digest(frame+32,mpdu-32,digest); /* Ciphertext and MIC. */
+    rtl_ip.first_tx.mpdu=(unsigned)mpdu;
+    rtl_ip.first_tx.sequence=(frame[22]|(unsigned)frame[23]<<8)>>4;
+    for(unsigned i=0;i<8;i++)
+        rtl_ip.first_tx.fingerprint=rtl_ip.first_tx.fingerprint<<8|digest[i];
+    uint32_t owner=0;
+    if(!rtl8188cu_read(d,RTL_CU_C2H_OWNER,1,&owner)) {
+        rtl_ip.first_tx.result=RTL_CU_CCX_IO_ERROR;
+        return;
+    }
+    rtl_ip.first_tx.initial_owner=owner;
+    if(owner) {
+        rtl_ip.first_tx.result=RTL_CU_CCX_UNAVAILABLE;
+        return;
+    }
+    usb[10]|=8; /* TX descriptor DWORD 2 bit 19, CCX report. */
+    usb[28]^=8; /* Update the corresponding bit in the XOR checksum. */
+    rtl_ip.first_tx.result=RTL_CU_CCX_WAITING;
+    rtl_ip.first_tx.requested=true;
+}
+
+static void rtl_cu_ip_trace_poll(struct xhci_device *d) {
+    if(rtl_ip.first_tx.result!=RTL_CU_CCX_WAITING || !rtl_ip.completed)return;
+    uint64_t now=timer_monotonic_us();
+    if(now<rtl_ip.first_tx.next)return;
+    rtl_ip.first_tx.next=now+RTL_CU_CCX_POLL_US;
+    rtl_ip.first_tx.polls++;
+    uint32_t owner=0,event=0,retries=0,status=0;
+    if(!rtl8188cu_read(d,RTL_CU_C2H_OWNER,1,&owner))goto io_error;
+    if(owner==0) {
+        if(rtl_ip.first_tx.polls==RTL_CU_CCX_MAX_POLLS)
+            rtl_ip.first_tx.result=RTL_CU_CCX_MISSING;
+        return;
+    }
+    if(owner!=0xff || !rtl8188cu_read(d,RTL_CU_C2H_EVENT,1,&event))goto io_error;
+    rtl_ip.first_tx.event=event;
+    if((event&15)!=RTL_CU_C2H_CCX) {
+        rtl_ip.first_tx.result=RTL_CU_CCX_OTHER_EVENT;
+        return;
+    }
+    if(!rtl8188cu_read(d,RTL_CU_C2H_EVENT+2,1,&retries) ||
+       !rtl8188cu_read(d,RTL_CU_C2H_EVENT+9,1,&status) ||
+       !rtl8188cu_write_value(d,RTL_CU_C2H_OWNER,1,0))goto io_error;
+    rtl_ip.first_tx.retries=retries&63;
+    rtl_ip.first_tx.status=status;
+    rtl_ip.first_tx.elapsed_us=now-rtl_ip.first_tx.started;
+    rtl_ip.first_tx.result=status&RTL_CU_CCX_ACK?RTL_CU_CCX_ACKED:RTL_CU_CCX_NO_ACK;
+    return;
+io_error:
+    rtl_ip.first_tx.result=RTL_CU_CCX_IO_ERROR;
+}
 
 static bool rtl_cu_ip_current(void *context,uint64_t epoch) {
     struct xhci_device *d=context;
@@ -48,16 +124,23 @@ static bool rtl_cu_ip_tx(struct xhci_device *d) {
         rtl_ip.completed=rtl_ip.posted;
         rtl_cu_erase(rtl_station.buffer,RTL_CU_DATA_TX_MAX);
     }
+    rtl_cu_ip_trace_poll(d);
+    if(!rtl_cu_ip_current(d,RTL_CU_STATION_GENERATION))return false;
     if(!rtl_ip.queued)return true;
     unsigned head=rtl_ip.head;
     size_t n=rtl_cu_data_tx(&rtl_station.keys,RTL_CU_STATION_GENERATION,rtl_ip.queue[head].frame,
         rtl_ip.queue[head].bytes,rtl_station.sends+1,rtl_ip.plain,rtl_station.buffer);
     rtl_cu_erase(&rtl_ip.queue[head],sizeof rtl_ip.queue[head]);
     if(!n)return false;
+    if(!rtl_ip.posted) {
+        rtl_cu_ip_trace_first(d,rtl_station.buffer);
+        if(!rtl_cu_ip_current(d,RTL_CU_STATION_GENERATION))return false;
+    }
     rtl_ip.head=(head+1)%RTL_CU_IP_QUEUE;
     rtl_ip.queued--;
     rtl_ip.posted++;
     rtl_ip.tx_start=timer_monotonic_us();
+    if(rtl_ip.posted==1)rtl_ip.first_tx.started=rtl_ip.first_tx.next=rtl_ip.tx_start;
     rtl_cu_station_post(d,n,false);
     return true;
 }
@@ -138,6 +221,8 @@ static bool rtl_cu_ip_run(struct xhci_device *d) {
     }
     bool finished=net_bounded_probe_finish(&rtl_ip.probe);
     rtl_ip.drained=rtl_ip.registered && rtl_cu_ip_drain(d);
+    if(rtl_ip.first_tx.result==RTL_CU_CCX_WAITING)
+        rtl_ip.first_tx.result=RTL_CU_CCX_MISSING;
     rtl_ip.live=false;
     rtl_ip.retired=!rtl_ip.registered || net_device_retire(&rtl_ip.ops);
     rtl_cu_erase(rtl_ip.queue,sizeof rtl_ip.queue);
@@ -159,4 +244,9 @@ static void rtl_cu_ip_log(void) {
     console_printf("rtl8188cu-dhcp-rx: frames=%u ipv4=%u udp=%u dhcp=%u offer=%u accepted_offer=%u ack=%u accepted_ack=%u nak=%u rejected=%u first=%u last=%u mask=%u\n",
         d->frames,d->ipv4,d->udp,d->dhcp,d->offers,d->accepted_offer,d->acks,d->accepted_ack,
         d->naks,d->rejected,d->first_reject,d->last_reject,d->reject_mask);
+    console_printf("rtl8188cu-radio-tx: requested=%u usb=%u mpdu=%u sequence=%u fingerprint=%x result=%u owner=%u event=%u status=%u retries=%u polls=%u elapsed_us=%u\n",
+        (uint64_t)rtl_ip.first_tx.requested,(uint64_t)(rtl_ip.completed!=0),(uint64_t)rtl_ip.first_tx.mpdu,
+        (uint64_t)rtl_ip.first_tx.sequence,rtl_ip.first_tx.fingerprint,(uint64_t)rtl_ip.first_tx.result,
+        (uint64_t)rtl_ip.first_tx.initial_owner,(uint64_t)rtl_ip.first_tx.event,(uint64_t)rtl_ip.first_tx.status,
+        (uint64_t)rtl_ip.first_tx.retries,(uint64_t)rtl_ip.first_tx.polls,rtl_ip.first_tx.elapsed_us);
 }

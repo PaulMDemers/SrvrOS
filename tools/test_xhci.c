@@ -8418,6 +8418,8 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
 #ifdef SRVROS_RTL8188CU_IP_TEST
             ip=rtl_station_ip_fixture;
             expect_success=expect_success && !rtl_station_no_offer;
+            if(rtl_station_report_fixture==RTL_CU_CCX_UNAVAILABLE)
+                rtl_radio_model.reg[RTL_CU_C2H_OWNER]=0xff;
 #endif
             bool ok=rtl_cu_capture_station(image,sizeof image,blob,sizeof blob,credential,sizeof credential,ip);
             assert(ok==expect_success);

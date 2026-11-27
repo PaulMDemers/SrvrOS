@@ -12,6 +12,7 @@ static bool rtl_station_test_m1;
 #ifdef SRVROS_RTL8188CU_IP_TEST
 static bool rtl_station_ip_fixture;
 static bool rtl_station_no_offer;
+static enum rtl_cu_ccx_result rtl_station_report_fixture;
 static void rtl_test_ap_tx(const uint8_t *,size_t);
 static void rtl_test_ap_rx(unsigned);
 #endif
@@ -80,7 +81,16 @@ static bool rtl_radio_station_doorbell(uint64_t value) {
         assert(sent>0);
 #ifdef SRVROS_RTL8188CU_IP_TEST
         if(rtl_station_ip_fixture && rtl_ip.live) {
+            bool first=rtl_ip.posted==1;
+            assert(!!(packet[10]&8)==(first && rtl_station_report_fixture!=RTL_CU_CCX_UNAVAILABLE));
             rtl_radio_out_event(0,rtl_station.trb,1,0,false);
+            if(first && rtl_station_report_fixture!=RTL_CU_CCX_MISSING &&
+               rtl_station_report_fixture!=RTL_CU_CCX_UNAVAILABLE) {
+                rtl_radio_model.reg[RTL_CU_C2H_OWNER]=0xff;
+                rtl_radio_model.reg[RTL_CU_C2H_EVENT]=rtl_station_report_fixture==RTL_CU_CCX_OTHER_EVENT?0x81:0x83;
+                rtl_radio_model.reg[RTL_CU_C2H_EVENT+2]=2;
+                rtl_radio_model.reg[RTL_CU_C2H_EVENT+9]=rtl_station_report_fixture==RTL_CU_CCX_ACKED?RTL_CU_CCX_ACK:0;
+            }
             rtl_test_ap_tx(packet,trb->status);
             rtl_test_ap_rx(1);
             return true;
