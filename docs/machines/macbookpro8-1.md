@@ -609,13 +609,36 @@ marker access time. The offline allocation check passed with 105 files and
 zero writes. The saved log ends before the final USB teardown and reset.
 The exact payload and return evidence are archived outside `build/`.
 
+The Ubuntu initialization comparison for `cacf59a022b41970` used live
+topcase reauthorization on the same hub and EHCI controller. After
+`SET_CONFIGURATION 1`, `usbhid` sent `SET_IDLE` and retrieved the 156-byte
+keyboard report descriptor on interface 0, sent two keyboard output report
+requests, then sent `SET_IDLE` and retrieved the 27-byte vendor report
+descriptor on interface 1. The mode-1 write completed about 232 ms after
+configuration in this sample. The native profile skips these HID requests.
+The live Ubuntu schedule confirms 64-byte packets on endpoint `0x81` and
+hub port 2, with a 1 ms period and mask `0x1c01` matching native construction.
+Ubuntu resubmits its interrupt URB on the running schedule. Native keeps
+six queued descriptors per window and checks schedule stop before rearming.
+The usbmon evidence covers USB requests at the host driver boundary.
+[Linux usbhid](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/hid/usbhid/hid-core.c) · [Linux EHCI queue code](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/usb/host/ehci-q.c) · [Linux usbmon ABI](https://docs.kernel.org/usb/usbmon.html)
+
+Interface 2 declares a four-byte mouse report including ID `0x02`. Interface
+1 declares a 512-byte HID input report including ID `0x44`. A separate Ubuntu
+probe confirmed mode 8 and saw no completed interrupt payloads on `0x81`
+or `0x84` in 20 seconds using their descriptor intervals. Ubuntu restored
+the input drivers and mode 1, with valid Type 2 reports during the monitor
+window. The source of the native eight-byte frames remains open. The
+comparison report is saved on the USB workspace. The read-only allocation
+check passed with 106 files, and the raw Ubuntu traces are archived locally.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Native activated the periodic queue in 15 µs and completed 367 transfers with zero Type 2 frames. SrvrOS's decoder accepted all 988 Ubuntu reports from the same hardware. | Compare native device initialization and split interrupt behavior with the working Ubuntu path |
+| Trackpad | Native activated the queue in 15 µs with zero Type 2 frames. Ubuntu matches the split masks and performs HID setup before switching modes. | Replay the captured pre-mode HID initialization with the existing native split queue |
 | USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
