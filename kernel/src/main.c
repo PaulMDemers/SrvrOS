@@ -1853,7 +1853,7 @@ void kmain(void) {
             sampled=workspace_storage_wait_capture();
             console_printf("storage-wait-capture: returned=yes clean=%s\n",sampled?"yes":"NO");
         }
-        if(automatic_hfw && started && init_ready && timer_running) {
+        if(automatic_hfw && started && (init_ready || live_vtd) && timer_running) {
 #ifdef SRVROS_AP_PROBE
             if(ecam_test) {
                 bool quiet=workspace_log_quiesce(5000);
