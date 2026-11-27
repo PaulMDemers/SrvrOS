@@ -1857,6 +1857,24 @@ receive evidence in both journal tails. The run record under
 MAC-loopback control and the Linux timing and readback references.
 Reception still needs the cold result.
 
+Cold session `session-0006613a960e936f-00` verified the starting
+`e7/ad/01` tuple, all three ordered byte writes and the settled
+`e0/8d/00` readback at `0xfe40–0xfe42`. The first read of `0xfe42`
+already returned zero. The settled tuple held at receive admission
+with CR `0x02ba`. All three hub adapters were present and the MCU
+reached ready. PHY parity failures rose from 16 to 4,105, while
+all 14 receive reports and the FIFO pointer stayed at zero. The
+fixed 4 KiB request timed out with no bytes or Demers2.4 beacons,
+matching the control result.
+
+Stop Endpoint reported all 4,096 bytes remaining. The radio parked
+with CR `0x0000` and `TXPAUSE=0xff`. The workspace and EFI journal
+saved automatically and agreed on the USB readbacks. All seven EFI
+checkpoints survived, including clean unmount and normal Ubuntu
+return. The collector verified all 636 prior files and the installed
+recovery. Evidence, comparison and the verified payload are under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-e1c25099a8e3bd3e`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
