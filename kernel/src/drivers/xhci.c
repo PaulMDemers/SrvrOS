@@ -600,6 +600,17 @@ struct xhci_wifi_firmware {
     struct mt76_firmware_session upload;
 };
 
+enum rtl8188cu_power_phase {
+    RTL8188CU_POWER_BEFORE_REGULATOR,
+    RTL8188CU_POWER_BEFORE_AUTO_ON,
+    RTL8188CU_POWER_AFTER_AUTO_ON,
+    RTL8188CU_POWER_FIRMWARE_READY,
+    RTL8188CU_POWER_BEFORE_APS,
+    RTL8188CU_POWER_BEFORE_RF_RELEASE,
+    RTL8188CU_POWER_AFTER_RF_RELEASE,
+    RTL8188CU_POWER_PHASE_COUNT,
+};
+
 struct xhci_device {
     bool present;
     bool ep0_quarantined;
@@ -607,6 +618,8 @@ struct xhci_device {
     bool rtl8188cu_probe_attempted,rtl8188cu_identified;
     bool rtl8188cu_firmware_attempted,rtl8188cu_firmware_active;
     bool rtl8188cu_firmware_ready;
+    uint32_t rtl8188cu_power_samples[RTL8188CU_POWER_PHASE_COUNT];
+    unsigned rtl8188cu_power_valid;
     struct mt76_identity wifi_identity;
     bool wifi_calibration_attempted, wifi_calibration_active, wifi_efuse_control_valid;
     uint32_t wifi_efuse_control;
@@ -2997,17 +3010,39 @@ static bool rtl8188cu_poll(struct xhci_device *d,uint16_t reg,uint16_t length,ui
     return false;
 }
 
+static bool rtl8188cu_power_sample(struct xhci_device *d,enum rtl8188cu_power_phase phase) {
+    uint32_t iso,aps;
+    if(!rtl8188cu_read(d,RTL8188CU_ISOLATION,2,&iso) || !rtl8188cu_read(d,RTL8188CU_POWER,2,&aps))
+        return false;
+    d->rtl8188cu_power_samples[phase]=(iso<<16)|aps;
+    d->rtl8188cu_power_valid|=1u<<phase;
+    return true;
+}
+
+static void rtl8188cu_power_log(const struct xhci_device *d,const char *stage) {
+    if(!d || !d->rtl8188cu_power_valid)return;
+    console_printf("rtl8188cu-power-chain: %s %u",stage,(uint64_t)d->rtl8188cu_power_valid);
+    for(unsigned i=0;i<RTL8188CU_POWER_PHASE_COUNT;i++) {
+        if(d->rtl8188cu_power_valid&(1u<<i))
+            console_printf(" %x",((uint64_t)i<<32)|d->rtl8188cu_power_samples[i]);
+    }
+    console_write("\n");
+}
+
 /* Bring up only digital power. Leave RF isolation, radio, and TX gates off. */
 static bool rtl8188cu_digital_power(struct xhci_device *d) {
     uint32_t value;
     if(!rtl8188cu_poll(d,RTL8188CU_POWER,1,RTL8188CU_AUTOLOAD,RTL8188CU_AUTOLOAD,32,&value) ||
+       !rtl8188cu_power_sample(d,RTL8188CU_POWER_BEFORE_REGULATOR) ||
        !rtl8188cu_write_value(d,RTL8188CU_REG_CONTROL,1,0) ||
        !rtl8188cu_write_value(d,RTL8188CU_SWITCH_REGULATOR,1,0x2b) ||
        !timer_delay_us(100) || !rtl8188cu_read(d,RTL8188CU_LDO,1,&value))return false;
     if(!(value&1) && (!rtl8188cu_write_value(d,RTL8188CU_LDO,1,value|1) ||
        !timer_delay_us(100) || !rtl8188cu_update(d,RTL8188CU_ISOLATION,1,1,0)))return false;
-    return rtl8188cu_update(d,RTL8188CU_POWER,2,0,RTL8188CU_MAC_ON) &&
-        rtl8188cu_poll(d,RTL8188CU_POWER,2,RTL8188CU_MAC_ON,0,64,&value);
+    return rtl8188cu_power_sample(d,RTL8188CU_POWER_BEFORE_AUTO_ON) &&
+        rtl8188cu_update(d,RTL8188CU_POWER,2,0,RTL8188CU_MAC_ON) &&
+        rtl8188cu_poll(d,RTL8188CU_POWER,2,RTL8188CU_MAC_ON,0,64,&value) &&
+        rtl8188cu_power_sample(d,RTL8188CU_POWER_AFTER_AUTO_ON);
 }
 
 static bool rtl8188cu_radio_parked(struct xhci_device *d) {
@@ -3090,6 +3125,7 @@ static const char *rtl8188cu_upload(struct xhci_device *d,struct xhci_device *hu
         *status|RTL8188CU_DL_READY))return "start";
     if(!rtl8188cu_poll(d,RTL8188CU_MCU_STATUS,4,running|RTL8188CU_DL_ENABLE,running,192,status))return "ready";
     if(!rtl8188cu_check_port(d,hub) || !rtl8188cu_radio_parked(d))return "final-gates";
+    if(!rtl8188cu_power_sample(d,RTL8188CU_POWER_FIRMWARE_READY))return "power-sample";
     return NULL;
 }
 
@@ -3130,6 +3166,7 @@ bool xhci_rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size) {
     console_printf("rtl8188cu-firmware: result=%s bytes=%u status=%x download_touched=%u cleanup_disabled=%u ep0_quarantined=%u\n",
         failure?failure:"ready",(uint64_t)bytes,(uint64_t)status,(uint64_t)touched,(uint64_t)disabled,
         (uint64_t)(d && d->ep0_quarantined));
+    rtl8188cu_power_log(d,"firmware");
     return !failure;
 }
 

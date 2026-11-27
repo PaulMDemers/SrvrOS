@@ -318,6 +318,7 @@ static void rtl_cu_rx_log(void) {
     if(rtl_passive.xtal_attempted)
         console_printf("rtl8188cu-xtal: %u %u %x\n",(uint64_t)rtl_passive.xtal_ready,
             (uint64_t)rtl_passive.xtal_reads,((uint64_t)rtl_passive.xtal_before<<32)|rtl_passive.xtal_after);
+    rtl8188cu_power_log(rtl_passive.owner,"passive");
     for(unsigned i=0;i<RTL_CU_SAMPLE_COUNT;i++) {
         const struct rtl_cu_rx_sample *s=&rtl_passive.samples[i];
         if(!s->present)continue;
@@ -599,8 +600,11 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
                                  const uint8_t *blob,unsigned *writes,uint32_t *channel) {
     uint32_t state;
     if(!rtl_cu_tx_parked(d) ||
+       !rtl8188cu_power_sample(d,RTL8188CU_POWER_BEFORE_APS) ||
        !rtl_cu_finish_mac_power(d) ||
+       !rtl8188cu_power_sample(d,RTL8188CU_POWER_BEFORE_RF_RELEASE) ||
        !rtl8188cu_update(d,RTL8188CU_ISOLATION,2,1u<<9,0) ||
+       !rtl8188cu_power_sample(d,RTL8188CU_POWER_AFTER_RF_RELEASE) ||
        !rtl8188cu_update(d,0x600,1,1u<<6,0) ||
        !rtl8188cu_poll(d,0x600,1,1u<<7,0,32,&state) ||
        !rtl8188cu_update(d,RTL8188CU_SYS_FUNC,2,0,0x2003) ||
