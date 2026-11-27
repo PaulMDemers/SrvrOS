@@ -2499,6 +2499,12 @@ The private image was retired, the passive entry restored and the
 router collectors stopped. Inspected main `94a65bc9` and the
 independent AHCI persistence coverage in #565 before the final repeat.
 
+Final repeat `36b158205fc065ae` again matches the successful payload
+after normalizing the fresh release ID and EFI journal descriptor.
+The native-path fixture, five exact-image rehearsals and fresh router
+control passed. The local run record is
+`build/bringup/pro112-rtl8188cu-radio-repeat2/run.json`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
