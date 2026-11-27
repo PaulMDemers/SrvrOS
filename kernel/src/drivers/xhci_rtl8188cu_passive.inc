@@ -23,6 +23,13 @@
 #define RTL_CU_LLT_WRITE (1u<<30)
 #define RTL_CU_LLT_BUSY (3u<<30)
 #define RTL_CU_PACKET_BOUNDARY 0xf9u
+#define RTL_CU_RQPN 0x0200u
+#define RTL_CU_RQPN_LOAD (1u<<31)
+#define RTL_CU_TX_PAGES 0x00e70009u
+#define RTL_CU_NPQ 0x0214u
+#define RTL_CU_NORMAL_PAGES 8u
+#define RTL_CU_TX_QUEUE_MAP 0xfaf0u
+#define RTL_CU_USB_SIE_QUEUES 0xfe66u
 /* Match Linux monitor admission and enable its PHY status prefix. */
 #define RTL_CU_MONITOR_RCR 0x790fu
 #define RTL_CU_RCR_PHY_STATUS (1u<<28)
@@ -235,6 +242,17 @@ struct rtl_cu_auth_trace {
     struct rtl_cu_out_event wait,late,stop;
 };
 
+enum rtl_cu_tx_field {
+    RTL_CU_TX_PAGES_SAMPLE,RTL_CU_TX_NORMAL_SAMPLE,RTL_CU_TX_MAP_SAMPLE,RTL_CU_TX_BOUNDARY_SAMPLE,
+    RTL_CU_TX_SIE_HIGH_NORMAL_SAMPLE,RTL_CU_TX_SIE_LOW_SAMPLE,RTL_CU_TX_CR_SAMPLE,RTL_CU_TX_PAUSE_SAMPLE,
+    RTL_CU_TX_FIELD_COUNT,
+};
+
+struct rtl_cu_tx_sample {
+    uint32_t value[RTL_CU_TX_FIELD_COUNT];
+    unsigned reads;
+};
+
 /* One opt-in owner. Ring and DMA pages stay pinned even on failed teardown. */
 static struct {
     struct rtl_cu_station_peer peer;
@@ -242,6 +260,11 @@ static struct {
     struct wpa2_ccmp keys;
     struct xhci_bulk_endpoint ep;
     struct rtl_cu_auth_trace auth_out;
+    struct rtl_cu_tx_sample early_queue,auth_queue;
+    struct rtl_cu_out_context out_gate;
+    uint32_t queue_load,out_info;
+    uint16_t out_status;
+    bool queue_attempted,queue_ready,out_status_valid;
     uint8_t *buffer;
     uint64_t physical,trb;
     unsigned sends,completed,reply_status,aid,last_rx;
@@ -249,6 +272,8 @@ static struct {
     const char *phase;
     bool requested,ready,enabled,pending,failed,stopping,tx_stopped,keys_erased,qos;
 } rtl_station;
+
+static bool rtl_cu_station_same_hub(const struct xhci_device *d);
 
 static bool rtl_cu_verify_receive_setup(struct xhci_device *d) {
     /* Verify the frame filters and pinned baseband layout. */
@@ -531,6 +556,34 @@ static bool rtl_cu_rx_held(struct xhci_device *d) {
     return rtl_cu_mac_held(d,RTL_CU_PASSIVE_CR);
 }
 
+static bool rtl_cu_write_checked(struct xhci_device *d,uint16_t reg,unsigned width,uint32_t value) {
+    uint32_t actual;
+    return rtl8188cu_write_value(d,reg,width,value) && rtl8188cu_read(d,reg,width,&actual) && actual==value;
+}
+
+static bool rtl_cu_tx_sample(struct xhci_device *d,struct rtl_cu_tx_sample *sample) {
+    static const struct {uint16_t address,width;} fields[RTL_CU_TX_FIELD_COUNT]={
+        [RTL_CU_TX_PAGES_SAMPLE]={RTL_CU_RQPN,4},[RTL_CU_TX_NORMAL_SAMPLE]={RTL_CU_NPQ,1},
+        [RTL_CU_TX_MAP_SAMPLE]={RTL_CU_TRXDMA_CONTROL,2},[RTL_CU_TX_BOUNDARY_SAMPLE]={0x425,1},
+        [RTL_CU_TX_SIE_HIGH_NORMAL_SAMPLE]={RTL_CU_USB_SIE_QUEUES,1},
+        [RTL_CU_TX_SIE_LOW_SAMPLE]={RTL_CU_USB_SIE_QUEUES+1,1},
+        [RTL_CU_TX_CR_SAMPLE]={RTL8188CU_MAC_CONTROL,2},
+        [RTL_CU_TX_PAUSE_SAMPLE]={RTL_CU_TX_PAUSE,1},
+    };
+    for(unsigned i=0;i<RTL_CU_TX_FIELD_COUNT;i++) {
+        if(!rtl8188cu_read(d,fields[i].address,fields[i].width,&sample->value[i]))return false;
+        sample->reads++;
+    }
+    return true;
+}
+
+static bool rtl_cu_tx_allocation_matches(const struct rtl_cu_tx_sample *sample) {
+    const uint32_t *v=sample->value;
+    return v[RTL_CU_TX_PAGES_SAMPLE]==RTL_CU_TX_PAGES && v[RTL_CU_TX_NORMAL_SAMPLE]==RTL_CU_NORMAL_PAGES &&
+        (v[RTL_CU_TX_MAP_SAMPLE]&~RTL_CU_TRXDMA_RX_BITS)==RTL_CU_TX_QUEUE_MAP &&
+        v[RTL_CU_TX_BOUNDARY_SAMPLE]==RTL_CU_PACKET_BOUNDARY;
+}
+
 /* The CU packet buffer needs its page links even with MAC TX and TX DMA
  * closed. Preserve the captured layout and bounds with RX already armed. */
 static bool rtl_cu_packet_buffer(struct xhci_device *d,struct xhci_device *hub) {
@@ -548,12 +601,33 @@ static bool rtl_cu_packet_buffer(struct xhci_device *d,struct xhci_device *hub) 
            ((value>>8)&0xff)!=page)return false;
         rtl_passive.linked++;
     }
-    return rtl8188cu_write_value(d,0x114,1,RTL_CU_PACKET_BOUNDARY) &&
-           rtl8188cu_write_value(d,0x116,2,0x27ff) &&
-           rtl8188cu_write_value(d,0x104,1,0x11) &&
-           rtl8188cu_read(d,0x114,1,&value) && value==RTL_CU_PACKET_BOUNDARY &&
-           rtl8188cu_read(d,0x116,2,&value) && value==0x27ff &&
-           rtl8188cu_read(d,0x104,1,&value) && value==0x11 && rtl_cu_rx_held(d);
+    /* Linux loads NPQ/RQPN after LLT and before the FIFO boundaries and
+     * firmware. Keep the radio and TX DMA closed during that sequence. */
+    bool station=rtl_station.requested && rtl_cu_station_same_hub(d);
+    if(station) {
+        rtl_station.queue_attempted=true;
+        if(!rtl8188cu_check_port(d,hub) || !rtl_cu_rx_held(d) ||
+           !rtl_cu_write_checked(d,RTL_CU_NPQ,1,RTL_CU_NORMAL_PAGES) ||
+           !rtl8188cu_write_value(d,RTL_CU_RQPN,4,RTL_CU_RQPN_LOAD|RTL_CU_TX_PAGES) ||
+           !rtl8188cu_poll(d,RTL_CU_RQPN,4,RTL_CU_RQPN_LOAD,0,32,&rtl_station.queue_load) ||
+           rtl_station.queue_load!=RTL_CU_TX_PAGES ||
+           !rtl_cu_write_checked(d,0x424,1,RTL_CU_PACKET_BOUNDARY) ||
+           !rtl_cu_write_checked(d,0x425,1,RTL_CU_PACKET_BOUNDARY) ||
+           !rtl_cu_write_checked(d,0x45d,1,RTL_CU_PACKET_BOUNDARY))return false;
+    }
+    if(!rtl8188cu_write_value(d,0x114,1,RTL_CU_PACKET_BOUNDARY) ||
+       (station && !rtl_cu_write_checked(d,0x209,1,RTL_CU_PACKET_BOUNDARY)) ||
+       !rtl8188cu_write_value(d,0x116,2,0x27ff) ||
+       !rtl8188cu_write_value(d,0x104,1,0x11) ||
+       !rtl8188cu_read(d,0x114,1,&value) || value!=RTL_CU_PACKET_BOUNDARY ||
+       !rtl8188cu_read(d,0x116,2,&value) || value!=0x27ff ||
+       !rtl8188cu_read(d,0x104,1,&value) || value!=0x11 || !rtl_cu_rx_held(d))return false;
+    if(!station)return true;
+    if(!rtl8188cu_read(d,RTL_CU_TRXDMA_CONTROL,2,&value) ||
+       !rtl_cu_write_checked(d,RTL_CU_TRXDMA_CONTROL,2,RTL_CU_TX_QUEUE_MAP|(value&RTL_CU_TRXDMA_RX_BITS)) ||
+       !rtl_cu_tx_sample(d,&rtl_station.early_queue))return false;
+    rtl_station.queue_ready=rtl_cu_tx_allocation_matches(&rtl_station.early_queue) && rtl_cu_rx_held(d);
+    return rtl_station.queue_ready;
 }
 
 static bool rtl_cu_rf_read(struct xhci_device *d,unsigned reg,uint32_t *value) {

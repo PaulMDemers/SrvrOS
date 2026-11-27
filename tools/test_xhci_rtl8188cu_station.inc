@@ -3,7 +3,8 @@
 enum rtl_station_fixture {
     RTL_STATION_OFF,RTL_STATION_OK,RTL_STATION_BAD_MIC,RTL_STATION_USB_TIMEOUT,RTL_STATION_USB_SPIN_LIMIT,
     RTL_STATION_USB_LATE,RTL_STATION_USB_BAD_CODE,RTL_STATION_USB_RESIDUE,RTL_STATION_USB_WRONG_TRB,
-    RTL_STATION_USB_EVENT_DATA,RTL_STATION_NO_SIBLING,
+    RTL_STATION_USB_EVENT_DATA,RTL_STATION_QUEUE_LOAD,RTL_STATION_QUEUE_DRIFT,RTL_STATION_SIE_MAP,
+    RTL_STATION_OUT_HALTED,RTL_STATION_OUT_BAD_CONTEXT,RTL_STATION_NO_SIBLING,
 };
 static enum rtl_station_fixture rtl_station_fixture;
 static bool rtl_station_test_m1;
@@ -59,6 +60,8 @@ static bool rtl_radio_station_doorbell(uint64_t value) {
     if(value==RTL_CU_TX_DCI) {
         assert(rtl_station_fixture!=RTL_STATION_OFF && rtl_station.pending);
         assert(rtl_radio_cr()==0x02ff && !rtl_radio_model.reg[0x522]);
+        assert(rtl_radio_model.tx_queue_step==10 && rtl_radio_model.out_status_reads==1 &&
+               rtl_station.queue_ready && rtl_station.out_status_valid && !rtl_station.out_status);
         const struct xhci_trb *trb=(const struct xhci_trb *)(uintptr_t)rtl_station.trb;
         assert(((uint64_t)trb->parameter_high<<32|trb->parameter_low)==rtl_station.physical);
         unsigned sent=rtl_station.sends;
@@ -108,7 +111,28 @@ static bool rtl_radio_station_doorbell(uint64_t value) {
 static void rtl_radio_assert_auth_trace(void) {
     const struct rtl_cu_auth_trace *trace=&rtl_station.auth_out;
     if(rtl_station_fixture==RTL_STATION_NO_SIBLING) {
-        assert(!rtl_station.ready && !rtl_station.sends && !rtl_station.enabled && !trace->trb);
+        assert(!rtl_station.queue_attempted && !rtl_station.ready && !rtl_station.sends &&
+               !rtl_station.enabled && !trace->trb);
+        return;
+    }
+    if(rtl_station_fixture>=RTL_STATION_QUEUE_LOAD) {
+        assert(rtl_station.queue_attempted && !rtl_station.ready && !rtl_station.sends && !trace->trb);
+        if(rtl_station_fixture==RTL_STATION_QUEUE_LOAD) {
+            assert(rtl_station.queue_load==0x80e70009 && !rtl_station.queue_ready &&
+                   rtl_radio_model.tx_queue_step==2 && !rtl_fw_model.arm_writes && !rtl_radio_model.commands);
+            return;
+        }
+        assert(rtl_station.queue_ready && rtl_station.early_queue.reads==8 && rtl_station.auth_queue.reads==8);
+        bool out_checked=rtl_station_fixture==RTL_STATION_OUT_HALTED || rtl_station_fixture==RTL_STATION_OUT_BAD_CONTEXT;
+        assert(rtl_station.out_status_valid==out_checked && rtl_radio_model.out_status_reads==(unsigned)out_checked);
+        if(rtl_station_fixture==RTL_STATION_QUEUE_DRIFT)
+            assert(rtl_station.auth_queue.value[RTL_CU_TX_PAGES_SAMPLE]==0x00e70008);
+        if(rtl_station_fixture==RTL_STATION_SIE_MAP)
+            assert(rtl_station.auth_queue.value[RTL_CU_TX_SIE_HIGH_NORMAL_SAMPLE]==0x23);
+        if(out_checked) {
+            assert(rtl_station.out_status==(rtl_station_fixture==RTL_STATION_OUT_HALTED?1u:0u));
+            assert((rtl_station.out_info>>16)==(rtl_station_fixture==RTL_STATION_OUT_BAD_CONTEXT?64u:512u));
+        }
         return;
     }
     assert(trace->trb==rtl_station.ep.ring_phys && trace->slot==2 && trace->length==62 && trace->elapsed_us);

@@ -20,9 +20,31 @@ static bool rtl_cu_station_same_hub(const struct xhci_device *d) {
     return siblings==3;
 }
 
-static bool rtl_cu_write_checked(struct xhci_device *d,uint16_t reg,unsigned width,uint32_t value) {
-    uint32_t actual;
-    return rtl8188cu_write_value(d,reg,width,value) && rtl8188cu_read(d,reg,width,&actual) && actual==value;
+static struct rtl_cu_out_context rtl_cu_station_out_context(const struct xhci_device *d) {
+    if(!d->output_context)return (struct rtl_cu_out_context){0};
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
+    return (struct rtl_cu_out_context){
+        .dequeue=context_read32(d->output_context,RTL_CU_TX_DCI,2)|
+            ((uint64_t)context_read32(d->output_context,RTL_CU_TX_DCI,3)<<32),
+        .state=context_read32(d->output_context,RTL_CU_TX_DCI,0)&7,
+        .sampled=true,
+    };
+}
+
+static bool rtl_cu_station_out_ready(struct xhci_device *d) {
+    const struct usb_setup_packet setup={.request_type=0x82,.request=USB_REQ_GET_STATUS,
+        .index=RTL_CU_TX_DCI/2,.length=2};
+    int actual;
+    rtl_station.out_gate=rtl_cu_station_out_context(d);
+    if(!rtl_station.out_gate.sampled)return false;
+    rtl_station.out_info=context_read32(d->output_context,RTL_CU_TX_DCI,1);
+    rtl_station.out_status_valid=control_transfer_internal(d,&setup,d->descriptor_buffer_phys,2,true,&actual) &&
+        actual==2;
+    if(rtl_station.out_status_valid)
+        rtl_station.out_status=d->descriptor_buffer[0]|(uint16_t)d->descriptor_buffer[1]<<8;
+    return rtl_station.out_status_valid && rtl_station.out_status==0 && rtl_station.out_gate.state==1 &&
+        rtl_station.out_gate.dequeue==(rtl_station.ep.ring_phys|1) &&
+        (rtl_station.out_info>>16)==512 && ((rtl_station.out_info>>3)&7)==2;
 }
 
 static bool rtl_cu_write_address(struct xhci_device *d,uint16_t reg,const uint8_t *id) {
@@ -31,17 +53,9 @@ static bool rtl_cu_write_address(struct xhci_device *d,uint16_t reg,const uint8_
 }
 
 static bool rtl_cu_station_prepare(struct xhci_device *d,struct xhci_device *hub) {
-    if(!rtl_station.peer.rsne_size || !rtl_cu_station_same_hub(d) ||
+    if(!rtl_station.peer.rsne_size || !rtl_station.queue_ready || !rtl_cu_station_same_hub(d) ||
        !rtl8188cu_check_port(d,hub) || !rtl_cu_mac_held(d,RTL_CU_LISTEN_CR))return false;
-    uint32_t queue;
-    /* Linux CU reserved pages (HQ 9, NQ 8, public 231) and priority
-     * map for the observed two-OUT configuration. Keep TX paused until
-     * the packet buffer, station address and RF settings have read back. */
-    if(!rtl_cu_write_checked(d,0x214,1,8) ||
-       !rtl8188cu_write_value(d,0x200,4,0x80e70009) ||
-       !rtl8188cu_poll(d,0x200,4,1u<<31,0,32,&queue) || queue!=0x00e70009)return false;
     static const struct {uint16_t reg,width;uint32_t value;} setup[]={
-        {0x424,1,0xf9},{0x425,1,0xf9},{0x45d,1,0xf9},{0x209,1,0xf9},{0x10c,2,0xfaf0},
         {0x42a,2,0x3030},{0x430,4,0x01000000},{0x434,4,0x07060504},
         {0x438,4,0x01000000},{0x43c,4,0x07060504},{0x440,2,0x015d},{0x640,1,0x40},
         {0x500,4,0xff02},{0x504,4,0xff02},{0x508,4,0xff02},{0x50c,4,0xff02},
@@ -55,21 +69,17 @@ static bool rtl_cu_station_prepare(struct xhci_device *d,struct xhci_device *hub
         if(!rtl_cu_write_checked(d,setup[i].reg,setup[i].width,setup[i].value))return false;
     if(!rtl_cu_write_address(d,0x610,rtl_station.peer.station) ||
        !rtl_cu_write_address(d,0x618,rtl_station.peer.bssid) ||
-       !rtl8188cu_check_port(d,hub) || !rtl_cu_mac_held(d,RTL_CU_LISTEN_CR) ||
+       !rtl8188cu_check_port(d,hub) || !rtl_cu_tx_sample(d,&rtl_station.auth_queue))return false;
+    const uint32_t *v=rtl_station.auth_queue.value;
+    /* The same adapter's Linux SIE map assigns HQ to OUT 2 and NQ to OUT 3. */
+    if(!rtl_cu_tx_allocation_matches(&rtl_station.auth_queue) ||
+       v[RTL_CU_TX_SIE_HIGH_NORMAL_SAMPLE]!=0x32 || (v[RTL_CU_TX_SIE_LOW_SAMPLE]&0xf) ||
+       v[RTL_CU_TX_MAP_SAMPLE]!=RTL_CU_TX_QUEUE_MAP ||
+       v[RTL_CU_TX_CR_SAMPLE]!=RTL_CU_LISTEN_CR || v[RTL_CU_TX_PAUSE_SAMPLE]!=0xff ||
+       !rtl_cu_station_out_ready(d) || !rtl_cu_mac_held(d,RTL_CU_LISTEN_CR) ||
        !rtl_cu_write_checked(d,RTL8188CU_MAC_CONTROL,2,RTL_CU_STATION_CR))return false;
     rtl_station.enabled=rtl_cu_write_checked(d,RTL_CU_TX_PAUSE,1,0);
     return rtl_station.enabled;
-}
-
-static struct rtl_cu_out_context rtl_cu_station_out_context(const struct xhci_device *d) {
-    if(!d->output_context)return (struct rtl_cu_out_context){0};
-    __atomic_thread_fence(__ATOMIC_ACQUIRE);
-    return (struct rtl_cu_out_context){
-        .dequeue=context_read32(d->output_context,RTL_CU_TX_DCI,2)|
-            ((uint64_t)context_read32(d->output_context,RTL_CU_TX_DCI,3)<<32),
-        .state=context_read32(d->output_context,RTL_CU_TX_DCI,0)&7,
-        .sampled=true,
-    };
 }
 
 static bool rtl_cu_station_event(const struct xhci_device *d,uint8_t dci,uint64_t pointer,
@@ -342,6 +352,15 @@ static void rtl_cu_auth_log_event(const char *stage,const struct rtl_cu_out_even
         (uint64_t)event->event_data);
 }
 
+static void rtl_cu_tx_log_sample(const char *stage,const struct rtl_cu_tx_sample *sample) {
+    const uint32_t *v=sample->value;
+    console_printf("rtl8188cu-tx-queue: stage=%s reads=%u rqpn=%x npq=%x map=%x mgq=%x sie_hn=%x sie_low=%x cr=%x pause=%x\n",
+        stage,(uint64_t)sample->reads,(uint64_t)v[RTL_CU_TX_PAGES_SAMPLE],(uint64_t)v[RTL_CU_TX_NORMAL_SAMPLE],
+        (uint64_t)v[RTL_CU_TX_MAP_SAMPLE],(uint64_t)v[RTL_CU_TX_BOUNDARY_SAMPLE],
+        (uint64_t)v[RTL_CU_TX_SIE_HIGH_NORMAL_SAMPLE],(uint64_t)v[RTL_CU_TX_SIE_LOW_SAMPLE],
+        (uint64_t)v[RTL_CU_TX_CR_SAMPLE],(uint64_t)v[RTL_CU_TX_PAUSE_SAMPLE]);
+}
+
 static void rtl_cu_station_log(bool complete) {
     console_printf("rtl8188cu-wpa2: phase=%s ready=%u auth_tx=%u auth=%u assoc_tx=%u assoc=%u status=%u aid=%u m1=%u m2=%u m3_mic=%u m4_usb=%u leave=%u keys_erased=%u tx_stopped=%u sends=%u completed=%u last_rx=%u unsafe=%u complete=%u\n",
         rtl_station.phase?rtl_station.phase:"admission",(uint64_t)rtl_station.ready,
@@ -351,6 +370,15 @@ static void rtl_cu_station_log(bool complete) {
         (uint64_t)rtl_station.leave,(uint64_t)rtl_station.keys_erased,(uint64_t)rtl_station.tx_stopped,
         (uint64_t)rtl_station.sends,(uint64_t)rtl_station.completed,(uint64_t)rtl_station.last_rx,
         (uint64_t)rtl_station.failed,(uint64_t)complete);
+    if(rtl_station.queue_attempted) {
+        rtl_cu_tx_log_sample("pre-firmware",&rtl_station.early_queue);
+        rtl_cu_tx_log_sample("pre-auth",&rtl_station.auth_queue);
+        const struct rtl_cu_out_context *out=&rtl_station.out_gate;
+        console_printf("rtl8188cu-tx-readiness: allocated=%u load=%x sampled=%u state=%u dequeue=%x info=%x status_valid=%u status=%x ready=%u\n",
+            (uint64_t)rtl_station.queue_ready,(uint64_t)rtl_station.queue_load,(uint64_t)out->sampled,
+            (uint64_t)out->state,out->dequeue,(uint64_t)rtl_station.out_info,
+            (uint64_t)rtl_station.out_status_valid,(uint64_t)rtl_station.out_status,(uint64_t)rtl_station.ready);
+    }
     const struct rtl_cu_auth_trace *trace=&rtl_station.auth_out;
     if(!trace->trb)return;
     console_printf("rtl8188cu-auth-out: outcome=%s slot=%u dci=%u trb=%x length=%u elapsed_us=%u\n",

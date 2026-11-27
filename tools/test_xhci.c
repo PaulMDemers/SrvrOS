@@ -7614,6 +7614,7 @@ static struct {
     unsigned report_selector,report_writes,report_bad_echoes,iq_writes,b68_writes,ledcfg_writes,sifs_writes,e4c_writes;
     unsigned dma_writes,aps_writes,apsd_polls,xtal_writes,rx_gate_writes,security_writes,loopback_writes;
     unsigned usb_if_writes,usb_if_busy_reads,listen_writes;
+    unsigned tx_queue_step,out_status_reads;
     unsigned rx_index,rx_wraps;
     uint64_t stopped_dequeue;
     bool rx_cycle;
@@ -7744,7 +7745,8 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
                 rtl_passive.admission[RTL_CU_OFDM_TRX]==0x03a05611 &&
                 rtl_passive.admission[RTL_CU_MAR0]==UINT32_MAX && rtl_passive.admission[RTL_CU_MAR1]==UINT32_MAX);
             assert(rtl_passive.dma_ready && rtl_passive.dma_reads==10 && rtl_passive.dma_before_valid==3 &&
-                   rtl_passive.trxdma_before==0xabf7 && rtl_passive.dma_regs[RTL_CU_DMA_TRXDMA]==0xabf0 &&
+                   rtl_passive.trxdma_before==(rtl_station.queue_ready?0xfaf7:0xabf7) &&
+                   rtl_passive.dma_regs[RTL_CU_DMA_TRXDMA]==(rtl_station.queue_ready?0xfaf0:0xabf0) &&
                    rtl_passive.usb_opt_before==0x28 && rtl_passive.dma_regs[RTL_CU_DMA_USB_OPTION]==0x20 &&
                    rtl_radio_model.dma_writes==2);
             assert(type==XHCI_TRB_TYPE_CONFIGURE_ENDPOINT);
@@ -7780,6 +7782,11 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
             assert(context_read32(d->input_context,5,1)==(rtl_station.requested?((3u<<1)|(2u<<3)|(512u<<16)):0));
             if(rtl_station.requested) {
                 context_write32(d->output_context,4,0,1);
+                uint32_t out_info=context_read32(d->input_context,5,1);
+#ifdef SRVROS_RTL8188CU_STATION_TEST
+                if(rtl_station_fixture==RTL_STATION_OUT_BAD_CONTEXT)out_info=(out_info&0xffff)|(64u<<16);
+#endif
+                context_write32(d->output_context,4,1,out_info);
                 context_write32(d->output_context,4,2,context_read32(d->input_context,5,2));
                 context_write32(d->output_context,4,3,context_read32(d->input_context,5,3));
             }
@@ -7911,6 +7918,10 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
         if(reg==0x80 && !strict_control.data_in && (d->descriptor_buffer[0]&1)) {
             assert(rtl_passive.buffer_ready && rtl_passive.linked==256 && rtl_radio_model.links==256);
             assert(rtl_passive.early_rx_us<rtl_passive.llt_started_us && rtl_radio_cr()==0x02ba);
+            if(rtl_station.queue_attempted)
+                assert(rtl_station.queue_ready && rtl_radio_model.tx_queue_step==10 &&
+                       rtl_station.early_queue.value[RTL_CU_TX_MAP_SAMPLE]==0xfaf7 &&
+                       rtl_station.early_queue.value[RTL_CU_TX_PAUSE_SAMPLE]==0xff);
         }
         if(reg>=0x1000 && reg<0x2000) {
             assert(rtl_passive.llt_started_us<d->rtl8188cu_download_started_us);
@@ -7927,6 +7938,17 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
             return;
         }
     }
+#ifdef SRVROS_RTL8188CU_STATION_TEST
+    if((setup->parameter_low&0xffff)==0x0082) {
+        assert(strict_control.data_in && !reg && length==2 && (setup->parameter_high&0xffff)==2);
+        assert(rtl_radio_cr()==0x02fa && rtl_radio_model.reg[0x522]==0xff && !rtl_station.sends);
+        rtl_radio_model.out_status_reads++;
+        d->descriptor_buffer[0]=rtl_station_fixture==RTL_STATION_OUT_HALTED;
+        d->descriptor_buffer[1]=0;
+        rtl_firmware_completion(strict_control.status,slot,1,0);
+        return;
+    }
+#endif
     assert((setup->parameter_low&0xffff)==(strict_control.data_in?0x05c0:0x0540));
     assert((setup->parameter_high&0xffff)==0 && reg+length<=sizeof rtl_radio_model.reg);
     uint8_t *bytes=rtl_radio_model.reg+reg;
@@ -7954,6 +7976,12 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
             for(unsigned i=0;i<4;i++)bytes[i]=rf>>(8*i);
         }
         memcpy(d->descriptor_buffer,bytes,length);
+#ifdef SRVROS_RTL8188CU_STATION_TEST
+        if(rtl_station.auth_queue.reads==0 && rtl_radio_model.listen_writes && reg==0x200 &&
+           rtl_station_fixture==RTL_STATION_QUEUE_DRIFT)d->descriptor_buffer[0]=8;
+        if(rtl_radio_model.listen_writes && reg==0xfe66 && rtl_station_fixture==RTL_STATION_SIE_MAP)
+            d->descriptor_buffer[0]=0x23;
+#endif
         if(reg==0x100 && length==2 && rtl_radio_model.commands==1 &&
            rtl_radio_model.fault==RTL_RADIO_RX_GATE_DRIFT)d->descriptor_buffer[0]&=~(1u<<4);
         if(reg==0x100 && length==2 && rtl_radio_model.commands==1 &&
@@ -8045,9 +8073,10 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
             bytes[0]=(uint8_t)val;
         } else if(reg==0x608) {
             assert(length==4 && rtl_radio_model.reg[0x522]==0xff);
-            if(rtl_station.requested && rtl_radio_model.commands)
+            if(rtl_station.requested && rtl_radio_model.commands) {
                 assert(val==0xf000690e && rtl_radio_cr()==0x02fa);
-            else
+                test_time_step=1;
+            } else
                 assert(val==0xf000790f && !rtl_radio_model.commands && rtl_radio_cr()==0x02ba);
             memcpy(bytes,d->descriptor_buffer,length);
             if(rtl_radio_model.fault==RTL_RADIO_RCR_READBACK)bytes[3]&=0x7f;
@@ -8121,15 +8150,29 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
             rtl_radio_model.report_selector=val>>28;
             rtl_radio_model.report_writes++;
         } else {
-            if(reg==0x200 && rtl_station.requested) {
-                assert(val==0x80e70009);
-                bytes[0]=9;bytes[1]=0;bytes[2]=0xe7;bytes[3]=0;
-                test_time_step=1;
+            if(rtl_station.queue_attempted && !d->rtl8188cu_firmware_ready) {
+                static const unsigned sequence[]={0x214,0x200,0x424,0x425,0x45d,0x114,0x209,0x116,0x104,0x10c};
+                unsigned step=rtl_radio_model.tx_queue_step;
+                for(unsigned i=0;i<sizeof sequence/sizeof sequence[0];i++) {
+                    if(reg!=sequence[i])continue;
+                    assert(rtl_radio_model.links==256 && !rtl_fw_model.arm_writes && !rtl_radio_model.commands &&
+                           rtl_radio_cr()==0x02ba && rtl_radio_model.reg[0x522]==0xff);
+                    assert(step==i);
+                    rtl_radio_model.tx_queue_step++;
+                    break;
+                }
+            }
+            memcpy(bytes,d->descriptor_buffer,length);
+            if(reg==0x200 && rtl_station.queue_attempted) {
+                assert(rtl_radio_model.tx_queue_step==2 && val==0x80e70009);
+#ifdef SRVROS_RTL8188CU_STATION_TEST
+                if(rtl_station_fixture!=RTL_STATION_QUEUE_LOAD)
+#endif
+                    bytes[3]=0;
             }
             if(reg==0x522)assert(val==0xff || (rtl_station.requested && !val && rtl_radio_cr()==0x02ff));
             if(reg==0x00 && length==2)assert(rtl_passive.aps_ready && val==0x8000);
             if(reg==0x1f && val)assert(rtl_passive.early_rx_us && rtl_radio_cr()==0x02ba);
-            if(reg!=0x200 || !rtl_station.requested)memcpy(bytes,d->descriptor_buffer,length);
             if(reg==0x6a0 && rtl_radio_model.fault==RTL_RADIO_FILTER) {
                 assert(length==2 && val==0xffff);
                 bytes[0]=0;bytes[1]=1;
@@ -8142,7 +8185,7 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
                 assert(length==1 && !rtl_radio_model.commands && rtl_radio_cr()==0x02ba);
                 rtl_radio_model.dma_writes++;
                 if(reg==0x10c) {
-                    assert(val==0xf0 && bytes[1]==0xab);
+                    assert(val==0xf0 && bytes[1]==(rtl_station.queue_ready?0xfa:0xab));
                     if(rtl_radio_model.fault==RTL_RADIO_DMA_CONTROL)bytes[0]|=2;
                 } else {
                     assert(val==0x20);
@@ -8304,6 +8347,7 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
         rtl_radio_model.reg[0xfe40]=fault==RTL_RADIO_USB_IF_READY?0xe0:0xe7;
         rtl_radio_model.reg[0xfe41]=fault==RTL_RADIO_USB_IF_READY?0x8d:fault==RTL_RADIO_USB_IF_BASELINE?0xac:0xad;
         rtl_radio_model.reg[0xfe42]=fault==RTL_RADIO_USB_IF_READY?0:1;
+        rtl_radio_model.reg[0xfe66]=0x32;
         rtl_radio_model.reg[0xb6b]=0x80;
         rtl_radio_model.report_selector=1;
         rtl_radio_model.fault=fault;rtl_radio_model.profile=blob;
@@ -8318,6 +8362,12 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
             memcpy(credential+20,hs_pmk,32);
             bool ok=xhci_rtl8188cu_capture_wpa2(image,sizeof image,blob,sizeof blob,credential,sizeof credential);
             assert(ok==(rtl_station_fixture==RTL_STATION_OK));
+            if(rtl_station_fixture==RTL_STATION_QUEUE_LOAD) {
+                assert(rtl_passive.parked && !rtl_radio_cr() && rtl_radio_model.reg[0x522]==0xff &&
+                       !rtl_radio_model.posts && !network_count);
+                rtl_radio_assert_auth_trace();
+                continue;
+            }
             assert(rtl_station.keys_erased && rtl_station.tx_stopped && rtl_passive.parked &&
                    !rtl_station.pending && !rtl_passive.pending && rtl_radio_model.commands==3 &&
                    !rtl_radio_cr() && rtl_radio_model.reg[0x522]==0xff && !network_count);
@@ -8659,6 +8709,7 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
     puts("rtl8188cu: PASS native four-second RX, ring reuse, dispositions, stale events and stop proof");
 #ifdef SRVROS_RTL8188CU_STATION_TEST
     puts("rtl8188cu: PASS native Auth/Assoc/WPA2, bad MIC, uncertain OUT, missing sibling and teardown");
+    puts("rtl8188cu: PASS native pre-firmware TX queue order, retained allocation and USB OUT admission");
 #endif
 }
 static struct xhci_device *tt_cleanup_fixture(void) {
