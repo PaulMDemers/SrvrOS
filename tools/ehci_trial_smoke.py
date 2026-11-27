@@ -123,7 +123,7 @@ def exercise_trackpad(command, temp, logs, release, log_volume):
         assert marker not in first, marker
 
 
-def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_checklist, keyboard_exit):
+def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_checklist, keyboard_exit, file_checklist):
     saved_file = mode == "desktop-file"
     serial = logs / "trial-serial.log"
     serial.unlink(missing_ok=True)
@@ -158,6 +158,7 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                     ui.mouse(0, 0, 0)
 
                 x, y, width, _ = map(int, re.search(geometry, first).groups())
+                original_x, original_y = x, y
                 if keyboard_checklist:
                     ui.call("human-monitor-command", {"command-line": "sendkey ctrl-f"})
                     time.sleep(.3)
@@ -179,9 +180,12 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                     click(x + width - 56, y + 20)
                     wait_for(serial, lambda s: "maximized=0 frame=" in s, vm, 15)
                     if saved_file:
-                        seed = len(boot.EHCI_DESKTOP_FILE_CHECKLIST)
+                        seed = len(file_checklist)
                         wait_for(serial, lambda s: f"file-result role=text op=1 status=0 bytes={seed}" in s, vm, 15)
-                        ui.call("human-monitor-command", {"command-line": "sendkey ctrl-end"})
+                        if file_checklist == boot.EHCI_DESKTOP_FILE_V4_CHECKLIST:
+                            ui.call("human-monitor-command", {"command-line": "sendkey ctrl-end"})
+                        else:
+                            click(original_x + 35, original_y + 448)
                         time.sleep(.3)
                         ui.key("e", shift=True)
                         for key in ("h", "c", "i", "minus", "4", "2"):
@@ -244,7 +248,7 @@ def desktop_workspace_image(temp, serial):
     return stick, volume
 
 
-def verify_desktop_workspace(stick, volume, release, keyboard_exit):
+def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checklist):
     with stick.open("rb") as stream:
         stream.seek(2048 * 512)
         saved = stream.read()
@@ -252,7 +256,7 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit):
     check_clean_image(volume)
     image = ExfatFixture(saved)
     assert image.read("srvros-work/anchor.txt") == b"workspace anchor\n"
-    expected = boot.EHCI_DESKTOP_FILE_CHECKLIST + (b"" if keyboard_exit else b"Ehci-42")
+    expected = file_checklist + (b"" if keyboard_exit else b"Ehci-42")
     assert image.read(f"srvros-work/ehci-desktop-{release}.txt") == expected
     startup = image.read(f"srvros-work/ehci-trackpad-{release}-startup.txt")
     final = image.read(f"srvros-work/ehci-trackpad-{release}.txt")
@@ -276,7 +280,8 @@ def main():
     version = manifest["config_version"]
     log_match = boot.EHCI_TRACKPAD_LOG_RE.fullmatch(version)
     desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
-    desktop_file = version.startswith(boot.EHCI_DESKTOP_FILE_VERSION)
+    desktop_file = version.startswith((boot.EHCI_DESKTOP_FILE_VERSION, boot.EHCI_DESKTOP_FILE_V4_VERSION))
+    file_checklist = boot.EHCI_DESKTOP_FILE_V4_CHECKLIST if version.startswith(boot.EHCI_DESKTOP_FILE_V4_VERSION) else boot.EHCI_DESKTOP_FILE_CHECKLIST
     desktop_trace = version.startswith(boot.EHCI_DESKTOP_VERSION)
     keyboard_checklist = desktop_trace or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
     if args.keyboard_exit and not (desktop_trace or desktop_file):
@@ -355,9 +360,9 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
                 stick, volume = desktop_workspace_image(temp, log_volume)
                 trial_command += ["-device", "qemu-xhci,id=xhci", "-drive", f"if=none,id=stick,format=raw,file={stick}",
                                   "-device", "usb-storage,drive=stick,bus=xhci.0"]
-            exercise_desktop(trial_command, temp, logs, release, log_volume, mode, keyboard_checklist, args.keyboard_exit)
+            exercise_desktop(trial_command, temp, logs, release, log_volume, mode, keyboard_checklist, args.keyboard_exit, file_checklist)
             if desktop_file:
-                verify_desktop_workspace(stick, volume, release, args.keyboard_exit)
+                verify_desktop_workspace(stick, volume, release, args.keyboard_exit, file_checklist)
         elif trackpad_trial:
             exercise_trackpad(command, temp, logs, release, log_volume)
         else:

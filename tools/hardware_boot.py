@@ -29,8 +29,9 @@ EHCI_TRACKPAD_VERSION = "ram-usb-v1-macbookpro8-1-ehci-trackpad"
 EHCI_TRACKPAD_LOG_RE = re.compile(re.escape(EHCI_TRACKPAD_VERSION) + r"-log-([0-9a-f]{8})")
 EHCI_DESKTOP_V2_VERSION = "ram-usb-v2-macbookpro8-1-ehci-desktop"
 EHCI_DESKTOP_VERSION = "ram-usb-v3-macbookpro8-1-ehci-desktop"
-EHCI_DESKTOP_FILE_VERSION = "ram-usb-v4-macbookpro8-1-ehci-desktop"
-EHCI_DESKTOP_RE = re.compile(r"ram-usb-v[1234]-macbookpro8-1-ehci-desktop-log-([0-9a-f]{8})(?:-run-[0-9a-f]{16})?")
+EHCI_DESKTOP_FILE_V4_VERSION = "ram-usb-v4-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_FILE_VERSION = "ram-usb-v5-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_RE = re.compile(r"ram-usb-v[12345]-macbookpro8-1-ehci-desktop-log-([0-9a-f]{8})(?:-run-[0-9a-f]{16})?")
 EHCI_DESKTOP_FILES = ("fat/bin/deskd", "fat/bin/desktools", "fat/bin/deskclient", "fat/bin/deskfs",
                       "fat/share/Trackpad trial.txt")
 EHCI_DESKTOP_V1_CHECKLIST = b"""Built-in trackpad trial
@@ -76,13 +77,27 @@ If the pointer fails, press Control+Alt+Escape to finish the trial.
 If neither input works, wait 90 seconds for the automatic exit.
 Leave the flash drive connected for the reports and restart.
 """
-EHCI_DESKTOP_FILE_CHECKLIST = b"""Flash-drive document trial
+EHCI_DESKTOP_FILE_V4_CHECKLIST = b"""Flash-drive document trial
 
 With the trackpad, click maximize, then click again to restore.
 In Text, press Control+End and type Ehci-42 on the last line.
 Press Control+S and wait for Saved and verified on disk.
 Press Control+L, then Return to reopen this same file.
 Check for Document opened, then use Control+End to check Ehci-42.
+
+Click SrvrOS at the top left and choose Return to console.
+If the pointer fails, press Control+Alt+Escape or wait 90 seconds.
+Keep the flash drive connected until Ubuntu returns.
+
+Verification text goes here:
+"""
+EHCI_DESKTOP_FILE_CHECKLIST = b"""Flash-drive document trial
+
+With the trackpad, click maximize, then click again to restore.
+Click the blank line below Verification text and type Ehci-42.
+Press Control+S and wait for Saved and verified on disk.
+Press Control+L, then Return to reopen this same file.
+Check for Document opened and look for Ehci-42 on the last line.
 
 Click SrvrOS at the top left and choose Return to console.
 If the pointer fails, press Control+Alt+Escape or wait 90 seconds.
@@ -617,7 +632,7 @@ def limine_config(release, version=CONFIG_VERSION, *, legacy_wifi_calibration=Fa
     elif logfile := EHCI_TRACKPAD_LOG_RE.fullmatch(version):
         cmdline = f"srvros.storage=ram srvros.ehci=trackpad-trial srvros.ehci-release={release} srvros.ehci-log-volume={logfile[1]}"
     elif logfile := EHCI_DESKTOP_RE.fullmatch(version):
-        mode = "desktop-file" if version.startswith(EHCI_DESKTOP_FILE_VERSION) else (
+        mode = "desktop-file" if version.startswith((EHCI_DESKTOP_FILE_VERSION, EHCI_DESKTOP_FILE_V4_VERSION)) else (
             "topcase-desktop" if version.startswith(EHCI_DESKTOP_VERSION) else "trackpad-desktop")
         cmdline = f"srvros.storage=ram srvros.ehci={mode} srvros.ehci-release={release} srvros.ehci-log-volume={logfile[1]}"
     elif version in EHCI_TRIAL_VERSIONS:
@@ -704,6 +719,8 @@ def verify(directory, expected_release=None):
                 raise ValueError("Unexpected EHCI desktop boot files")
             if version.startswith(EHCI_DESKTOP_FILE_VERSION):
                 checklist = EHCI_DESKTOP_FILE_CHECKLIST
+            elif version.startswith(EHCI_DESKTOP_FILE_V4_VERSION):
+                checklist = EHCI_DESKTOP_FILE_V4_CHECKLIST
             elif version.startswith(EHCI_DESKTOP_VERSION):
                 checklist = EHCI_DESKTOP_CHECKLIST
             elif version.startswith(EHCI_DESKTOP_V2_VERSION):
