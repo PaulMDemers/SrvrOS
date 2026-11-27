@@ -687,13 +687,32 @@ trace supplies the complete mode payloads `08 05 00 00 00 00 00 00` and
 `01 05 00 00 00 00 00 00`. The Ubuntu reference was saved to the flash
 drive alongside the path reserved for the upcoming native report.
 
+Native `22f0ade122d96d67` verified the full before, mode-write, post-capture
+and restoration feature payloads against Ubuntu. The endpoint and capability
+words agreed after masking the assigned device and hub addresses. All six
+first-batch qTDs retired with matching overlay tokens, expected current and
+next links, alternating toggles and sampled C-progress `0x04`. Their actual
+lengths were 2, 8, 8, 8, 8 and 8 bytes. Each of 12 sampled Ubuntu qTDs
+completed 58 bytes from the same 478-byte request. The native capture timed
+out with zero decoded gestures and 649 rejected transfers. The source of
+the short completions remains open. Linux reuses a running queue head and
+resubmits through a dummy descriptor. That queue behavior remains a
+separate variable from the measured feature payload and endpoint settings.
+
+The native report, Ubuntu reference and comparison were verified on the
+flash drive after remount. The offline allocation check passed for all 110
+files with zero writes. The one-shot was consumed, Ubuntu returned, and the
+installed and recovery payloads matched. The native report ends before the
+USB controller's final teardown and reset. The evidence and exact payload
+are archived outside `build/`.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Native completed all six Ubuntu HID setup requests and activated the queue in 5 µs, with zero decoded Type 2 reports | Compare the full feature payload and queue-head progress with the working Ubuntu path |
+| Trackpad | Full feature payloads and split queue settings match Ubuntu. Native qTDs retire 2- or 8-byte transfers with zero decoded gestures. | Isolate Linux-style single-request resubmission on the running queue |
 | USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
