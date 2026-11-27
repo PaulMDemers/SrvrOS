@@ -589,9 +589,12 @@ has zero range grants. Ubuntu remained at 1% volume with no trial armed.
 The private-backing checkpoint starts at `99dbb8e2` with main `24feebdd`
 and Haswell PR 567 at `1b582efe` reviewed. It applies the Air's existing
 graphics DMAR reservation to the post-reset Broadwell range offer. The
-host and Q35 fixtures will verify that firmware-reserved physical pages
-cannot be used for scratch or private backing. This scope adds no new
-hardware register access.
+current Ubuntu DMAR read matches the exact native profile hash. Its IGD
+reservation covers the three physical pages sampled in slots 12291–12293
+by release `51b86bfdd5df5da0`. All 22 host and Q35 takeover cases passed.
+Both reserved-backing offers restored the modeled panel with zero PTE
+stores. A maintained native traffic hold and the GGTT range grant remain
+open. [Physical backing and DMAR result](../intel-bdw-edp-recovery.md#protected-translation-evidence-across-panel-recovery)
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

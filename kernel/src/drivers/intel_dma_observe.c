@@ -18,11 +18,12 @@ bool intel_dma_table(const uint8_t *p,uint32_t n,struct intel_dma_topology *out)
     const uint8_t *a=p+48,*b=p+72,*c=p+104;
     if(le(a,2)!=0 || le(a+2,2)!=24 || le(a+4,4) || le(a+8,8)!=0xfed90000 || !endpoint(a+16) ||
        le(b,2)!=0 || le(b+2,2)!=32 || le(b+4,4)!=1 || le(b+8,8)!=0xfed91000 ||
-       le(c,2)!=1 || le(c+2,2)!=32 || le(c+4,4) || le(c+8,8)!=0x8b800000 || le(c+16,8)!=0x8fffffff || !endpoint(c+24))return false;
+       le(c,2)!=1 || le(c+2,2)!=32 || le(c+4,4) || le(c+8,8)!=INTEL_DMA_RMRR_BEGIN ||
+       le(c+16,8)!=INTEL_DMA_RMRR_END-1 || !endpoint(c+24))return false;
     /* The include-all unit's non-PCI scopes are also exact; never read it. */
     const uint8_t scopes[16]={3,8,0,0,2,240,31,0,4,8,0,0,0,240,15,0};
     for(unsigned i=0;i<16;i++)if(b[16+i]!=scopes[i])return false;
-    *out=(struct intel_dma_topology){hash,0xfed90000,0xfed91000,0x8b800000,0x90000000};return true;
+    *out=(struct intel_dma_topology){hash,0xfed90000,0xfed91000,INTEL_DMA_RMRR_BEGIN,INTEL_DMA_RMRR_END};return true;
 }
 static bool word(const struct intel_dma_io *io,struct intel_dma_sample *s,uint32_t offset,uint32_t *v) {
     if(offset!=0 && offset!=8 && offset!=12 && offset!=16 && offset!=20 && offset!=28 && offset!=32 && offset!=36)return false;
@@ -38,7 +39,8 @@ bool intel_dma_observe(struct intel_dma_result *r,const struct intel_dma_topolog
     if(!r)return false;
     *r=(struct intel_dma_result){.status=DMA_REFUSED};
     if(!t || t->hash!=INTEL_DMA_DMAR_HASH || t->unit!=0xfed90000 || t->other_unit!=0xfed91000 ||
-       t->reserved_base!=0x8b800000 || t->reserved_end!=0x90000000 || !io || !io->guard || !io->map || !io->unmap || !io->read || !io->now)return false;
+       t->reserved_base!=INTEL_DMA_RMRR_BEGIN || t->reserved_end!=INTEL_DMA_RMRR_END ||
+       !io || !io->guard || !io->map || !io->unmap || !io->read || !io->now)return false;
     r->topology=*t;
     for(unsigned n=0;n<2;n++) {
         if(!io->guard(io->ctx)){r->status=DMA_ACCESS;return false;}

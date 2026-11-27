@@ -475,6 +475,16 @@ recovered CRCs were `0xc2798333`. The device released the display well,
 saved the report to USB and returned to Ubuntu automatically. Offline
 exFAT integrity and the consumed one-shot boot both verified.
 
+The three entries point to physical pages `0x8f004000`, `0x8f005000` and
+`0x8f006000`. A separate Ubuntu read of the Air's ACPI DMAR table matched
+the hash already required by the native remapper profile. Its Reserved
+Memory Region Reporting (RMRR) entry assigns `[0x8b800000,0x90000000)` to
+PCI `0000:00:02.0`, covering all three pages. The firmware declaration
+identifies reserved physical backing. Device activity and live translation
+still require their own evidence.
+[Air DMA profile](macbookair7-2-dma-observation.md#admission-and-access) ·
+[Intel VT-d specification](https://www.intel.com/content/www/us/en/content-details/774206/intel-virtualization-technology-for-directed-i-o-architecture-specification.html)
+
 #### Backlight PWM recovery
 
 The `intel-edp-dark-pwm-v1` profile captures the inherited PCH PWM control
@@ -646,6 +656,12 @@ reservation pinned. After both CRCs verify, the boot CPU hands the slot
 to the scratch publication transaction, which seals the parent before
 the first PTE store. The provider must still establish hardware ownership
 and keep both backing frames pinned throughout.
+
+The takeover refuses scratch and private physical frames inside the Air's
+graphics RMRR before taking the range loan. The host and Q35 fixtures offer
+the observed slot 12292 backing as scratch and the reservation's last page
+as private backing. Both refusals recover the original panel and produce
+zero GGTT stores.
 
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy

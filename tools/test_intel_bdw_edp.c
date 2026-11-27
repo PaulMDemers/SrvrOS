@@ -3,6 +3,7 @@
 #include <srvros/intel_bdw_edp_platform.h>
 #include <srvros/intel_bdw_edp_baseline.h>
 #include <srvros/intel_bdw_display_takeover.h>
+#include <srvros/intel_dma_observe.h>
 #include <srvros/intel_bdw_traffic.h>
 #include <srvros/intel_bdw_flr.h>
 #include <srvros/intel_bdw_pci_hold.h>
@@ -1368,6 +1369,8 @@ static bool takeover_range(void *context, const struct bdw_edp_source_image *ima
     if (takeover_is(f,"takeover-epoch-replay")) out->binding.epoch = image->epoch;
     if (takeover_is(f,"takeover-root-drift")) out->binding.root += 4096;
     if (takeover_is(f,"takeover-bar-drift")) out->binding.mmio += 0x1000000;
+    if (takeover_is(f,"takeover-rmrr-scratch")) out->binding.backing = out->scratch = 0x8f005000u;
+    if (takeover_is(f,"takeover-rmrr-private")) out->private_backing = INTEL_DMA_RMRR_END - 4096;
     return true;
 }
 
@@ -1480,6 +1483,10 @@ static int test_takeover(const char *mode)
                     takeover_is(&f,"takeover-bad-crc");
     assert(ok == (takeover_is(&f,"takeover-roundtrip") || takeover_is(&f,"takeover-range-protected")));
     assert(f.recovery_loan_tested == takeover_is(&f,"takeover-range-protected"));
+    if (takeover_is(&f,"takeover-rmrr-scratch") || takeover_is(&f,"takeover-rmrr-private")) {
+        assert(takeover.cycle.stage == BDW_EDP_CYCLE_COMPLETE && f.display.proofs == 2 &&
+               !takeover.seed_source.object && !takeover.private_source.object && !takeover.recovery_loan.lender);
+    }
     assert(takeover.state == (ok ? BDW_TAKEOVER_READY : retained ? BDW_TAKEOVER_RETAINED : BDW_TAKEOVER_REFUSED));
     assert(display_access_release(&f.lease,true) == !retained);
     assert(scanout_interval_held(&f.occupied,takeover_mmio,takeover_aperture,takeover_bytes,takeover_fence,f.occupied.pages));

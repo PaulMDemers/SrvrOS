@@ -227,7 +227,7 @@ class EdpBaseline(unittest.TestCase):
                         for mode in ("takeover-roundtrip", "takeover-range-protected", "takeover-bad-crc",
                                      "takeover-reset-declined", "takeover-traffic-open", "takeover-stale-rollback",
                                      "takeover-drain-io", "takeover-drain-sequence", "takeover-drain-completion",
-                                     "takeover-drain-result-owner"):
+                                     "takeover-drain-result-owner", "takeover-rmrr-scratch", "takeover-rmrr-private"):
                             subprocess.run([binary, mode], cwd=ROOT, env={**os.environ, "ASAN_OPTIONS": "halt_on_error=1"},
                                            check=True, timeout=45)
 
