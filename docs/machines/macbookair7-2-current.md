@@ -586,6 +586,13 @@ acknowledgements in eight powered samples. The pre-reopen EFI record still
 has zero range grants. Ubuntu remained at 1% volume with no trial armed.
 [Traffic and remapper owner lifetime](../intel-bdw-edp-recovery.md#display-owner-block-lifetime)
 
+The private-backing checkpoint starts at `99dbb8e2` with main `24feebdd`
+and Haswell PR 567 at `1b582efe` reviewed. It applies the Air's existing
+graphics DMAR reservation to the post-reset Broadwell range offer. The
+host and Q35 fixtures will verify that firmware-reserved physical pages
+cannot be used for scratch or private backing. This scope adds no new
+hardware register access.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
