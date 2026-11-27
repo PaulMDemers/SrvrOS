@@ -1,9 +1,15 @@
 #include <srvros/bcm57765_probe.h>
 #include <srvros/console.h>
 #include <srvros/display_profile.h>
+#include <srvros/net.h>
+#include <srvros/net_device.h>
 #include <srvros/pci.h>
+#include <srvros/pmm.h>
 #include <srvros/timer.h>
 #include <srvros/vmm.h>
+#include <stddef.h>
+
+void *memset(void *destination, int value, size_t length);
 
 enum {
     PCI_COMMAND = 0x04,
@@ -169,3 +175,5 @@ enum bcm57765_probe_result bcm57765_probe(void) {
         unmapped ? "released" : "unverified", (uint64_t)restored, (uint64_t)mdio_idle);
     return unmapped && restored && mdio_idle ? result : BCM57765_UNSAFE;
 }
+
+#include "bcm57765_packet.inc"

@@ -326,7 +326,7 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
         assert b"pro81-audio: phase=final result=INCOMPLETE started=0 completed=0" in final
 
 
-def exercise_ethernet_probe(command, temp, logs, release, log_volume):
+def exercise_ethernet_probe(command, temp, logs, release, log_volume, packets):
     stick, volume = desktop_workspace_image(temp, log_volume)
     command += ["-device", "qemu-xhci,id=xhci", "-drive", f"if=none,id=stick,format=raw,file={stick}",
                 "-device", "usb-storage,drive=stick,bus=xhci.0"]
@@ -347,9 +347,9 @@ def exercise_ethernet_probe(command, temp, logs, release, log_volume):
     startup = image.read(f"srvros-work/ehci-ethernet-{release}-startup.txt").decode()
     final = image.read(f"srvros-work/ehci-ethernet-{release}.txt").decode()
     assert f"ehci-ethernet: release={release} phase=startup workspace=1" in startup
-    assert f"ehci-ethernet: release={release} phase=final result=REFUSED packet_io=0" in final
+    assert f"ehci-ethernet: release={release} phase=final result=REFUSED packet_io={int(packets)}" in final
     assert "bcm57765: refused platform identity" in final
-    assert all(marker not in final for marker in ("bcm57765: pci=", "bcm57765: phy_addr=", "net: worker"))
+    assert all(marker not in final for marker in ("bcm57765: pci=", "bcm57765: phy_addr=", "bcm57765-packet:", "net: worker"))
 
 
 def main():
@@ -379,8 +379,9 @@ def main():
     keyboard_checklist = desktop_trace or brightness or audio or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
     if args.keyboard_exit and not (desktop_trace or desktop_file or brightness or audio):
         parser.error("keyboard exit needs a v3 or later desktop stage")
-    volume_match = log_match or desktop_match or ethernet_match
-    log_volume = volume_match[1] if volume_match else None
+    volume_match = log_match or desktop_match
+    log_volume = ethernet_match[2] if ethernet_match else volume_match[1] if volume_match else None
+    ethernet_packets = bool(ethernet_match and ethernet_match[1] == "2")
     if version not in boot.EHCI_TRIAL_VERSIONS and not log_volume:
         parser.error("expected an attended EHCI trial stage")
     keyboard_trial = version == boot.EHCI_KEYBOARD_VERSION
@@ -451,7 +452,7 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
                    "-monitor", "none", "-display", "none", "-no-reboot"]
 
         if ethernet_match:
-            exercise_ethernet_probe(command.copy(), temp, logs, release, log_volume)
+            exercise_ethernet_probe(command.copy(), temp, logs, release, log_volume, ethernet_packets)
         elif keyboard_monitor:
             exercise_monitor(command.copy(), temp, logs, release)
         elif desktop_match:
@@ -483,7 +484,8 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
                   on_screen_checklist="vm-screen.ppm", grub_next_entry="", ubuntu_default_fixture=True)
     if ethernet_match:
         result.pop("on_screen_checklist")
-        result.update(ethernet_controller="refused", startup_checkpoint="verified", final_report="verified")
+        result.update(ethernet_controller="refused", ethernet_packets=ethernet_packets,
+                      startup_checkpoint="verified", final_report="verified")
     elif keyboard_monitor:
         result.update(monitor_input="serial", case_echo=True, history_edit=True, monitor_reboot=True)
     elif desktop_match:

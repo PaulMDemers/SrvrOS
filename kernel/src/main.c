@@ -1115,10 +1115,10 @@ static bool ehci_trial_release(const char *cmdline, char release[17], const char
     return !*cmdline;
 }
 
-static void ehci_ethernet_trial(const char *release, const char *volume) {
+static void ehci_ethernet_trial(const char *release, const char *volume, bool packets) {
     boot_set_framebuffer_quiet(false);
     console_clear();
-    console_printf("MacBookPro8,1 wired Ethernet probe. Release %s.\n", release);
+    console_printf("MacBookPro8,1 wired Ethernet %s. Release %s.\n", packets ? "packet and DHCP trial" : "probe", release);
     console_write("Keep the Ethernet cable and flash drive connected. No input needed.\n");
     console_sync();
 
@@ -1131,12 +1131,13 @@ static void ehci_ethernet_trial(const char *release, const char *volume) {
         startup ? "saved" : "unverified");
     console_sync();
 
-    enum bcm57765_probe_result result = bcm57765_probe();
-    const char *state = result == BCM57765_LINK_UP ? "LINK_UP" :
+    enum bcm57765_probe_result result = packets ? bcm57765_packet_trial() : bcm57765_probe();
+    const char *state = result == BCM57765_DHCP_OK ? "DHCP_OK" : result == BCM57765_LINK_UP ? "LINK_UP" :
         result == BCM57765_LINK_DOWN ? "LINK_DOWN" :
         result == BCM57765_REFUSED ? "REFUSED" :
         result == BCM57765_UNSAFE ? "UNSAFE" : "INCOMPLETE";
-    console_printf("ehci-ethernet: release=%s phase=final result=%s packet_io=0\n", release, state);
+    console_printf("ehci-ethernet: release=%s phase=final result=%s packet_io=%u\n",
+        release, state, (uint64_t)packets);
     bool final = mounted && ehci_ethernet_workspace_report(release, false);
     bool retired = ehci_desktop_workspace_stop();
     console_printf("ehci-ethernet: startup=%s final=%s workspace_retirement=%s\n",
@@ -1373,6 +1374,8 @@ void kmain(void) {
     bool ehci_keyboard_monitor = cmdline_has_token(cmdline, "srvros.ehci=keyboard-monitor");
     bool ehci_trackpad_trial = cmdline_has_token(cmdline, "srvros.ehci=trackpad-trial");
     bool ehci_ethernet_probe = cmdline_has_token(cmdline, "srvros.ehci=ethernet-probe");
+    bool ehci_ethernet_dhcp = cmdline_has_token(cmdline, "srvros.ehci=ethernet-dhcp");
+    bool ehci_ethernet = ehci_ethernet_probe || ehci_ethernet_dhcp;
     bool ehci_file_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-file");
     bool ehci_brightness_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-brightness");
     bool ehci_audio_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-audio");
@@ -1390,7 +1393,8 @@ void kmain(void) {
     bool ehci_trial = ehci_trial_mode != NULL;
     char trial_release[17];
     char ehci_log_volume[9] = {0};
-    if (ehci_ethernet_probe && (!ehci_trial_release(cmdline, trial_release, "ethernet-probe", ehci_log_volume) ||
+    if (ehci_ethernet && (!ehci_trial_release(cmdline, trial_release,
+            ehci_ethernet_dhcp ? "ethernet-dhcp" : "ethernet-probe", ehci_log_volume) ||
             !ehci_log_volume[0])) {
         console_write("ehci-ethernet: invalid boot profile\n");
         halt_forever();
@@ -1401,7 +1405,7 @@ void kmain(void) {
         console_write("ehci-desktop: invalid boot profile\n");
         halt_forever();
     }
-    if (ehci_trackpad_desktop_trial || ehci_ethernet_probe) bootlog_extend_capture();
+    if (ehci_trackpad_desktop_trial || ehci_ethernet) bootlog_extend_capture();
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
@@ -1547,7 +1551,7 @@ void kmain(void) {
 #endif
     }
     pci_init();
-    if (ehci_ethernet_probe) ehci_ethernet_trial(trial_release, ehci_log_volume);
+    if (ehci_ethernet) ehci_ethernet_trial(trial_release, ehci_log_volume, ehci_ethernet_dhcp);
     bool ssd_work = cmdline_has_token(cmdline, "srvros.capture=air61-ssd-work");
     if (ssd_work || cmdline_has_token(cmdline, "srvros.capture=air61-ssd-scratch")) {
         air61_scratch_trial(cmdline, ssd_work);

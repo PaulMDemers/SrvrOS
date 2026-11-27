@@ -1937,6 +1937,15 @@ hardware-smoke: hardware-stage test-core
 
 .PHONY: test-ehci
 test-core: test-ehci
+.PHONY: test-bcm57765-packet
+test-core: test-bcm57765-packet
+test-bcm57765-packet: build/tests/bcm57765-packet-host$(HOST_EXE)
+	$<
+
+build/tests/bcm57765-packet-host$(HOST_EXE): tools/test_bcm57765_packet.c kernel/src/drivers/bcm57765_probe.c kernel/src/drivers/bcm57765_packet.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
 test-ehci: build/tests/ehci-host$(HOST_EXE) build/tests/ehci-enumeration-host$(HOST_EXE)
 	$<
 	build/tests/ehci-enumeration-host$(HOST_EXE)

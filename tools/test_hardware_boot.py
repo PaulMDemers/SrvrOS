@@ -980,6 +980,16 @@ class InstallTests(unittest.TestCase):
             boot.stage(ehci_ethernet_volume="invalid")
         with self.assertRaises(ValueError):
             boot.stage(ehci_ethernet_volume="0d9b53a0", ehci_split_trial=True)
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_ethernet_dhcp=True)
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                side_effect=["test-revision\n", ""]):
+            packets = boot.stage(ehci_ethernet_volume="0d9b53a0", ehci_ethernet_dhcp=True)
+        self.assertNotEqual(packets, release)
+        self.assertEqual(boot.verify(self.stage / packets, packets)["config_version"],
+                         "ram-usb-v2-macbookpro8-1-ehci-ethernet-log-0d9b53a0")
+        self.assertIn(f"srvros.ehci=ethernet-dhcp srvros.ehci-release={packets}",
+                      (self.stage / packets / "limine.conf").read_text())
 
     def test_wifi_channel_state_profile(self):
         v="ram-usb-wifi-fw-v75-laptop-probe-0e535900-auto-return"
