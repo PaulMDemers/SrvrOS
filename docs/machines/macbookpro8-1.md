@@ -1079,6 +1079,15 @@ path records these attempts and continues to count other malformed frames.
 Linux uses the same one-second throttle for a repeated mode reset.
 [Linux mode recovery](https://github.com/torvalds/linux/commit/fc1e8a6f129d87c64ac8e58b50d9dfa66217cfda)
 
+Source `c1145332`, release `942314bc1c6ab8ed`, passed the EHCI, keyboard
+and pointer fixtures and the exact-stage normal and keyboard-only VM
+rehearsals. On the MacBook the first retry yielded a valid 58-byte report
+after 7,203 µs. Motion, physical clicks, resource release and 21 valid
+keyboard reports verified. The exact Find-field text marker was absent,
+so the desktop aggregate was incomplete. This boot did not exercise an
+additional retry. Both reports matched after remount and the 130-file
+offline allocation check passed.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
