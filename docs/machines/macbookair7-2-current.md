@@ -534,6 +534,12 @@ eDP profiles. The native takeover needs a real GPM request and a range
 grant from the post-reset owner. The Air stayed in Ubuntu at 1% volume.
 [Full takeover sequence](../intel-bdw-edp-recovery.md#full-takeover-with-a-boot-blank)
 
+The native-hold follow-up starts at `9edfbe67` with main `dc4a48d3`
+reviewed. This work checks the all-bank L3 flush policy in the Broadwell
+PCI reset lifetime, including selector retirement and the existing hold
+deadline. It covers the reset core and the joined eDP host/Q35 fixtures.
+The Air6,1 Haswell scope in PR 567 is independent.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
