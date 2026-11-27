@@ -666,6 +666,16 @@ read-only allocation check passed with 107 files and zero writes. The saved
 report stops before the final USB controller retirement and reset. The
 native evidence, exact payload and Ubuntu replay input are archived together.
 
+The feature and queue comparison starts from `de014e05` on the `61111819`
+base. It captures the complete native feature reports before and after the
+mode switch and restoration, plus queue-head and qTD progress through the
+first batch. It compares them with the archived Ubuntu USB trace and a live
+Ubuntu EHCI queue sample. The native changes are observations within the
+existing trackpad trial and its fixtures. The HID replay, interrupt queue
+and USB write path retain their timing and configuration. No overlapping EHCI
+work was identified in the open PRs. The next checkpoint is the exact-stage
+VM rehearsal and an attended one-shot with USB collection.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
