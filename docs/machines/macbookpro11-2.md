@@ -1474,8 +1474,30 @@ beacon parsing. Exact-image tests passed GPT workspace logging and
 all four journal availability cases. The decoder recovered the full
 power trace and receive counters from both bounded checkpoints.
 The run record and Linux sequence are in
-`build/bringup/pro112-rtl8188cu-power-chain`. The native isolation
-transition and receive result remain pending.
+`build/bringup/pro112-rtl8188cu-power-chain`.
+
+Cold session `session-000661379629777e-00` captured all seven
+checkpoints in both the workspace and independent EFI journal. Native
+SYS_ISO_CTRL was already `0x82f8` before regulator setup and stayed
+there across MAC auto-on, firmware readiness and APS finalization.
+APS was `0x0002` before and after auto-on, then reached `0x0812`.
+The RF isolation write cleared bit 9 as intended. The low byte
+remained `0xf8` through armed RX. Linux read `0x8000` before RF
+release and at armed RX, with the same `0x0812` APS value. This
+confirms the low-byte difference predates the first native checkpoint.
+The Linux rebind reference leaves its initial cold state unknown.
+
+Baseband parity failures rose from 45 to 4,903, while all 14 receive
+reports and the FIFO pointer stayed zero. The 4 KiB request timed
+out with no bytes or Demers2.4 beacons. Stop Endpoint left all 4,096
+bytes remaining and the probe parked the radio. All three hub
+adapters were present.
+
+SrvrOS saved `exit.log` and all seven EFI checkpoints, unmounted
+the workspace and requested the normal Ubuntu return. The collector
+verified clean exFAT, all 620 existing files and the default Ubuntu
+boot. Evidence and the verified payload are archived locally under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-e5f3a6aeef258349`.
 
 ### Retina desktop default
 
