@@ -676,6 +676,17 @@ and USB write path retain their timing and configuration. No overlapping EHCI
 work was identified in the open PRs. The next checkpoint is the exact-stage
 VM rehearsal and an attended one-shot with USB collection.
 
+Source `c1f1cbb8`, release `22f0ade122d96d67`, is the instrumented
+candidate. Its exact VM payload passed the checklist, absent-controller and
+Ubuntu-default rehearsal. The host fixture verified full mode byte retention
+and split-state, token and link sampling for a multi-packet transfer. The
+live Ubuntu reference retained 12 retired qTD snapshots from endpoint
+`0x81`. Each completed 58 of 478 requested bytes, with matching qTD and
+overlay tokens, alternating toggle and C-progress `0x04`. The earlier USB
+trace supplies the complete mode payloads `08 05 00 00 00 00 00 00` and
+`01 05 00 00 00 00 00 00`. The Ubuntu reference was saved to the flash
+drive alongside the path reserved for the upcoming native report.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
