@@ -1682,6 +1682,18 @@ ports. The opt-in xHCI path will verify the full word through
 receive and cleanup. Check the native fixture and both saved log
 paths before arming. [Linux MAC control bits](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h#L822-L833)
 
+Release `d2c591aaa60004a3` (`d9743a1b`) is installed with recovery
+`74da74e0b57afbb8`, workspace `0E53-5900` and all three hub ports
+verified. The native fixture checks the byte write and full-word
+readbacks before LLT and at the unchanged 4 KiB receive request.
+Fault injection checks missing ENSEC at startup, drift after
+firmware and endpoint configuration, and a stuck bit after stop.
+The exact image passed automatic reset and workspace logging,
+plus all four EFI journal modes. Decoder replay retained full-word
+CR, cleanup readback and receive counters in both journal tails.
+The run record is under `build/bringup/pro112-rtl8188cu-cr-security`.
+The effect on reception still needs the cold hardware result.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
