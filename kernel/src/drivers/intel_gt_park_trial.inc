@@ -340,8 +340,10 @@ static bool park_vcs1_apply(void)
     static const uint32_t expected[] = {PARK_MAX_IDLE, PARK_MAX_IDLE, PARK_MAX_IDLE,
                                         PARK_VCS1_INHERITED, PARK_MAX_IDLE};
     if (!park_vcs1_trial()) return true;
-    if (!gt_idle_samples[0].end ||
-        memcmp(gt_idle_samples[0].words + 4,expected,sizeof(expected)) || !park_vcs1_port()) return false;
+    if (!gt_idle_samples[0].end) return false;
+    for (unsigned i=0; i<INTEL_ENGINE_COUNT; ++i)
+        if (gt_idle_samples[0].words[4+i] != expected[i]) return false;
+    if (!park_vcs1_port()) return false;
     uint32_t saved = air_idle_load(PARK_VCS1);
     if (saved != PARK_VCS1_INHERITED || !bootstrap_tick()) return false;
     air_park.vcs1.saved = saved;
