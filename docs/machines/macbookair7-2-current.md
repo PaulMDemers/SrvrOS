@@ -501,6 +501,13 @@ eligible entries populated. The EFI handoff supplies zero range grants, so
 no native test was installed or armed. Ubuntu is running at 1% volume.
 [Driver range qualification](../intel-tearfree-roadmap.md#driver-owned-range-qualification)
 
+The follow-up starts at `502394bc` with main `dc4a48d3` reviewed. It
+covers first scratch publication in the Broadwell boot page transaction,
+range retention in the shared allocator, and the host and Q35 fixture.
+The checkpoint is an explicitly granted vacant page, its first scratch
+mapping, and a private bind and rollback while the original plane stays
+live. The Air6,1 work in PR 567 is independent.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
