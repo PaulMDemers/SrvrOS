@@ -42,6 +42,11 @@ static uint64_t cache_write_throughs;
 static unsigned service_blocks;
 static uint64_t last_service_us, service_windows;
 
+#ifdef SRVROS_BLOCK_HOST_TEST
+uint64_t block_test_irq_save(void);
+void block_test_irq_restore(uint64_t flags);
+#endif
+
 static uint64_t irq_save(void) {
 #ifdef SRVROS_BLOCK_HOST_TEST
     return block_test_irq_save();

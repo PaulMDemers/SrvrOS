@@ -47,6 +47,23 @@ failed read. The native hash must match the clean sector exactly. The FAT
 mount-state byte is available for analysis without altering the comparison.
 Aligned direct reads bypass the raw block-device page cache at both endpoints.
 
+Add `--air61-ssd-partition-read` alongside `--air61-ssd-port-state` and
+`--air61-ssd-reset` for the standalone partition trial. This registers the
+identified SSD with read-only block callbacks, then checks the primary GPT
+through the regular partition scanner. Both full GPT regions must also hash
+exactly to Ubuntu's CRC-checked and mutually consistent copies. It samples
+eight sectors at the start of the EFI partition, sixteen at sector offset 32,
+and the last eight. The receipt must show four 4 KiB AHCI read commands for
+those three ranges, with exact DMA completion counts checked before copying.
+The same sample deadline, command timeouts and reset bounds apply.
+
+No internal filesystem is mounted. The SSD and partition views are
+invalidated before opening the USB workspace to save
+`srvros-work/air61-ssd-partition-read.log`. The collector compares the
+partition layout and every digest against clean, unmounted Ubuntu captures
+taken before and after the trial. A PASS also requires proof that the AHCI
+engine and receive FIS engine stopped with both slot registers clear.
+
 ## Install with console sign-in
 
 For a new identity-bound installation that should start at the local console

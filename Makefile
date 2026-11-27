@@ -2093,9 +2093,9 @@ test-core: test-installed-root
 build/tests/block-host$(HOST_EXE): tools/test_block.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
-build/tests/ahci-host$(HOST_EXE): tools/test_ahci.c kernel/src/drivers/ahci.c kernel/src/sha256.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/ahci-host$(HOST_EXE): tools/test_ahci.c kernel/src/drivers/ahci.c kernel/src/sha256.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/sha256.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DSRVROS_BLOCK_HOST_TEST -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/sha256.c kernel/src/block.c kernel/src/block_claim.c -Wl,--gc-sections -o $@
 
 .PHONY: test-air61-ssd-probe
 test-core: test-air61-ssd-probe
