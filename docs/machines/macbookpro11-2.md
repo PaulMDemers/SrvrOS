@@ -2303,6 +2303,17 @@ archived under `/var/local/srvros-recovery/macbookpro11-2/evidence-bed12b3eedbff
 The credential-bearing release was retired and the accepted passive
 entry and original EFI mount options restored.
 
+#### RTL8188CUS encrypted traffic and IP trial
+
+Start from `dd8d60aa` on the Pro device branch. Inspected main
+`0d764d9f` and the Air6,1 EFI work in #558. This explicit station
+trial will hold the confirmed WPA2 CCMP owner through encrypted
+Ethernet, DHCP, DNS and one HTTP GET, then retire the provider,
+stop the two USB endpoints and erase keys. Scope is the Realtek
+TX/RX framing and xHCI owner, bounded IP probe, boot/log recipe
+and native tests. Use the same three hub adapters, Demers2.4
+channel 10 and 4 KiB IN requests.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
