@@ -2359,6 +2359,18 @@ verified all 654 pre-existing files. The archive is
 The private image was retired and the accepted passive boot entry
 and original EFI mount options restored.
 
+#### RTL8188CUS Demers2.4 DHCP Discover trace
+
+Start from `48a55b20` on the Pro hub branch. Inspected main
+`59da8a8c` and the Air6,1 SSD and EFI work in #559–560.
+Keep all three dongles on the hub and retain the measured channel 10
+profile, 4 KiB USB IN requests, and bounded WPA2 and IPv4 workload.
+Add DHCP queue and receive outcomes to the Realtek receipt, cover a
+missing Offer through the native xHCI fixture, and correlate the
+one-shot cold run against a station-filtered capture on the router.
+The capture uses the Demers2.4 interface and LAN bridge. The accepted
+passive payload and Ubuntu remain available for recovery.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
