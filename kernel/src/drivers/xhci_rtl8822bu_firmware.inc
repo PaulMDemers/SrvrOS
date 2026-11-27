@@ -8,7 +8,8 @@ enum {
     BU_DDMA_SRC=0x1200, BU_DDMA_DST=0x1204, BU_DDMA=0x1208,
     BU_DDMA_OWN=1u<<31, BU_DDMA_CHECK=1u<<29, BU_DDMA_BAD=1u<<27,
     BU_DDMA_RESET=1u<<25, BU_DDMA_MORE=1u<<24, BU_MCU_READY=0xc078,
-    BU_MCU_BUSY=0xc001, BU_MCU_FLASH=1u<<20, BU_GPIO_FLASH=1u<<19,
+    BU_MCU_DOWNLOAD=1u, BU_MCU_BUSY=0xc001, BU_MCU_FLASH=1u<<20,
+    BU_MCU_COLD_LATCH=0x00600001, BU_MCU_PLATFORM_STATUS=1u<<31, BU_GPIO_FLASH=1u<<19,
     BU_WLRF1=0x00ec, BU_WLRF1_BBRF=7u<<24,
 };
 
@@ -91,6 +92,20 @@ static bool bu_radio_off(struct xhci_device *d) {
     return parked;
 }
 
+static bool bu_clear_cold_latch(struct bu_upload *up,uint32_t mcu) {
+    struct xhci_device *d=up->device;
+    uint32_t cpu,io,cr,ddma,after;
+    if(!wifi_hub_check_port(d,up->hub) || !bu_read(d,3,1,&cpu) || !bu_read(d,0x1d,1,&io) ||
+       !bu_read(d,BU_CR,1,&cr) || !bu_read(d,BU_DDMA,4,&ddma))return false;
+    console_printf("rtl8822bu-power-cold-latch: cpu=%x io=%x cr=%x ddma=%x\n",
+        (uint64_t)cpu,(uint64_t)io,(uint64_t)cr,(uint64_t)ddma);
+    if((cpu&4) || (io&1) || cr || (ddma&BU_DDMA_OWN) || !bu_radio_off(d))return false;
+    if(!bu_write(d,BU_MCU,1,mcu&0xfeu) || !bu_read(d,BU_MCU,4,&after))return false;
+    bool cleared=(after&~BU_MCU_PLATFORM_STATUS)==(BU_MCU_COLD_LATCH&~BU_MCU_DOWNLOAD);
+    console_printf("rtl8822bu-power-cold-latch-result: mcu=%x cleared=%u\n",(uint64_t)after,(uint64_t)cleared);
+    return cleared;
+}
+
 static const char *bu_power_on(struct bu_upload *up) {
     struct xhci_device *d=up->device;
     uint32_t value,status,mcu;
@@ -98,7 +113,11 @@ static const char *bu_power_on(struct bu_upload *up) {
         return "entry-read";
     console_printf("rtl8822bu-power-entry: cr=%x sys_status=%x mcu=%x\n",
         (uint64_t)value,(uint64_t)status,(uint64_t)mcu);
-    if((value!=0xea && !(status&1)) || (mcu&BU_MCU_BUSY))return "entry-owner";
+    const bool cold_latch=value==0xea && status==0x10 && mcu==BU_MCU_COLD_LATCH;
+    if((value!=0xea && !(status&1)) || ((mcu&BU_MCU_BUSY) && !cold_latch))return "entry-owner";
+    /* Until the CPU and DMA are checked, even the observed cold signature
+     * grants no authority to clear the latch on the failure path. */
+    up->unexpected_mcu=cold_latch;
     up->power_touched=true;
     if(!bu_write(d,0x001c,1,0) || !bu_update(d,0x0064,4,0,0x30000000u) ||
        !bu_update(d,0x004c,4,0x06000000u,0) || !bu_update(d,0x0040,4,0,4) ||
@@ -123,11 +142,17 @@ static const char *bu_power_on(struct bu_upload *up) {
     if(!bu_poll(d,5,1,1,0,100,&value))return "active-ready";
     for(unsigned i=0;i<sizeof after_active/sizeof after_active[0];i++)
         if(!bu_update(d,after_active[i].reg,1,after_active[i].clear,after_active[i].bits))return "active-config";
-    if(!bu_update(d,3,1,4,0) || !bu_update(d,0x1080,4,0,0x10100) || !bu_update(d,0x1103,1,15,12) ||
+    if(!bu_update(d,3,1,4,0) || (cold_latch && !bu_update(d,0x1d,1,1,0)) ||
+       !bu_update(d,0x1080,4,0,0x10100) || !bu_update(d,0x1103,1,15,12) ||
        !bu_read(d,BU_MCU,4,&mcu))return "platform";
     console_printf("rtl8822bu-power-platform: mcu=%x\n",(uint64_t)mcu);
     up->unexpected_mcu=(mcu&BU_MCU_BUSY)!=0;
-    if(up->unexpected_mcu)return "platform-owner";
+    if(up->unexpected_mcu) {
+        if(!cold_latch || (mcu&~BU_MCU_PLATFORM_STATUS)!=BU_MCU_COLD_LATCH)return "platform-owner";
+        if(!bu_clear_cold_latch(up,mcu))return "cold-latch";
+        mcu&=~BU_MCU_DOWNLOAD;
+        up->unexpected_mcu=false;
+    }
     /* Select host download before enabling the CPU interface. Do not touch
      * flash itself. Preserve the unrelated GPIO mux and MCU control bits. */
     if(mcu&BU_MCU_FLASH) {

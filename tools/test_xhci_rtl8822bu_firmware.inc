@@ -1,5 +1,6 @@
 enum bu_firmware_fault {
-    BU_FW_OK,BU_FW_FLASH,BU_FW_IMAGE,BU_FW_WARM,BU_FW_ENTRY_MCU,BU_FW_PLATFORM_MCU,
+    BU_FW_OK,BU_FW_FLASH,BU_FW_COLD_LATCH,BU_FW_COLD_DMA_BUSY,BU_FW_OTHER_LATCH,BU_FW_OTHER_STATUS,
+    BU_FW_IMAGE,BU_FW_WARM,BU_FW_ENTRY_MCU,BU_FW_PLATFORM_MCU,
     BU_FW_SHORT,BU_FW_MISSING,BU_FW_CHECKSUM,BU_FW_NOT_READY,BU_FW_BAD_STOP,BU_FW_BUSY,
 };
 
@@ -8,7 +9,7 @@ static struct {
     uint8_t reg[65536];
     uint64_t ring,cursor,packet;
     uint32_t written;
-    unsigned posted,ddma,configure,stop,echoes,register_writes;
+    unsigned posted,ddma,configure,stop,echoes,register_writes,latch_clears;
     uint8_t echo;
     bool echo_expected;
     enum bu_firmware_fault fault;
@@ -105,6 +106,11 @@ static void bu_model_control(void) {
         if(reg==0x100)assert(value==0 || value==5);
         if(reg==3 && (value&4) && bu_model.fault==BU_FW_FLASH)
             assert(!(bu_model_read(0x80,4)&(1u<<20)) && !(bu_model_read(0x40,4)&(1u<<19)));
+        if(reg==0x80 && width==1 && bu_model_read(0x80,4)==0x80600001 && !value) {
+            assert(bu_model.fault==BU_FW_COLD_LATCH && !bu_model.latch_clears++);
+            assert(!(bu_model_read(3,1)&4) && !(bu_model_read(0x1d,1)&1) && !bu_model_read(0x100,1) &&
+                !(bu_model_read(0x1208,4)>>31) && bu_model_read(0xec,4)==0x18000004);
+        }
         bu_model_store(reg,width,value);
         if(reg==5 && (value&1)) {
             bu_model_store(reg,1,value&~1u);
@@ -112,6 +118,8 @@ static void bu_model_control(void) {
         }
         if(reg==0x204)bu_model_store(reg,width,0);
         if(reg==0x1103 && bu_model.fault==BU_FW_PLATFORM_MCU)bu_model_store(0x80,2,0xc078);
+        if(reg==0x1103 && (bu_model.fault==BU_FW_COLD_LATCH || bu_model.fault==BU_FW_COLD_DMA_BUSY))
+            bu_model_store(0x80,4,0x80600001);
         if(reg==0x1700) {
             if(value==0xc00f0038 && bu_model.fault!=BU_FW_NOT_READY) {
                 assert(bu_model.ddma==40 && bu_model.written==161176 && (bu_model_read(3,1)&4));
@@ -169,6 +177,12 @@ static void test_rtl8822bu_firmware(const char *path) {
         bu_model_store(0x100,1,fault==BU_FW_WARM?0:0xea);
         bu_model_store(0x6,1,3);bu_model_store(0x80,2,0x78);
         bu_model_store(0xec,4,0x1f000004);
+        if(fault>=BU_FW_COLD_LATCH && fault<=BU_FW_OTHER_STATUS) {
+            bu_model_store(0xf5,1,fault==BU_FW_OTHER_STATUS?0x11:0x10);
+            bu_model_store(0x80,4,fault==BU_FW_OTHER_LATCH?0x00600003:0x00600001);
+            bu_model_store(0x1d,1,1);
+        }
+        if(fault==BU_FW_COLD_DMA_BUSY)bu_model_store(0x1208,4,0x80000000);
         if(fault==BU_FW_FLASH) {
             bu_model_store(0x80,4,0x00100078);
             bu_model_store(0x40,4,0x00080200);
@@ -182,19 +196,23 @@ static void test_rtl8822bu_firmware(const char *path) {
         native_boundary_mmio_hook=bu_model_mmio;
         if(fault==BU_FW_IMAGE)image[0]^=1;
         bool safe=false;
-        bool success=fault==BU_FW_OK || fault==BU_FW_FLASH;
+        bool success=fault==BU_FW_OK || fault==BU_FW_FLASH || fault==BU_FW_COLD_LATCH;
         assert(xhci_rtl8822bu_capture_firmware(image,sizeof image,&safe)==success);
         if(fault==BU_FW_IMAGE)image[0]^=1;
-        assert(safe==(fault!=BU_FW_BAD_STOP && fault!=BU_FW_BUSY && fault!=BU_FW_PLATFORM_MCU));
+        assert(safe==(fault!=BU_FW_BAD_STOP && fault!=BU_FW_BUSY && fault!=BU_FW_PLATFORM_MCU && fault!=BU_FW_COLD_DMA_BUSY));
         assert(!bu_model.echo_expected && !rtl->control_success && !xhci.devices[2].control_success && !network_count);
         if(success)assert(bu_model.posted==40 && bu_model.ddma==40 && !d->bulk_pending && bu_model.stop);
         if(fault==BU_FW_IMAGE)assert(!bu_model.posted && !bu_model.configure && !bu_model.echoes);
         if(fault==BU_FW_WARM || fault==BU_FW_ENTRY_MCU)assert(!bu_model.posted && !bu_model.register_writes);
+        if(fault==BU_FW_OTHER_LATCH || fault==BU_FW_OTHER_STATUS)assert(!bu_model.posted && !bu_model.register_writes);
+        if(fault==BU_FW_COLD_DMA_BUSY)assert(!bu_model.posted && bu_model_read(0x80,4)==0x80600001);
+        assert(bu_model.latch_clears==(fault==BU_FW_COLD_LATCH));
         if(fault==BU_FW_PLATFORM_MCU)assert(!bu_model.posted && bu_model_read(0x80,2)==0xc078);
         if(fault==BU_FW_SHORT || fault==BU_FW_MISSING)assert(bu_model.posted==1 && !bu_model.ddma && !d->bulk_pending);
     }
     native_boundary_mmio_hook=NULL;rtl_test_delay=NULL;rtl_test_clock=false;
     puts("rtl8822bu: PASS native firmware upload, forty USB packets, both DDMA sections, MCU ready and endpoint retirement");
     puts("rtl8822bu: PASS cold flash selection, exact WLRF1 bit isolation and active MCU refusal");
+    puts("rtl8822bu: PASS captured cold latch, CPU and DDMA ownership checks, and mismatched signature refusals");
     puts("rtl8822bu: PASS image and warm refusal, short/missing OUT, checksum, missing ready, wrong stop and busy DDMA");
 }
