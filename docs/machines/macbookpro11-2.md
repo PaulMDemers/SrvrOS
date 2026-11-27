@@ -140,6 +140,19 @@ start requires powering off the hub while leaving all three adapters in
 their ports. The guest probe then runs unattended. Local run record
 `build/bringup/pro112-rtl8822bu-identity/run.json`.
 
+Physical session `session-0006614945254e08-00` identified the Netgear
+in slot 4 on hub port 4. Cold SYS_CFG1 was `0x0c493d35`, matching the
+Ubuntu warm reference, with cut 3 and two RF chains. All three adapters
+enumerated under the same parent. The workspace exit log and independent
+EFI phase 2 recorded the same read-only result. All seven checkpoints
+passed, all 674 existing workspace files matched, and SrvrOS unmounted
+the workspace and returned to Ubuntu. The collector was corrected to
+read both regex groups and use the generic replay's line-prefix marker.
+The exact image and both forms of evidence are archived under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-ea2166d7504f1e3d`.
+This accepts cold identity. Firmware startup and RF operation remain
+untested on SrvrOS for this adapter.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
