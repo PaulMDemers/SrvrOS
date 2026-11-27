@@ -555,9 +555,13 @@ The panel-recovery checkpoint starts from `5857dc46` with main
 `dc4a48d3` reviewed. It extends the existing Broadwell PCI decode hold
 and collector to sample slot 12292 and its neighbors before blanking,
 with memory decode reopened and bus mastering off, and after native
-panel recovery. The trial checks the original display CRCs and does
-not write a PTE or trigger function reset. The independent Haswell
-scope in PR 567 is unaffected.
+panel recovery. Release `51b86bfdd5df5da0` (source `26e3f621`)
+completed this isolated test on the Air. The panel recovered with both
+original CRCs and all three occupied GGTT entries matched during the cycle.
+USB integrity and automatic Ubuntu return passed. The real GPM traffic
+hold and a driver-owned range after reset remain open. The independent
+Haswell scope in PR 567 is unaffected.
+[Native panel result](../intel-bdw-edp-recovery.md#protected-translation-evidence-across-panel-recovery)
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

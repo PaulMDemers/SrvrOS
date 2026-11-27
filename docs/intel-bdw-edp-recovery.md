@@ -465,6 +465,16 @@ grant no GPU address range. A native traffic hold still requires fresh
 engine and L3 completion acknowledgements before a function reset or a
 new mapping can proceed.
 
+On Air7,2, release `51b86bfdd5df5da0` (source `26e3f621`, session
+`session-000661498b3673a3-00`) completed the sequence. Slots 12291–12293
+remained occupied and identical at all three checkpoints. The samples
+took 109, 107 and 108 µs and retired their aliases. The dark sample read
+PCI Command `0x0402` with AF Transaction Pending clear. The complete PCI
+hold took 199.690 ms. All 5,529,600 framebuffer bytes matched and both
+recovered CRCs were `0xc2798333`. The device released the display well,
+saved the report to USB and returned to Ubuntu automatically. Offline
+exFAT integrity and the consumed one-shot boot both verified.
+
 #### Backlight PWM recovery
 
 The `intel-edp-dark-pwm-v1` profile captures the inherited PCH PWM control
