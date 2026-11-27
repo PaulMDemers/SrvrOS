@@ -155,11 +155,22 @@ contained no fresh engine or L3 acknowledgements. Ubuntu matched the
 1,217-byte USB `park-timing.log` to the exit log and verified the raw hashes,
 checkpoint and exFAT integrity. The run is closed as an incomplete GPU trial.
 
-The follow-up keeps the park and powered poll deadlines and the original
-display/HDA/PCI checks. It measures both RC6 sample boundaries and groups
-forcewake reacquisition reads under one fresh admission per poll. The existing
-provider checks the two park stores immediately before issuing them. The
-changes are confined to GT access, the Air park adapter and its USB receipt.
+Release `16baf15f52d96abe` at `af822833` kept the park and powered poll deadlines
+and the original display/HDA/PCI checks. Native session
+`session-0006613a3f1825c6-00` verified release ACK at 5.445 ms and finished the
+independent closing guard at 6.805 ms. The first RC6 sample finished at
+9.529 ms. Its register reads took 1 µs between two 1.361 ms guards. The next
+entry guard finished at 10.893 ms, so the second RC6 register read was skipped.
+The full park result remains incomplete, with no fresh engine or L3
+acknowledgement in this interval.
+
+Forcewake reacquisition verified its ACK and thread C0 at 14.992 ms and
+finished its closing guard at 16.350 ms. The preceding run finished at
+24.509 ms. All times are relative to the same point in each park window.
+The driver restored both park registers and retired the temporary alias.
+Ubuntu verified all 1,602 bytes of USB `park-timing.log` against the exit log,
+replayed the native checkpoint and passed the offline exFAT checks. The run
+is closed as an incomplete GPU trial.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
