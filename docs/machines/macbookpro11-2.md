@@ -2247,6 +2247,17 @@ returned. The receipt archive is
 The credential-bearing release was removed and the accepted
 passive boot entry and original EFI mount options restored.
 
+#### RTL8188CUS early TX DMA comparison
+
+Start from `4b4a6515` on the Pro device branch. Inspected main
+`ae1a64d8` and Air6,1 SATA reset #557. The active station trial
+will set HCI_TXDMA_EN and TXDMA_EN before LLT and firmware, in the
+order observed on Linux. MAC TX stays disabled at that point and
+all TX queues stay paused through discovery and Auth readiness.
+Scope is the Realtek startup/firmware gates, handoff, xHCI fixture
+and existing log/recovery recipe. Use the same three hub adapters,
+channel 10, 4 KiB receive request, and 250 ms Auth timeout.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
