@@ -750,6 +750,20 @@ preserved with the expected sidecar updates. The exact payload and report
 are archived outside `build/`. The saved report stops before USB teardown
 and reset.
 
+Source `10917f4d`, release `d4a82982f7c2bccb`, adds the raw endpoint trace.
+The host fixture verified separate queues on `0x81` and `0x84`, their
+payload lengths, bounded sample logging, and refusal to run the mouse phase
+after an unsafe primary queue state. The exact stage passed its QEMU
+checklist, absent-controller, and Ubuntu-default rehearsal.
+
+Ubuntu USBFS and usbmon captured matching mode-1 completions on this unit.
+Endpoint `0x81` returned 765 58-byte and 561 86-byte frames, all beginning
+with `0x74`, at the descriptor interval of 2 ms. All 56 requests on endpoint
+`0x84` timed out at the 8 ms descriptor interval. The full feature payload
+and all three driver bindings were restored. The existing Ubuntu
+`bcm5974` 1 ms baseline shows the same frame lengths and leading byte on
+`0x81`. Both fresh traces and their summary were saved to the USB workspace.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
