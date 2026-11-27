@@ -896,7 +896,9 @@ static void boot_virtio_gpu_probe(void) {
 static bool startup_journal_admitted;
 
 static void air61_ssd_trial(const char *cmdline) {
-    static const char receipt[] = "/work/srvros-work/air61-ssd-probe.log";
+    bool port_state = cmdline_has_token(cmdline, "srvros.ssd-port-state=1");
+    const char *receipt = port_state ? "/work/srvros-work/air61-ssd-port-state.log"
+                                     : "/work/srvros-work/air61-ssd-probe.log";
     boot_set_framebuffer_quiet(false);
     console_clear();
     console_write("Air6,1 read-only SSD probe. Checking controller and sampling raw sectors.\n");
@@ -907,7 +909,7 @@ static void air61_ssd_trial(const char *cmdline) {
         halt_forever();
     }
     console_printf("air61-ssd: profile %s\n", cmdline);
-    enum ahci_probe_result result = ahci_air61_probe();
+    enum ahci_probe_result result = ahci_air61_probe(port_state);
     if (result == AHCI_PROBE_UNSAFE || result == AHCI_PROBE_REFUSED) {
         console_printf("air61-ssd: %s; photograph this screen and restart manually\n",
             result == AHCI_PROBE_UNSAFE ? "HALTED AHCI quiescence unproved" : "REFUSED controller or disk");

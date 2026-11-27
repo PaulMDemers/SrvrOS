@@ -21,6 +21,15 @@ partition extents must validate. After return, the receipt's release, workspace
 and complete set of hashes must match the saved Ubuntu baseline. See the
 [Air6,1 unit record](machines/macbookair6-1.md#read-only-internal-ssd-qualification).
 
+Append `--air61-ssd-port-state` for the diagnostic stage. It records firmware
+GHC, the port before and after engine stop, buffer programming, FIS enable,
+engine start, IDENTIFY return, and teardown in a separate USB receipt. Firmware
+port registers are sampled only when AHCI is already enabled. The probe reads
+three status dwords from its own receive page and reports whether that page
+matched the controller's buffer address. Snapshots are sequential observations.
+Logging happens after the command waits. The build keeps its debug symbols
+locally, and `objcopy --strip-debug` reduces the staged EFI payload. [Intel AHCI specification](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/serial-ata-ahci-spec-rev1-3-1.pdf)
+
 ## Install with console sign-in
 
 For a new identity-bound installation that should start at the local console

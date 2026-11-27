@@ -126,6 +126,26 @@ struct ahci_disk {
     uint8_t *io_buffer;
 };
 
+enum ahci_trace_phase {
+    AHCI_TRACE_FIRMWARE, AHCI_TRACE_BEFORE_STOP, AHCI_TRACE_AFTER_STOP,
+    AHCI_TRACE_BUFFERS, AHCI_TRACE_FIS_ENABLED, AHCI_TRACE_ENGINE_STARTED,
+    AHCI_TRACE_IDENTIFY_RETURN, AHCI_TRACE_RETIRED, AHCI_TRACE_COUNT
+};
+
+struct ahci_port_state {
+    bool valid, fis_valid;
+    uint8_t port;
+    uint64_t us, clb, fb;
+    uint32_t ghc, cmd, tfd, sig, ssts, sctl, serr, is, ci, sact;
+    uint32_t pio, d2h, sdb;
+};
+
+struct ahci_port_trace {
+    bool ghc_valid;
+    uint32_t firmware_ghc;
+    struct ahci_port_state states[AHCI_TRACE_COUNT];
+};
+
 static volatile struct hba_memory *hba;
 static uint64_t hba_physical;
 static struct ahci_disk disks[AHCI_MAX_PORTS];
@@ -192,9 +212,38 @@ static bool stop_port(volatile struct hba_port *port) {
     return (port->cmd & HBA_PORT_CMD_FR) == 0;
 }
 
-static void start_port(volatile struct hba_port *port) {
+/* AHCI received-FIS area, section 4.2.1. Sample only the first dword
+ * of each status FIS, in the page owned and programmed by this driver. */
+static uint32_t fis_status(const volatile uint32_t *fis, unsigned byte_offset) {
+    return fis[byte_offset / sizeof(*fis)];
+}
+
+static void trace_port(struct ahci_port_trace *trace, enum ahci_trace_phase phase,
+    volatile struct hba_port *port, uint8_t index, const struct ahci_disk *disk) {
+    if (!trace) return;
+    struct ahci_port_state *s = &trace->states[phase];
+    *s = (struct ahci_port_state){
+        .valid = true, .port = index, .us = timer_monotonic_us(), .ghc = hba->ghc,
+        .cmd = port->cmd, .tfd = port->tfd, .sig = port->sig, .ssts = port->ssts,
+        .sctl = port->sctl, .serr = port->serr, .is = port->is, .ci = port->ci,
+        .sact = port->sact, .clb = port->clb | ((uint64_t)port->clbu << 32),
+        .fb = port->fb | ((uint64_t)port->fbu << 32),
+    };
+    if (!disk || !disk->fis_phys || s->fb != disk->fis_phys) return;
+    const volatile uint32_t *fis = pmm_phys_to_virt(disk->fis_phys);
+    __asm__ volatile ("mfence" : : : "memory");
+    s->pio = fis_status(fis, 0x20);
+    s->d2h = fis_status(fis, 0x40);
+    s->sdb = fis_status(fis, 0x58);
+    s->fis_valid = true;
+}
+
+static void start_port(volatile struct hba_port *port, const struct ahci_disk *disk,
+    struct ahci_port_trace *trace) {
     port->cmd |= HBA_PORT_CMD_FRE;
+    trace_port(trace, AHCI_TRACE_FIS_ENABLED, port, disk->port_index, disk);
     port->cmd |= HBA_PORT_CMD_ST;
+    trace_port(trace, AHCI_TRACE_ENGINE_STARTED, port, disk->port_index, disk);
 }
 
 static bool port_present(volatile struct hba_port *port) {
@@ -543,13 +592,16 @@ static void make_disk_name(char *name, uint64_t index) {
     name[5] = '\0';
 }
 
-static bool prepare_port(struct ahci_disk *disk, uint8_t port_index, volatile struct hba_port *port) {
+static bool prepare_port(struct ahci_disk *disk, uint8_t port_index, volatile struct hba_port *port,
+    struct ahci_port_trace *trace) {
     disk->failed = false;
     disk->flush_command = 0;
     disk->port = port;
     disk->port_index = port_index;
 
-    if (!stop_port(port)) return false;
+    bool stopped = stop_port(port);
+    trace_port(trace, AHCI_TRACE_AFTER_STOP, port, port_index, NULL);
+    if (!stopped) return false;
     if (!allocate_port_memory(disk)) {
         return false;
     }
@@ -561,7 +613,8 @@ static bool prepare_port(struct ahci_disk *disk, uint8_t port_index, volatile st
     port->serr = 0xffffffffu;
     port->is = 0xffffffffu;
     port->ie = 0;
-    start_port(port);
+    trace_port(trace, AHCI_TRACE_BUFFERS, port, port_index, disk);
+    start_port(port, disk, trace);
     return true;
 }
 
@@ -569,7 +622,7 @@ static bool init_port(uint8_t port_index, volatile struct hba_port *port) {
     if (disk_count >= AHCI_MAX_PORTS || !port_present(port)) return false;
     struct ahci_disk *disk = &disks[disk_count];
     make_disk_name(disk->name, disk_count);
-    if (!prepare_port(disk, port_index, port)) return false;
+    if (!prepare_port(disk, port_index, port, NULL)) return false;
 
     if (!issue_command(disk, ATA_CMD_IDENTIFY, 0, 0, false)) {
         console_printf("ahci: port=%u identify failed\n", (uint64_t)port_index);
@@ -598,7 +651,7 @@ static bool init_port(uint8_t port_index, volatile struct hba_port *port) {
     return true;
 }
 
-static bool init_controller(const struct pci_device *device) {
+static bool init_controller(const struct pci_device *device, struct ahci_port_trace *trace) {
     if (device == 0 || device->prog_if != 0x01) {
         console_write("ahci: no controller\n");
         return false;
@@ -626,6 +679,14 @@ static bool init_controller(const struct pci_device *device) {
     }
 
     hba = (volatile struct hba_memory *)AHCI_MMIO_VIRTUAL;
+    if (trace) {
+        /* GHC is readable with AE clear. Only sample a firmware port when
+         * AHCI is already enabled and the captured port is implemented. */
+        trace->ghc_valid = true;
+        trace->firmware_ghc = hba->ghc;
+        if ((trace->firmware_ghc & HBA_GHC_AHCI_ENABLE) && (hba->pi & 1))
+            trace_port(trace, AHCI_TRACE_FIRMWARE, &hba->ports[0], 0, NULL);
+    }
     hba->ghc |= HBA_GHC_AHCI_ENABLE;
     uint32_t ports = hba->pi;
     console_printf("ahci: abar=%x pi=%x cap=%x\n",
@@ -637,7 +698,7 @@ static bool init_controller(const struct pci_device *device) {
 }
 
 bool ahci_init(void) {
-    if (!init_controller(pci_find_by_class(0x01, 0x06))) return false;
+    if (!init_controller(pci_find_by_class(0x01, 0x06), NULL)) return false;
     uint32_t ports = hba->pi;
     for (uint8_t port = 0; port < 32 && disk_count < AHCI_MAX_PORTS; port++) {
         if ((ports & (1u << port)) != 0) {
@@ -717,14 +778,14 @@ static bool air61_read_samples(struct ahci_disk *disk, uint64_t start) {
     return true;
 }
 
-enum ahci_probe_result ahci_air61_probe(void) {
+static enum ahci_probe_result air61_probe(struct ahci_port_trace *trace) {
     const struct pci_device *device = NULL;
     for (uint64_t i = 0; i < pci_device_count(); i++) {
         const struct pci_device *candidate = pci_device_at(i);
         if (air61_controller(candidate)) device = candidate;
     }
     if (!device || hba || disk_count || !timer_reference_ready()) return AHCI_PROBE_REFUSED;
-    if (!init_controller(device)) return AHCI_PROBE_FAILED;
+    if (!init_controller(device, trace)) return AHCI_PROBE_FAILED;
 
     uint32_t ports = hba->pi;
     unsigned count = 0;
@@ -737,12 +798,15 @@ enum ahci_probe_result ahci_air61_probe(void) {
     }
     if (count != 1) return AHCI_PROBE_REFUSED;
     volatile struct hba_port *port = &hba->ports[index];
+    trace_port(trace, AHCI_TRACE_BEFORE_STOP, port, index, NULL);
     if (port->ci || port->sact) return AHCI_PROBE_UNSAFE;
     struct ahci_disk *disk = &disks[0];
-    if (!prepare_port(disk, index, port)) return AHCI_PROBE_UNSAFE;
+    if (!prepare_port(disk, index, port, trace)) return AHCI_PROBE_UNSAFE;
     uint64_t begin = timer_monotonic_us();
     enum ahci_probe_result result = AHCI_PROBE_FAILED;
-    if (air61_read_sector(disk, ATA_CMD_IDENTIFY, 0)) {
+    bool identified = air61_read_sector(disk, ATA_CMD_IDENTIFY, 0);
+    trace_port(trace, AHCI_TRACE_IDENTIFY_RETURN, port, index, disk);
+    if (identified) {
         if (!air61_identify(disk->io_buffer)) result = AHCI_PROBE_REFUSED;
         else {
             console_write("air61-ssd-device: pci=1b4b:9183 revision=14 bdf=04:00.0 sectors=236978176 block_size=512\n");
@@ -750,7 +814,35 @@ enum ahci_probe_result ahci_air61_probe(void) {
         }
     }
     /* Retain all DMA memory and stop in the caller if ownership is uncertain. */
-    if (port->ci || port->sact || !stop_port(port)) return AHCI_PROBE_UNSAFE;
+    bool stopped = !port->ci && !port->sact && stop_port(port);
+    trace_port(trace, AHCI_TRACE_RETIRED, port, index, disk);
+    if (!stopped) return AHCI_PROBE_UNSAFE;
+    return result;
+}
+
+enum ahci_probe_result ahci_air61_probe(bool port_state) {
+    static const char *const names[AHCI_TRACE_COUNT] = {
+        "firmware", "before-stop", "after-stop", "buffers-programmed", "fis-enabled",
+        "engine-started", "identify-return", "retire-return"
+    };
+    struct ahci_port_trace trace = {0};
+    enum ahci_probe_result result = air61_probe(port_state ? &trace : NULL);
+    /* Print outside the initialization and command waits so console traffic
+     * cannot intervene between the sampled register transitions. */
+    if (trace.ghc_valid)
+        console_printf("air61-ssd-controller: firmware_ghc=%x firmware_port=%u\n",
+            (uint64_t)trace.firmware_ghc, (uint64_t)trace.states[AHCI_TRACE_FIRMWARE].valid);
+    for (unsigned i = 0; i < AHCI_TRACE_COUNT; i++) {
+        const struct ahci_port_state *s = &trace.states[i];
+        if (!s->valid) continue;
+        console_printf("air61-ssd-port: phase=%s port=%u us=%u ghc=%x cmd=%x tfd=%x sig=%x "
+            "ssts=%x sctl=%x serr=%x is=%x ci=%x sact=%x clb=%x fb=%x "
+            "fis_valid=%u pio=%x d2h=%x sdb=%x\n",
+            names[i], (uint64_t)s->port, s->us, (uint64_t)s->ghc, (uint64_t)s->cmd,
+            (uint64_t)s->tfd, (uint64_t)s->sig, (uint64_t)s->ssts, (uint64_t)s->sctl,
+            (uint64_t)s->serr, (uint64_t)s->is, (uint64_t)s->ci, (uint64_t)s->sact, s->clb, s->fb,
+            (uint64_t)s->fis_valid, (uint64_t)s->pio, (uint64_t)s->d2h, (uint64_t)s->sdb);
+    }
     return result;
 }
 
