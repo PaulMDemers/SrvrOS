@@ -1028,20 +1028,46 @@ with the same payload and both USB reports intact. `0x81` completed 537
 requests and returned zero valid pointer reports. The first eight-byte
 `0x02` packet triggered the same mode retry as the passing release. Its
 next completion was another eight-byte `0x02` packet. At the same point,
-the passing release returned a 58-byte `0x74` report. The failure recorded 535 rejected
-packets and 34 valid keyboard reports. The first keyboard completion came
+the passing release returned a 58-byte `0x74` report. The failure recorded
+535 rejected packets and 34 valid keyboard reports. The first keyboard completion came
 after the failed mode recovery. The keyboard-only exit, resource retirement,
 and readback of both files verified. The offline allocation check passed
 for 124 files with zero writes.
+
+Repeat boot 2, `71e6c80c0828b18a`, passed the desktop checklist. The
+trackpad returned one more eight-byte `0x02` response after the retry, with
+the same sample bytes as the first post-retry response on boot 1. The next
+completion was a valid 58-byte `0x74` report. The trace ended with 1,058
+valid trackpad reports and 22 valid keyboard reports. The single rejected
+frame kept the strict aggregate result incomplete. Both USB reports and
+the 126-file offline allocation check verified.
+
+Repeat boot 3, `e55e9ccf651097bb`, passed the desktop checklist and strict
+transport checks. The first post-retry completion was a valid 58-byte
+`0x74` report. The trackpad recorded 891 valid reports, 677 motion events,
+four click presses and releases and zero malformed frames. Keyboard input
+returned 22 valid reports. Both files verified, and offline allocation
+passed for 128 files with zero writes.
+
+The repeat stages used byte-identical kernel, initramfs and EFI loader
+artifacts from `3388f68afd5dc712`. The release IDs gave each startup and
+final report its own path. The keyboard worked in all three warm boots.
+The desktop checklist passed in two boots. On both boots with an eight-byte
+post-retry sample, its first occurrence preceded the first completed
+keyboard request. The first rejected bytes matched exactly. The failure
+therefore reproduced while the trackpad queue continued to complete USB
+requests. The underlying reason the report format persisted is still open.
+Ubuntu consumed all three one-shots, and all six flash reports matched
+their archived copies on the final remount. Prior user files were preserved.
 
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
-| Keyboard | Built-in monitor commands and combined desktop typing verified on `3388f68afd5dc712` | Repeat combined desktop input across boots |
-| Trackpad | Movement, clicks, mode restoration and zero malformed frames verified in the combined desktop trial `3388f68afd5dc712` | Capture queue progress if the intermittent failure recurs |
-| USB workspace | Combined desktop startup and final reports saved and read back on `3388f68afd5dc712` | Collect startup-only evidence if the desktop cannot exit |
+| Keyboard | Built-in monitor commands and keyboard input verified in all three combined desktop repeats | Retain keyboard coverage during trackpad mode work |
+| Trackpad | Two of three desktop checklists passed. One boot kept returning eight-byte samples after the Wellspring retry and recorded zero motion. | Diagnose the persistent eight-byte response stream after mode recovery |
+| USB workspace | Both EHCI reports verified after each of three repeat boots, including a keyboard-only exit | Collect startup-only evidence if the desktop cannot exit |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
