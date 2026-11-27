@@ -52,6 +52,19 @@ static bool write_trackpad_mode(struct ehci_control_path *path, const uint8_t da
         transferred == 8;
 }
 
+static const char *activate_trackpad_mode(struct ehci_control_path *path, const uint8_t original[8]) {
+    struct ehci_trackpad_capture *capture = &path->report->trackpad;
+    uint8_t mode[8];
+    for (unsigned i = 0; i < sizeof(mode); i++) mode[i] = original[i];
+    mode[0] = 1;
+    if (!write_trackpad_mode(path, mode)) return "feature mode write failed";
+    if (!read_trackpad_mode(path, mode)) return "feature mode activation readback failed";
+    capture->mode_after_read = true;
+    capture->mode_after = mode[0];
+    /* The endpoint's frame format supplies independent evidence of activation. */
+    return NULL;
+}
+
 static bool trackpad_capture_complete(const struct ehci_trackpad_capture *capture) {
     return capture->moved && capture->contacts >= 2 && capture->released;
 }
@@ -60,6 +73,13 @@ static void record_trackpad_frame(struct ehci_trackpad_capture *capture, const u
     struct apple_trackpad_frame frame;
     int decoded = apple_trackpad_decode_type(EHCI_TRACKPAD_TYPE, data, length, &frame);
     capture->bytes = length;
+    if (length > capture->wire_max) capture->wire_max = length;
+    if (length == 8) {
+        capture->eight_byte_reports++;
+        capture->last_eight_byte_id = data[0];
+        /* Interface 1 advertises this HID report ID on the captured topcase. */
+        if (data[0] == 0x44) capture->eight_byte_id44++;
+    }
     if (decoded <= 0) {
         if (decoded == 0) capture->ignored++;
         else capture->invalid++;
@@ -148,10 +168,10 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
     uint8_t original[8], mode[8];
     capture->result = "feature mode read failed";
     if (!read_trackpad_mode(path, original)) return;
-    for (unsigned i = 0; i < sizeof(mode); i++) mode[i] = original[i];
-    mode[0] = 1;
-    capture->result = "feature mode write failed";
-    if (write_trackpad_mode(path, mode)) {
+    capture->mode_before_read = true;
+    capture->mode_before = original[0];
+    capture->result = activate_trackpad_mode(path, original);
+    if (!capture->result) {
         capture->result = configure_periodic_frames(path, &trackpad_endpoint, frame_list);
         if (!capture->result) {
             console_set_framebuffer_muted(false);

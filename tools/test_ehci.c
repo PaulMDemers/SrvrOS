@@ -17,7 +17,8 @@ static bool firmware_stuck, halt_stuck, reset_stuck;
 static struct ehci_dma *control_dma;
 static unsigned control_polls, control_completes_at;
 static bool mock_flash;
-static bool mock_feature_write;
+static bool mock_feature_control;
+static uint8_t mock_feature_readback;
 static const uint8_t feature_bytes[] = {1, 7, 6, 5, 4, 3, 2, 1};
 static struct ehci_dma *keyboard_dma;
 static struct ehci_dma *trackpad_dma;
@@ -132,16 +133,22 @@ bool timer_delay_us(uint64_t delay) {
     if (control_dma) {
         if (op[EHCI_USBCMD] & EHCI_CMD_ASYNC) {
             op[EHCI_USBSTS] |= EHCI_STS_ASYNC;
-            if (mock_feature_write) {
+            if (mock_feature_control) {
                 assert(control_dma->qh.endpoint == 0x0808c003u);
                 assert(control_dma->qh.capabilities == 0x41010000u);
-                assert(control_dma->setup.request_type == 0x21 && control_dma->setup.request == 9 &&
-                    control_dma->setup.value == 0x0300 && !control_dma->setup.index);
-                assert(!memcmp(control_dma->data, feature_bytes, sizeof(feature_bytes)));
-                assert(control_dma->data_td.token == (EHCI_TD_DATA1 | (8u << EHCI_TD_BYTES_SHIFT) |
-                    EHCI_TD_PID_OUT | EHCI_TD_RETRIES | EHCI_TD_ACTIVE));
-                assert((control_dma->status_td.token & EHCI_TD_PID_IN) &&
-                    control_dma->data_td.alternate == EHCI_LINK_END);
+                assert(control_dma->setup.value == 0x0300 && !control_dma->setup.index);
+                if (control_dma->setup.request == 9) {
+                    assert(control_dma->setup.request_type == 0x21);
+                    assert(!memcmp(control_dma->data, feature_bytes, sizeof(feature_bytes)));
+                    assert(control_dma->data_td.token == (EHCI_TD_DATA1 | (8u << EHCI_TD_BYTES_SHIFT) |
+                        EHCI_TD_PID_OUT | EHCI_TD_RETRIES | EHCI_TD_ACTIVE));
+                    assert((control_dma->status_td.token & EHCI_TD_PID_IN) &&
+                        control_dma->data_td.alternate == EHCI_LINK_END);
+                } else {
+                    assert(control_dma->setup.request_type == 0xa1 && control_dma->setup.request == 1);
+                    memcpy(control_dma->data, feature_bytes, sizeof(feature_bytes));
+                    control_dma->data[0] = mock_feature_readback;
+                }
                 control_dma->setup_td.token = control_dma->data_td.token = control_dma->status_td.token = 0;
                 return true;
             }
@@ -205,7 +212,7 @@ static void fixture_reset(void) {
     control_polls = 0;
     control_completes_at = 2;
     mock_flash = false;
-    mock_feature_write = false;
+    mock_feature_control = false;
     trackpad_dma = NULL;
     trackpad_reports = trackpad_offset = trackpad_packets = 0;
     keyboard_dma = 0;
@@ -510,8 +517,14 @@ static void test_trackpad_capture(void) {
     op[EHCI_USBCMD] = EHCI_CMD_RUN;
     op[EHCI_USBSTS] = 0;
     control_dma = &dma;
-    mock_feature_write = true;
-    assert(write_trackpad_mode(&path, feature_bytes));
+    mock_feature_control = true;
+    uint8_t original_mode[8] = {8, 7, 6, 5, 4, 3, 2, 1};
+    mock_feature_readback = 8;
+    assert(!activate_trackpad_mode(&path, original_mode));
+    assert(report.trackpad.mode_after_read && report.trackpad.mode_after == 8);
+    mock_feature_readback = 1;
+    assert(!activate_trackpad_mode(&path, original_mode));
+    assert(report.trackpad.mode_after == 1 && original_mode[0] == 8);
     assert(op[EHCI_USBCMD] == EHCI_CMD_RUN && !op[EHCI_USBSTS]);
     control_dma = NULL;
 
@@ -527,6 +540,11 @@ static void test_trackpad_capture(void) {
     assert(report.trackpad.largest == 86 && report.trackpad.bytes == 58 &&
         report.trackpad.contacts == 2 && !report.trackpad.invalid);
     assert(trackpad_capture_complete(&report.trackpad) && !op[EHCI_USBSTS]);
+    const uint8_t short_report[8] = {0x44};
+    record_trackpad_frame(&report.trackpad, short_report, sizeof(short_report));
+    assert(report.trackpad.invalid == 1 && report.trackpad.eight_byte_reports == 1 &&
+        report.trackpad.eight_byte_id44 == 1 && report.trackpad.last_eight_byte_id == 0x44 &&
+        report.trackpad.wire_max == 86);
 }
 
 static void test_native_trial_result(void) {

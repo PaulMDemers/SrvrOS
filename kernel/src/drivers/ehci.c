@@ -115,8 +115,11 @@ struct ehci_keyboard_schedule {
 
 struct ehci_trackpad_capture {
     unsigned reports, ignored, invalid, bytes, largest, contacts;
+    unsigned wire_max, eight_byte_reports, eight_byte_id44;
     uint32_t token, overlay, status;
     int16_t first_x, first_y;
+    uint8_t mode_before, mode_after, last_eight_byte_id;
+    bool mode_before_read, mode_after_read;
     bool have_position, moved, pressed, released, mode_restored;
     const char *result;
 };
@@ -1026,6 +1029,14 @@ void ehci_boot_trackpad_trial(const char *release) {
         capture->released ? "pressed and released" : capture->pressed ? "pressed" : "unverified",
         capture->mode_restored ? "restored" : "unverified");
     console_printf("Invalid %u. Ignored %u.\n", (uint64_t)capture->invalid, (uint64_t)capture->ignored);
+    if (capture->mode_before_read) {
+        if (capture->mode_after_read) console_printf("Feature mode before=%u after write=%u (expected 1).\n",
+            (uint64_t)capture->mode_before, (uint64_t)capture->mode_after);
+        else console_printf("Feature mode before=%u. Activation readback unavailable.\n", (uint64_t)capture->mode_before);
+    }
+    if (capture->wire_max) console_printf("Wire max=%u. 8-byte=%u. ID 0x44=%u. Last 8-byte ID=%u (decimal).\n",
+        (uint64_t)capture->wire_max, (uint64_t)capture->eight_byte_reports,
+        (uint64_t)capture->eight_byte_id44, (uint64_t)capture->last_eight_byte_id);
     bool passed = !capture->result && !capture->invalid && trackpad_capture_complete(capture) &&
         capture->mode_restored && report.dma_released && report.access_retired;
     if (!passed && capture->token) console_printf("USBSTS=%x qTD=%x QH=%x\n",
