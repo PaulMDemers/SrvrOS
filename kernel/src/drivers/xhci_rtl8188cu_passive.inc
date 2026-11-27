@@ -3,11 +3,12 @@
 #define RTL_CU_PROFILE_BYTES (RTL_CU_PROFILE_WRITES*6u)
 #define RTL_CU_RX_DCI 3u
 #define RTL_CU_RX_BYTES 4096u
-/* Enable the scheduler during passive RX with all TX gates closed. */
+/* Enable the scheduler and security block during passive RX with TX closed. */
 #define RTL_CU_PROTOCOL_ENABLE (1u<<4)
 #define RTL_CU_SCHEDULE_ENABLE (1u<<5)
 #define RTL_CU_RX_ENABLE (0x8au|RTL_CU_PROTOCOL_ENABLE)
-#define RTL_CU_PASSIVE_CR (RTL_CU_RX_ENABLE|RTL_CU_SCHEDULE_ENABLE)
+#define RTL_CU_SECURITY_ENABLE (1u<<9)
+#define RTL_CU_PASSIVE_CR (RTL_CU_RX_ENABLE|RTL_CU_SCHEDULE_ENABLE|RTL_CU_SECURITY_ENABLE)
 #define RTL_CU_TX_PAUSE 0x0522u
 #define RTL_CU_CHANNEL 10u
 #define RTL_CU_LLT 0x01e0u
@@ -408,7 +409,8 @@ static bool rtl_cu_open_rx_early(struct xhci_device *d) {
         return false;
     rtl_passive.early_rx_reads=1;
     if(rtl_passive.early_rx_before ||
-       !rtl8188cu_write_value(d,RTL8188CU_MAC_CONTROL,1,RTL_CU_PASSIVE_CR) ||
+       !rtl8188cu_write_value(d,RTL8188CU_MAC_CONTROL+1,1,RTL_CU_SECURITY_ENABLE>>8) ||
+       !rtl8188cu_write_value(d,RTL8188CU_MAC_CONTROL,1,RTL_CU_PASSIVE_CR&0xff) ||
        !rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,2,&rtl_passive.early_rx_after))return false;
     rtl_passive.early_rx_reads=2;
     if(rtl_passive.early_rx_after!=RTL_CU_PASSIVE_CR)return false;
