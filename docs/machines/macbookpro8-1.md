@@ -263,6 +263,14 @@ files and 159 clusters. The exact payload and reports are archived
 outside `build`. This verifies the boot CPU and package readings on
 this unit through the explicit `--ehci-desktop-telemetry` profile.
 
+The battery and charger block starts at `c0881211` on merge base
+`93e10a44`, with integration tip `dc4a48d3` inspected. Open graphics
+work is independent. Scope is the exact unit's read-only SMC battery and
+adapter keys, the existing cached battery interface and an attended
+System Sensors trial. The checkpoint is fresh connected, disconnected
+and reconnected readings, signed current, and both EHCI flash reports.
+The SMC path requires no EC/SCI or AML ownership.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
