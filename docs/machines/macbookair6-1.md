@@ -15267,3 +15267,13 @@ receipt verification. Only the fixture's one 4 KiB scratch page may change.
 The Ubuntu SSD must be physically removed before the native trial. The builder
 only creates a regular image file. There is no hardware spare attached during
 preparation. Existing storage timeouts and ordinary boot policy apply.
+
+#### File-backed QEMU SSD durability scope
+
+From main `5cb57eab` (PR564), qualify a 4 KiB save, explicit sync, and
+fresh-boot readback through the ordinary AHCI path in Q35. Use one generated
+EFI-bootable disk image on the Ubuntu filesystem, with blank firmware variables
+for both boots and no host block devices. Observe the virtual disk's write and
+flush completions, and check the exact saved bytes, exFAT allocation, and bytes
+outside the data partition. Scope is host harness and evidence, with the native
+Air6,1 write fixture kept separate.
