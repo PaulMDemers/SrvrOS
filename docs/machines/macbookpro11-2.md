@@ -1763,6 +1763,17 @@ single-bit trials and verify both bits through receive and teardown.
 Compare with the control and both single-bit cold sessions. Qualify
 the native path and both logging paths before arming.
 
+Release `ae5625fa39f5b7de` (`121db334`) is installed with recovery
+`74da74e0b57afbb8`, workspace `0E53-5900` and all three hub ports
+verified. The native fixtures verify CR `0x02ba`, the fixed 4 KiB
+request and refusal if either CR bit drops, MAC TX is enabled or
+TX pause drops. Cleanup faults cover either bit remaining set.
+The exact image passed automatic reset, workspace logging and all
+four EFI journal modes. Decoder replay retained the combined CR,
+receive counters and cleanup readback. The run record under
+`build/bringup/pro112-rtl8188cu-cr-combined` binds the three earlier
+hardware sessions. Reception still needs the cold result.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
