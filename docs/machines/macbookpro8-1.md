@@ -190,7 +190,19 @@ The PCH period stayed at 1,808 and both PWM enable words stayed
 with the exact GPU, PCH, DSDT and PWM-state checks. Release
 `4befbb5325d5ed2f` passed both exact VM paths, with the provider
 unavailable in Q35 and both USB reports verified. Its installed recovery
-is `c1a8e397a41363dc`. Native brightness is awaiting the attended trial.
+is `c1a8e397a41363dc`.
+
+The November 27 native trial passed. Settings initially read 94%. The
+operator saw the panel dim and brighten, and the register readbacks
+matched all 68 requests across 30–76%. Exiting restored the original
+duty of 1,707 out of 1,808. The built-in keyboard matched the Text
+checklist and the trackpad recorded 4,678 reports with zero malformed
+frames. Ubuntu verified both reports directly from the EHCI flash
+workspace after return. The read-only allocation check passed with 145
+files and 153 clusters, and all pre-existing user files were preserved.
+The one-shot entry was consumed, and the exact payload and reports are
+archived outside `build`. Brightness is enabled by the explicit
+`--ehci-desktop-brightness` recipe on this unit.
 
 ## Bring-up sequence
 
