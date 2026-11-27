@@ -75,7 +75,11 @@ static void remove_slot(uint64_t slot) {
 #define VFS_BOOT_PATH 256
 static char boot_directories[VFS_BOOT_DIRECTORIES][VFS_BOOT_PATH];
 static unsigned boot_directory_count;
+/* Boot images have no durable identities. Keep their generated IDs separate
+ * from ordinary allocations while still checking every ID against live nodes. */
+#define VFS_BOOT_INODE_BASE (UINT64_C(1) << 63)
 static uint64_t next_inode = 1;
+static uint64_t next_boot_inode = VFS_BOOT_INODE_BASE;
 static vfs_metadata_changed_fn metadata_changed_callback;
 static bool (*access_guard)(const char *path);
 static vfs_retire_fn retire_callback;
@@ -121,27 +125,39 @@ static bool inode_in_use(uint64_t inode, const struct vfs_node *self) {
     return false;
 }
 
-static uint64_t allocate_inode(void) {
-    while (!next_inode || inode_in_use(next_inode, NULL)) next_inode++;
-    return next_inode++;
+static uint64_t allocate_inode(bool boot_image) {
+    uint64_t *next = boot_image ? &next_boot_inode : &next_inode;
+    uint64_t inode;
+    do {
+        if (boot_image && *next < VFS_BOOT_INODE_BASE) *next = VFS_BOOT_INODE_BASE;
+        if (!boot_image && (!*next || *next >= VFS_BOOT_INODE_BASE)) *next = 1;
+        inode = (*next)++;
+    } while (inode_in_use(inode, NULL));
+    return inode;
+}
+
+static void observe_inode(uint64_t inode) {
+    /* Full-width saved IDs remain valid. They need not move the ordinary
+     * allocation cursor into the region used for generated boot-image IDs. */
+    if (inode >= next_inode && inode < VFS_BOOT_INODE_BASE) next_inode = inode + 1;
 }
 
 static struct vfs_metadata import_metadata(const struct vfs_metadata *metadata,
     const struct vfs_node *self) {
     struct vfs_metadata result = *metadata;
-    if (!result.inode || inode_in_use(result.inode, self)) result.inode = allocate_inode();
-    if (result.inode >= next_inode) next_inode = result.inode + 1;
+    if (!result.inode || inode_in_use(result.inode, self)) result.inode = allocate_inode(false);
+    observe_inode(result.inode);
     return result;
 }
 
-static struct vfs_metadata default_metadata(const char *path, enum vfs_node_type type) {
+static struct vfs_metadata default_metadata(const char *path, enum vfs_node_type type, bool boot_image) {
     uint64_t now = metadata_time();
     uint64_t permissions = type == VFS_NODE_DIRECTORY ? 0755 : 0644;
     if (type == VFS_NODE_FILE && executable_default_path(path)) {
         permissions = 0755;
     }
     return (struct vfs_metadata) {
-        .inode = allocate_inode(),
+        .inode = allocate_inode(boot_image),
         .mode = (type == VFS_NODE_DIRECTORY ? VFS_MODE_IFDIR : VFS_MODE_IFREG) | permissions,
         .nlink = type == VFS_NODE_DIRECTORY ? 2 : 1,
         .uid = 0,
@@ -208,7 +224,8 @@ bool vfs_register_directory(const char *path) {
     return vfs_register_directory_with_metadata(path, NULL);
 }
 
-static bool vfs_register_directory_with_metadata_impl(const char *path, const struct vfs_metadata *metadata) {
+static bool vfs_register_directory_with_metadata_impl(const char *path,
+    const struct vfs_metadata *metadata, bool boot_image) {
     if (path == NULL) {
         return false;
     }
@@ -233,7 +250,7 @@ static bool vfs_register_directory_with_metadata_impl(const char *path, const st
                 .path = path,
                 .type = VFS_NODE_DIRECTORY,
                 .size = 0,
-                .metadata = metadata != NULL ? import_metadata(metadata, NULL) : default_metadata(path, VFS_NODE_DIRECTORY),
+                .metadata = metadata != NULL ? import_metadata(metadata, NULL) : default_metadata(path, VFS_NODE_DIRECTORY, boot_image),
                 .private_data = NULL,
                 .read_all = NULL,
                 .release_data = NULL,
@@ -258,7 +275,7 @@ static bool vfs_register_file_with_metadata_impl(const char *path,
     const void *private_data,
     vfs_read_all_fn read_all,
     vfs_release_data_fn release_data,
-    const struct vfs_metadata *metadata) {
+    const struct vfs_metadata *metadata, bool boot_image) {
     if (path == NULL || read_all == NULL) {
         return false;
     }
@@ -289,7 +306,7 @@ static bool vfs_register_file_with_metadata_impl(const char *path,
                 .path = path,
                 .type = VFS_NODE_FILE,
                 .size = size,
-                .metadata = metadata != NULL ? import_metadata(metadata, NULL) : default_metadata(path, VFS_NODE_FILE),
+                .metadata = metadata != NULL ? import_metadata(metadata, NULL) : default_metadata(path, VFS_NODE_FILE, boot_image),
                 .private_data = private_data,
                 .read_all = read_all,
                 .release_data = release_data,
@@ -326,7 +343,7 @@ static bool boot_parents(const char *path) {
             if(boot_directory_count==VFS_BOOT_DIRECTORIES) return false;
             char *name=boot_directories[boot_directory_count];
             for(unsigned j=0;j<=i;j++) name[j]=prefix[j];
-            if(!vfs_register_directory(name)) return false;
+            if(!vfs_register_boot_directory(name)) return false;
             boot_directory_count++;
         }
         prefix[i]='/';
@@ -340,6 +357,7 @@ static void vfs_init_impl(void) {
     retire_callback = NULL;
     node_count = 0;
     next_inode = 1;
+    next_boot_inode = VFS_BOOT_INODE_BASE;
     boot_directory_count = 0;
     metadata_changed_callback = NULL;
     access_guard = NULL;
@@ -354,7 +372,7 @@ static void vfs_init_impl(void) {
     for (uint64_t i = 0; i < initramfs_file_count() && node_count < VFS_MAX_NODES; i++) {
         const struct initramfs_file *file = initramfs_file_at(i);
         if(!file || !boot_parents(file->path)) { skipped++;continue; }
-        struct vfs_metadata metadata=default_metadata(file->path,VFS_NODE_FILE);
+        struct vfs_metadata metadata=default_metadata(file->path,VFS_NODE_FILE,true);
         metadata.mode=VFS_MODE_IFREG|file->mode;
         if(!vfs_register_file_with_metadata(file->path,file->size,file,initramfs_read_all,NULL,&metadata)) skipped++;
     }
@@ -547,7 +565,7 @@ bool vfs_restore_metadata(const char *prefix,
             }
         }
         target->metadata = entries[i].metadata;
-        if (wanted >= next_inode) next_inode = wanted + 1;
+        observe_inode(wanted);
     }
     return true;
 }
@@ -654,14 +672,30 @@ bool vfs_reserve_nodes(uint64_t additional) {
 
 bool vfs_register_directory_with_metadata(const char *path, const struct vfs_metadata *metadata) {
     uint64_t flags=vfs_view_write_begin();
-    bool result=vfs_register_directory_with_metadata_impl(path,metadata);
+    bool result=vfs_register_directory_with_metadata_impl(path,metadata,false);
     vfs_view_write_end(flags);return result;
 }
 
 bool vfs_register_file_with_metadata(const char *path, uint64_t size, const void *private_data, vfs_read_all_fn read_all, vfs_release_data_fn release_data, const struct vfs_metadata *metadata) {
     uint64_t flags=vfs_view_write_begin();
-    bool result=vfs_register_file_with_metadata_impl(path,size,private_data,read_all,release_data,metadata);
+    bool result=vfs_register_file_with_metadata_impl(path,size,private_data,read_all,release_data,metadata,false);
     vfs_view_write_end(flags);return result;
+}
+
+bool vfs_register_boot_directory(const char *path) {
+    uint64_t flags = vfs_view_write_begin();
+    bool result = vfs_register_directory_with_metadata_impl(path, NULL, true);
+    vfs_view_write_end(flags);
+    return result;
+}
+
+bool vfs_register_boot_file(const char *path, uint64_t size, const void *private_data,
+    vfs_read_all_fn read_all, vfs_release_data_fn release_data) {
+    uint64_t flags = vfs_view_write_begin();
+    bool result = vfs_register_file_with_metadata_impl(path, size, private_data, read_all,
+        release_data, NULL, true);
+    vfs_view_write_end(flags);
+    return result;
 }
 
 void vfs_init(void) {

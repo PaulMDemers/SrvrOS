@@ -55,6 +55,10 @@ bool vfs_view_snapshot_ready(void);
 void vfs_init(void);
 bool vfs_register_file(const char *path, uint64_t size, const void *private_data, vfs_read_all_fn read_all);
 bool vfs_register_directory(const char *path);
+/* Generate a boot-local identity for data coming from an immutable image. */
+bool vfs_register_boot_directory(const char *path);
+bool vfs_register_boot_file(const char *path, uint64_t size, const void *private_data,
+    vfs_read_all_fn read_all, vfs_release_data_fn release_data);
 bool vfs_register_file_with_release(const char *path,
     uint64_t size,
     const void *private_data,

@@ -192,6 +192,7 @@ struct exfat_mount {
     bool used;
     bool ready;
     bool credential_mount;
+    bool boot_image;
     uint64_t block_claim;
     struct exfat_volume volume;
     struct exfat_file_slot *file_blocks[EXFAT_MAX_FILES/EXFAT_NODE_BLOCK];
@@ -858,11 +859,12 @@ static bool register_file(struct exfat_mount *mount,
         .no_fat_chain = (stream->flags & 0x02) != 0,
     };
 
-    if (!vfs_register_file_with_release(path_slot(mount, index),
-            file_slot(mount, index)->size,
-            file_slot(mount, index),
-            exfat_read_all,
-            exfat_release_data)) {
+    struct exfat_file *file = file_slot(mount, index);
+    const char *path = path_slot(mount, index);
+    bool registered = mount->boot_image
+        ? vfs_register_boot_file(path, file->size, file, exfat_read_all, exfat_release_data)
+        : vfs_register_file_with_release(path, file->size, file, exfat_read_all, exfat_release_data);
+    if (!registered) {
         path_slot(mount,index)[0]=0;
         return false;
     }
@@ -903,7 +905,10 @@ static bool register_directory(struct exfat_mount *mount,
     dir_slot(mount, index)->no_fat_chain = no_fat_chain;
     dir_slot(mount, index)->file_entry_offset = file_entry_offset;
     dir_slot(mount, index)->secondary_count = secondary_count;
-    if(!vfs_register_directory(dir_slot(mount,index)->path)) {
+    const char *registered_path = dir_slot(mount, index)->path;
+    bool registered = mount->boot_image ? vfs_register_boot_directory(registered_path)
+                                        : vfs_register_directory(registered_path);
+    if (!registered) {
         dir_slot(mount,index)->path[0]=0;return false;
     }
     if(index==mount->dir_count) mount->dir_count++;
@@ -4475,7 +4480,7 @@ static bool host_inspection_readonly;
 #endif
 
 static bool mount_block_device(const char *mountpoint, struct block_device *device,
-    uint64_t claim, enum exfat_admission admission) {
+    uint64_t claim, enum exfat_admission admission, bool boot_image) {
     bool clean = admission != EXFAT_ADMIT_LEGACY;
     uint64_t size = block_device_size(device);
     if (!valid_mountpoint(mountpoint) || device == NULL || size < sizeof(struct exfat_boot_sector)) {
@@ -4504,6 +4509,7 @@ static bool mount_block_device(const char *mountpoint, struct block_device *devi
     mount->volume = volume;
     mount->volume.device = device;
     mount->block_claim = claim;
+    mount->boot_image = boot_image;
     remember_mountpoint(mount, mountpoint);
 
     if (!scan_root_directory(mount)) {
@@ -4554,22 +4560,27 @@ bool exfat_mount_image(const char *mountpoint,const uint8_t *image,uint64_t size
     bool ok=mount_image_impl(mountpoint,image,size);fs_leave(&scope);return ok;
 }
 static bool mount_claimed_device(const char *mountpoint, struct block_device *device,
-    enum exfat_admission admission) {
+    enum exfat_admission admission, bool boot_image) {
     struct fs_scope scope;if(!fs_enter(&scope))return false;
     uint64_t claim=block_claim_mount(device);
-    bool ok=claim && mount_block_device(mountpoint,device,claim,admission);
+    bool ok=claim && mount_block_device(mountpoint,device,claim,admission,boot_image);
     if(claim && !ok)(void)block_claim_release(claim);
     fs_leave(&scope);return ok;
 }
 bool exfat_mount_block_device(const char *mountpoint, struct block_device *device) {
-    return mount_claimed_device(mountpoint, device, EXFAT_ADMIT_LEGACY);
+    return mount_claimed_device(mountpoint, device, EXFAT_ADMIT_LEGACY, false);
+}
+
+bool exfat_mount_boot_image(const char *mountpoint, struct block_device *device) {
+    return device && !device->write &&
+        mount_claimed_device(mountpoint, device, EXFAT_ADMIT_LEGACY, true);
 }
 bool exfat_mount_block_device_clean(const char *mountpoint, struct block_device *device) {
-    return mount_claimed_device(mountpoint, device, EXFAT_ADMIT_CLEAN);
+    return mount_claimed_device(mountpoint, device, EXFAT_ADMIT_CLEAN, false);
 }
 
 bool exfat_mount_block_device_auth(const char *mountpoint, struct block_device *device) {
-    return mount_claimed_device(mountpoint, device, EXFAT_ADMIT_AUTH);
+    return mount_claimed_device(mountpoint, device, EXFAT_ADMIT_AUTH, false);
 }
 
 #ifdef SRVROS_EXFAT_HOST_TEST

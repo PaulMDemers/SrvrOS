@@ -1,9 +1,14 @@
 /* Production exFAT/VFS on disposable RAM media,not native acceptance. */
+#include <srvros/initramfs.h>
 #define main import_fixture_main
 #include "test_exfat_import.c"
 #undef main
-uint64_t initramfs_file_count(void){return 0;}
-const struct initramfs_file *initramfs_file_at(uint64_t i){(void)i;return NULL;}
+static bool with_boot_archive;
+static const struct initramfs_file boot_file = {
+    .path = "/boot-dir/tool", .mode = 0755, .data = (const uint8_t *)"boot", .size = 4,
+};
+uint64_t initramfs_file_count(void){return with_boot_archive ? 1 : 0;}
+const struct initramfs_file *initramfs_file_at(uint64_t i){return with_boot_archive && !i ? &boot_file : NULL;}
 static char outside_names[1200][32];
 static void outside_nodes(unsigned count){
  vfs_init();assert(count>=1 && count<=1200);
@@ -80,7 +85,70 @@ static void snapshot_regression(void) {
  snapshot_no_io(&snapshot,0,0);assert(snapshot.count==1 && snapshot_entry(&snapshot,"/"));
  vfs_namespace_system_reset();
 }
+
+static void boot_image_identity_regression(void) {
+    outside_nodes(1);
+    fixture(1100, true);
+    uint8_t *boot_image = malloc(BYTES);
+    uint8_t *usb_before = malloc(BYTES);
+    assert(boot_image && usb_before);
+    memcpy(boot_image, disk, BYTES);
+    struct block_device boot = device;
+    boot.name = "embedded-exfat";
+    boot.write = NULL;
+    boot.flush = NULL;
+    system_backend = &boot;
+    system_bytes = boot_image;
+
+    assert(exfat_mount_block_device("/work", &device));
+    const struct vfs_metadata home_root = vfs_lookup("/work")->metadata;
+    const struct vfs_metadata home_file = vfs_lookup("/work/source")->metadata;
+    assert(exfat_sync_mount_metadata(&mounts[0]) && exfat_unmount("/work"));
+    memcpy(usb_before, disk, BYTES);
+    unsigned prior_writes = writes, prior_flushes = flushes;
+
+    with_boot_archive = true;
+    vfs_init();
+    assert(exfat_mount_block_device("/fat", &boot));
+    assert(vfs_lookup("/fat")->metadata.inode == home_root.inode);
+    assert(vfs_lookup("/fat/source")->metadata.inode == home_file.inode);
+    assert(exfat_mount_block_device("/work", &device) && !exfat_is_writable("/work"));
+    assert(exfat_unmount("/work") && exfat_unmount("/fat"));
+
+    vfs_init();
+    assert(exfat_mount_boot_image("/fat", &boot));
+    const char *boot_paths[] = {"/fat", "/fat/source", "/boot-dir", "/boot-dir/tool"};
+    uint64_t boot_ids[4];
+    for (unsigned i = 0; i < 4; i++) {
+        const struct vfs_node *node = vfs_lookup(boot_paths[i]);
+        assert(node && (node->metadata.inode >> 63));
+        boot_ids[i] = node->metadata.inode;
+        for (unsigned j = 0; j < i; j++) assert(boot_ids[j] != boot_ids[i]);
+    }
+    assert(exfat_mount_block_device("/work", &device) && exfat_is_writable("/work"));
+    const struct vfs_node *root = vfs_lookup("/work");
+    const struct vfs_node *file = vfs_lookup("/work/source");
+    assert(root && !memcmp(&root->metadata, &home_root, sizeof home_root));
+    assert(file && !memcmp(&file->metadata, &home_file, sizeof home_file));
+    struct vfs_metadata_restore collision = {file, home_file};
+    collision.metadata.inode = boot_ids[1];
+    assert(!vfs_restore_metadata("/work", &collision, 1));
+    assert(!memcmp(&file->metadata, &home_file, sizeof home_file));
+    for (unsigned i = 0; i < 4; i++)
+        assert(vfs_lookup(boot_paths[i])->metadata.inode == boot_ids[i]);
+
+    assert(exfat_unmount("/work") && exfat_unmount("/fat"));
+    assert(writes == prior_writes && flushes == prior_flushes && !memcmp(disk, usb_before, BYTES));
+    with_boot_archive = false;
+    system_backend = NULL;
+    system_bytes = NULL;
+    free(usb_before);
+    free(boot_image);
+    puts("exfat-boot-inodes: PASS legacy collision, dual-mount exact restore, live collision refusal, USB bytes unchanged");
+}
+
 int main(void){
+ boot_image_identity_regression();
  snapshot_regression();
  auth_metadata_refusal(NULL);
  auth_metadata_refusal("SRVROSMETA1\n/vol\t60000\t16877\t2\t0\t0\t1\t2\t3\n");

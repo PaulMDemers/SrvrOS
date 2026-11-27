@@ -194,6 +194,14 @@ desktop fixtures use valid distinct persisted IDs;duplicate or wrong-mount
 sidecars are explicit refusal fixtures. Source/host tests alone do not establish
 native metadata preservation;compare a sealed raw baseline after physical runs.
 
+Generated identities for initramfs entries and the read-only embedded `/fat`
+boot image come from the upper half of the 64-bit inode space. Ordinary new
+nodes allocate in the lower half. A saved sidecar can still contain any
+nonzero 64-bit inode number. Restoration keeps its exact number and checks for
+collisions with every live node. Installed `/fat` and `/work` use ordinary
+allocation. The dual-mount host fixture checks exact USB metadata restoration,
+byte preservation and refusal of a saved ID already owned by a boot node.
+
 
 Host inspection must use the same virtual mountpoint as persisted path-keyed
 metadata. `check_exfat_allocation.py --mountpoint /work` selects this explicitly
