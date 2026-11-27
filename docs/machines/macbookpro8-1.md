@@ -881,6 +881,15 @@ Additional boot inode numbers overlapped saved metadata. Writable admission
 refused even though exFAT allocation passed with zero I/O writes or flushes.
 The shared fix in PR #554 assigns generated boot IDs to a separate range.
 
+The merge at `3849ae3b` brings in the upstream boot-inode fix. The read-only
+replay found eight collisions with the original code and zero after the
+merge. Writable admission passed with the workspace metadata unchanged.
+Release `0a4b6e655574e009` passed the host regressions, the exact desktop VM
+rehearsal, and writable admission for the current 118-file USB workspace
+using its exact staged initramfs. The previous run's Ubuntu return note is
+on the flash drive. The native retry will check the release-bound desktop
+report after the pointer and click checklist.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
