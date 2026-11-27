@@ -153,6 +153,23 @@ The exact image and both forms of evidence are archived under
 This accepts cold identity. Firmware startup and RF operation remain
 untested on SrvrOS for this adapter.
 
+#### Netgear A6150 RTL8822BU firmware startup
+
+Start from the accepted Netgear identity on `fa530f5a`. Inspected
+`origin/main` at `dc4a48d3` and the open display and EHCI work. This stage
+owns the Netgear EP0 register protocol, its firmware-only bulk OUT endpoint,
+digital power, download checksums, MCU readiness, and orderly retirement.
+Keep all three adapters on the Genesys hub and the workspace on its own
+root port. Save the result to the workspace and independent EFI journal.
+
+The installed Ubuntu `rtw88` driver completed a fresh Netgear probe using
+firmware 30.20.0. A target-only USB trace showed the firmware download
+through bulk OUT endpoint 5, followed by internal DMA to DMEM and IMEM.
+The first run uses the verified Ubuntu firmware image and keeps baseband
+and RF disabled through startup and retirement. Linux references are the
+[USB transfer path](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/usb.c)
+and [MAC and firmware loader](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/mac.c).
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
