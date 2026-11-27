@@ -1608,6 +1608,26 @@ The run record and Linux timing trace are under
 `build/bringup/pro112-rtl8188cu-early-rx`. Radio reception still needs
 the cold hardware result.
 
+Cold session `session-000661395a44196f-00` verified CR moved from
+`0x00` to `0x9a` before RF and baseband setup and still read `0x9a`
+when the fixed 4 KiB request was armed. The write readback preceded
+the first USB RX submission by 360,248 µs. All three adapters were
+present and Realtek firmware was ready. Baseband parity failures
+rose from 29 to 2,896 during the receive window. All 14 receive
+report counters and the RX FIFO pointer stayed at zero. The request
+timed out with no bytes or Demers2.4 beacons. Stop Endpoint reported
+4,096 bytes remaining and the radio was parked. Advancing the
+receive-only write within the passive stage did not restore reception.
+Linux enables MAC RX before LLT and firmware, and that earlier
+ordering remains untested in SrvrOS.
+
+The workspace snapshot and independent EFI journal agreed on the
+timing and receive data. The seven checkpoints included save,
+unmount and normal return to Ubuntu. The collector verified a clean
+workspace, all 624 prior files and the installed recovery. Evidence
+and the verified payload are archived locally under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-cb30e13ebd413f9e`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
