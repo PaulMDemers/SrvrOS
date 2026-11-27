@@ -1754,6 +1754,15 @@ workspace files and the installed recovery. Evidence and the
 verified payload are archived locally under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-e94ac7fc57df8ce9`.
 
+The combined CR trial starts at `c73a5299` (integration base
+`50f1978a`, upstream inspected at `61111819`). Set scheduler bit 5
+and ENSEC bit 9 together on the `0x009a` baseline. Hold `0x02ba`
+with `TXPAUSE=0xff`, MAC TX and TX DMA clear, and the same fixed
+4 KiB request and three hub ports. Reuse the byte writes from the
+single-bit trials and verify both bits through receive and teardown.
+Compare with the control and both single-bit cold sessions. Qualify
+the native path and both logging paths before arming.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
