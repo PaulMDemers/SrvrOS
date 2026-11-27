@@ -2227,6 +2227,26 @@ external hub power for ten seconds while keeping the three adapters
 in their ports and the workspace connected to the laptop. Verify
 return to Ubuntu and retire the private image after collecting.
 
+Cold session `session-00066144c3491576-00` found all three adapters
+on the hub, 35 Demers2.4 beacons and 947 completed 4 KiB receives.
+Both snapshots matched Linux's TX page counts, priority map,
+management boundary and SIE mapping. Endpoint `0x02` reported
+GET_STATUS zero; xHCI showed Running, bulk OUT, 512-byte max packet
+and dequeue `0x6c3001`. The first 62-byte Auth still had no
+completion after 250,509 µs. Stop Endpoint reported code 26 for
+TRB `0x6c3000` with all 62 bytes remaining and the same dequeue.
+Association and WPA2 remain open. Linux enables both TX DMA bits
+before LLT and firmware. This trial kept them clear until after
+discovery, leaving that timing difference as a separate comparison.
+
+The workspace exit log and independent EFI journal agreed, with
+all seven checkpoints and all 650 prior files verified. Both
+endpoints stopped, keys were erased, the radio parked and Ubuntu
+returned. The receipt archive is
+`/var/local/srvros-recovery/macbookpro11-2/evidence-a8950ab3cf3d03a5`.
+The credential-bearing release was removed and the accepted
+passive boot entry and original EFI mount options restored.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
