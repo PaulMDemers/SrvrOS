@@ -1816,6 +1816,22 @@ journal tails. The run record under
 control session and Linux timing reference. Reception still needs
 the cold result.
 
+Cold session `session-0006613a65893a3d-00` verified `0x015`
+changed from `0xa9` to `0xe9` after calibration and still read
+`0xe9` at armed receive. CR held at `0x02ba`, the MCU reached ready,
+and all three hub adapters were present. PHY parity failures rose
+from 34 to 4,218. All 14 receive report counters and the FIFO
+pointer stayed at zero. The fixed 4 KiB request timed out with no
+bytes or Demers2.4 beacons, matching the `0xa9` control outcome.
+
+Stop Endpoint reported all 4,096 bytes remaining. The radio
+parked with CR `0x0000` and `TXPAUSE=0xff`. Both log paths saved
+automatically, and the EFI journal recorded all seven checkpoints,
+including the clean unmount and normal Ubuntu return. The collector
+verified all 634 prior workspace files and the installed recovery.
+Evidence, comparison and the verified payload are archived under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-8a47a308e7ec0538`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
