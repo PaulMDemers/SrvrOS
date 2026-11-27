@@ -51,8 +51,8 @@ def run(args):
     refusal_reason = 8 if args.mode == 'dirty-state' else 6
     source = boot.STAGE / args.release
     manifest = boot.verify(source)
-    assert manifest['config_version'].startswith(('ram-usb-rtl8188cu-v1-','ram-usb-rtl8188cu-v2-','ram-usb-rtl8188cu-v3-','ram-usb-wifi-fw-v141-','ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-','ram-usb-wifi-fw-v148-','ram-usb-wifi-fw-v149-','ram-usb-wifi-fw-v144-','ram-usb-wifi-fw-v145-','ram-usb-wifi-fw-v146-','ram-usb-wifi-fw-v151-','ram-usb-wifi-fw-v152-','ram-usb-wifi-fw-v153-','ram-usb-wifi-fw-v154-','ram-usb-wifi-fw-v155-'))
-    rtl8188cu = manifest['config_version'].startswith(("ram-usb-rtl8188cu-v1-","ram-usb-rtl8188cu-v2-","ram-usb-rtl8188cu-v3-"))
+    assert manifest['config_version'].startswith(('ram-usb-rtl8188cu-v1-','ram-usb-rtl8188cu-v2-','ram-usb-rtl8188cu-v3-','ram-usb-rtl8188cu-v4-','ram-usb-wifi-fw-v141-','ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-','ram-usb-wifi-fw-v148-','ram-usb-wifi-fw-v149-','ram-usb-wifi-fw-v144-','ram-usb-wifi-fw-v145-','ram-usb-wifi-fw-v146-','ram-usb-wifi-fw-v151-','ram-usb-wifi-fw-v152-','ram-usb-wifi-fw-v153-','ram-usb-wifi-fw-v154-','ram-usb-wifi-fw-v155-'))
+    rtl8188cu = manifest['config_version'].startswith(("ram-usb-rtl8188cu-v1-","ram-usb-rtl8188cu-v2-","ram-usb-rtl8188cu-v3-","ram-usb-rtl8188cu-v4-"))
     desktop_owner = manifest['config_version'].startswith(('ram-usb-wifi-fw-v151-','ram-usb-wifi-fw-v152-','ram-usb-wifi-fw-v153-','ram-usb-wifi-fw-v154-','ram-usb-wifi-fw-v155-'))
     early_compare = manifest['config_version'].startswith(('ram-usb-wifi-fw-v144-','ram-usb-wifi-fw-v145-','ram-usb-wifi-fw-v146-'))
     http_reconnect = manifest['config_version'].startswith(('ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-','ram-usb-wifi-fw-v148-','ram-usb-wifi-fw-v149-'))
@@ -174,10 +174,13 @@ def run(args):
         if rtl8188cu:
             receipt = 'rtl8188cu-probe: result=absent register_writes=0 firmware=0 rf=0'
             assert text.count(receipt) == 1 and 'rtl8188cu-identity:' not in text
-            if manifest["config_version"].startswith(("ram-usb-rtl8188cu-v2-","ram-usb-rtl8188cu-v3-")):
+            if manifest["config_version"].startswith(("ram-usb-rtl8188cu-v2-","ram-usb-rtl8188cu-v3-","ram-usb-rtl8188cu-v4-")):
                 assert "rtl8188cu-firmware: result=identity bytes=0" in text
                 assert "rtl8188cu-firmware-progress:" not in text
-            if manifest["config_version"].startswith("ram-usb-rtl8188cu-v3-"):
+            if manifest["config_version"].startswith("ram-usb-rtl8188cu-v4-"):
+                assert "rtl8188cu-wpa2: phase=admission" in text
+                assert "auth_tx=0 auth=0 assoc_tx=0 assoc=0" in text
+            if manifest["config_version"].startswith(("ram-usb-rtl8188cu-v3-","ram-usb-rtl8188cu-v4-")):
                 assert "rtl8188cu-passive: result=admission writes=0" in text
                 assert "rtl8188cu-passive-progress:" not in text
             if not refusal:

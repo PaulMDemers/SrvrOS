@@ -3628,6 +3628,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     if (dispatch_strict_control(event)) return;
     struct xhci_device *device = device_by_slot(slot);
     if(rtl8188cu_passive_event(device,dci,pointer,completion,remaining,(event->control&4)!=0))return;
+    if(rtl_cu_station_event(device,dci,pointer,completion,remaining,(event->control&4)!=0))return;
     if(wifi_stream5_event(device,event)) return;
     if(wifi_nop5_event(device,event)) return;
     if(wifi_wpa5_event(device,event)) return;

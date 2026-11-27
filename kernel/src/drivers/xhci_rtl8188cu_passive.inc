@@ -1,7 +1,12 @@
 /* Observed single-chain RTL8188CUS setup and a fixed US channel 10 test. */
+#include <srvros/rtl8188cu_station.h>
+#include <srvros/wpa2_ccmp.h>
+#include <srvros/wpa2_nonce.h>
+
 #define RTL_CU_PROFILE_WRITES 495u
 #define RTL_CU_PROFILE_BYTES (RTL_CU_PROFILE_WRITES*6u)
 #define RTL_CU_RX_DCI 3u
+#define RTL_CU_TX_DCI 4u /* Captured management and VO bulk OUT 0x02. */
 #define RTL_CU_RX_BYTES 4096u
 #define RTL_CU_RX_WINDOW_US 4000000u
 /* Enable the scheduler and security block during passive RX with TX closed. */
@@ -207,6 +212,20 @@ static struct {
     bool event_data,rx_cr_valid,listen_written;
     bool configured,pending,trb_cycle,stopping,failed;
 } rtl_passive;
+
+/* One opt-in owner. Ring and DMA pages stay pinned even on failed teardown. */
+static struct {
+    struct rtl_cu_station_peer peer;
+    struct wpa2_handshake handshake;
+    struct wpa2_ccmp keys;
+    struct xhci_bulk_endpoint ep;
+    uint8_t *buffer;
+    uint64_t physical,trb;
+    unsigned sends,completed,reply_status,aid,last_rx;
+    unsigned auth_sent,auth_ok,assoc_sent,assoc_ok,m1,m2,m3,m4,leave;
+    const char *phase;
+    bool requested,ready,enabled,pending,failed,stopping,tx_stopped,keys_erased,qos;
+} rtl_station;
 
 static bool rtl_cu_verify_receive_setup(struct xhci_device *d) {
     /* Verify the frame filters and pinned baseband layout. */
@@ -822,6 +841,15 @@ static bool rtl_cu_radio_prepare(struct xhci_device *d,struct xhci_device *hub,
     return rtl8188cu_check_port(d,hub) && rtl_cu_tx_parked(d);
 }
 
+static void rtl_cu_bulk_context(struct xhci_device *d,const struct xhci_bulk_endpoint *ep,
+                                unsigned type,unsigned average) {
+    unsigned idx=ep->dci+1;
+    context_write32(d->input_context,idx,1,(3u<<1)|(type<<3)|(512u<<16));
+    context_write32(d->input_context,idx,2,(uint32_t)(ep->ring_phys|1));
+    context_write32(d->input_context,idx,3,ep->ring_phys>>32);
+    context_write32(d->input_context,idx,4,average);
+}
+
 static bool rtl_cu_rx_configure(struct xhci_device *d) {
     void *page;
     struct xhci_bulk_endpoint *ep=&rtl_passive.ep;
@@ -830,16 +858,24 @@ static bool rtl_cu_rx_configure(struct xhci_device *d) {
     write_link_trb(ep->ring,ep->ring_phys,true);
     if(!alloc_frame_zero(&rtl_passive.physical,&page))return false;
     rtl_passive.buffer=page;
+    unsigned last_dci=RTL_CU_RX_DCI,add=1u|(1u<<RTL_CU_RX_DCI);
+    if(rtl_station.requested) {
+        struct xhci_bulk_endpoint *tx=&rtl_station.ep;
+        if(!alloc_frame_zero(&tx->ring_phys,&page))return false;
+        tx->ring=page;tx->cycle=true;tx->packet=512;tx->dci=RTL_CU_TX_DCI;
+        write_link_trb(tx->ring,tx->ring_phys,true);
+        if(!alloc_frame_zero(&rtl_station.physical,&page))return false;
+        rtl_station.buffer=page;
+        last_dci=RTL_CU_TX_DCI;
+        add|=1u<<RTL_CU_TX_DCI;
+    }
     zero_bytes(d->input_context,PMM_FRAME_SIZE);
-    context_write32(d->input_context,0,1,1u|(1u<<RTL_CU_RX_DCI));
+    context_write32(d->input_context,0,1,add);
     uint32_t slot=context_read32(d->output_context,0,0);
-    context_write32(d->input_context,1,0,(slot&~(31u<<27))|(RTL_CU_RX_DCI<<27));
+    context_write32(d->input_context,1,0,(slot&~(31u<<27))|(last_dci<<27));
     for(unsigned i=1;i<3;i++)context_write32(d->input_context,1,i,context_read32(d->output_context,0,i));
-    const unsigned idx=RTL_CU_RX_DCI+1;
-    context_write32(d->input_context,idx,1,(3u<<1)|(6u<<3)|(512u<<16));
-    context_write32(d->input_context,idx,2,(uint32_t)(ep->ring_phys|1));
-    context_write32(d->input_context,idx,3,ep->ring_phys>>32);
-    context_write32(d->input_context,idx,4,RTL_CU_RX_BYTES);
+    rtl_cu_bulk_context(d,ep,6,RTL_CU_RX_BYTES);
+    if(rtl_station.requested)rtl_cu_bulk_context(d,&rtl_station.ep,2,RTL_CU_STATION_TX_MAX);
     const struct xhci_trb cmd={.parameter_low=(uint32_t)d->input_context_phys,.parameter_high=d->input_context_phys>>32,
         .control=(XHCI_TRB_TYPE_CONFIGURE_ENDPOINT<<10)|((uint32_t)d->slot_id<<24)};
     uint64_t completed=UINT64_MAX;
@@ -909,8 +945,8 @@ static bool rtl_cu_rx_post(struct xhci_device *d) {
     return true;
 }
 
-static enum rtl_cu_rx_disposition rtl_cu_rx_classify(const uint8_t *data,size_t length) {
-    static const uint8_t wanted[]="Demers2.4";
+static enum rtl_cu_rx_disposition rtl_cu_rx_unwrap(const uint8_t *data,size_t length,
+                                                   const uint8_t **frame,size_t *size) {
     if(!length)return RTL_CU_RX_EMPTY;
     if(length<24)return RTL_CU_RX_SHORT_DESC;
     uint32_t word=rtl_cu_le32(data);
@@ -924,9 +960,22 @@ static enum rtl_cu_rx_disposition rtl_cu_rx_classify(const uint8_t *data,size_t 
     if(offset>length)return RTL_CU_RX_SHORT_PREFIX;
     if(mpdu<RTL_CU_FCS_BYTES)return RTL_CU_RX_SHORT_FCS;
     if(mpdu>length-offset)return RTL_CU_RX_SHORT_MPDU;
+    *frame=data+offset;
+    *size=mpdu-RTL_CU_FCS_BYTES;
+    return RTL_CU_RX_DISPOSITIONS;
+}
+
+static enum rtl_cu_rx_disposition rtl_cu_rx_classify(const uint8_t *data,size_t length) {
+    static const uint8_t wanted[]=RTL_CU_STATION_SSID;
+    const uint8_t *frame;
+    size_t size;
+    enum rtl_cu_rx_disposition layout=rtl_cu_rx_unwrap(data,length,&frame,&size);
+    if(layout!=RTL_CU_RX_DISPOSITIONS)return layout;
+    if(rtl_station.requested && !rtl_station.peer.rsne_size)
+        (void)rtl_cu_station_beacon(&rtl_station.peer,frame,size);
     struct mt76_rx_beacon beacon;
     /* The descriptor's MPDU length includes the four-byte FCS. */
-    switch(wifi_rx_beacon_frame(data+offset,mpdu-RTL_CU_FCS_BYTES,RTL_CU_CHANNEL,&beacon)) {
+    switch(wifi_rx_beacon_frame(frame,size,RTL_CU_CHANNEL,&beacon)) {
     case MT76_RX_CHANNEL_MISMATCH:return RTL_CU_RX_WRONG_CHANNEL;
     case MT76_RX_UNSUPPORTED:return RTL_CU_RX_UNSUPPORTED;
     case MT76_RX_OK:break;
@@ -1033,11 +1082,14 @@ static bool rtl_cu_rx_stop(struct xhci_device *d) {
     return true;
 }
 
+#include "xhci_rtl8188cu_wpa.inc"
+
 static void rtl_cu_park(struct xhci_device *d,struct xhci_device *hub) {
     if(rtl_passive.owner!=d || !hub || d->control_failed || d->ep0_quarantined ||
        d->control_pending || !rtl8188cu_check_port(d,hub))return;
     uint32_t rf;
-    bool rx_off=rtl8188cu_update(d,RTL8188CU_MAC_CONTROL,2,RTL_CU_LISTEN_CR,0);
+    uint32_t clear=rtl_station.requested?RTL_CU_STATION_CR:RTL_CU_LISTEN_CR;
+    bool rx_off=rtl8188cu_update(d,RTL8188CU_MAC_CONTROL,2,clear,0);
     bool rf_off=rtl8188cu_update(d,RTL8188CU_RF_CONTROL,1,RTL8188CU_RF_ENABLE,0);
     rtl_passive.parked_cr_valid=rtl8188cu_read(d,RTL8188CU_MAC_CONTROL,2,&rtl_passive.parked_cr) &&
         rtl8188cu_read(d,RTL_CU_TX_PAUSE,1,&rtl_passive.parked_pause);
@@ -1047,11 +1099,11 @@ static void rtl_cu_park(struct xhci_device *d,struct xhci_device *hub) {
         !(rf&RTL8188CU_RF_ENABLE);
 }
 
-static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready) {
+static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready,const uint8_t *pmk) {
     const char *result="admission";
     unsigned writes=0;
     uint32_t channel=0;
-    bool stopped=false,window=false;
+    bool stopped=false,window=false,authenticated=false;
     uint64_t flags=event_irq_save();
     struct xhci_device *d=rtl_passive.owner;
     if(d && !ready)result="startup";
@@ -1067,7 +1119,10 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready) {
                 result=phy_radio?"rx-endpoint":rx_setup?"phy-radio":"rx-setup";
                 if(phy_radio && rtl_cu_rx_configure(d)) {
                     window=rtl_cu_listen(d,hub);
+                    if(rtl_station.requested && window && rtl_passive.matches>=2)
+                        authenticated=rtl_cu_station_exchange(d,hub,pmk);
                     rtl_cu_rx_snapshot(d,RTL_CU_BEFORE_STOP,window);
+                    if(rtl_station.requested)authenticated=rtl_cu_station_stop(d,hub) && authenticated;
                     stopped=rtl_cu_rx_stop(d);
                     window=window && !rtl_passive.failed && !d->control_failed && !d->ep0_quarantined;
                     rtl_cu_rx_snapshot(d,RTL_CU_AFTER_STOP,false);
@@ -1125,12 +1180,36 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready) {
         result,(uint64_t)writes,(uint64_t)channel,(uint64_t)rtl_passive.posted,(uint64_t)rtl_passive.completed,
         (uint64_t)rtl_passive.beacons,(uint64_t)rtl_passive.matches,(uint64_t)rtl_passive.rejected,
         (uint64_t)stopped,(uint64_t)rtl_passive.parked);
-    return window && stopped && rtl_passive.parked && rtl_passive.matches>=2;
+    bool complete=window && stopped && rtl_passive.parked && rtl_passive.matches>=2;
+    if(rtl_station.requested) {
+        complete=complete && authenticated && !rtl_station.failed && !rtl_station.pending;
+        rtl_cu_station_log(complete);
+        rtl_cu_erase(&rtl_station.peer,sizeof rtl_station.peer);
+    }
+    return complete;
 }
 
 bool xhci_rtl8188cu_capture_passive(const uint8_t *image,uint64_t image_size,
                                     const uint8_t *profile,uint64_t profile_size) {
-    if(rtl_passive.owner)return false;
+    if(rtl_passive.owner || rtl_station.requested)return false;
     bool ready=rtl_cu_profile_valid(profile,profile_size) && rtl8188cu_capture_firmware(image,image_size,true);
-    return rtl_cu_capture_passive_window(profile,ready);
+    return rtl_cu_capture_passive_window(profile,ready,NULL);
+}
+
+bool xhci_rtl8188cu_capture_wpa2(const uint8_t *image,uint64_t image_size,
+                                const uint8_t *profile,uint64_t profile_size,
+                                const uint8_t *credential,uint64_t credential_size) {
+    static const uint8_t magic[]={'S','R','C','U','W','P','A',1};
+    if(rtl_passive.owner || rtl_station.requested)return false;
+    rtl_station.requested=true;
+    if(!credential || credential_size!=52 || !bytes_equal(credential,magic,sizeof magic)) {
+        rtl_station.phase="credential";
+        rtl_cu_station_log(false);
+        return false;
+    }
+    copy_bytes(rtl_station.peer.station,credential+8,6);
+    copy_bytes(rtl_station.peer.bssid,credential+14,6);
+    bool ready=rtl_cu_station_identity(&rtl_station.peer) && rtl_cu_profile_valid(profile,profile_size) &&
+        rtl8188cu_capture_firmware(image,image_size,true);
+    return rtl_cu_capture_passive_window(profile,ready,credential+20);
 }

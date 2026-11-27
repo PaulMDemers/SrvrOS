@@ -964,13 +964,15 @@ void kmain(void) {
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
+    const char *realtek_wpa_token="srvros.capture=wifi-rtl8188cu-wpa2";
     const char *realtek_passive_token="srvros.capture=wifi-rtl8188cu-passive";
     const char *realtek_firmware_token="srvros.capture=wifi-rtl8188cu-firmware";
     const char *realtek_identity_token="srvros.capture=wifi-rtl8188cu";
-    bool rtl8188cu_passive=cmdline_has_token(cmdline,realtek_passive_token);
+    bool rtl8188cu_wpa2=cmdline_has_token(cmdline,realtek_wpa_token);
+    bool rtl8188cu_passive=rtl8188cu_wpa2 || cmdline_has_token(cmdline,realtek_passive_token);
     bool rtl8188cu_firmware=rtl8188cu_passive || cmdline_has_token(cmdline,realtek_firmware_token);
     bool rtl8188cu_capture=rtl8188cu_firmware || cmdline_has_token(cmdline,realtek_identity_token);
-    if(rtl8188cu_capture && !rtl8188cu_recipe(cmdline,rtl8188cu_passive?realtek_passive_token:
+    if(rtl8188cu_capture && !rtl8188cu_recipe(cmdline,rtl8188cu_wpa2?realtek_wpa_token:rtl8188cu_passive?realtek_passive_token:
         rtl8188cu_firmware?realtek_firmware_token:realtek_identity_token))halt_forever();
     if(startup_journal_requested && (!(rtl8188cu_capture || wifi_reconnect5_recipe(cmdline) || wifi_early5_recipe(cmdline) ||
                                        wifi_connection5_recipe(cmdline,true)) ||
@@ -1157,8 +1159,15 @@ void kmain(void) {
         const struct initramfs_file *image=initramfs_find("/firmware/rtl8192cufw_TMSC.bin");
         if(rtl8188cu_passive) {
             const struct initramfs_file *profile=initramfs_find("/rtl8188cu-passive.bin");
-            rtl8188cu_sampled=xhci_rtl8188cu_capture_passive(image?image->data:NULL,image?image->size:0,
-                profile?profile->data:NULL,profile?profile->size:0);
+            if(rtl8188cu_wpa2) {
+                const struct initramfs_file *credential=initramfs_find("/cfg/rtl8188cu-wpa2.bin");
+                rtl8188cu_sampled=xhci_rtl8188cu_capture_wpa2(image?image->data:NULL,image?image->size:0,
+                    profile?profile->data:NULL,profile?profile->size:0,
+                    credential?credential->data:NULL,credential?credential->size:0);
+            } else {
+                rtl8188cu_sampled=xhci_rtl8188cu_capture_passive(image?image->data:NULL,image?image->size:0,
+                    profile?profile->data:NULL,profile?profile->size:0);
+            }
         } else {
             rtl8188cu_sampled=xhci_rtl8188cu_capture_firmware(image?image->data:NULL,image?image->size:0);
         }
