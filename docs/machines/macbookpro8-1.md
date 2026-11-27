@@ -555,13 +555,29 @@ offline allocation check passed for all 103 files. The saved report ends
 before the guest log controller's final teardown and reset messages.
 The run record, report and exact payload are archived outside `build/`.
 
+On the same topcase and controller, Ubuntu `7.3.0-11-generic` completed 988
+gesture transfers on endpoint `0x81`. All began with `0x74`, with 718 reports
+of 58 bytes and 270 of 86 bytes. SrvrOS's Type 2 decoder accepted all 988 in a
+host replay, with one-finger motion, two active contacts and both click
+transitions. The native eight-byte sample was absent from the Ubuntu capture.
+The usbmon reader reported zero lost events.
+
+In five Ubuntu starts, the mode-1 feature write completed 33–1,765 µs before
+the first 478-byte interrupt submission, with a median of 156 µs. The saved
+SrvrOS release performs an extra feature readback, programs the frame list
+and renders the readiness prompt before enabling its periodic schedule.
+Its mode-to-arm interval was unmeasured. The next native check should isolate
+that sequence and log the arm timing and first endpoint payload. The Ubuntu
+comparison was saved beside the original report on the USB workspace and the
+offline check passed with 104 files. [Linux usbmon ABI](https://docs.kernel.org/usb/usbmon.html)
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Native multi-TT and batched polling completed 234 transfers with zero decoded type 2 frames | Compare endpoint payloads and initialization timing with Ubuntu, then qualify motion and clicks |
+| Trackpad | Native completed 234 transfers with zero Type 2 frames. SrvrOS's decoder accepted all 988 Ubuntu reports from the same hardware. | Test native mode-to-arm sequencing and capture the first endpoint payload |
 | USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
