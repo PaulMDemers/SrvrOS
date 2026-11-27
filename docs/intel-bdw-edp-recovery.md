@@ -538,21 +538,27 @@ the original requester held. While GT MMIO is accessible, it reads the
 power manager's memory request (`GO_GAM_REQ`) and the arbiter response
 (`MSG_GO_GAM`). Both must initially allow all six documented clients.
 The five engine words must show Go and a clear flush acknowledgement.
-Both L3 acknowledgement bits must be clear. A registered provider then
-issues one block request. The core requires the request and response masks
+The core verifies both powered slices and the power-manager flush policy
+in all eight banks before issuing a request. Both L3 acknowledgement bits
+must be clear. A registered provider then issues one block request. The
+core requires the request and response masks
 to reach zero, all five engines to acknowledge flush and block with Go
 clear and busy indicated, and a fresh L3 flush acknowledgement. It latches
 that L3 event under the exclusive request because GPM can clear it before
 the engines finish. An observed L3 unblock ends the attempt.
 
 With GAM idle, both video engines must report zero outstanding reference
-and prefetch reads. The core rechecks the engines, idle status, L3 unblock
-and both GAM words before closing decode. Acquisition, observation and
-decode closure share a 10 ms budget. A consumed descriptor cannot issue a
-second request after a partial failure. These are sufficient conditions for
+and prefetch reads. The core repeats all eight bank checks under the same
+hold, restores and reads back the original selector, then rechecks the
+engines, idle status, L3 unblock and both GAM words before closing decode.
+The report keeps the five-engine acknowledgement mask separate from the
+L3 acknowledgement and the two policy checks. An uncertain selector write
+or missing posted readback retains the owner. Acquisition, both sweeps and
+decode closure share the existing 10 ms budget. A consumed descriptor cannot
+issue a second request after a partial failure. These are sufficient conditions for
 this experimental protocol. The provider also owns the other traffic paths
 and must keep new activity excluded throughout.
-[Intel Broadwell PRM Volume 2c, pp. 587–592, 805–814, 859, 994, 1034](https://cdrdv2-public.intel.com/v1/dl/getcontent/690789)
+[Intel Broadwell PRM Volume 2c, pp. 587–592, 805–814, 859, 994, 1034 and 1390](https://cdrdv2-public.intel.com/v1/dl/getcontent/690789)
 
 At Command `0x0400`, the core executes the graphics remapper's global
 read/write drain. It checks AF status, interrupt controls, the subsystem and

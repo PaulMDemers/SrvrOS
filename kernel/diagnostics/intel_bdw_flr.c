@@ -18,6 +18,7 @@ struct attempt {
     const struct bdw_flr_pci_image *image;
     const struct bdw_flr_drain *drain;
     uint64_t issued, last, traffic_begin;
+    bool l3_select_uncertain;
 };
 
 static bool check(struct attempt *a)
@@ -84,11 +85,42 @@ static bool held_gt_word(void *ctx,uint32_t offset,uint32_t *word)
     return gt_word(ctx,offset,word);
 }
 
+static bool select_l3(void *context, uint32_t from, uint32_t to)
+{
+    struct attempt *a = context;
+    if (!check(a)) return false;
+    enum intel_gt_write status = a->io->select_l3(a->io->context,from,to);
+    if (status == GT_WRITE_NONE) return false;
+    ++a->report->l3_selector_writes;
+    uint32_t observed;
+    if (status != GT_WRITE_DONE || !gt_word(a,0xfdc,&observed) || observed != to) {
+        a->l3_select_uncertain = true;
+        return false;
+    }
+    return true;
+}
+
+static bool l3_policy(struct attempt *a, struct bdw_traffic_sample *sample)
+{
+    uint32_t original, current;
+    if (!gt_word(a,0xfdc,&original)) return false;
+    unsigned writes = a->report->l3_selector_writes;
+    bool covered = intel_bdw_traffic_l3_policy(sample,select_l3);
+    bool restored = !a->l3_select_uncertain && gt_word(a,0xfdc,&current) && current == original;
+    if (!restored && a->report->l3_selector_writes != writes) {
+        a->report->l3_selector_retained = true;
+        a->report->retained = true;
+    }
+    if (!covered || !restored) return false;
+    ++a->report->l3_policy_checks;
+    return true;
+}
+
 static bool block_traffic(struct attempt *a)
 {
     struct bdw_traffic_sample sample = {.ctx=a, .read=held_gt_word};
     a->traffic_begin = a->last;
-    if (!intel_bdw_traffic_open(&sample) || !check(a)) return false;
+    if (!l3_policy(a,&sample) || !intel_bdw_traffic_open(&sample) || !check(a)) return false;
     enum intel_gt_write issued = a->io->block(a->io->context, a->report);
     if (issued != GT_WRITE_NONE) {
         a->report->block_issued = true;
@@ -100,10 +132,12 @@ static bool block_traffic(struct attempt *a)
     for (unsigned i = 0; i < GT_ACCESS_POLL_CAP; ++i) {
         bool drained;
         ++a->report->traffic_polls;
-        if (!intel_bdw_traffic_poll(&sample,&drained)) return false;
+        bool sampled = intel_bdw_traffic_poll(&sample,&drained);
+        a->report->engine_acks = sample.engine_ack;
         a->report->l3_ack = sample.l3_ack;
+        if (!sampled) return false;
         if (drained) {
-            if (!profile(a, PCI_INTX_DISABLE | PCI_MEMORY | PCI_IO) ||
+            if (!profile(a, PCI_INTX_DISABLE | PCI_MEMORY | PCI_IO) || !l3_policy(a,&sample) ||
                 !intel_bdw_traffic_still_blocked(a,held_gt_word)) return false;
             if (a->last <= a->traffic_begin)
                 return false;
@@ -162,7 +196,8 @@ bool intel_bdw_flr(const struct bdw_flr_io *io, const struct bdw_flr_pci_image *
     *report = (struct bdw_flr_report){0};
     if (!io || !image || !drain->source || !drain->result || !drain->retire_alias ||
         !io->held || !io->admitted || !io->read || !io->write ||
-        !io->now || !io->delay || !io->gt_read || !io->block || !io->block_held || (image->bar[0] & 0xffffffu) != 4 ||
+        !io->now || !io->delay || !io->gt_read || !io->block || !io->block_held || !io->select_l3 ||
+        (image->bar[0] & 0xffffffu) != 4 ||
         (image->bar[2] & 0xfffffffu) != 12 || image->subsystem != 0x011b106bu ||
         !image->bar[0] || !image->bar[2] || image->bar[1] || image->bar[3] ||
         image->bar[0] == 4 || image->bar[2] == 12)

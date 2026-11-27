@@ -3,6 +3,7 @@
 #include <srvros/intel_bdw_edp_platform.h>
 #include <srvros/intel_bdw_edp_baseline.h>
 #include <srvros/intel_bdw_display_takeover.h>
+#include <srvros/intel_bdw_traffic.h>
 #include <srvros/intel_bdw_flr.h>
 #include <srvros/intel_bdw_pci_hold.h>
 
@@ -95,6 +96,9 @@ struct register_write {
     uint32_t offset, value;
 };
 
+enum l3_policy_fault { L3_POLICY_OK, L3_POLICY_NARROW, L3_POLICY_OFF, L3_SELECTOR_UNCERTAIN,
+                       L3_SELECTOR_UNPOSTED, L3_SELECTOR_DEADLINE };
+
 struct source_fixture {
     struct fixture panel;
     struct bdw_edp_source_image image;
@@ -118,6 +122,9 @@ struct source_fixture {
     struct intel_vtd_drain_source drain_source;
     unsigned drain_stores, drain_reads_after_store;
     unsigned block_calls, decode_closes, media_reads, l3_reads, gam_reads;
+    unsigned l3_selector, l3_banks[2], l3_fault_bank;
+    enum l3_policy_fault l3_fault;
+    bool l3_fault_held;
     bool lost_block_owner, reopened_at_config;
     const struct bdw_flr_report *block_owner;
     uint64_t block_epoch;
@@ -862,6 +869,8 @@ static bool flr_gt_read(void *context, uint32_t offset, uint32_t *word)
     assert(flr_held(s) && s->flr_config[1] == 0x100403 && !s->decode_closes);
     bool block = s->block_calls != 0;
     bool ready = block && s->l3_reads >= 3;
+    unsigned bank = (s->l3_selector >> 24) & 7u;
+    bool l3_fault = block == s->l3_fault_held && bank == s->l3_fault_bank;
     if (block && offset == 0x40d0) ++s->gam_reads;
     if (block && s->flr_fault == GT_READ_FAILED && offset == 0x8038) return false;
     /* Replay the observed pre/held response words from Air release
@@ -878,6 +887,13 @@ static bool flr_gt_read(void *context, uint32_t offset, uint32_t *word)
         }
     }
     switch (offset) {
+    case 0x9120: *word = 3u << 25; break;
+    case 0x138064: *word = l3_fault && s->l3_fault == L3_POLICY_OFF ? 1u : 3u; break;
+    case 0xfdc: *word = s->l3_selector; break;
+    case 0xb11c:
+        s->l3_banks[block] |= 1u << bank;
+        *word = l3_fault && s->l3_fault == L3_POLICY_NARROW ? 0x11u : 1u;
+        break;
     case 0x8108: *word = 0; break;
     case 0x8014:
         *word = !block || (s->flr_fault == GT_PROGRESSIVE_BLOCK && s->gam_reads == 1) ? 0x10 : 0;
@@ -935,6 +951,18 @@ static bool flr_gt_read(void *context, uint32_t offset, uint32_t *word)
     }
     if (block && s->flr_fault == GT_FLOAT) *word = UINT32_MAX;
     return true;
+}
+
+static enum intel_gt_write flr_select_l3(void *context, uint32_t expected, uint32_t target)
+{
+    struct source_fixture *s = context;
+    assert(flr_held(s) && s->flr_config[1] == 0x100403 && !s->decode_closes);
+    assert(expected == s->l3_selector && ((expected ^ target) & 0xf0ffffffu) == 0);
+    bool fault = (s->block_calls != 0) == s->l3_fault_held && ((target >> 24) & 7u) == s->l3_fault_bank;
+    if (fault && s->l3_fault == L3_SELECTOR_UNPOSTED) return GT_WRITE_DONE;
+    s->l3_selector = target;
+    if (fault && s->l3_fault == L3_SELECTOR_DEADLINE) s->panel.time += BDW_TRAFFIC_BLOCK_US;
+    return fault && s->l3_fault == L3_SELECTOR_UNCERTAIN ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
 }
 
 static bool flr_block_held(void *context, const struct bdw_flr_report *request)
@@ -1044,7 +1072,10 @@ static enum intel_gt_write flr_write(void *context, uint8_t offset, unsigned byt
 {
     struct source_fixture *s = context;
     if (offset == 4 && word == 0x400) {
-        assert(s->active_flr->traffic_blocked && s->block_calls == 1 && s->media_reads == 4);
+        assert(s->active_flr->traffic_blocked && s->active_flr->engine_acks == 31u &&
+               s->active_flr->l3_ack && s->block_calls == 1 && s->media_reads == 4);
+        assert(s->active_flr->l3_policy_checks == 2 && !s->active_flr->l3_selector_retained &&
+               s->l3_selector == 0x10000000 && s->l3_banks[0] == 0xff && s->l3_banks[1] == 0xff);
         assert(s->flr_config[1] == 0x100403 && bytes == 2 && !s->decode_closes);
         ++s->decode_closes;
         s->flr_config[1] = 0x100400;
@@ -1141,6 +1172,7 @@ static void setup_reset(struct source_fixture *s, const struct bdw_edp_source_im
 {
     assert(image->backing_hash == TEST_BACKING_HASH && s->dark);
     s->active_flr = report;
+    s->l3_selector = 0x10000000;
     const struct bdw_flr_pci_image pci = {{0xc0000004, 0, 0xb000000c, 0}, 0x011b106b};
     s->flr_config[0] = 0x16268086;
     s->flr_config[1] = 0x00100403;
@@ -1156,6 +1188,7 @@ static void setup_reset(struct source_fixture *s, const struct bdw_edp_source_im
         s->flr_config[4 + i] = pci.bar[i];
     const struct bdw_flr_io io = {
         s, flr_held, flr_admitted, flr_read, flr_write, source_now, source_delay, flr_gt_read, flr_gt_block, flr_block_held,
+        flr_select_l3,
     };
     /* The fixture registers the child to the same display epoch and requester
      * before handing off. The actual remapper core issues and polls its store. */
@@ -1395,6 +1428,13 @@ static int test_takeover(const char *mode)
     struct takeover_fixture f = {.display={.exercise_flr=true},.mode=mode};
     if (takeover_is(&f,"takeover-traffic-open")) f.display.flr_fault = GT_AIR_MEDIA_TRACE;
     if (takeover_is(&f,"takeover-bad-crc")) f.display.fault = SOURCE_SECOND_CRC_WRONG;
+    bool l3_before = takeover_is(&f,"takeover-l3-before"), l3_held = takeover_is(&f,"takeover-l3-held");
+    bool l3_selector = takeover_is(&f,"takeover-l3-selector");
+    if (l3_before || l3_held || l3_selector) {
+        f.display.l3_fault = l3_selector ? L3_SELECTOR_UNPOSTED : L3_POLICY_NARROW;
+        f.display.l3_fault_bank = 6;
+        f.display.l3_fault_held = l3_held;
+    }
     const struct bdw_edp_baseline_report reference = setup_cycle(&f.display);
     f.display.panel.aux_setup = 0x24030152u;
     const struct bdw_display_takeover_io io = {.display=source_io(&f.display),.prepare_reset=takeover_reset,
@@ -1407,13 +1447,17 @@ static int test_takeover(const char *mode)
     bool ok = intel_bdw_display_takeover(&takeover,&f.lease,&io,&f.display.image,&reference);
     assert(!intel_bdw_display_takeover(&takeover,&f.lease,&io,&f.display.image,&reference));
     bool stale = takeover_is(&f,"takeover-stale-rollback");
-    bool retained = stale || takeover_is(&f,"takeover-traffic-open") || takeover_is(&f,"takeover-bad-crc");
+    bool retained = stale || l3_held || l3_selector || takeover_is(&f,"takeover-traffic-open") ||
+                    takeover_is(&f,"takeover-bad-crc");
     assert(ok == takeover_is(&f,"takeover-roundtrip"));
     assert(takeover.state == (ok ? BDW_TAKEOVER_READY : retained ? BDW_TAKEOVER_RETAINED : BDW_TAKEOVER_REFUSED));
     assert(display_access_release(&f.lease,true) == !retained);
     assert(scanout_interval_held(&f.occupied,takeover_mmio,takeover_aperture,takeover_bytes,takeover_fence,f.occupied.pages));
     assert(takeover.reset.reset_issued == (!takeover_is(&f,"takeover-reset-declined") &&
-                                         !takeover_is(&f,"takeover-traffic-open")));
+                                         !takeover_is(&f,"takeover-traffic-open") && !l3_before && !l3_held && !l3_selector));
+    if (l3_held) assert(takeover.reset.engine_acks == 31u && takeover.reset.l3_ack &&
+                        takeover.reset.l3_policy_checks == 1 && !f.display.decode_closes);
+    if (l3_selector) assert(takeover.reset.l3_selector_retained && !takeover.reset.block_issued);
     if (ok || stale) {
         assert(takeover.seed.state == BDW_PAGE_SEEDED && f.grants == 1 && f.range.sealed && f.stores == 3 &&
                f.invalidates == 3 && f.apertures == 4 && f.pte == (takeover_scratch | 1));
@@ -1562,7 +1606,7 @@ static unsigned test_cycle(void)
             assert(f.drain_stores == (fault == GT_LOST_AT_RESET));
             assert(f.flr.retained == (fault > GT_STALE_ENGINE && fault != GT_BLOCK_REFUSED));
             if (fault == GT_AIR_MEDIA_TRACE)
-                assert(f.block_calls == 1 && !f.flr.traffic_blocked && !f.flr.l3_ack);
+                assert(f.block_calls == 1 && !f.flr.traffic_blocked && !f.flr.l3_ack && !f.flr.engine_acks);
             ++traffic_cases;
         }
     }
@@ -1582,6 +1626,31 @@ static unsigned test_cycle(void)
     assert(run_cycle(&f, &r) && f.flr.block_issued && f.flr.traffic_polls == 3);
     assert(f.flr.l3_ack && f.flr.traffic_blocked && f.flr.reset_issued && f.drain_stores == 1);
     return writes + 49 + traffic_cases;
+}
+
+static unsigned test_flr_l3_policy(void)
+{
+    struct bdw_edp_cycle_report r;
+    for (unsigned phase = 0; phase < 2; ++phase) {
+        for (unsigned bank = 0; bank < 8; ++bank) {
+            struct source_fixture f = {.exercise_flr=true,.l3_fault=L3_POLICY_NARROW,
+                .l3_fault_bank=bank,.l3_fault_held=phase != 0};
+            assert(!run_cycle(&f,&r) && !f.flr.reset_issued && !f.decode_closes);
+            assert(f.flr.block_issued == (phase != 0) && f.flr.l3_ack == (phase != 0) &&
+                   f.flr.l3_policy_checks == phase && !f.flr.l3_selector_retained &&
+                   f.l3_selector == 0x10000000);
+        }
+    }
+    for (enum l3_policy_fault fault = L3_POLICY_OFF; fault <= L3_SELECTOR_DEADLINE; ++fault) {
+        struct source_fixture f = {.exercise_flr=true,.l3_fault=fault,.l3_fault_bank=3};
+        assert(!run_cycle(&f,&r) && !f.flr.block_issued && !f.flr.reset_issued && !f.decode_closes);
+        assert(f.flr.l3_selector_retained == (fault != L3_POLICY_OFF));
+        if (fault == L3_POLICY_OFF || fault == L3_SELECTOR_UNPOSTED) {
+            /* Unposted steering can leave the original word readable. */
+            assert(f.l3_selector == (fault == L3_POLICY_OFF ? 0x10000000u : 0x12000000u));
+        }
+    }
+    return 20;
 }
 
 struct pci_hold_fixture {
@@ -1861,6 +1930,6 @@ int main(int argc, char **argv)
     printf("Broadwell eDP recovery: %zu cases (%u link injection points)\n",
            sizeof(clocks) / sizeof(clocks[0]) + good.events * 5 +
            sizeof(expected) / sizeof(expected[0]) + 2 + test_panel() + test_source() + test_cycle() +
-           test_pci_hold(), good.events);
+           test_flr_l3_policy() + test_pci_hold(), good.events);
     return 0;
 }

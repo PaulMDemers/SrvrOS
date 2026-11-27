@@ -6836,7 +6836,7 @@ test-core: test-intel-bdw-primary-flip
 # Fixed Broadwell eDP recovery and joined takeover with modeled MMIO.
 BDW_EDP_RECOVERY_SOURCES := kernel/diagnostics/intel_bdw_edp.c kernel/diagnostics/intel_bdw_edp_source.c kernel/diagnostics/intel_bdw_edp_baseline.c kernel/diagnostics/intel_bdw_edp_platform.c kernel/diagnostics/intel_bdw_flr.c kernel/diagnostics/intel_vtd_drain.c kernel/diagnostics/intel_bdw_pci_hold.c
 BDW_EDP_HOST_SOURCES := $(BDW_EDP_RECOVERY_SOURCES) kernel/diagnostics/intel_bdw_display_takeover.c kernel/diagnostics/intel_bdw_boot_scanout.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_space.c kernel/src/scanout_publish.c kernel/src/display_access.c
-BDW_EDP_TAKEOVER_CASES := takeover-roundtrip takeover-reset-declined takeover-traffic-open takeover-bad-crc takeover-no-grant takeover-overlap takeover-foreign-lease takeover-epoch-replay takeover-root-drift takeover-stale-epoch takeover-stale-rollback
+BDW_EDP_TAKEOVER_CASES := takeover-roundtrip takeover-reset-declined takeover-traffic-open takeover-bad-crc takeover-no-grant takeover-overlap takeover-foreign-lease takeover-epoch-replay takeover-root-drift takeover-stale-epoch takeover-stale-rollback takeover-l3-before takeover-l3-held takeover-l3-selector
 BDW_EDP_GUEST_OBJECTS := $(addprefix $(SCANOUT_GUEST_DIR)/,$(patsubst %.c,%.o,tools/test_intel_bdw_edp.c $(BDW_EDP_HOST_SOURCES)))
 build/tests/intel-bdw-edp$(HOST_EXE): tools/test_intel_bdw_edp.c $(BDW_EDP_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)

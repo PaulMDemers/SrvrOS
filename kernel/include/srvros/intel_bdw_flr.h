@@ -16,8 +16,9 @@ struct bdw_flr_report {
     enum bdw_flr_stage stage;
     unsigned stores, ready_polls;
     uint64_t elapsed_us;
-    unsigned traffic_polls;
-    bool block_issued, l3_ack, traffic_blocked, reset_issued, retained;
+    unsigned traffic_polls, l3_policy_checks, l3_selector_writes;
+    uint32_t engine_acks;
+    bool block_issued, l3_ack, traffic_blocked, reset_issued, l3_selector_retained, retained;
 };
 
 /* These are the original one-use objects registered to the held requester.
@@ -60,10 +61,14 @@ struct bdw_flr_io {
      * This CPU-only check remains usable with PCI decode closed. Use it
      * inside the remapper guard and immediately before protected stores too. */
     bool (*block_held)(void *, const struct bdw_flr_report *);
+    /* Under the same powered owner, compare and change only the MCR
+     * slice/bank selector at 0xfdc. The core verifies posted readback. */
+    enum intel_gt_write (*select_l3)(void *, uint32_t expected, uint32_t target);
 };
 
 /* Start with Command 0x403, MSI disabled and the display dark. Observe the
- * fresh GT flush/block transaction, then close IO/MEM for config-only reset.
+ * fresh GT flush/block transaction with full L3 policy before and after,
+ * then close IO/MEM for config-only reset.
  * Run a fresh graphics DRHD drain under the original hold before AFCTL.
  * Reopen the exact original memory BARs with bus mastering and interrupts
  * disabled. The caller still owns clocks, backing and display recovery.

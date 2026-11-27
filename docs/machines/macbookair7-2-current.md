@@ -540,6 +540,17 @@ PCI reset lifetime, including selector retirement and the existing hold
 deadline. It covers the reset core and the joined eDP host/Q35 fixtures.
 The Air6,1 Haswell scope in PR 567 is independent.
 
+The reset core now verifies all eight L3 banks before requesting the
+traffic hold and again before closing PCI decode. It records the fresh
+five-engine mask, L3 pulse, policy checks and selector retirement. The
+existing 10 ms deadline covers both sweeps. The host suite checks each
+bank in both phases and injects loss of slice power and uncertain,
+unposted or late selector writes. All 14 joined Q35 cases passed. The
+native Air receipt `ee4cf3b2ed98c61a` establishes the earlier bank steering
+and open-state policy only. The Air still needs a real maintained GPM
+request and post-reset address range before a takeover can run. No
+hardware test was armed. [Reset admission](../intel-bdw-edp-recovery.md#joined-pci-reset-and-panel-recovery-fixture)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
