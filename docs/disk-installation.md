@@ -110,6 +110,31 @@ attempt, write, and reboot-readback receipts, verifies both guard pages
 through the digest, and checks command counts and AHCI retirement for both
 boots.
 
+### File-backed QEMU AHCI durability
+
+The [QEMU durability harness](../tools/ahci_file_persistence_smoke.py) boots a
+generated EFI disk image as the only SATA disk in Q35. SrvrOS copies a known
+4 KiB file with `dd`, runs `sync`, and reboots. QMP counters and the ATA
+trace verify disk writes and a completed sync flush. The trace also records
+the reboot flush, and QMP identifies the shutdown as a guest reset. A fresh
+QEMU process with blank firmware variables boots the same image and reads
+the exact file. Both boots also pass guest and offline exFAT checks. The
+GPT, EFI partition, and all bytes outside the data partition are compared
+before and after.
+
+On Ubuntu, build the inputs and run with matching OVMF code and variable
+templates:
+
+```sh
+tools/host-env.sh make -j2 build/kernel/srvros.elf build/userspace/dd.elf build/userspace/posixutils.elf
+tools/host-env.sh python3 tools/ahci_file_persistence_smoke.py \
+  --ovmf /usr/share/OVMF/OVMF_CODE_4M.fd --ovmf-vars /usr/share/OVMF/OVMF_VARS_4M.fd
+```
+
+The harness reports its evidence directory under `build/review/ahci-file-persistence`.
+It accepts no target disk argument. Its result covers the emulated AHCI
+controller, regular host image, and clean reboot workflow.
+
 ## Install with console sign-in
 
 For a new identity-bound installation that should start at the local console
