@@ -239,6 +239,21 @@ reuse the guarded clock samples and leave the successful receipt format
 and all time and access bounds in place. If the sampler halts, photograph
 the complete screen and restart into Ubuntu.
 
+#### Native timing retry halted before unlink
+
+Source `cacc4ac7` and release `0c052b85b197232f` reached all 12 register
+reads in the first VT-d pass. The photographed fresh census reported
+42 tables and 21,504 entries in each raw pass, encoded in 3,072 bytes
+per pass. Its elapsed 81.422 ms took most of the 100 ms lifetime.
+
+Retirement began with 346 µs left in the pass. The clock expired during
+the verification before unlink, with one parent-link attempt, zero
+unlink attempts and zero freed frames. The sampler retained ownership
+until restart. The second pass and slot 4096 audit never started. The
+photo is the evidence for this partial run because the halt preceded
+USB logging. The Mac returned to Ubuntu, and the one-shot, recovery
+payload and offline USB check verified.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

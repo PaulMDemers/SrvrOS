@@ -94,6 +94,14 @@ census, frame preparation, verification, publication and cleanup using
 the existing clock samples. The access list, ownership checks and 100 ms
 limits stay in force. Broadwell PR301 at `26e3f621` remains separate.
 
+The [timing retry](../intel-hsw-tearfree.md#native-timing-retry-halted-before-unlink)
+on `cacc4ac7` / `0c052b85b197232f` completed the 42-table fresh census at
+3,072 bytes per raw pass and spent 81.422 ms in the census. The first
+VT-d pass completed 12 reads, then expired during retirement verification
+before unlink. The second pass and slot 4096 check remain pending.
+Ubuntu returned with the one-shot consumed. Recovery and the offline USB
+filesystem check verified. The halt photo is archived locally.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
