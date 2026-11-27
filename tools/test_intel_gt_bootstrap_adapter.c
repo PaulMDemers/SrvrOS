@@ -38,6 +38,7 @@ static void intel_display_test_bcs_stop_write(uint32_t);
 static void intel_display_test_slot_writer_sample(uint32_t *,uint32_t *);
 static bool intel_display_test_pipe_writer_trial(void);
 static uint32_t intel_display_test_pipe_writer_read(uint32_t);
+static bool intel_display_test_pipe_writer_blocks_map(uint64_t);
 static bool intel_display_test_context_wp(void);
 static bool intel_display_test_context_protect(unsigned,bool);
 static void intel_display_test_backing_access(void);
@@ -319,6 +320,9 @@ static const void *host_pipe_writer;
 static bool model_pipe_writable;
 static bool intel_display_test_pipe_writer_trial(void) {
  return !strncmp(bootstrap_mode,"pipe-writer",11);
+}
+static bool intel_display_test_pipe_writer_blocks_map(uint64_t physical) {
+ return host_pipe_writer && physical==result.mmio_base+PIPE_WRITER_PAGE;
 }
 bool vmm_reserved_guard_pin_writer(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,uint64_t alias,const void *owner) {
  assert(g==&slot_widi.guard && g->object==g && root==gt_bootstrap_native.root && host_widi_held && wake_irq);

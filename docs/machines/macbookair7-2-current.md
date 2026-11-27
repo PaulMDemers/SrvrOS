@@ -250,13 +250,24 @@ The run is closed as a diagnostic. A sustained traffic block, GPU
 ownership and tear-free scanout remain open. Shared baseline `93e10a44`
 was inspected for this run.
 
-The next PR 301 checkpoint qualifies a native CPU writer lease for the
-Pipe A register page. It extends the existing full-GT reset and PCI reopen
-diagnostic and keeps the original framebuffer programmed. The trial will
-bind the sole mapping to the live owner and verify it before and after
-reopening, then restore the mapping to read-only. Scope is the register
-mapping, its receipt, and the host and VM checks. It issues no display
-register store or GGTT write. Shared baseline `37de62ed` was inspected.
+PR 301 release `9850d46d65e6dad9` (source `9b6d31c8`, session
+`session-0006613c9cbc8051-00`) saved its full exit log and 2,030-byte park
+timing report to USB. Ubuntu verified the checkpoint, raw hashes and offline
+exFAT integrity. The original Pipe A surface was sampled before PCI reopen
+at frame 880, with a 6,144-byte stride and both surface registers at zero.
+Both GT resets completed and PCI command readback was `7,3,3,7`. The loan
+stopped at stage 3, after reopening and before the second engine queue
+sample completed. The final Pipe A sample and writer return were absent.
+There were zero display register stores and zero GPU page-table writes.
+The run is closed as incomplete. Shared baseline `37de62ed` was inspected.
+
+The second queue census revalidates the inherited scanout through a
+temporary Pipe A mapping. The VMM rejects that second alias while the writer
+pin is held. The host fixture reproduces the same stage-3 stop when it
+enforces the native VMM rule. The corrected sequence samples and returns
+the writer immediately after the PCI readback, then runs the unchanged
+queue and scanout checks under the remaining owners. The writer deadline
+and the VMM exclusivity rule are unchanged.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

@@ -737,6 +737,9 @@ bool vmm_diagnostic_contiguous_kernel_range_observe(uint64_t space,uint64_t va,u
  return ok;
 }
 bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) {
+#ifdef SRVROS_INTEL_GT_FLUSH
+    if(intel_display_test_pipe_writer_blocks_map(p))return false;
+#endif
     bool writable=wake_mode && v==BACKING_VA+0x10000;
 #ifdef SRVROS_INTEL_VTD_DRAIN
  if(v==VTD_NATIVE_VA && !intel_display_test_vtd_map())return false;

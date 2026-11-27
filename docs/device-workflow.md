@@ -154,7 +154,8 @@ the traffic-block and drain checks. The v9 USB report is bounded to 2,304 bytes.
 The Pipe A writer receipt in `exit.log` qualifies the CPU register mapping
 under the same guard as the five engine ports. The diagnostic makes the
 sole supervisor UC alias writable, pins it across PCI bus-master reopening,
-reads the inherited plane before and after, and restores read-only access.
+reads the inherited plane before and after, and restores read-only access
+before the second queue census temporarily maps Pipe A for scanout validation.
 The actual display register stores, firmware and device reader ownership,
 and a native second surface are separate prerequisites.
 

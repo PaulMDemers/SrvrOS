@@ -181,7 +181,6 @@ static bool bootstrap_command_reservation(const struct bdw_boot_binding *b) {
 static bool slot_widi_preflight(void);
 static bool slot_verify_reopened(void);
 static bool slot_submission_restore(void);
-static bool slot_pipe_writer_close(void);
 static struct {
  struct intel_alias_ram_catalog ram;
  struct vmm_reserved_guard guard;
@@ -319,7 +318,6 @@ static bool gt_slot_return(void) {
     !bootstrap_guard() || !bootstrap_tick())return false;
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(!slot_queue_boundary(1) || !command_slots_sample(2) || !slot_verify_reopened() || slot_backing.checks!=2 || !independent_backing(1,false) || !bootstrap_tick())return false;
- if(!slot_pipe_writer_close())return false;
  struct vmm_alias_inventory inventory;
  if(!command_slots_live() || !scanout_transfer_close(&command_slots.transfer,&command_slots.token))return false;
  command_slots.returned=true;

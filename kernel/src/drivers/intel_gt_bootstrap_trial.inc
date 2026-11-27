@@ -362,6 +362,7 @@ static bool bootstrap_command_reservation(const struct bdw_boot_binding *);
 static bool slot_queue_boundary(unsigned phase);
 static bool slot_pipe_writer_open(void);
 static bool slot_pipe_writer_reopen_bound(void);
+static bool slot_pipe_writer_close(void);
 #endif
 static bool bootstrap_command(unsigned value) {
  unsigned issued=gt_bootstrap_native.command_writes;
@@ -742,6 +743,10 @@ static void bootstrap_run(struct wake_adapter *a,struct intel_gt_access *g) {
  if(!bootstrap_command(7) || !bootstrap_pci(3))goto fail;
 #ifdef SRVROS_INTEL_GT_FLUSH
  independent_reopened=true;
+ /* The post-reopen queue census temporarily maps Pipe A to revalidate
+  * scanout. Return the exclusive writer after PCI readback and before the
+  * census, with the engine, WiDi and scanout owners still held. */
+ if(!slot_pipe_writer_close())goto fail;
  if(!gt_slot_return())goto fail;
 #endif
  gt_bootstrap_native.guard_begin=gt_bootstrap_native.last;
