@@ -266,11 +266,12 @@ static struct {
     uint16_t out_status;
     bool early_tx_dma,early_pause_valid,queue_attempted,queue_ready,out_status_valid;
     uint8_t *buffer;
-    uint64_t physical,trb;
-    unsigned sends,completed,reply_status,aid,last_rx;
+    uint64_t physical,trb,generation;
+    unsigned sends,completed,sequence,reply_status,aid,last_rx;
     unsigned auth_sent,auth_ok,assoc_sent,assoc_ok,m1,m2,m3,m4,leave;
     const char *phase;
     bool requested,ip_requested,ready,enabled,pending,failed,stopping,tx_stopped,keys_erased,qos;
+    bool desktop,trb_cycle,tx_reused;
 } rtl_station;
 
 static bool rtl_cu_station_same_hub(const struct xhci_device *d);
@@ -1200,6 +1201,13 @@ static bool rtl_cu_rx_stop(struct xhci_device *d) {
 
 #include "xhci_rtl8188cu_wpa.inc"
 
+#if !defined(SRVROS_XHCI_TEST_MMIO) || defined(SRVROS_RTL8188CU_IP_TEST)
+#define RTL_CU_DESKTOP_SUPPORT 1
+#include "xhci_rtl8188cu_desktop.inc"
+#else
+#define RTL_CU_DESKTOP_SUPPORT 0
+#endif
+
 static void rtl_cu_park(struct xhci_device *d,struct xhci_device *hub) {
     if(rtl_passive.owner!=d || !hub || d->control_failed || d->ep0_quarantined ||
        d->control_pending || !rtl8188cu_check_port(d,hub))return;
@@ -1222,7 +1230,7 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready,const u
     const char *result="admission";
     unsigned writes=0;
     uint32_t channel=0;
-    bool stopped=false,window=false,authenticated=false;
+    bool stopped=false,window=false,authenticated=false,stopped_out=false;
     uint64_t flags=event_irq_save();
     struct xhci_device *d=rtl_passive.owner;
     if(d && !ready)result="startup";
@@ -1238,10 +1246,22 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready,const u
                 result=phy_radio?"rx-endpoint":rx_setup?"phy-radio":"rx-setup";
                 if(phy_radio && rtl_cu_rx_configure(d)) {
                     window=rtl_cu_listen(d,hub);
-                    if(rtl_station.requested && window && rtl_passive.matches>=2)
-                        authenticated=rtl_cu_station_exchange(d,hub,pmk);
+                    if(rtl_station.requested && window && rtl_passive.matches>=2) {
+#if RTL_CU_DESKTOP_SUPPORT
+                        if(rtl_station.desktop) {
+                            event_irq_restore(flags);
+                            authenticated=rtl_cu_desktop_window(d,hub,pmk);
+                            flags=event_irq_save();
+                            if(rtl_desktop.unsafe)goto desktop_held;
+                        } else
+#endif
+                            authenticated=rtl_cu_station_exchange(d,hub,pmk);
+                    }
                     rtl_cu_rx_snapshot(d,RTL_CU_BEFORE_STOP,window);
-                    if(rtl_station.requested)authenticated=rtl_cu_station_stop(d,hub) && authenticated;
+                    if(rtl_station.requested) {
+                        stopped_out=rtl_cu_station_stop(d,hub);
+                        authenticated=stopped_out && authenticated;
+                    }
                     stopped=rtl_cu_rx_stop(d);
                     window=window && !rtl_passive.failed && !d->control_failed && !d->ep0_quarantined;
                     rtl_cu_rx_snapshot(d,RTL_CU_AFTER_STOP,false);
@@ -1274,6 +1294,13 @@ static bool rtl_cu_capture_passive_window(const uint8_t *blob,bool ready,const u
         if(window && stopped && rtl_passive.parked && rtl_passive.completed)
             result=rtl_passive.matches>=2?"target":"target-absent";
     }
+#if RTL_CU_DESKTOP_SUPPORT
+desktop_held:
+    if(rtl_station.desktop)
+        rtl_desktop.return_safe=!rtl_desktop.unsafe && !rtl_desktop.worker &&
+            !xhci.command_failed && !strict_control.device && (!d ||
+            (rtl_passive.parked && (!rtl_passive.configured || (stopped && stopped_out))));
+#endif
     event_irq_restore(flags);
     rtl_cu_rx_log();
     if(rtl_passive.owner)
@@ -1322,6 +1349,7 @@ static bool rtl_cu_capture_station(const uint8_t *image,uint64_t image_size,
     if(rtl_passive.owner || rtl_station.requested)return false;
     rtl_station.requested=true;
     rtl_station.ip_requested=ip;
+    rtl_station.generation=1;
     if(!credential || credential_size!=52 || !bytes_equal(credential,magic,sizeof magic)) {
         rtl_station.phase="credential";
         rtl_cu_station_log(false);
@@ -1343,3 +1371,29 @@ bool xhci_rtl8188cu_capture_ip(const uint8_t *image,uint64_t image_size,
     const uint8_t *profile,uint64_t profile_size,const uint8_t *credential,uint64_t credential_size) {
     return rtl_cu_capture_station(image,image_size,profile,profile_size,credential,credential_size,true);
 }
+
+#if RTL_CU_DESKTOP_SUPPORT
+bool xhci_rtl8188cu_run_desktop(const uint8_t *image,uint64_t image_size,
+    const uint8_t *profile,uint64_t profile_size,const uint8_t *credential,uint64_t credential_size,
+    void *context,bool (*begin)(void *),bool (*running)(void *)) {
+    if(rtl_passive.owner || rtl_station.requested || !begin || !running)return false;
+    if(!rtl_cu_desktop_gate_wait()){
+        rtl_desktop.return_safe=true;
+        console_write("rtl8188cu-desktop-final: connections=0 disconnects=0 return_safe=1 complete=0 gate_refused=1\n");
+        return false;
+    }
+    rtl_station.desktop=true;
+    rtl_desktop.context=context;
+    rtl_desktop.begin=begin;
+    rtl_desktop.running=running;
+    bool passed=rtl_cu_capture_station(image,image_size,profile,profile_size,credential,credential_size,true);
+    if(!rtl_passive.owner && !xhci.command_failed && !strict_control.device)rtl_desktop.return_safe=true;
+    if(rtl_desktop.return_safe)rtl_cu_desktop_gate_end();
+    console_printf("rtl8188cu-desktop-final: connections=%u disconnects=%u return_safe=%u complete=%u\n",
+        (uint64_t)rtl_desktop.connected,(uint64_t)rtl_desktop.disconnected,
+        (uint64_t)rtl_desktop.return_safe,(uint64_t)(passed && rtl_desktop.return_safe));
+    return passed && rtl_desktop.return_safe;
+}
+
+bool xhci_rtl8188cu_desktop_return_safe(void) {return rtl_desktop.return_safe;}
+#endif

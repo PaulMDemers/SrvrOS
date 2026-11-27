@@ -27,6 +27,8 @@ int wifi_service_select(const struct srv_wifi_select *);
 struct mt76_peer5;
 struct wifi_service_command { uint64_t serial; unsigned operation; };
 uint64_t wifi_service_publish_connection(const struct wifi_service_provider *,const struct mt76_peer5 *);
+uint64_t wifi_service_publish_fixed(const struct wifi_service_provider *,const uint8_t *ssid,
+    unsigned ssid_size,unsigned channel,unsigned observations,uint64_t generation);
 int wifi_service_request(unsigned operation,const struct srv_wifi_select *);
 bool wifi_service_take(uint64_t,void *,struct wifi_service_command *);
 bool wifi_service_finish(uint64_t,void *,const struct wifi_service_command *,bool success);

@@ -344,8 +344,9 @@ static void rtl_test_ap_tx(const uint8_t *raw,size_t length) {
   uint8_t digest[32];unsigned bytes=0;uint64_t fingerprint=0;
   assert(n>40 && EVP_Digest(mpdu+32,n-32,digest,&bytes,EVP_sha256(),NULL) && bytes==sizeof digest);
   for(unsigned i=0;i<8;i++)fingerprint=(fingerprint<<8)|digest[i];
+  unsigned seq=(mpdu[22]|(unsigned)mpdu[23]<<8)>>4;
   assert(rtl_ip.first_tx.fingerprint==fingerprint && rtl_ip.first_tx.mpdu==n &&
-         rtl_ip.first_tx.sequence==5 && (mpdu[22]>>4)==5);
+         rtl_ip.first_tx.sequence==seq && (rtl_station_desktop_fixture || seq==5));
  }
  uint8_t wire[1580]={0},eth[1514];
  unsigned span=(20+n+3)&~3u,descriptor=span|(1u<<19)|(1u<<24)|(2u<<25);
@@ -367,7 +368,70 @@ static void rtl_test_ap_rx(unsigned offset) {
  memcpy(raw+24,ap.response[ap.head],n);
  ap.head=(ap.head+1)%8;ap.count--;
  rtl_radio_transfer_event(offset,rtl_passive.trb,13,4096-28-n);
- rtl_radio_model.rx_index++;
+ rtl_radio_station_rx_complete();
+}
+
+static unsigned rtl_test_desktop_commands;
+static struct srv_wifi_select rtl_test_desktop_request(const struct srv_wifi_snapshot *snapshot,unsigned index) {
+ return (struct srv_wifi_select){.version=SRV_WIFI_VERSION,.size=sizeof(struct srv_wifi_select),
+    .owner=snapshot->owner,.generation=snapshot->generation,.index=index};
+}
+
+static bool rtl_test_desktop_begin(void *context) {
+ struct srv_wifi_snapshot row;
+ assert(!context && wifi_service_snapshot(0,&row)==SRV_WIFI_OK && row.adapter_count==1 &&
+        row.generation==1 && row.count==1 && row.row[0].channel==10 &&
+        !strcmp(row.row[0].name,"Demers2.4") && (row.flags&SRV_WIFI_CONTROL));
+ struct srv_wifi_select request=rtl_test_desktop_request(&row,0);
+ assert(wifi_service_request(SRV_WIFI_CONNECT,&request)==SRV_WIFI_OK);
+ rtl_test_desktop_commands=1;
+ return true;
+}
+
+static void rtl_test_desktop_traffic(unsigned count) {
+ int64_t socket=net_udp_open();
+ assert(socket>0);
+ uint8_t payload[256],reply[sizeof payload];
+ for(unsigned i=0;i<count;i++) {
+  memset(payload,(int)i,sizeof payload);
+  assert(net_udp_sendto_mode((uint64_t)socket,ap_ip,9000,payload,sizeof payload,true)==sizeof payload);
+  for(unsigned j=0;j<4;j++)resident_turn();
+  uint32_t remote=0;
+  uint16_t port=0;
+  assert(net_udp_recvfrom((uint64_t)socket,reply,sizeof reply,&remote,&port,true)==sizeof reply);
+  assert(!memcmp(payload,reply,sizeof reply) && remote==ap_ip && port==9000);
+ }
+ assert(net_close((uint64_t)socket)==0);
+}
+
+static bool rtl_test_desktop_running(void *context) {
+ struct srv_wifi_snapshot row;
+ assert(!context && wifi_service_snapshot(0,&row)==SRV_WIFI_OK);
+ if(rtl_test_desktop_commands==4 && rtl_desktop.disconnected==2)return false;
+ if((row.flags&SRV_WIFI_CONNECTED) && (rtl_test_desktop_commands&1)) {
+  struct srv_net_status_info status;
+  assert(resident_thread && net_status_info(&status)==0 && status.dhcp_configured && ap.dhcp==2 &&
+         ap.icmp==1 && ap.dns==1 && rtl_station.keys.generation==row.generation);
+  rtl_test_desktop_traffic(row.generation==1?70:2);
+  struct srv_wifi_select request=rtl_test_desktop_request(&row,SRV_WIFI_NONE);
+  assert(wifi_service_request(SRV_WIFI_DISCONNECT,&request)==SRV_WIFI_OK);
+  rtl_test_desktop_commands++;
+ } else if((row.flags&SRV_WIFI_DISCONNECTED) && rtl_test_desktop_commands==2) {
+  struct srv_net_status_info status;
+  assert(row.generation==2 && !net_status_info(&status) && !status.local_ip && !status.dhcp_configured);
+  assert(rtl_station.tx_reused && rtl_ip.registered && !rtl_ip.live && !rtl_desktop.worker);
+  struct srv_wifi_select request=rtl_test_desktop_request(&row,0);
+  request.generation=1;
+  assert(wifi_service_request(SRV_WIFI_CONNECT,&request)==SRV_WIFI_STALE);
+  request.generation=2;
+  assert(!ap.count && stack5_peer_generation(2));
+  memset(&ap,0,sizeof ap);
+  rtl_station_test_m1=false;
+  assert(wifi_service_request(SRV_WIFI_CONNECT,&request)==SRV_WIFI_OK);
+  rtl_test_desktop_commands++;
+ }
+ assert(!(row.flags&SRV_WIFI_FAILED));
+ return true;
 }
 #endif
 static void stack_test_progress(void){
@@ -1356,6 +1420,18 @@ static void connection_dhcp_receipt(unsigned fault){
 #endif
 int STACK5_TEST_MAIN(int argc,char **argv){
 #ifdef SRVROS_RTL8188CU_IP_TEST
+ if(argc==4 && !strcmp(argv[1],"--rtl8188cu-desktop")){
+  rtl_station_ip_fixture=rtl_station_desktop_fixture=true;
+  rtl_station_report_fixture=RTL_CU_CCX_ACKED;
+  test_io_gate_allowed=true;
+  desktop_timer_running=desktop_replug_wait_service=true;
+  assert(stack5_peer_generation(1));
+  test_rtl8188cu_passive(argv[2],argv[3]);
+  assert(xhci_rtl8188cu_desktop_return_safe() && rtl_desktop.connected==2 &&
+         rtl_desktop.disconnected==2 && rtl_test_desktop_commands==4 && rtl_ip.retired && ap.udp==2);
+  puts("rtl8188cu: PASS native desktop Connect, resident traffic, TX wrap, Disconnect and fresh same-boot generation");
+  return 0;
+ }
  if(argc==4 && (!strcmp(argv[1],"--rtl8188cu-ip") || !strcmp(argv[1],"--rtl8188cu-no-offer") ||
        !strcmp(argv[1],"--rtl8188cu-no-report") || !strcmp(argv[1],"--rtl8188cu-stale-report") ||
        !strcmp(argv[1],"--rtl8188cu-other-report"))){

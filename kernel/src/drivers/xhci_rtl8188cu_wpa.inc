@@ -2,7 +2,6 @@
 #define RTL_CU_STATION_CR (RTL_CU_LISTEN_CR|RTL8188CU_TX_ENABLE)
 #define RTL_CU_STATION_RX_US 1500000u
 #define RTL_CU_STATION_TX_US 250000u
-#define RTL_CU_STATION_GENERATION 1u
 #define RTL_CU_DATA_TX_LIMIT 44u
 
 static void rtl_cu_erase(void *memory,size_t size) {
@@ -43,8 +42,12 @@ static bool rtl_cu_station_out_ready(struct xhci_device *d) {
         actual==2;
     if(rtl_station.out_status_valid)
         rtl_station.out_status=d->descriptor_buffer[0]|(uint16_t)d->descriptor_buffer[1]<<8;
+    uint64_t cursor=rtl_station.out_gate.dequeue&~1ull;
+    bool same_ring=cursor>=rtl_station.ep.ring_phys &&
+        cursor-rtl_station.ep.ring_phys<XHCI_TRB_COUNT*sizeof(struct xhci_trb) && !(cursor&15);
+    bool initial=rtl_station.out_gate.dequeue==(rtl_station.ep.ring_phys|1);
     return rtl_station.out_status_valid && rtl_station.out_status==0 && rtl_station.out_gate.state==1 &&
-        rtl_station.out_gate.dequeue==(rtl_station.ep.ring_phys|1) &&
+        (initial || (rtl_station.desktop && rtl_station.generation>1 && same_ring)) &&
         (rtl_station.out_info>>16)==512 && ((rtl_station.out_info>>3)&7)==2;
 }
 
@@ -119,15 +122,30 @@ static void rtl_cu_auth_wait_end(struct xhci_device *d,struct rtl_cu_auth_trace 
     trace->outcome=outcome;
 }
 
+static unsigned rtl_cu_station_next_sequence(void) {
+    return rtl_station.sequence==4095?1:rtl_station.sequence+1;
+}
+
+static bool rtl_cu_station_can_post(void) {
+    if(rtl_station.pending || rtl_station.sends!=rtl_station.completed || rtl_station.sends==UINT32_MAX)
+        return false;
+    if(rtl_station.desktop && rtl_station.tx_reused)
+        return rtl_cu_rx_drain() && !rtl_station.failed;
+    return true;
+}
+
 static void rtl_cu_station_post(struct xhci_device *d,size_t length,bool first_auth) {
     struct xhci_bulk_endpoint *ep=&rtl_station.ep;
     struct xhci_trb *entry=&ep->ring[ep->enqueue];
     struct xhci_trb transfer={.parameter_low=(uint32_t)rtl_station.physical,
         .parameter_high=rtl_station.physical>>32,.status=(uint32_t)length,
         .control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC};
+    rtl_station.trb_cycle=ep->cycle;
     rtl_station.trb=ring_push_owned(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&transfer,true);
+    if(!ep->enqueue)rtl_station.tx_reused=true;
     rtl_station.pending=true;
     rtl_station.sends++;
+    rtl_station.sequence=rtl_cu_station_next_sequence();
     if(first_auth) {
         struct rtl_cu_auth_trace *trace=&rtl_station.auth_out;
         trace->trb=rtl_station.trb;
@@ -136,15 +154,15 @@ static void rtl_cu_station_post(struct xhci_device *d,size_t length,bool first_a
         trace->before=rtl_cu_station_out_context(d);
     }
     __atomic_thread_fence(__ATOMIC_RELEASE);
-    ((volatile struct xhci_trb *)entry)->control=transfer.control|1;
+    ((volatile struct xhci_trb *)entry)->control=transfer.control|rtl_station.trb_cycle;
     db_write32(d->slot_id,RTL_CU_TX_DCI);
 }
 
 static bool rtl_cu_station_send(struct xhci_device *d,enum rtl_cu_station_tx type,
                                  const uint8_t *key,size_t size) {
-    if(!rtl_cu_station_owned(d) || rtl_station.pending || rtl_station.sends!=rtl_station.completed ||
-       rtl_station.sends>=(rtl_station.ip_requested?RTL_CU_DATA_TX_LIMIT+5u:5u))return false;
-    size_t length=rtl_cu_station_tx(&rtl_station.peer,type,rtl_station.sends+1,rtl_station.qos,
+    if(!rtl_cu_station_owned(d) || !rtl_cu_station_can_post() ||
+       (!rtl_station.desktop && rtl_station.sends>=(rtl_station.ip_requested?RTL_CU_DATA_TX_LIMIT+5u:5u)))return false;
+    size_t length=rtl_cu_station_tx(&rtl_station.peer,type,rtl_cu_station_next_sequence(),rtl_station.qos,
         key,size,rtl_station.buffer,RTL_CU_STATION_TX_MAX);
     if(!length)return false;
     bool first_auth=type==RTL_CU_AUTH && rtl_station.sends==0;
@@ -220,7 +238,7 @@ static bool rtl_cu_station_rx(struct xhci_device *d,enum rtl_cu_station_tx wante
                     sha256_digest(eapol,length,digest);
                     matched=wanted==RTL_CU_M2 || !bytes_equal(digest,m1_digest,sizeof digest);
                     if(matched) {
-                        accept=wpa2_hs_receive(&rtl_station.handshake,RTL_CU_STATION_GENERATION,
+                        accept=wpa2_hs_receive(&rtl_station.handshake,rtl_station.generation,
                             rtl_station.peer.bssid,rtl_station.peer.station,eapol,length);
                         rtl_station.last_rx=rtl_station.handshake.last_rx;
                         if(accept && wanted==RTL_CU_M2)copy_bytes(m1_digest,digest,sizeof digest);
@@ -242,24 +260,24 @@ static bool rtl_cu_station_rx(struct xhci_device *d,enum rtl_cu_station_tx wante
 
 static bool rtl_cu_station_send_key(struct xhci_device *d,enum rtl_cu_station_tx type) {
     uint8_t eapol[121];
-    size_t size=wpa2_hs_emit(&rtl_station.handshake,RTL_CU_STATION_GENERATION,eapol,sizeof eapol);
+    size_t size=wpa2_hs_emit(&rtl_station.handshake,rtl_station.generation,eapol,sizeof eapol);
     bool sent=size && rtl_cu_station_send(d,type,eapol,size);
     rtl_cu_erase(eapol,sizeof eapol);
-    return size && wpa2_hs_tx_result(&rtl_station.handshake,RTL_CU_STATION_GENERATION,
+    return size && wpa2_hs_tx_result(&rtl_station.handshake,rtl_station.generation,
         sent?WPA2_HS_CONFIRMED:rtl_station.failed?WPA2_HS_UNCERTAIN:WPA2_HS_REFUSED) && sent;
 }
 
 static bool rtl_cu_station_install_keys(void) {
     struct wpa2_hs_keys exported={0};
-    bool installed=wpa2_hs_take_keys(&rtl_station.handshake,RTL_CU_STATION_GENERATION,&exported) &&
+    bool installed=wpa2_hs_take_keys(&rtl_station.handshake,rtl_station.generation,&exported) &&
         wpa2_ccmp_install(&rtl_station.keys,&rtl_station.handshake,&exported);
     rtl_cu_erase(&exported,sizeof exported);
-    return installed && wpa2_hs_install_result(&rtl_station.handshake,RTL_CU_STATION_GENERATION,WPA2_HS_CONFIRMED);
+    return installed && wpa2_hs_install_result(&rtl_station.handshake,rtl_station.generation,WPA2_HS_CONFIRMED);
 }
 
 #include "xhci_rtl8188cu_ip.inc"
 
-static bool rtl_cu_station_exchange(struct xhci_device *d,struct xhci_device *hub,const uint8_t *pmk) {
+static bool rtl_cu_station_join(struct xhci_device *d,struct xhci_device *hub,const uint8_t *pmk) {
     struct wpa2_hs_peer peer={.rsne_size=rtl_station.peer.rsne_size};
     copy_bytes(peer.aa,rtl_station.peer.bssid,sizeof peer.aa);
     copy_bytes(peer.spa,rtl_station.peer.station,sizeof peer.spa);
@@ -273,7 +291,7 @@ static bool rtl_cu_station_exchange(struct xhci_device *d,struct xhci_device *hu
     bool fresh=wpa2_nonce_generate(nonce);
 #endif
     bool ok=rtl_station.peer.rsne_size && fresh &&
-        wpa2_hs_start(&rtl_station.handshake,&peer,pmk,nonce,RTL_CU_STATION_GENERATION);
+        wpa2_hs_start(&rtl_station.handshake,&peer,pmk,nonce,rtl_station.generation);
     rtl_cu_erase(nonce,sizeof nonce);
     if(ok) {
         rtl_station.phase="tx-setup";
@@ -312,22 +330,31 @@ static bool rtl_cu_station_exchange(struct xhci_device *d,struct xhci_device *hu
         rtl_station.m4=rtl_cu_station_send_key(d,RTL_CU_M4);
         ok=rtl_station.m4 && wpa2_ccmp_activate(&rtl_station.keys,&rtl_station.handshake);
     }
-    if(ok && rtl_station.ip_requested) {
-        rtl_station.phase="data";
-        ok=rtl_cu_ip_run(d);
-    }
     rtl_cu_erase(m1_digest,sizeof m1_digest);
+    return ok;
+}
+
+static bool rtl_cu_station_close_link(struct xhci_device *d,bool ok) {
     if(rtl_station.keys.phase!=WPA2_CCMP_EMPTY)
-        rtl_station.keys_erased=wpa2_ccmp_retire(&rtl_station.keys,RTL_CU_STATION_GENERATION) &&
-            wpa2_ccmp_erased(&rtl_station.keys,RTL_CU_STATION_GENERATION);
+        rtl_station.keys_erased=wpa2_ccmp_retire(&rtl_station.keys,rtl_station.generation) &&
+            wpa2_ccmp_erased(&rtl_station.keys,rtl_station.generation);
     else rtl_station.keys_erased=true;
     if(rtl_station.handshake.phase!=WPA2_HS_EMPTY)
-        ok=wpa2_hs_retire(&rtl_station.handshake,RTL_CU_STATION_GENERATION,rtl_station.keys_erased) && ok;
+        ok=wpa2_hs_retire(&rtl_station.handshake,rtl_station.generation,rtl_station.keys_erased) && ok;
     if(rtl_station.auth_ok && rtl_cu_station_owned(d) && timer_delay_us(25000)) {
         rtl_station.leave=rtl_cu_station_send(d,RTL_CU_LEAVE,NULL,0) && timer_delay_us(25000);
     }
     if(ok && rtl_station.leave)rtl_station.phase="complete";
     return ok && rtl_station.keys_erased && rtl_station.leave;
+}
+
+static bool rtl_cu_station_exchange(struct xhci_device *d,struct xhci_device *hub,const uint8_t *pmk) {
+    bool ok=rtl_cu_station_join(d,hub,pmk);
+    if(ok && rtl_station.ip_requested) {
+        rtl_station.phase="data";
+        ok=rtl_cu_ip_run(d);
+    }
+    return rtl_cu_station_close_link(d,ok);
 }
 
 static bool rtl_cu_station_stop(struct xhci_device *d,struct xhci_device *hub) {
@@ -344,7 +371,10 @@ static bool rtl_cu_station_stop(struct xhci_device *d,struct xhci_device *hub) {
     if(!stopped || slot!=d->slot_id)return false;
     uint64_t at=rtl_station.pending?rtl_station.trb:
         rtl_station.ep.ring_phys+rtl_station.ep.enqueue*sizeof(struct xhci_trb);
-    rtl_station.tx_stopped=context.sampled && context.state==3 && context.dequeue==(at|1);
+    bool cycle=rtl_station.pending?rtl_station.trb_cycle:rtl_station.ep.cycle;
+    uint64_t link=rtl_station.ep.ring_phys+(XHCI_TRB_COUNT-1)*sizeof(struct xhci_trb);
+    bool before_link=at==rtl_station.ep.ring_phys && rtl_station.tx_reused && context.dequeue==(link|!cycle);
+    rtl_station.tx_stopped=context.sampled && context.state==3 && (context.dequeue==(at|cycle) || before_link);
     if(rtl_station.tx_stopped) {
         rtl_station.pending=false;
         rtl_cu_erase(rtl_station.buffer,rtl_station.ip_requested?RTL_CU_DATA_TX_MAX:RTL_CU_STATION_TX_MAX);

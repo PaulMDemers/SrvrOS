@@ -276,7 +276,7 @@ def main():
     wifi_5ghz_prereq=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v108-","ram-usb-wifi-fw-v109-","ram-usb-wifi-fw-v110-","ram-usb-wifi-fw-v111-","ram-usb-wifi-fw-v112-","ram-usb-wifi-fw-v113-","ram-usb-wifi-fw-v114-","ram-usb-wifi-fw-v115-","ram-usb-wifi-fw-v116-","ram-usb-wifi-fw-v117-","ram-usb-wifi-fw-v118-","ram-usb-wifi-fw-v119-","ram-usb-wifi-fw-v120-","ram-usb-wifi-fw-v121-","ram-usb-wifi-fw-v122-","ram-usb-wifi-fw-v123-","ram-usb-wifi-fw-v124-","ram-usb-wifi-fw-v125-","ram-usb-wifi-fw-v126-","ram-usb-wifi-fw-v127-","ram-usb-wifi-fw-v128-","ram-usb-wifi-fw-v129-","ram-usb-wifi-fw-v130-","ram-usb-wifi-fw-v131-","ram-usb-wifi-fw-v132-","ram-usb-wifi-fw-v133-","ram-usb-wifi-fw-v134-","ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-","ram-usb-wifi-fw-v155-","ram-usb-wifi-fw-v144-","ram-usb-wifi-fw-v145-","ram-usb-wifi-fw-v146-")))
     wifi_firmware=wifi_firmware or wifi_ui_capture or wifi_5ghz_prereq
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
-    rtl8188cu = manifest["config_version"].startswith(("ram-usb-rtl8188cu-v1-","ram-usb-rtl8188cu-v2-","ram-usb-rtl8188cu-v3-","ram-usb-rtl8188cu-v4-","ram-usb-rtl8188cu-v5-"))
+    rtl8188cu = manifest["config_version"].startswith(("ram-usb-rtl8188cu-v1-","ram-usb-rtl8188cu-v2-","ram-usb-rtl8188cu-v3-","ram-usb-rtl8188cu-v4-","ram-usb-rtl8188cu-v5-","ram-usb-rtl8188cu-v6-"))
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
     wifi_nop5=bool(probe and manifest["config_version"].startswith("ram-usb-wifi-fw-v134-"))
     wifi_stream5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-","ram-usb-wifi-fw-v147-","ram-usb-wifi-fw-v148-","ram-usb-wifi-fw-v149-","ram-usb-wifi-fw-v150-","ram-usb-wifi-fw-v151-","ram-usb-wifi-fw-v152-","ram-usb-wifi-fw-v153-","ram-usb-wifi-fw-v154-","ram-usb-wifi-fw-v155-")))
@@ -648,6 +648,9 @@ def main():
                             assert b"rtl8188cu-ip: opened=0 tx=0 completed=0" in exit_log
                         if manifest["config_version"].startswith(("ram-usb-rtl8188cu-v3-","ram-usb-rtl8188cu-v4-","ram-usb-rtl8188cu-v5-")):
                             assert b"rtl8188cu-passive: result=admission writes=0" in exit_log
+                        if manifest["config_version"].startswith("ram-usb-rtl8188cu-v6-"):
+                            assert b"rtl8188cu-desktop-final: connections=0 disconnects=0 return_safe=1 complete=0" in exit_log
+                            assert b"rtl8188cu-firmware-progress:" not in exit_log
                     if wifi_capture:
                         exit_log=stored.read(folder+"/exit.log")
                         if wifi_5ghz_prereq:

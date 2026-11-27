@@ -2474,10 +2474,11 @@ int main(int argc,char **argv) {
     int idle_capture=battery_idle || (argc==2 && !strcmp(argv[1],"--idle-capture"));
     int wifi_trial=argc==2 && !strcmp(argv[1],"--wifi-trial");
     int wifi_reconnect_trial=argc==2 && !strcmp(argv[1],"--wifi-reconnect-trial");
+    int wifi_realtek_trial=argc==2 && !strcmp(argv[1],"--wifi-realtek-trial");
     int wifi_reattach_trial=argc==2 && !strcmp(argv[1],"--wifi-reattach-trial");
     int wifi_replug_trial=argc==2 && !strcmp(argv[1],"--wifi-replug-trial");
     int wifi_active_remove_trial=argc==2 && !strcmp(argv[1],"--wifi-active-remove-trial");
-    int wifi_managed_trial=wifi_active_remove_trial || wifi_replug_trial || wifi_reattach_trial || wifi_reconnect_trial || (argc==2 && !strcmp(argv[1],"--wifi-managed-trial"));
+    int wifi_managed_trial=wifi_realtek_trial || wifi_active_remove_trial || wifi_replug_trial || wifi_reattach_trial || wifi_reconnect_trial || (argc==2 && !strcmp(argv[1],"--wifi-managed-trial"));
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int retina_screenshot=argc==2 && !strcmp(argv[1],"--retina-screenshot");
     int sound_trial=argc==2 && !strcmp(argv[1],"--sound-trial");
@@ -2568,7 +2569,7 @@ int main(int argc,char **argv) {
     s.capture_owner=&capture_worker;
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
-    else if(wifi_managed_trial) spawn_app(&s,DESK_APP_HELP,wifi_active_remove_trial?"wifi-active-remove-trial":wifi_replug_trial?"wifi-replug-trial":wifi_reattach_trial?"wifi-reattach-trial":wifi_reconnect_trial?"wifi-reconnect-trial":"wifi-managed-trial");
+    else if(wifi_managed_trial) spawn_app(&s,DESK_APP_HELP,wifi_realtek_trial?"wifi-realtek-trial":wifi_active_remove_trial?"wifi-active-remove-trial":wifi_replug_trial?"wifi-replug-trial":wifi_reattach_trial?"wifi-reattach-trial":wifi_reconnect_trial?"wifi-reconnect-trial":"wifi-managed-trial");
     else if(wifi_trial) spawn_app(&s,DESK_APP_HELP,"wifi-trial");
     else if(retina_screenshot) strcpy(s.scene.notice,"Automatic 1.75x screenshot. Leave the workspace connected. Returning to Ubuntu after save.");
     else if(retina_trial) spawn_app(&s,DESK_APP_HELP,"retina-trial");

@@ -7036,3 +7036,4 @@ build/userspace/test_sha256sum_probe.elf: tools/test_sha256sum_probe.c $(USER_CR
 build/kernel/src/drivers/xhci.c.o build/tests/xhci-host$(HOST_EXE): kernel/src/drivers/xhci_rtl8188cu_passive.inc kernel/src/drivers/xhci_rtl8188cu_wpa.inc
 
 build/tests/xhci-host$(HOST_EXE) build/tests/xhci-stack5-host$(HOST_EXE): kernel/src/drivers/xhci_rtl8188cu_ip.inc
+build/kernel/src/drivers/xhci.c.o build/tests/xhci-stack5-host$(HOST_EXE): kernel/src/drivers/xhci_rtl8188cu_desktop.inc

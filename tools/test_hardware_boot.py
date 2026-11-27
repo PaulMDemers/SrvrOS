@@ -23,6 +23,17 @@ class InstallTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "private station credential"):
             boot.stage(rtl8188cu_ip=True)
 
+    def test_realtek_desktop_profile_has_distinct_auto_return_recipe(self):
+        release = "0123456789abcdef"
+        version = "ram-usb-rtl8188cu-v6-laptop-probe-12345678-auto-return"
+        desktop = boot.limine_config(release, version)
+        ip = boot.limine_config(release, version.replace("-v6-", "-v5-"))
+        self.assertEqual(desktop, ip.replace("capture=wifi-rtl8188cu-ip", "capture=wifi-rtl8188cu-desktop"))
+        with self.assertRaisesRegex(ValueError, "private station credential"):
+            boot.stage(rtl8188cu_desktop=True)
+        with self.assertRaisesRegex(ValueError, "IP probe or desktop"):
+            boot.stage(rtl8188cu_ip=True, rtl8188cu_desktop=True, rtl8188cu_wpa2=Path("fixture"))
+
     def test_rtl8188cu_identity_stage(self):
         import struct
         import tarfile

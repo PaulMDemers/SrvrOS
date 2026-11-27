@@ -7842,7 +7842,8 @@ static void rtl_radio_transport(uint64_t offset,uint32_t value) {
                 pending=false;
             }
 #endif
-            uint64_t pointer=(pending?rtl_station.trb:rtl_station.ep.ring_phys+rtl_station.ep.enqueue*16)|1;
+            uint64_t pointer=(pending?rtl_station.trb:rtl_station.ep.ring_phys+rtl_station.ep.enqueue*16)|
+                (pending?rtl_station.trb_cycle:rtl_station.ep.cycle);
 #ifdef SRVROS_RTL8188CU_STATION_TEST
             if(pending)rtl_radio_out_event(event_offset++,pointer&~1ull,26,rtl_station.auth_out.length,false);
 #endif
@@ -8421,7 +8422,14 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
             if(rtl_station_report_fixture==RTL_CU_CCX_UNAVAILABLE)
                 rtl_radio_model.reg[RTL_CU_C2H_OWNER]=0xff;
 #endif
-            bool ok=rtl_cu_capture_station(image,sizeof image,blob,sizeof blob,credential,sizeof credential,ip);
+            bool ok;
+#ifdef SRVROS_RTL8188CU_IP_TEST
+            if(rtl_station_desktop_fixture)
+                ok=xhci_rtl8188cu_run_desktop(image,sizeof image,blob,sizeof blob,credential,sizeof credential,
+                    NULL,rtl_test_desktop_begin,rtl_test_desktop_running);
+            else
+#endif
+                ok=rtl_cu_capture_station(image,sizeof image,blob,sizeof blob,credential,sizeof credential,ip);
             assert(ok==expect_success);
             if(rtl_station_fixture==RTL_STATION_QUEUE_LOAD || rtl_station_early_dma_failure()) {
                 assert(rtl_passive.parked && !rtl_radio_cr() && rtl_radio_model.reg[0x522]==0xff &&

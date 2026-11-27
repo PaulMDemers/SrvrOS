@@ -24,9 +24,14 @@ static void prune(void){
     for(unsigned i=0;i<SRV_WIFI_ADAPTERS;i++)if(providers[i].id && !providers[i].ops.present(providers[i].ops.context)){increment(&counts.removed);scrub(&providers[i],sizeof providers[i]);}
 }
 uint64_t wifi_service_publish_connection(const struct wifi_service_provider *ops,const struct mt76_peer5 *peer){
+    if(!peer || !peer->complete || peer->peer.channel!=161)return 0;
+    return wifi_service_publish_fixed(ops,peer->peer.ssid,peer->peer.ssid_size,peer->peer.channel,
+        peer->observations,peer->generation);
+}
+uint64_t wifi_service_publish_fixed(const struct wifi_service_provider *ops,const uint8_t *ssid,
+    unsigned ssid_size,unsigned channel,unsigned observations,uint64_t generation){
     if(!ops || !ops->context || !ops->label || !*ops->label || !ops->present ||
-       !peer || !peer->complete || !peer->generation || !peer->observations ||
-       peer->peer.channel!=161 || !peer->peer.ssid_size || peer->peer.ssid_size>32 ||
+       !ssid || !ssid_size || ssid_size>32 || !channel || channel>196 || !observations || !generation ||
        !ops->present(ops->context))return 0;
     prune();
     struct provider *available=NULL;
@@ -36,10 +41,10 @@ uint64_t wifi_service_publish_connection(const struct wifi_service_provider *ops
     }
     if(!available || serial==UINT64_MAX)return 0;
     struct mt76_scan_row *row=&available->snapshot.row[0];
-    row->advertisement=(struct mt76_discovery_row){.channel=161,.privacy=true,.rsn=true,
-        .ssid_size=peer->peer.ssid_size,.observations=peer->observations};
-    for(unsigned i=0;i<peer->peer.ssid_size;i++)row->advertisement.ssid[i]=peer->peer.ssid[i];
-    available->snapshot.generation=peer->generation;
+    row->advertisement=(struct mt76_discovery_row){.channel=channel,.privacy=true,.rsn=true,
+        .ssid_size=ssid_size,.observations=observations};
+    for(unsigned i=0;i<ssid_size;i++)row->advertisement.ssid[i]=ssid[i];
+    available->snapshot.generation=generation;
     available->snapshot.count=1;
     available->snapshot.complete=true;
     available->controlled=true;

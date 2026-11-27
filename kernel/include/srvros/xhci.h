@@ -34,6 +34,10 @@ bool xhci_rtl8188cu_capture_passive(const uint8_t *image,uint64_t image_size,
                                     const uint8_t *profile,uint64_t profile_size);
 bool xhci_rtl8188cu_capture_ip(const uint8_t *image,uint64_t image_size,
     const uint8_t *profile,uint64_t profile_size,const uint8_t *credential,uint64_t credential_size);
+bool xhci_rtl8188cu_run_desktop(const uint8_t *image,uint64_t image_size,
+    const uint8_t *profile,uint64_t profile_size,const uint8_t *credential,uint64_t credential_size,
+    void *context,bool (*begin)(void *),bool (*running)(void *));
+bool xhci_rtl8188cu_desktop_return_safe(void);
 bool xhci_rtl8188cu_capture_wpa2(const uint8_t *image,uint64_t image_size,
                                 const uint8_t *profile,uint64_t profile_size,
                                 const uint8_t *credential,uint64_t credential_size);

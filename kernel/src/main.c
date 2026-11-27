@@ -750,11 +750,11 @@ static void persist_bootlog(void) {
 
 static bool idle_capture_due(void *arg) { return timer_ticks()>=*(uint64_t *)arg; }
 
-struct wifi_desktop_capture { int64_t pid; bool reconnect,reattach,replug,active_remove; };
+struct wifi_desktop_capture { int64_t pid; bool reconnect,reattach,replug,active_remove,realtek; };
 static bool wifi_desktop_launch(void *context) {
     struct wifi_desktop_capture *desktop=context;
     desktop->pid=process_spawn_background_elf_args_quiet("/fat/bin/deskd",
-        desktop->active_remove?"--wifi-active-remove-trial":desktop->replug?"--wifi-replug-trial":desktop->reattach?"--wifi-reattach-trial":desktop->reconnect?"--wifi-reconnect-trial":"--wifi-managed-trial");
+        desktop->realtek?"--wifi-realtek-trial":desktop->active_remove?"--wifi-active-remove-trial":desktop->replug?"--wifi-replug-trial":desktop->reattach?"--wifi-reattach-trial":desktop->reconnect?"--wifi-reconnect-trial":"--wifi-managed-trial");
     return desktop->pid>0;
 }
 static bool wifi_desktop_running(void *context) {
@@ -964,17 +964,19 @@ void kmain(void) {
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
+    const char *realtek_desktop_token="srvros.capture=wifi-rtl8188cu-desktop";
     const char *realtek_ip_token="srvros.capture=wifi-rtl8188cu-ip";
     const char *realtek_wpa_token="srvros.capture=wifi-rtl8188cu-wpa2";
     const char *realtek_passive_token="srvros.capture=wifi-rtl8188cu-passive";
     const char *realtek_firmware_token="srvros.capture=wifi-rtl8188cu-firmware";
     const char *realtek_identity_token="srvros.capture=wifi-rtl8188cu";
     bool rtl8188cu_ip=cmdline_has_token(cmdline,realtek_ip_token);
-    bool rtl8188cu_wpa2=rtl8188cu_ip || cmdline_has_token(cmdline,realtek_wpa_token);
+    bool rtl8188cu_desktop=cmdline_has_token(cmdline,realtek_desktop_token);
+    bool rtl8188cu_wpa2=rtl8188cu_desktop || rtl8188cu_ip || cmdline_has_token(cmdline,realtek_wpa_token);
     bool rtl8188cu_passive=rtl8188cu_wpa2 || cmdline_has_token(cmdline,realtek_passive_token);
     bool rtl8188cu_firmware=rtl8188cu_passive || cmdline_has_token(cmdline,realtek_firmware_token);
     bool rtl8188cu_capture=rtl8188cu_firmware || cmdline_has_token(cmdline,realtek_identity_token);
-    if(rtl8188cu_capture && !rtl8188cu_recipe(cmdline,rtl8188cu_ip?realtek_ip_token:rtl8188cu_wpa2?realtek_wpa_token:rtl8188cu_passive?realtek_passive_token:
+    if(rtl8188cu_capture && !rtl8188cu_recipe(cmdline,rtl8188cu_desktop?realtek_desktop_token:rtl8188cu_ip?realtek_ip_token:rtl8188cu_wpa2?realtek_wpa_token:rtl8188cu_passive?realtek_passive_token:
         rtl8188cu_firmware?realtek_firmware_token:realtek_identity_token))halt_forever();
     if(startup_journal_requested && (!(rtl8188cu_capture || wifi_reconnect5_recipe(cmdline) || wifi_early5_recipe(cmdline) ||
                                        wifi_connection5_recipe(cmdline,true)) ||
@@ -1105,6 +1107,8 @@ void kmain(void) {
         boot_set_framebuffer_quiet(false);
         if(cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1"))
             boot_status("Demers5 desktop trial: calibrating. The desktop will open Help when ready.\n");
+        else if(rtl8188cu_desktop)
+            boot_status("Demers2.4 desktop trial: checking the USB adapter. Help will open when ready.\n");
         else if(rtl8188cu_ip)
             boot_status("Realtek Wi-Fi trial: testing encrypted DHCP, DNS and HTTP. No input required.\n");
         else if(rtl8188cu_passive)
@@ -1149,7 +1153,7 @@ void kmain(void) {
     xhci_set_storage_writable(cmdline_has_token(cmdline, "srvros.usb-storage=rw"));
     bool gestures=cmdline_has_token(cmdline,"srvros.trackpad=gestures");
     xhci_set_trackpad_gestures(gestures);
-    xhci_set_trackpad_pointer(gestures || cmdline_has_token(cmdline, "srvros.trackpad=pointer"));
+    xhci_set_trackpad_pointer(rtl8188cu_desktop || gestures || cmdline_has_token(cmdline, "srvros.trackpad=pointer"));
     xhci_set_trackpad_capture(cmdline_has_token(cmdline, "srvros.trackpad=capture"));
     xhci_set_network_enabled(cmdline_has_token(cmdline,"srvros.usb-network=ecm"));
     xhci_set_wifi_probe_enabled(cmdline_has_token(cmdline,"srvros.usb-wifi=probe"));
@@ -1159,7 +1163,7 @@ void kmain(void) {
     xhci_init();
     bool rtl8188cu_sampled=rtl8188cu_capture && xhci_rtl8188cu_capture_identity();
     if(startup_journal_requested)startup_checkpoint(2,0);
-    if(rtl8188cu_firmware) {
+    if(rtl8188cu_firmware && !rtl8188cu_desktop) {
         const struct initramfs_file *image=initramfs_find("/firmware/rtl8192cufw_TMSC.bin");
         if(rtl8188cu_passive) {
             const struct initramfs_file *profile=initramfs_find("/rtl8188cu-passive.bin");
@@ -1293,13 +1297,13 @@ void kmain(void) {
         cmdline_has_token(cmdline,"srvros.wifi-desktop-active-remove=1");
     struct wifi_desktop_capture wifi_desktop={
         .reconnect=wifi_desktop_reconnect_trial,.reattach=wifi_desktop_reattach_trial,
-        .replug=wifi_desktop_replug_trial,.active_remove=wifi_desktop_active_remove_trial};
+        .replug=wifi_desktop_replug_trial,.active_remove=wifi_desktop_active_remove_trial,.realtek=rtl8188cu_desktop};
     if(http_child_trial)console_write("http-child-boot: isolated_init=1 net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_http_reconnect5_requested)console_write("wifi-http-reconnect5-boot: isolated_init=1 net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_early5_requested)console_write("wifi-early5-boot: calibration_only=1 net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_reconnect5_requested)console_write("wifi-reconnect5-boot: net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_stack5_trial)console_write("wifi-stack5-boot: net_init_deferred=1 worker_deferred=1\n");
-    else if(rtl8188cu_ip)console_write("rtl8188cu-ip-boot: private probe; ordinary network worker deferred\n");
+    else if(rtl8188cu_ip || rtl8188cu_desktop)console_write("rtl8188cu-ip-boot: private probe; ordinary network worker deferred\n");
     else if(wifi_provider_trial)console_write("wifi-provider5-boot: net_init_deferred=1 worker_deferred=1\n");
     else {
         net_init();
@@ -1821,7 +1825,32 @@ void kmain(void) {
                 after.switches-before.switches,after.preemptions-before.preemptions,sampled?"yes":"NO");
             thermal_print_status();smc_print_status();audio_print_status();
         }
-        if(rtl8188cu_capture)sampled=rtl8188cu_sampled;
+        if(rtl8188cu_desktop) {
+            sampled=false;
+            if(started && init_ready && timer_running && rtl8188cu_sampled) {
+                const struct initramfs_file *image=initramfs_find("/firmware/rtl8192cufw_TMSC.bin");
+                const struct initramfs_file *profile=initramfs_find("/rtl8188cu-passive.bin");
+                const struct initramfs_file *credential=initramfs_find("/cfg/rtl8188cu-wpa2.bin");
+                sampled=xhci_rtl8188cu_run_desktop(image?image->data:NULL,image?image->size:0,
+                    profile?profile->data:NULL,profile?profile->size:0,credential?credential->data:NULL,
+                    credential?credential->size:0,&wifi_desktop,wifi_desktop_launch,wifi_desktop_running);
+                if(!xhci_rtl8188cu_desktop_return_safe()) {
+                    __asm__ volatile("cli":::"memory");
+                    console_set_framebuffer_muted(false);
+                    console_clear();
+                    console_write("Realtek desktop stopped. USB ownership retained.\n");
+                    if(startup_journal_admitted)
+                        console_printf("Wi-Fi failure journal saved=%u\n",
+                            (uint64_t)startup_journal_checkpoint_held(startup_flags));
+                    console_write("Hold Power OFF, then Power ON for Ubuntu.\n");
+                    console_sync();
+                    halt_forever();
+                }
+                uint64_t status=0;
+                if(wifi_desktop.pid<=0 || process_wait((uint64_t)wifi_desktop.pid,&status,false)!=wifi_desktop.pid || status)
+                    sampled=false;
+            } else console_write("rtl8188cu-desktop-final: connections=0 disconnects=0 return_safe=1 complete=0\n");
+        } else if(rtl8188cu_capture)sampled=rtl8188cu_sampled;
         console_printf("laptop-capture: completed=%s\n",sampled?"yes":"NO");
         bool saved=started && workspace_log_stop();
         bool unmounted=workspace_active() && workspace_unmount();

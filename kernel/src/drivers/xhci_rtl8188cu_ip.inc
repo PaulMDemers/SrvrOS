@@ -18,6 +18,7 @@ enum rtl_cu_ccx_result {
 
 static struct {
     struct net_bounded_probe probe;
+    struct net_bounded_probe_io io;
     struct net_device_ops ops;
     struct { uint16_t bytes; uint8_t frame[RTL_CU_ETH_MAX]; } queue[RTL_CU_IP_QUEUE];
     uint8_t plain[WPA2_CCMP_DATA_MAX],rx[RTL_CU_ETH_MAX];
@@ -29,7 +30,7 @@ static struct {
         enum rtl_cu_ccx_result result;
         bool requested;
     } first_tx;
-    bool live,registered,retired,opened,dhcp,dns,drained,failed;
+    bool live,accepting,registered,retired,opened,dhcp,dns,drained,failed;
     unsigned http;
 } rtl_ip;
 
@@ -95,20 +96,20 @@ io_error:
 static bool rtl_cu_ip_current(void *context,uint64_t epoch) {
     struct xhci_device *d=context;
     return rtl_ip.live && !rtl_ip.failed && rtl_ip.ops.context==d &&
-        epoch==RTL_CU_STATION_GENERATION && rtl_station.keys.phase==WPA2_CCMP_ACTIVE &&
+        epoch==rtl_station.generation && rtl_station.keys.phase==WPA2_CCMP_ACTIVE &&
         rtl_station.keys.generation==epoch && rtl_cu_station_owned(d);
 }
 
 static bool rtl_cu_ip_link(void *context,struct net_device_link *link) {
-    link->up=rtl_cu_ip_current(context,RTL_CU_STATION_GENERATION);
+    link->up=rtl_cu_ip_current(context,rtl_station.generation);
     return true;
 }
 
-static bool rtl_cu_ip_send(void *context,const uint8_t *frame,uint16_t size) {
-    if(!rtl_cu_ip_current(context,RTL_CU_STATION_GENERATION))return false;
+static bool rtl_cu_ip_enqueue(void *context,const uint8_t *frame,uint16_t size) {
+    if(!rtl_ip.accepting || !rtl_cu_ip_current(context,rtl_station.generation))return false;
     if(size<14 || size>RTL_CU_ETH_MAX || rtl_ip.queued>=RTL_CU_IP_QUEUE ||
-       rtl_ip.posted+rtl_ip.queued>=RTL_CU_DATA_TX_LIMIT) {
-        rtl_ip.failed=true;
+       (!rtl_station.desktop && rtl_ip.posted+rtl_ip.queued>=RTL_CU_DATA_TX_LIMIT)) {
+        if(!rtl_station.desktop)rtl_ip.failed=true;
         return false;
     }
     unsigned tail=(rtl_ip.head+rtl_ip.queued)%RTL_CU_IP_QUEUE;
@@ -118,6 +119,13 @@ static bool rtl_cu_ip_send(void *context,const uint8_t *frame,uint16_t size) {
     return true;
 }
 
+static bool rtl_cu_ip_send(void *context,const uint8_t *frame,uint16_t size) {
+    uint64_t flags=event_irq_save();
+    bool queued=rtl_cu_ip_enqueue(context,frame,size);
+    event_irq_restore(flags);
+    return queued;
+}
+
 static bool rtl_cu_ip_tx(struct xhci_device *d) {
     if(rtl_station.pending)return timer_monotonic_us()-rtl_ip.tx_start<RTL_CU_STATION_TX_US;
     if(rtl_ip.completed!=rtl_ip.posted) {
@@ -125,16 +133,17 @@ static bool rtl_cu_ip_tx(struct xhci_device *d) {
         rtl_cu_erase(rtl_station.buffer,RTL_CU_DATA_TX_MAX);
     }
     rtl_cu_ip_trace_poll(d);
-    if(!rtl_cu_ip_current(d,RTL_CU_STATION_GENERATION))return false;
+    if(!rtl_cu_ip_current(d,rtl_station.generation))return false;
     if(!rtl_ip.queued)return true;
+    if(!rtl_cu_station_can_post())return false;
     unsigned head=rtl_ip.head;
-    size_t n=rtl_cu_data_tx(&rtl_station.keys,RTL_CU_STATION_GENERATION,rtl_ip.queue[head].frame,
-        rtl_ip.queue[head].bytes,rtl_station.sends+1,rtl_ip.plain,rtl_station.buffer);
+    size_t n=rtl_cu_data_tx(&rtl_station.keys,rtl_station.generation,rtl_ip.queue[head].frame,
+        rtl_ip.queue[head].bytes,rtl_cu_station_next_sequence(),rtl_ip.plain,rtl_station.buffer);
     rtl_cu_erase(&rtl_ip.queue[head],sizeof rtl_ip.queue[head]);
     if(!n)return false;
     if(!rtl_ip.posted) {
         rtl_cu_ip_trace_first(d,rtl_station.buffer);
-        if(!rtl_cu_ip_current(d,RTL_CU_STATION_GENERATION))return false;
+        if(!rtl_cu_ip_current(d,rtl_station.generation))return false;
     }
     rtl_ip.head=(head+1)%RTL_CU_IP_QUEUE;
     rtl_ip.queued--;
@@ -145,16 +154,15 @@ static bool rtl_cu_ip_tx(struct xhci_device *d) {
     return true;
 }
 
-static uint64_t rtl_cu_ip_poll(void *context,uint64_t budget,bool verbose) {
-    (void)verbose;
+static uint64_t rtl_cu_ip_service(void *context,uint64_t budget) {
     struct xhci_device *d=context;
-    if(!budget || !rtl_cu_ip_current(d,RTL_CU_STATION_GENERATION))return 0;
+    if(!budget || !rtl_cu_ip_current(d,rtl_station.generation))return 0;
     for(unsigned i=0;i<32u;i++) {
         struct xhci_trb event;
         if(!poll_event(&event))break;
         dispatch_transfer_event(&event);
     }
-    if(!rtl_cu_ip_current(d,RTL_CU_STATION_GENERATION) || !rtl_cu_ip_tx(d))goto failed;
+    if(!rtl_cu_ip_current(d,rtl_station.generation) || !rtl_cu_ip_tx(d))goto failed;
     if(rtl_passive.pending)return 0;
 
     const uint8_t *frame;
@@ -162,10 +170,10 @@ static uint64_t rtl_cu_ip_poll(void *context,uint64_t budget,bool verbose) {
     if(rtl_cu_rx_unwrap(rtl_passive.buffer,rtl_passive.actual,&frame,&size)==RTL_CU_RX_DISPOSITIONS &&
        size>=2 && (frame[1]&0x40)) {
         rtl_ip.protected_rx++;
-        n=rtl_cu_data_rx(&rtl_station.keys,RTL_CU_STATION_GENERATION,frame,size,rtl_ip.plain,rtl_ip.rx);
+        n=rtl_cu_data_rx(&rtl_station.keys,rtl_station.generation,frame,size,rtl_ip.plain,rtl_ip.rx);
     }
     rtl_passive.inspected++;
-    if(!rtl_cu_rx_drain() || !rtl_cu_ip_current(d,RTL_CU_STATION_GENERATION) || !rtl_cu_rx_post(d))goto failed;
+    if(!rtl_cu_rx_drain() || !rtl_cu_ip_current(d,rtl_station.generation) || !rtl_cu_rx_post(d))goto failed;
     if(n) {
         rtl_ip.received++;
         net_handle_ethernet_frame(rtl_ip.rx,(uint16_t)n);
@@ -179,37 +187,51 @@ failed:
     return 0;
 }
 
+static uint64_t rtl_cu_ip_poll(void *context,uint64_t budget,bool verbose) {
+    (void)verbose;
+    uint64_t flags=event_irq_save();
+    uint64_t count=rtl_station.desktop && (xhci.sync_users || xhci.command_pending || strict_control.device)?
+        0:rtl_cu_ip_service(context,budget);
+    event_irq_restore(flags);
+    return count;
+}
+
 static bool rtl_cu_ip_retry(void *context,uint64_t epoch) {
     return rtl_cu_ip_current(context,epoch) && !rtl_ip.queued && !rtl_station.pending &&
         rtl_ip.posted==1 && rtl_ip.completed==1;
 }
 
-static bool rtl_cu_ip_drain(struct xhci_device *d) {
-    for(unsigned i=0;i<RTL_CU_IP_DRAIN_SPINS && timer_monotonic_us()<rtl_ip.deadline;i++) {
-        if(!rtl_cu_ip_current(d,RTL_CU_STATION_GENERATION))return false;
+static bool rtl_cu_ip_drain(struct xhci_device *d,uint64_t deadline) {
+    for(unsigned i=0;i<RTL_CU_IP_DRAIN_SPINS && timer_monotonic_us()<deadline;i++) {
+        if(!rtl_cu_ip_current(d,rtl_station.generation))return false;
         if(!rtl_ip.queued && !rtl_station.pending && rtl_ip.posted==rtl_ip.completed)return true;
         /* Drain only OUT ownership. TCP has closed and RX must no longer
          * reach the network stack. OUT remains pinned on any ambiguity. */
         struct xhci_trb event;
         if(poll_event(&event))dispatch_transfer_event(&event);
-        if(!rtl_cu_ip_current(d,RTL_CU_STATION_GENERATION) || !rtl_cu_ip_tx(d))return false;
+        if(!rtl_cu_ip_current(d,rtl_station.generation) || !rtl_cu_ip_tx(d))return false;
         __asm__ volatile("pause");
     }
     return false;
 }
 
-static bool rtl_cu_ip_run(struct xhci_device *d) {
-    const struct net_bounded_probe_io io={d,rtl_cu_ip_current,rtl_cu_ip_retry};
+static bool rtl_cu_ip_register(struct xhci_device *d) {
     if(!net_device_registry_empty() || !rtl_cu_station_owned(d))return false;
     rtl_ip.ops=(struct net_device_ops){
         .name="rtl8188cu-ccmp",.context=d,.priority=1,.send=rtl_cu_ip_send,.poll=rtl_cu_ip_poll,.link=rtl_cu_ip_link,
     };
     copy_bytes(rtl_ip.ops.mac,rtl_station.peer.station,sizeof rtl_ip.ops.mac);
-    rtl_ip.live=true;
-    rtl_ip.deadline=timer_monotonic_us()+12000000u;
     rtl_ip.registered=net_device_register(&rtl_ip.ops);
+    return rtl_ip.registered;
+}
+
+static bool rtl_cu_ip_run(struct xhci_device *d) {
+    if(!rtl_cu_ip_register(d))return false;
+    rtl_ip.io=(struct net_bounded_probe_io){d,rtl_cu_ip_current,rtl_cu_ip_retry};
+    rtl_ip.live=rtl_ip.accepting=true;
+    rtl_ip.deadline=timer_monotonic_us()+12000000u;
     rtl_ip.opened=rtl_ip.registered && net_init_bounded_probe() &&
-        net_bounded_probe_init(&rtl_ip.probe,&io,RTL_CU_STATION_GENERATION,rtl_ip.deadline);
+        net_bounded_probe_init(&rtl_ip.probe,&rtl_ip.io,rtl_station.generation,rtl_ip.deadline);
     if(rtl_ip.opened) {
         uint32_t remote=0;
         rtl_ip.dhcp=net_dhcp_request_bounded(&rtl_ip.probe)>0;
@@ -220,10 +242,10 @@ static bool rtl_cu_ip_run(struct xhci_device *d) {
         }
     }
     bool finished=net_bounded_probe_finish(&rtl_ip.probe);
-    rtl_ip.drained=rtl_ip.registered && rtl_cu_ip_drain(d);
+    rtl_ip.drained=rtl_ip.registered && rtl_cu_ip_drain(d,rtl_ip.deadline);
     if(rtl_ip.first_tx.result==RTL_CU_CCX_WAITING)
         rtl_ip.first_tx.result=RTL_CU_CCX_MISSING;
-    rtl_ip.live=false;
+    rtl_ip.live=rtl_ip.accepting=false;
     rtl_ip.retired=!rtl_ip.registered || net_device_retire(&rtl_ip.ops);
     rtl_cu_erase(rtl_ip.queue,sizeof rtl_ip.queue);
     rtl_cu_erase(rtl_ip.rx,sizeof rtl_ip.rx);
