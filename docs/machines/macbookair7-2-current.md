@@ -227,13 +227,28 @@ raw hashes, and offline exFAT integrity. All 19 source-bound host checks
 and four exact-image QEMU cases passed before this run. The result is
 closed as a diagnostic, with tear-free scanout still pending.
 
-The next PR 301 diagnostic samples the Broadwell GAM, WiDi, engine and L3
-messages immediately after the original forcewake requester verifies ACK
-and thread C0. It keeps the independent closing census, both scheduled
-polls, the original panel, and the 10 ms park window. The early packet is
-read-only evidence and carries no traffic hold or mapping authority. Scope
-is the Air park adapter, timing receipt, and host/VM qualification. The
-latest shared baseline inspected is `93e10a44`.
+Release `cd860d3427dd926a` at `a3bc6c09` completed the early forcewake
+observation in `session-0006613bc5fb0e56-00`. The 13-DWORD packet ran from
+34 to 85 µs after verified ACK/C0 and preceded the independent full closing
+census. The packet and both scheduled polls saw GAM request/response
+`0xff/0x7f`, WiDi open at `0x1f`, and clear engine and L3 flush
+acknowledgements. VECS idle status varied between the early and scheduled
+samples while its GO indication stayed open. The early packet establishes
+the sampled state from 34 µs after ACK/C0. The RC6 interval and the wake
+transition before that point remain outside this packet's coverage.
+
+RC6 residency advanced by 1,678 ticks. Both cold samples completed at
+2.936 and 5.072 ms, ACK/C0 at 5.210 ms, and the closing guard at 6.655 ms.
+The scheduled polls began at 7.500 and 8.751 ms. VCS1 returned to 64 at
+9.322 ms and the temporary alias retired by 9.424 ms before engine
+preparation. These times use the unchanged 10 ms window origin. The
+original panel was preserved. The Air returned to Ubuntu at 1% volume.
+Ubuntu matched all 2,031 bytes of the USB timing report to the exit log
+and verified the checkpoint, raw hashes, and offline exFAT integrity.
+All 19 source-bound host checks and four exact-image QEMU cases passed.
+The run is closed as a diagnostic. A sustained traffic block, GPU
+ownership and tear-free scanout remain open. Shared baseline `93e10a44`
+was inspected for this run.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
