@@ -32,6 +32,9 @@ OWNED_PAGE_MODES += tuple(f"boot-range-{mode}" for mode in (
     "roundtrip", "copy", "foreign-driver", "outside", "firmware", "no-scratch", "unmapped",
     "foreign-original", "no-prior", "foreign-proof", "front-drift", "scratch-drift", "stale-rollback",
 ))
+OWNED_PAGE_MODES += tuple(f"boot-seed-{mode}" for mode in (
+    "roundtrip", "no-range", "no-authority", "occupied", "uncertain", "stale", "front-drift", "close-drift",
+))
 MODES = list(OWNED_PAGE_MODES) + """normal missing invalid failed-open clock-open stuck-open deadline-open
 post-open-clock source-open changed-first changed-last pool-exhausted poison-open
 input-mutation reentry source-live clock-live poison-live regress-live failed-close

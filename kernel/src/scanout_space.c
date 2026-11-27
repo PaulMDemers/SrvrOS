@@ -118,10 +118,21 @@ bool scanout_interval_held(const struct scanout_interval *node,uint64_t mmio,uin
     return false;
 }
 
+bool scanout_interval_seal_driver(const struct scanout_interval *loan,
+                                  struct scanout_interval *owner, const void *driver) {
+    if (!loan || !owner || !driver || loan->lender != owner ||
+        loan->driver != driver || owner->driver != driver || owner->firmware || owner->lender ||
+        !scanout_interval_held(loan,owner->mmio,owner->aperture,owner->aperture_bytes,owner->fence_end,loan->pages) ||
+        !scanout_interval_held(owner,owner->mmio,owner->aperture,owner->aperture_bytes,owner->fence_end,owner->pages))
+        return false;
+    owner->sealed = true;
+    return true;
+}
+
 void scanout_interval_release(struct scanout_interval *node) {
     struct scanout_interval **link = &intervals;
     while (*link && *link != node) link = &(*link)->next;
-    if (*link && !node->firmware) {
+    if (*link && !node->firmware && !node->sealed) {
         if (node->driver && !node->lender) {
             for (const struct scanout_interval *held = intervals; held; held = held->next)
                 if (held->lender == node) return;

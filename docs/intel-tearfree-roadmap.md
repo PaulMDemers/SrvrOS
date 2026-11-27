@@ -237,6 +237,17 @@ scratch-to-private-to-scratch trial tests that lifetime with Pipe A active.
 [Air aperture survey](machines/macbookair7-2-current.md#reset-free-primary-plane-flip)
 · [EFI handoff importer](../kernel/src/drivers/intel_air_boot.inc)
 
+The first-publication transaction takes an existing grant and requires an
+exact zero PTE inside it. It verifies the page under the same live Pipe A
+owner, seals the parent range until reboot, and installs one pinned scratch
+mapping. It reads the aperture only after ordered invalidation and checks the
+scratch markers and closing PTE before returning the child loan. A nonzero
+entry refuses before the first store. If a write or translation is uncertain,
+the child and display pin remain held. The next loan uses the verified scratch
+PTE as the baseline for private bind and rollback. The zero check is a
+publication precondition. The current EFI sample still supplies no grant.
+[Scratch publication](../kernel/diagnostics/intel_bdw_boot_scanout.c)
+
 ## Earlier qualifications
 
 The read-only CPU backing guard has been qualified for two existing 6 MiB

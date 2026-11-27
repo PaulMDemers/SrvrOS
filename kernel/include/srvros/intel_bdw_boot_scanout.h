@@ -35,7 +35,7 @@ struct bdw_boot_page_source {
     struct bdw_boot_page_binding binding;
     /* Optional boot driver loan. The original entry must map the driver's
      * pinned, low-RAM scratch page. An inherited or empty entry is no grant. */
-    const struct scanout_interval *driver_range;
+    struct scanout_interval *driver_range;
     uint64_t scratch;
     struct bdw_boot_page *consumer;
     bool consumed;
@@ -64,7 +64,7 @@ struct bdw_boot_page_io {
 };
 
 enum bdw_boot_page_state {
-    BDW_PAGE_NEW, BDW_PAGE_RUNNING, BDW_PAGE_REFUSED, BDW_PAGE_RETURNED, BDW_PAGE_RETAINED,
+    BDW_PAGE_NEW, BDW_PAGE_RUNNING, BDW_PAGE_REFUSED, BDW_PAGE_RETURNED, BDW_PAGE_RETAINED, BDW_PAGE_SEEDED,
 };
 
 struct bdw_boot_page {
@@ -79,6 +79,7 @@ struct bdw_boot_page {
     struct scanout_space_token range;
     struct scanout_publication publication;
     struct intel_bdw_ggtt_page entry;
+    enum intel_gt_write seed_write;
     uint64_t begin, last, baseline[2];
     unsigned state, stores, invalidations, apertures;
 };
@@ -89,5 +90,11 @@ struct bdw_boot_page {
  * display pin live even if the original PTE read back. */
 bool intel_bdw_boot_page_run(struct bdw_boot_page *, struct bdw_boot_page_source *,
                              const struct bdw_boot_page_io *);
+/* Requires an independently granted, never-published page with an exact zero
+ * PTE. The scratch frame is the requested backing. A successful seed leaves
+ * the parent and scratch resident for the boot. Faults after any possible
+ * write retain the child and display pin as well. */
+bool intel_bdw_boot_page_seed(struct bdw_boot_page *, struct bdw_boot_page_source *,
+                              const struct bdw_boot_page_io *);
 
 #endif

@@ -114,8 +114,8 @@ static bool retained(struct bdw_boot_page *p)
     return false;
 }
 
-bool intel_bdw_boot_page_run(struct bdw_boot_page *p, struct bdw_boot_page_source *source,
-                            const struct bdw_boot_page_io *io)
+static bool begin_page(struct bdw_boot_page *p, struct bdw_boot_page_source *source,
+                       const struct bdw_boot_page_io *io, bool seed)
 {
     if (!p || p->object || !source || source->object != source || source->consumer || source->consumed || !io ||
         !io->ctx || !io->prove || !io->now || !io->read_pte || !io->exchange || !io->invalidate ||
@@ -125,14 +125,17 @@ bool intel_bdw_boot_page_run(struct bdw_boot_page *p, struct bdw_boot_page_sourc
         !b->aperture || (b->aperture & (b->aperture_bytes - 1)) || b->aperture > UINT64_MAX - b->aperture_bytes ||
         !b->mmio || (b->mmio & 0xffffff) || !b->fence_end || (b->fence_end & 4095) ||
         !(b->plane & (1u << 31)) || (b->plane & (1u << 9)) || b->surface >= b->fence_end || (b->surface & 4095) ||
-        !(b->original & 1) || b->marker[0] == b->marker[1] ||
+        b->marker[0] == b->marker[1] ||
         !scanout_interval_boot_framebuffer_matches(b->mmio,b->aperture,b->aperture_bytes,b->fence_end)) return false;
     const struct scanout_interval *owner = source->driver_range;
     uint64_t scratch = source->scratch;
     if (owner) {
-        if (!scratch || (scratch & 4095) || scratch >= 0x100000000ull || b->original != (scratch | 1) ||
+        if (!scratch || (scratch & 4095) || scratch >= 0x100000000ull ||
             !scanout_interval_held(owner,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,owner->pages)) return false;
     } else if (scratch) return false;
+    if (seed) {
+        if (!owner || b->original || b->backing != scratch) return false;
+    } else if (!(b->original & 1) || (owner && b->original != (scratch | 1))) return false;
     struct scanout_transfer_manifest m = {.first=b->index,.pages=1,.original=&b->original,
         .aperture_bytes=b->aperture_bytes,.fence_end=b->fence_end};
     struct intel_bdw_ggtt_page entry;
@@ -150,7 +153,7 @@ bool intel_bdw_boot_page_run(struct bdw_boot_page *p, struct bdw_boot_page_sourc
     source->consumer = p;
     b = &p->binding;
     if ((!owner && !prove(p)) || !display_access_pin(&b->display)) goto refuse;
-    struct scanout_space_range managed = {b->index,1}, protected = {0,b->fence_end/4096};
+    struct scanout_space_range managed = {b->index,1};
     bool claimed = owner ? scanout_interval_borrow_driver(&p->interval,owner,b->driver,managed) :
         scanout_interval_claim(&p->interval,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,managed);
     if (!claimed) {
@@ -164,6 +167,29 @@ bool intel_bdw_boot_page_run(struct bdw_boot_page *p, struct bdw_boot_page_sourc
         scanout_interval_release(&p->interval);
         goto refuse;
     }
+    return true;
+
+refuse:
+    if (source->consumer == p) source->consumer = NULL;
+    p->state = BDW_PAGE_REFUSED;
+    return false;
+}
+
+static bool return_page(struct bdw_boot_page *p, enum bdw_boot_page_state state)
+{
+    if (!display_access_unpin(&p->binding.display)) return retained(p);
+    scanout_interval_release(&p->interval);
+    p->source->consumer = NULL;
+    p->state = state;
+    return state != BDW_PAGE_REFUSED;
+}
+
+bool intel_bdw_boot_page_run(struct bdw_boot_page *p, struct bdw_boot_page_source *source,
+                             const struct bdw_boot_page_io *io)
+{
+    if (!begin_page(p,source,io,false)) return false;
+    const struct bdw_boot_page_binding *b = &p->binding;
+    struct scanout_space_range managed = {b->index,1}, protected = {0,b->fence_end/4096};
 
     struct scanout_space_pool spaces = {0};
     struct scanout_publish_pool publications = {0};
@@ -176,15 +202,27 @@ bool intel_bdw_boot_page_run(struct bdw_boot_page *p, struct bdw_boot_page_sourc
                                  &p->entry.replacement,1,&writer,&publication) ||
         !aperture(p,p->baseline) || pair_equal(p->baseline,b->marker) ||
         !scanout_publish_apply(&p->publication,&publication) || !scanout_publish_restore(&p->publication,&publication) ||
-        !scanout_space_release(&p->space,&p->range) || !scanout_space_close(&p->space,b->display.owner,p->space.epoch) ||
-        !display_access_unpin(&b->display)) return retained(p);
-    scanout_interval_release(&p->interval);
-    source->consumer = NULL;
-    p->state = BDW_PAGE_RETURNED;
-    return true;
+        !scanout_space_release(&p->space,&p->range) || !scanout_space_close(&p->space,b->display.owner,p->space.epoch))
+        return retained(p);
+    return return_page(p,BDW_PAGE_RETURNED);
+}
 
-refuse:
-    if (source->consumer == p) source->consumer = NULL;
-    p->state = BDW_PAGE_REFUSED;
-    return false;
+bool intel_bdw_boot_page_seed(struct bdw_boot_page *p, struct bdw_boot_page_source *source,
+                              const struct bdw_boot_page_io *io)
+{
+    if (!begin_page(p,source,io,true)) return false;
+    const struct bdw_boot_page_binding *b = &p->binding;
+    uint64_t pte, words[2];
+    if (!read_pte(p,b->index,&pte)) return retained(p);
+    if (pte) return return_page(p,BDW_PAGE_REFUSED);
+    if (!scanout_interval_seal_driver(&p->interval,source->driver_range,b->driver)) return retained(p);
+
+    p->seed_write = p->io.exchange(p->io.ctx,p->entry.mmio_offset,0,p->entry.replacement);
+    if (p->seed_write != GT_WRITE_DONE) return retained(p);
+    ++p->stores;
+    if (!guard(p) || !p->io.invalidate(p->io.ctx)) return retained(p);
+    ++p->invalidations;
+    if (!aperture(p,words) || !pair_equal(words,b->marker) ||
+        !read_pte(p,b->index,&pte) || pte != p->entry.replacement) return retained(p);
+    return return_page(p,BDW_PAGE_SEEDED);
 }

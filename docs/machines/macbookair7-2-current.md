@@ -508,6 +508,14 @@ The checkpoint is an explicitly granted vacant page, its first scratch
 mapping, and a private bind and rollback while the original plane stays
 live. The Air6,1 work in PR 567 is independent.
 
+The scratch transaction passed all 8 new host and Q35 cases. They cover
+first publication followed by bind and rollback, missing ownership, an
+occupied PTE, stale translation, uncertain write, and changes to the
+original plane or closing PTE. The complete runs passed 320 host transfer
+cases and 99 Q35 cases. The saved Air EFI record still has `grants=0`, and
+the native aperture census supplies no vacant, granted entry. No physical
+trial was installed or scheduled. [Scratch publication and native prerequisite](../intel-tearfree-roadmap.md#driver-owned-range-qualification)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

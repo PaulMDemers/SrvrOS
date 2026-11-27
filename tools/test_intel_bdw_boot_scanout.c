@@ -18,6 +18,7 @@ struct fixture {
     volatile uint64_t pte;
     uint32_t index;
     unsigned stores, invalidations, apertures;
+    bool seeding;
 };
 
 static bool is(const struct fixture *f, const char *mode)
@@ -36,13 +37,13 @@ static uint64_t clock_now(void *context)
 static bool proof(void *context, const struct bdw_boot_page_source *s, struct bdw_boot_page_proof *p)
 {
     struct fixture *f = context;
-    assert(s == &source && s->consumer == &trial && !display_access_allowed());
+    assert(s == &source && (s->consumer == &trial || s->consumer == &other) && !display_access_allowed());
     uint32_t rights = BDW_PAGE_REQUIRED;
     if (is(f,"boot-page-no-port")) rights &= ~BDW_PAGE_ENGINE_PORTS_SEALED;
     if (is(f,"boot-page-no-proxy")) rights &= ~BDW_PAGE_PROXY_EXCLUDED;
     if (is(f,"boot-page-no-firmware")) rights &= ~BDW_PAGE_FIRMWARE_EXCLUDED;
     if (is(f,"boot-page-no-prior")) rights &= ~BDW_PAGE_PRIOR_ACCESS_RETIRED;
-    if (is(f,"boot-range-no-prior")) rights &= ~BDW_PAGE_PRIOR_ACCESS_RETIRED;
+    if (is(f,"boot-range-no-prior") || is(f,"boot-seed-no-authority")) rights &= ~BDW_PAGE_PRIOR_ACCESS_RETIRED;
     if (is(f,"boot-page-no-alias")) rights &= ~BDW_PAGE_ALIASES_PINNED;
     if (f->apertures == 3 && is(f,"boot-page-rollback-alias-lost")) rights &= ~BDW_PAGE_ALIASES_PINNED;
     if (is(f,"boot-page-cache-lost") && f->stores) rights &= ~BDW_PAGE_BACKING_VISIBLE;
@@ -65,7 +66,8 @@ static bool proof(void *context, const struct bdw_boot_page_source *s, struct bd
         .index=f->index,.rights=rights,.plane=0xd8000400,.programmed=0,.live=0};
     if (is(f,"boot-range-foreign-proof")) p->driver_range = NULL;
     if (is(f,"boot-range-scratch-drift") && f->stores) p->scratch += 4096;
-    if (f->stores && (is(f,"boot-page-front-drift") || is(f,"boot-range-front-drift"))) p->live = 4096;
+    if (f->stores && (is(f,"boot-page-front-drift") || is(f,"boot-range-front-drift") ||
+                      is(f,"boot-seed-front-drift"))) p->live = 4096;
     if (f->stores && is(f,"boot-page-epoch-lost")) ++p->epoch;
     if (is(f,"boot-page-stale-proof")) --p->at;
     return true;
@@ -82,13 +84,14 @@ static bool read_pte(void *context, uint32_t offset, uint64_t *word)
 static enum intel_gt_write exchange(void *context, uint32_t offset, uint64_t expected, uint64_t word)
 {
     struct fixture *f = context;
-    const struct bdw_boot_page_io io = trial.io;
+    const struct bdw_boot_page_io io = source.consumer->io;
     assert(offset == 0x800000 + 8 * f->index && f->stores < 2 && f->stores == f->invalidations);
     assert(!intel_bdw_boot_page_run(&other,&source,&io));
-    assert(expected == (!f->stores ? f->original : replacement) && word == (!f->stores ? replacement : f->original));
+    if (f->seeding) assert(!expected && word == (f->scratch | 1) && f->driver_range->sealed);
+    else assert(expected == (!f->stores ? f->original : replacement) && word == (!f->stores ? replacement : f->original));
     enum intel_gt_write result = intel_bdw_ggtt_exchange(&f->pte,expected,word);
     ++f->stores;
-    return is(f,"boot-page-uncertain-store") ? GT_WRITE_UNCERTAIN : result;
+    return is(f,"boot-page-uncertain-store") || is(f,"boot-seed-uncertain") ? GT_WRITE_UNCERTAIN : result;
 }
 
 static bool invalidate(void *context)
@@ -96,7 +99,7 @@ static bool invalidate(void *context)
     struct fixture *f = context;
     assert(f->stores == f->invalidations + 1);
     ++f->invalidations;
-    if ((f->stores == 1 && is(f,"boot-page-stale-forward")) ||
+    if ((f->stores == 1 && (is(f,"boot-page-stale-forward") || is(f,"boot-seed-stale"))) ||
         (f->stores == 2 && (is(f,"boot-page-stale-rollback") || is(f,"boot-range-stale-rollback")))) return true;
     f->cached = f->pte;
     return true;
@@ -107,10 +110,14 @@ static bool read_aperture(void *context, uint64_t physical, uint64_t words[2])
     struct fixture *f = context;
     assert(physical == aperture_base + 4096ull * f->index && f->stores == f->invalidations);
     assert(f->apertures++ < 3);
-    const uint64_t *pixels = f->cached == replacement ? source.binding.marker : baseline;
+    const uint64_t *pixels;
+    if (f->cached == replacement) pixels = source.binding.marker;
+    else if (f->cached == (f->seeding ? f->scratch | 1 : f->original)) pixels = baseline;
+    else return false;
     words[0] = pixels[0];
     words[1] = pixels[1];
     if (!f->stores && is(f,"boot-page-foreign-pte")) f->pte ^= 4096;
+    if (is(f,"boot-seed-close-drift")) f->pte ^= 4096;
     return true;
 }
 
@@ -223,6 +230,63 @@ int test_bdw_boot_range(const char *mode)
     assert(display_access_release(&token,true) == !retained);
     scanout_interval_release(&driver_range);
     assert(scanout_interval_held(&driver_range,mmio,aperture_base,aperture_bytes,fence_end,managed) == retained);
+    printf("PASS %s\n",mode);
+    return 0;
+}
+
+int test_bdw_boot_seed(const char *mode)
+{
+    const struct scanout_space_range managed = {16384, 4}, page = {16385, 1};
+    const uint64_t scratch = 0x2100000;
+    struct scanout_interval driver_range = {0};
+    struct fixture f = {.mode=mode,.clock=100,.index=page.first,.scratch=scratch,
+                        .driver_range=&driver_range,.seeding=true};
+    struct display_access_token token;
+    assert(display_access_acquire(123,&token));
+    assert(scanout_interval_protect_boot_framebuffer(mmio,aperture_base,aperture_bytes,fence_end));
+    assert(scanout_interval_claim_driver(&driver_range,&f,mmio,aperture_base,aperture_bytes,fence_end,managed));
+    source = (struct bdw_boot_page_source){.object=&source,.binding={.driver=&f,.epoch=1,.root=root,
+        .mmio=mmio,.aperture=aperture_base,.aperture_bytes=aperture_bytes,.fence_end=fence_end,.display=token,
+        .index=page.first,.plane=0xd8000400,.backing=scratch,.marker={baseline[0],baseline[1]}},
+        .driver_range=&driver_range,.scratch=scratch};
+    if (is(&f,"boot-seed-no-range")) source.driver_range = NULL;
+    if (is(&f,"boot-seed-occupied")) f.pte = f.cached = original;
+    const struct bdw_boot_page_io io = {&f,proof,clock_now,read_pte,exchange,invalidate,read_aperture};
+    bool ok = intel_bdw_boot_page_seed(&trial,&source,&io);
+    bool retained = is(&f,"boot-seed-uncertain") || is(&f,"boot-seed-stale") ||
+                    is(&f,"boot-seed-front-drift") || is(&f,"boot-seed-close-drift");
+    assert(scanout_interval_held(&trial.interval,mmio,aperture_base,aperture_bytes,fence_end,page) == retained);
+    assert(driver_range.sealed == (ok || retained));
+    if (is(&f,"boot-seed-roundtrip")) {
+        assert(ok && trial.state == BDW_PAGE_SEEDED && trial.seed_write == GT_WRITE_DONE &&
+               !source.consumer && f.pte == (scratch | 1) && f.cached == f.pte && f.stores == 1 &&
+               f.invalidations == 1 && f.apertures == 1);
+        assert(!intel_bdw_boot_page_seed(&other,&source,&io));
+        scanout_interval_release(&driver_range);
+        assert(scanout_interval_held(&driver_range,mmio,aperture_base,aperture_bytes,fence_end,managed));
+        f.seeding = false;
+        f.original = f.pte;
+        f.stores = f.invalidations = f.apertures = 0;
+        source = (struct bdw_boot_page_source){.object=&source,.binding=trial.binding,
+            .driver_range=&driver_range,.scratch=scratch};
+        source.binding.original = f.original;
+        source.binding.backing = replacement - 1;
+        source.binding.marker[0] ^= UINT64_MAX;
+        source.binding.marker[1] ^= UINT64_MAX;
+        assert(intel_bdw_boot_page_run(&other,&source,&io));
+        assert(other.state == BDW_PAGE_RETURNED && f.stores == 2 && f.invalidations == 2 &&
+               f.apertures == 3 && f.pte == f.original && f.cached == f.original);
+    } else if (retained) {
+        assert(!ok && trial.state == BDW_PAGE_RETAINED && source.consumer == &trial && f.stores == 1);
+        if (is(&f,"boot-seed-uncertain"))
+            assert(trial.seed_write == GT_WRITE_UNCERTAIN && !trial.stores && !f.invalidations);
+    } else {
+        assert(!ok && !source.consumer && !f.stores && !f.invalidations && !f.apertures);
+        assert(f.pte == (is(&f,"boot-seed-occupied") ? original : 0));
+    }
+    assert(display_access_release(&token,true) == !retained);
+    scanout_interval_release(&driver_range);
+    assert(scanout_interval_held(&driver_range,mmio,aperture_base,aperture_bytes,fence_end,managed) == (ok || retained));
     printf("PASS %s\n",mode);
     return 0;
 }
