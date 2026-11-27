@@ -169,6 +169,16 @@ The provider owns the actual request, checks the pre-reopen boot context
 and retains the firmware, proxy and cache-policy guards. The saved Air
 baseline refuses before any request. [Diagnostic core](../kernel/diagnostics/intel_bdw_boot_drain.c)
 
+The native pre-reopen sampler reads `MISC_CTRL0` through the guarded
+power-register alias before and after the PTE, WiDi and Pipe A packet.
+This checks whether the contemplated CPD route can send GO messages while
+the same owner protects the original surface. The captured Apple policy
+sets the lock and clears CPD GO messaging. The other published message
+registers record GPM/GAM requests or device acknowledgements. A CPU
+write to one of those messages would require a documented ownership and
+release protocol before it could serve as the provider.
+[Air native request evidence](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
+
 If the occupied interval cannot be transferred, the boot allocator needs
 an interval explicitly yielded before any firmware or device client can
 use it. The existing Air capture identifies preserved mappings and reserved

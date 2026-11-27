@@ -1,6 +1,7 @@
 /* Read-only qualification at the point where all five submission ports are
  * sealed, under the original reset owner and with PCI bus mastering off. */
-enum { BOOT_PAGE_INDEX = GT_SECOND_SLOT + 1, BOOT_PAGE_PTE = 0x800000 + 8 * BOOT_PAGE_INDEX };
+enum { BOOT_PAGE_INDEX = GT_SECOND_SLOT + 1, BOOT_PAGE_PTE = 0x800000 + 8 * BOOT_PAGE_INDEX,
+       BOOT_PAGE_MISC_CTRL0 = 0xa180, BOOT_PAGE_POWER_SLOT = 0 };
 static const uint32_t boot_page_widi_regs[] = {0x8104, 0x802c, 0x8014, 0x8108, 0x8028};
 static const uint32_t boot_page_tlb_regs[] = {0x40d0, 0x4278, 0x4dc0, 0x4dc4, 0x4278, 0x40d0};
 static const uint32_t boot_page_pte_regs[] = {BOOT_PAGE_PTE + 4, BOOT_PAGE_PTE, BOOT_PAGE_PTE + 4};
@@ -9,8 +10,9 @@ static const uint32_t boot_page_panel_regs[] = {0x70040, 0x70180, 0x7019c, 0x701
 static struct {
     struct gt_display_access access;
     uint32_t widi[2][5], tlb[6], pte[3], panel[2][4], smi[2];
+    uint32_t policy[2];
     uint64_t begin, end, epoch;
-    unsigned stage;
+    unsigned stage, policy_samples;
     bool sampling;
 } boot_page_preflight;
 
@@ -62,6 +64,26 @@ static bool boot_page_panel(unsigned n)
         completion_mapping(gt_bootstrap_native.a, PIPE_WRITER_SLOT) && boot_page_preflight_live() && bootstrap_tick();
 }
 
+/* MISC_CTRL0 is a firmware policy register in the bus reset domain.
+ * CPD GO-message enablement is independent of the live GO/ACK packet. */
+static bool boot_page_power_policy(void)
+{
+    const unsigned slot = BOOT_PAGE_POWER_SLOT;
+    struct wake_adapter *a = gt_bootstrap_native.a;
+    if (boot_page_preflight.policy_samples >= 2 || wake_pages[slot] != (BOOT_PAGE_MISC_CTRL0 & ~4095u) ||
+        !boot_page_preflight_live() || !completion_mapping(a, slot) || !bootstrap_tick()) return false;
+    uint32_t word;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    if (!intel_display_test_primary_read(BOOT_PAGE_MISC_CTRL0, &word)) return false;
+#else
+    word = *(volatile const uint32_t *)(WAKE_VA + 4096 * slot + (BOOT_PAGE_MISC_CTRL0 & 4095u));
+#endif
+    if (word == UINT32_MAX || !completion_mapping(a, slot) || !boot_page_preflight_live() || !bootstrap_tick())
+        return false;
+    boot_page_preflight.policy[boot_page_preflight.policy_samples++] = word;
+    return true;
+}
+
 static bool slot_boot_page_preflight(void)
 {
     if (gt_aux.blockers[0] || gt_aux.blockers[1]) return true;
@@ -72,17 +94,20 @@ static bool slot_boot_page_preflight(void)
     boot_page_preflight.sampling = true;
     boot_page_preflight.smi[0] = bootstrap_smi_count(BOOT_SMI_PIPE);
     if (!bootstrap_smi.reads || bootstrap_smi.fault || boot_page_preflight.smi[0] != bootstrap_smi.first ||
-        !boot_page_panel(0) || !boot_page_read(boot_page_widi_regs, boot_page_preflight.widi[0], 5)) goto finished;
+        !boot_page_power_policy() || !boot_page_panel(0) ||
+        !boot_page_read(boot_page_widi_regs, boot_page_preflight.widi[0], 5)) goto finished;
     boot_page_preflight.stage = 2;
     if (!boot_page_read(boot_page_tlb_regs, boot_page_preflight.tlb, 6) ||
         !boot_page_read(boot_page_pte_regs, boot_page_preflight.pte, 3)) goto finished;
     boot_page_preflight.stage = 3;
     const uint32_t *pte = boot_page_preflight.pte;
     if (pte[0] != pte[2] || ((uint64_t)pte[0] << 32 | pte[1]) != gt_range.words[1][GT_RANGE_TAIL+3] ||
-        !boot_page_read(boot_page_widi_regs, boot_page_preflight.widi[1], 5) || !boot_page_panel(1)) goto finished;
+        !boot_page_read(boot_page_widi_regs, boot_page_preflight.widi[1], 5) || !boot_page_panel(1) ||
+        !boot_page_power_policy()) goto finished;
     boot_page_preflight.stage = 4;
     boot_page_preflight.smi[1] = bootstrap_smi_count(BOOT_SMI_PIPE);
     if (boot_page_preflight.smi[0] != boot_page_preflight.smi[1] || !boot_page_preflight_live() ||
+        boot_page_preflight.policy[0] != boot_page_preflight.policy[1] ||
         (uint32_t)(boot_page_preflight.panel[1][0] - boot_page_preflight.panel[0][0]) > 8 ||
         !bootstrap_guard() || !bootstrap_tick() || gt_bootstrap_native.last <= boot_page_preflight.begin ||
         gt_bootstrap_native.last - boot_page_preflight.begin > BDW_BOOT_PHASE_US ||
@@ -99,10 +124,12 @@ static void slot_boot_page_report(void)
 {
     if (!boot_page_preflight.stage) return;
     const struct gt_display_access *a = &boot_page_preflight.access;
-    console_printf("intel-boot-page-preflight: v=1 slot=%u stage=%u epoch=%u begin=%u end=%u smi0=%u smi1=%u maps=%u retired=%u reads=%u live=%x authority=none\n",
+    console_printf("intel-boot-page-preflight: v=2 slot=%u stage=%u epoch=%u begin=%u end=%u smi0=%u smi1=%u maps=%u retired=%u reads=%u live=%x policy_samples=%u policy0=%x policy1=%x authority=none\n",
         (uint64_t)BOOT_PAGE_INDEX, (uint64_t)boot_page_preflight.stage, boot_page_preflight.epoch,
         boot_page_preflight.begin, boot_page_preflight.end, (uint64_t)boot_page_preflight.smi[0],
-        (uint64_t)boot_page_preflight.smi[1], (uint64_t)a->maps, (uint64_t)a->retired, (uint64_t)a->reads, a->mapped);
+        (uint64_t)boot_page_preflight.smi[1], (uint64_t)a->maps, (uint64_t)a->retired, (uint64_t)a->reads, a->mapped,
+        (uint64_t)boot_page_preflight.policy_samples, (uint64_t)boot_page_preflight.policy[0],
+        (uint64_t)boot_page_preflight.policy[1]);
     if (boot_page_preflight.stage >= 3) {
         const uint32_t *t = boot_page_preflight.tlb, *p = boot_page_preflight.pte;
         console_printf("intel-boot-page-translation: v=1 gam0=%x wtcr0=%x valid0=%x valid1=%x wtcr1=%x gam1=%x high0=%x low=%x high1=%x\n",

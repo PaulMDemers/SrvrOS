@@ -12,6 +12,8 @@ GAM_WORDS = ("gam_go", "gam_eco")
 MEDIA_WORDS = ("vcs0_ref", "vcs0_prefetch", "vcs1_ref", "vcs1_prefetch")
 POWER_WORDS = ("gam_req", "rc_control", "rc_target", "rc6_threshold")
 GAM_GO_MASK = 0x5f  # RCS, VCS0, VCS1, VECS, BCS and WiDi (bit 6).
+CPD_POLICY_LOCK = 1 << 31
+CPD_GAM_GO_MESSAGES = 1 << 25
 
 SMI_PREFIX = "intel-smi-guard:"
 SMI_FAULT = 2048
@@ -27,9 +29,11 @@ def boot_page_preflight_result(text, parent, range_proof, primary, flush):
     suffix = ' authority=none'
     if not rows[0].endswith(suffix):
         raise ValueError('Boot page preflight authority')
+    keys = ('v', 'slot', 'stage', 'epoch', 'begin', 'end', 'smi0', 'smi1', 'maps', 'retired', 'reads', 'live')
+    has_policy = rows[0].startswith(prefix + 'preflight: v=2 ')
     summary = fields(rows[0].removesuffix(suffix), prefix + 'preflight:',
-                     ('v', 'slot', 'stage', 'epoch', 'begin', 'end', 'smi0', 'smi1', 'maps', 'retired', 'reads', 'live'),
-                     ('live',))
+                     keys + (('policy_samples', 'policy0', 'policy1') if has_policy else ()),
+                     ('live', 'policy0', 'policy1'), versions=(2,) if has_policy else (1,))
     stage = summary['stage']
     begin, end = summary['begin'], summary['end']
     maps, retired, reads = (summary[key] for key in ('maps', 'retired', 'reads'))
@@ -62,10 +66,24 @@ def boot_page_preflight_result(text, parent, range_proof, primary, flush):
                        frame_delta > 8 or translation['high0'] != translation['high1'] or
                        (translation['high0'] << 32 | translation['low']) != range_proof['vectors'][1][-1]):
         raise ValueError('Boot page preflight closing proof')
+    policy = None
+    if has_policy:
+        count = summary['policy_samples']
+        words = [summary['policy0'], summary['policy1']]
+        if (count > 2 or (stage == 1 and count > 1) or (stage in (2, 3) and count != 1) or
+                (stage >= 4 and count != 2) or any(word >= 0xffffffff for word in words[:count]) or
+                any(words[count:]) or (stage == 5 and words[0] != words[1])):
+            raise ValueError('Boot page power policy bracket')
+        stable = count == 2 and words[0] == words[1]
+        locked = bool(words[0] & CPD_POLICY_LOCK) if stable else None
+        enabled = bool(words[0] & CPD_GAM_GO_MESSAGES) if stable else None
+        policy = dict(words=words[:count], stable=stable, cpd_locked=locked, cpd_go_enabled=enabled,
+                      cpd_go_locked_out=locked and not enabled if stable else None)
     return dict(summary=summary, translation=translation, wireless=wireless, frame_delta=frame_delta, capture_complete=stage == 5,
                 widi_go=[bool(sample['win'] & 16) for sample in wireless],
                 win_clock_gated=[bool(sample['req'] & sample['ack'] & 32) for sample in wireless],
                 widi_tlb_empty=translation is not None and not any(translation[key] for key in ('wtcr0', 'wtcr1', 'valid0', 'valid1')),
+                **({'power_policy': policy} if policy is not None else {}),
                 write_authority=False)
 
 

@@ -42,6 +42,11 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertEqual(preflight['win_clock_gated'], [True, True])
         self.assertTrue(preflight['widi_tlb_empty'])
         self.assertFalse(preflight['write_authority'])
+        policy = preflight['power_policy']
+        self.assertEqual(policy['words'], [0xc5280000] * 2)
+        self.assertTrue(policy['stable'])
+        self.assertTrue(policy['cpd_go_locked_out'])
+        self.assertFalse(policy['cpd_go_enabled'])
         for vector in (1, 2):
             with self.subTest(vector=vector):
                 live = bootstrap_result(observe('boot-page-valid', vector))['flush']['boot_page_preflight']
@@ -51,7 +56,8 @@ class FlushAcknowledgements(unittest.TestCase):
         for mode, position, stage in (('boot-page-pte-drift', 1, 3), ('boot-page-plane', 3, 3),
                                        ('boot-page-smi', 4, 4), ('boot-page-map', 3, 2),
                                        ('boot-page-alias', 1, 1), ('boot-page-read', 5, 1),
-                                       ('boot-page-unmap', 2, 2)):
+                                       ('boot-page-unmap', 2, 2), ('boot-page-policy-float', 2, 3),
+                                       ('boot-page-policy-drift', 2, 4)):
             with self.subTest(mode=mode):
                 fault = bootstrap_result(observe(mode, position))
                 self.assertFalse(fault['complete'])
@@ -59,11 +65,20 @@ class FlushAcknowledgements(unittest.TestCase):
                 self.assertEqual(fault['summary']['pci_samples'], 3)
                 self.assertEqual(fault['summary']['pte_writes'], 0)
                 self.assertEqual(fault['flush']['boot_page_preflight']['summary']['stage'], stage)
+                if mode.startswith('boot-page-policy-'):
+                    self.assertFalse(fault['flush']['boot_page_preflight']['power_policy']['stable'])
         lines = text.splitlines()
         translation = next(line for line in lines if line.startswith('intel-boot-page-translation:'))
         for altered in ('', translation.replace('low=0x8f005001', 'low=0x8f006001')):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(translation, altered))
+        current = next(line for line in lines if line.startswith('intel-boot-page-preflight:'))
+        with self.assertRaisesRegex(ValueError, 'power policy bracket'):
+            bootstrap_result(text.replace(current, current.replace('policy1=0xc5280000', 'policy1=0xc7280000')))
+        legacy = re.sub(r' policy_samples=\d+ policy0=\w+ policy1=\w+', '', current.replace('v=2', 'v=1', 1))
+        old = bootstrap_result(text.replace(current, legacy))['flush']['boot_page_preflight']
+        self.assertTrue(old['capture_complete'])
+        self.assertNotIn('power_policy', old)
 
     def test_samples_and_timing_on_both_original_paths(self):
         for entry in (None, "disabled"):

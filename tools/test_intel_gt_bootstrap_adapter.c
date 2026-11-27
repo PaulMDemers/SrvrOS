@@ -1098,6 +1098,11 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
   assert(boot_page_preflight_live() && gpu_command==3 && model_engine_ro==31 && host_widi_held);
   if(!range_pa) {
    switch(offset) {
+   case BOOT_PAGE_MISC_CTRL0:
+    *out=0xc5280000u;
+    if (bf("boot-page-policy-float",boot_page_preflight.policy_samples+1)) *out=UINT32_MAX;
+    if (bf("boot-page-policy-drift",boot_page_preflight.policy_samples+1)) *out^=1u<<25;
+    return true;
    case 0x70040: *out=boot_page_preflight.stage==1 ? UINT32_MAX : 0; return true;
    case 0x70180: *out=0xd8000400; return true;
    case 0x7019c: *out=0; return true;

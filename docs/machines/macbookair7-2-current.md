@@ -462,6 +462,22 @@ owner and keeps that evidence bound to the PTE, Pipe A and WiDi sample.
 The first no-store request needs a documented request source and a
 clear opening state before it can run on this Air.
 
+The pre-reopen receipt now brackets the PTE, WiDi and Pipe A reads with
+two reads of `MISC_CTRL0` through the original guarded wake mapping.
+A changed or unreadable value stops before PCI bus mastering reopens.
+The collector reports whether firmware locked CPD GO messaging off,
+and continues to replay version 1 receipts with their original scope.
+The existing physical RC1e packet read `0xc5280000` before and after the
+request. The same boot's post-reset trace recorded `0x7fff` for every
+sample after the second reset. The published Broadwell interface assigns
+GO requests to GPM and reports the engine and L3 responses separately.
+The Air firmware leaves the documented CPD messaging path locked off.
+The native diagnostic image built, all 44 host tests passed, and the
+saved Air version 1 report replayed with identical decoded evidence.
+The no-store hardware trial still requires a native source of a sustained
+request. Ubuntu and the existing recovery remain installed.
+[Broadwell register reference, pp. 587–592, 606–607 and 859](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
