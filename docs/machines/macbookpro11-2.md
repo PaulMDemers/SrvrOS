@@ -131,6 +131,15 @@ port is still current. It performs zero register writes and transfers no
 firmware or Wi-Fi traffic. Save the workspace exit and independent EFI
 checkpoints and return automatically to Ubuntu.
 
+Release `ea2166d7504f1e3d` on `1501f171` passed the native xHCI probe
+with both sibling adapters present and eleven refusal cases. The existing
+RTL8188CUS and Edimax desktop reconnect tests, 328 boot and trial tests,
+and all five exact-image VM rehearsals passed. The independent journal
+records phase 2 even with the USB workspace missing. The assisted cold
+start requires powering off the hub while leaving all three adapters in
+their ports. The guest probe then runs unattended. Local run record
+`build/bringup/pro112-rtl8822bu-identity/run.json`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
