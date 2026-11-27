@@ -60,6 +60,7 @@ struct bcm_packet {
     struct bcm_packet_memory *memory;
     uint64_t root, bar, dma;
     uint16_t original_command;
+    uint32_t original_sram_window;
     unsigned mapped, tx_post, tx_seen, rx_post, rx_seen;
     unsigned queued, sent, received, dropped;
     uint8_t mac[6];
@@ -111,14 +112,14 @@ static bool packet_pci_idle(const struct pci_device *p) {
 static uint32_t sram_read(const struct bcm_packet *nic, unsigned address) {
     pci_write_config32(nic->pci, SRAM_WINDOW, address);
     uint32_t value = pci_read_config32(nic->pci, SRAM_DATA);
-    pci_write_config32(nic->pci, SRAM_WINDOW, 0);
+    pci_write_config32(nic->pci, SRAM_WINDOW, nic->original_sram_window);
     return value;
 }
 
 static void sram_write(const struct bcm_packet *nic, unsigned address, uint32_t value) {
     pci_write_config32(nic->pci, SRAM_WINDOW, address);
     pci_write_config32(nic->pci, SRAM_DATA, value);
-    pci_write_config32(nic->pci, SRAM_WINDOW, 0);
+    pci_write_config32(nic->pci, SRAM_WINDOW, nic->original_sram_window);
 }
 
 static bool packet_map(struct bcm_packet *nic) {
@@ -144,7 +145,7 @@ static bool packet_unmap(struct bcm_packet *nic) {
     return ok;
 }
 
-static bool packet_firmware_idle(const struct bcm_packet *nic) {
+static bool packet_firmware_idle(struct bcm_packet *nic) {
     for (unsigned i = 0; i < sizeof(packet_modes) / sizeof(packet_modes[0]); i++) {
         uint32_t offset = packet_modes[i].offset, value = mac_read(offset);
         if (offset == BUFFER_MANAGER) continue; /* On-chip MBUF pool. */
@@ -155,10 +156,13 @@ static bool packet_firmware_idle(const struct bcm_packet *nic) {
     }
     uint32_t mac = mac_read(MAC_MODE), tx = mac_read(MAC_TX), rx = mac_read(MAC_RX);
     uint32_t grc = mac_read(GENERAL_MODE), window = pci_read_config32(nic->pci, SRAM_WINDOW);
+    nic->original_sram_window = window;
     console_printf("bcm57765-packet: firmware mac=%x tx=%x rx=%x grc=%x sram_window=%x\n",
         (uint64_t)mac, (uint64_t)tx, (uint64_t)rx, (uint64_t)grc, (uint64_t)window);
+    /* This firmware leaves its selector at 0x0c04 with DMA idle. Preserve
+     * that address latch during each temporary access after the PCI fence. */
     return !(mac & (MAC_DMA_PATH | MAC_LOOPBACK)) && !((tx | rx) & MODE_ENABLE) &&
-        !(grc & HOST_STACK_UP) && !window;
+        !(grc & HOST_STACK_UP) && (window == 0 || window == 0x0c04);
 }
 
 static bool packet_mac_words(struct bcm_packet *nic, uint32_t high, uint32_t low) {
@@ -493,6 +497,7 @@ static bool packet_stop(struct bcm_packet *nic, bool provider_retired, bool *can
         if (mac_read(HOST_STATUS_LOW) || mac_read(RX_STANDARD_RCB + 4) ||
             sram_read(nic, SRAM_TX_RCB + 4) || sram_read(nic, SRAM_RETURN_RCB + 4)) return false;
     }
+    if (pci_read_config32(nic->pci, SRAM_WINDOW) != nic->original_sram_window) return false;
     packet_barrier();
     if (!packet_unmap(nic)) return false;
     if (nic->dma) pmm_free_frame_range(nic->dma, BCM_DMA_PAGES);
