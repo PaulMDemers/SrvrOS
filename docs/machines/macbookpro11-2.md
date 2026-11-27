@@ -2545,6 +2545,33 @@ with all three dongles attached and saves the workspace exit and
 EFI journal before the automatic Ubuntu return. Local run record
 `build/bringup/pro112-rtl8188cu-desktop/run.json`.
 
+Physical session `session-000661471ddca649-00` enumerated all three
+adapters and identified the Realtek. The delayed firmware admission
+refused before any download or radio commands, so the desktop never
+opened. The exit snapshot and seven EFI checkpoints agreed, Ubuntu
+returned automatically, and all 664 existing workspace files were
+preserved. Archived under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-1f1c77d2ad6bbe2b`;
+the private payload was removed and the known passive image restored.
+
+Continue on the same integration baseline `dc4a48d3`. Scope the retry
+to the Realtek's shared hub EP0 handoff after workspace startup. The
+boot-only path runs before asynchronous hub status polling. The
+desktop path must finish any existing status request through its
+normal completion owner before issuing a synchronous request. Cover
+this timing in the native fixture and preserve refusals for a changed
+port or an unresolved transfer.
+
+The native desktop stack reproduced the pre-firmware failure with a
+queued hub status completion. With the fix, the normal xHCI completion
+handler retires the request and both desktop connections pass DHCP,
+gateway ping and DNS, resident UDP traffic and clean retirement.
+Unanswered transfers, wrong completion pointers and Event Data
+completions never free the hub EP0 for reuse. A replacement indication
+retires the old child and keeps the sibling adapters intact. The
+hardware retry records the admission flags so the exact startup state
+can be checked against the reproduced race.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`

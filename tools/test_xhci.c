@@ -8424,9 +8424,18 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
 #endif
             bool ok;
 #ifdef SRVROS_RTL8188CU_IP_TEST
-            if(rtl_station_desktop_fixture)
+            if(rtl_station_desktop_fixture) {
+                struct xhci_device *hub=&xhci.devices[0];
+                native_boundary_mmio_hook=NULL;
+                control_model=hub;hub_model_status=0x503;
+                service_hub_changes();
+                assert(hub->hub_status_pending && hub->control_pending && hub->hub_poll_port==1);
+                control_model=NULL;
+                native_boundary_mmio_hook=rtl_radio_transport;
                 ok=xhci_rtl8188cu_run_desktop(image,sizeof image,blob,sizeof blob,credential,sizeof credential,
                     NULL,rtl_test_desktop_begin,rtl_test_desktop_running);
+                assert(!hub->hub_status_pending && !hub->control_pending && hub->hub_poll_port==2);
+            }
             else
 #endif
                 ok=rtl_cu_capture_station(image,sizeof image,blob,sizeof blob,credential,sizeof credential,ip);

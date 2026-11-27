@@ -372,6 +372,30 @@ static void rtl_test_ap_rx(unsigned offset) {
 }
 
 static unsigned rtl_test_desktop_commands;
+static void rtl_test_desktop_hub_refusals(void) {
+ for(unsigned fault=0;fault<4;fault++) {
+  struct xhci_device *d=rtl_hub_fixture(),*hub=&xhci.devices[0];
+  rtl_probe_case=rtl_probe_hub_requests=rtl_probe_device_requests=0;
+  native_boundary_mmio_hook=rtl_probe_model;
+  assert(xhci_rtl8188cu_capture_identity());
+  native_boundary_mmio_hook=NULL;
+  rtl_test_clock=true;test_time_step=100;
+  control_model=fault?hub:NULL;
+  hub_model_status=fault==3?0x10503:0x503;
+  service_hub_changes();
+  assert(hub->hub_status_pending && hub->control_pending);
+  struct xhci_trb *event=&xhci.event_ring[xhci.event_dequeue];
+  if(fault==1)event->parameter_low^=0x10;
+  if(fault==2)event->control|=4;
+  control_model=NULL;
+  uint64_t enqueue=hub->ep0_enqueue,started=test_time;
+  assert(!rtl8188cu_check_port(d,hub) && hub->ep0_enqueue==enqueue && test_time-started<=10200);
+  assert(hub->hub_status_pending==(fault!=3) && hub->control_pending==(fault!=3) &&
+         d->removed==(fault==3) && !xhci.devices[2].removed && !xhci.devices[3].removed && !freed);
+ }
+ puts("rtl8188cu: PASS hub handoff retains an unanswered or invalid TD and rejects port replacement");
+}
+
 static struct srv_wifi_select rtl_test_desktop_request(const struct srv_wifi_snapshot *snapshot,unsigned index) {
  return (struct srv_wifi_select){.version=SRV_WIFI_VERSION,.size=sizeof(struct srv_wifi_select),
     .owner=snapshot->owner,.generation=snapshot->generation,.index=index};
@@ -1430,6 +1454,7 @@ int STACK5_TEST_MAIN(int argc,char **argv){
   assert(xhci_rtl8188cu_desktop_return_safe() && rtl_desktop.connected==2 &&
          rtl_desktop.disconnected==2 && rtl_test_desktop_commands==4 && rtl_ip.retired && ap.udp==2);
   puts("rtl8188cu: PASS native desktop Connect, resident traffic, TX wrap, Disconnect and fresh same-boot generation");
+  rtl_test_desktop_hub_refusals();
   return 0;
  }
  if(argc==4 && (!strcmp(argv[1],"--rtl8188cu-ip") || !strcmp(argv[1],"--rtl8188cu-no-offer") ||

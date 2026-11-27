@@ -2892,11 +2892,32 @@ static bool rtl8188cu_read(struct xhci_device *d,uint16_t reg,uint16_t length,ui
     return true;
 }
 
+/* IRQs are excluded. The desktop can arrive after the USB worker has
+ * queued GET_STATUS on the shared hub EP0. Let the normal event owner
+ * retire that TD before issuing another request to the hub. */
+static bool rtl8188cu_hub_idle(struct xhci_device *d,struct xhci_device *hub) {
+    if(!hub->control_pending)return !hub->hub_status_pending;
+    if(!hub->hub_status_pending || hub->tt_cleanup_owner || xhci.sync_users ||
+       xhci.poll_users || xhci.command_pending || strict_control.device ||
+       !timer_reference_ready() || !wifi_hub_path_present(d))return false;
+    uint64_t started=timer_monotonic_us();
+    for(unsigned i=0;i<65536 && hub->hub_status_pending;i++) {
+        struct xhci_trb event;
+        if(poll_event(&event))dispatch_transfer_event(&event);
+        if(timer_monotonic_us()-started>=10000)break;
+        __asm__ volatile("pause");
+    }
+    return !hub->hub_status_pending && !hub->control_pending && wifi_hub_path_present(d);
+}
+
 static bool rtl8188cu_check_port(struct xhci_device *d,struct xhci_device *hub) {
+    uint64_t flags=event_irq_save();
     uint32_t status;
-    if(!hub_get_port_status(hub,d->hub_port_id,&status))return false;
-    apply_hub_port_status(hub,d->hub_port_id,status);
-    return wifi_hub_path_present(d);
+    bool read=rtl8188cu_hub_idle(d,hub) && hub_get_port_status(hub,d->hub_port_id,&status);
+    if(read)apply_hub_port_status(hub,d->hub_port_id,status);
+    bool present=read && wifi_hub_path_present(d);
+    event_irq_restore(flags);
+    return present;
 }
 
 static const char *rtl8188cu_probe(struct xhci_device *d,struct xhci_device *hub) {
@@ -3168,9 +3189,18 @@ static bool rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size,bool p
         uint64_t flags=event_irq_save();
         struct xhci_device *hub=device_by_slot(d->parent_slot_id);
         failure="admission";
-        if(hub && !hub->control_pending && !d->control_pending && !d->control_failed && !d->ep0_quarantined &&
+        bool hub_pending=hub && hub->hub_status_pending;
+        bool path=wifi_hub_path_present(d),clock=timer_reference_ready();
+        bool admitted=hub && !d->control_pending && !d->control_failed && !d->ep0_quarantined &&
            !d->rtl8188cu_firmware_attempted && !xhci.sync_users && !strict_control.device &&
-           wifi_hub_path_present(d) && timer_reference_ready()) {
+           path && clock && rtl8188cu_hub_idle(d,hub);
+        if(hub_pending || !admitted)
+            console_printf("rtl8188cu-firmware-admission: admitted=%u path=%u clock=%u hub_status_pending=%u hub_control_pending=%u child_control_pending=%u child_control_failed=%u attempted=%u sync=%u strict=%u\n",
+                (uint64_t)admitted,(uint64_t)path,(uint64_t)clock,(uint64_t)hub_pending,
+                (uint64_t)(hub && hub->control_pending),(uint64_t)d->control_pending,
+                (uint64_t)d->control_failed,(uint64_t)d->rtl8188cu_firmware_attempted,
+                xhci.sync_users,(uint64_t)(strict_control.device!=NULL));
+        if(admitted) {
             d->rtl8188cu_firmware_attempted=true;
             failure="image";
             if(rtl8188cu_image_matches(image,size)) {
@@ -3206,6 +3236,7 @@ bool xhci_rtl8188cu_capture_firmware(const uint8_t *image,uint64_t size) {
 #include "xhci_rtl8188cu_passive.inc"
 
 static void hub_status_event(struct xhci_device *d,const struct xhci_trb *event) {
+    if(event->control&4)return;
     int result=control_event_result(d,event);
     if(!result)return;
     d->hub_status_pending=d->control_pending=false;
