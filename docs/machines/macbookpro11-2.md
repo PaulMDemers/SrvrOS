@@ -1997,6 +1997,25 @@ and four EFI journal modes. The trial record under
 control and both Linux comparisons. Native reception and Demers2.4
 discovery still need the cold result.
 
+Cold session `session-0006613b40b4ba6c-00` confirmed native RX with
+`CR=0x02fa` and `TXPAUSE=0xff`. The control logged zero USB
+completions. This run completed its first 4 KiB receive request in
+64 µs and all 62 posted requests in about 132 ms. The first-ring
+limit ended the four-second window early. The parser validated one
+Demers2.4 beacon and counted 61 rejected buffers. The trial requires
+two target beacons, so passive discovery remains unaccepted. The
+aggregate rejection count does not identify the discarded buffers'
+failure reasons.
+
+The RX endpoint stopped and the radio parked with `CR=0x0000` and
+`TXPAUSE=0xff`. Both logs agreed on the MAC transition and RX
+outcome, the exit snapshot verified and all seven EFI checkpoints
+survived. SrvrOS requested normal Ubuntu return after a clean
+unmount. Collection verified the installed recovery and all 642
+prior workspace files. The evidence, comparison and verified
+payload are under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-fc150a451faf921d`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
