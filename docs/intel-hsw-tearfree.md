@@ -264,6 +264,27 @@ clock reads, root checks, raw comparisons and retirement verification
 remain in force. The same 100 ms pass deadline, inter-pass gap and 4 KiB
 census receipt cap apply. Both passes must retire before slot 4096 is read.
 
+#### Native read-only audit completed
+
+Source `1b582efe`, release `2291c93c536fbe3d` and session
+`session-0006614a1336e89e-00` passed the joined receipt decoder. Both VT-d
+passes verified retirement and released their claims at 99.581 and
+98.729 ms. They performed 24 register reads and zero writes. The fresh
+42-table censuses took 74.887 and 74.595 ms and retained 3,088 bytes per
+raw pass. The 97.429 ms gap between read batches met the existing bound.
+
+Translation Enable Status was clear in both samples of graphics DRHD0.
+IGD bus mastering remained enabled at both PCI endpoints. Slot 4096
+returned `0x8ea00001` twice and still maps `0x8ea00000` in IGD's declared
+RMRR. Pipe A advanced two frames in 20.128 ms on the inherited surface.
+The candidate alias and both compression aliases retired with zero GPU
+writes. The exit snapshot, recovery and offline USB filesystem check
+verified after Ubuntu returned with the one-shot consumed.
+
+Slot 4096 stays protected. Requester drain, firmware/SMM exclusion and a
+maintained owner remain open. The smallest observed retirement margin was
+419 µs.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

@@ -109,6 +109,16 @@ alias comparisons. The next native test still requires both passes to
 retire within 100 ms before sampling slot 4096. Air7,2 PR301 at `b6f8939b`
 does not touch this path.
 
+The [native read-only audit](../intel-hsw-tearfree.md#native-read-only-audit-completed)
+passed on `1b582efe` / `2291c93c536fbe3d`. Both VT-d passes retired and
+released their claims in 99.581 and 98.729 ms. The matched USB receipt
+verified all 24 register reads and zero writes. Slot 4096 still mapped
+`0x8ea00000` in IGD's RMRR as Pipe A advanced two frames. Graphics DRHD0
+reported translation disabled in both samples, and IGD had bus mastering
+enabled at both sampled PCI endpoints. Keep the slot protected pending
+requester drain and firmware exclusion evidence. Ubuntu, recovery and
+the offline USB filesystem check verified on return.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
