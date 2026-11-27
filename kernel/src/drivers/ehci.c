@@ -297,6 +297,7 @@ static struct ehci_desktop_trackpad {
     uint16_t memory_command;
     enum ehci_monitor_state state;
     unsigned completions, reports, ignored, malformed, motion, presses, releases;
+    unsigned keyboard_reports, keyboard_invalid, keyboard_presses, keyboard_releases;
     struct ehci_desktop_frame_sample malformed_samples[EHCI_DESKTOP_MALFORMED_SAMPLES];
     const char *failure;
 } desktop_trackpad;
@@ -575,6 +576,22 @@ static bool disable_periodic(const struct ehci_control_path *path) {
 #include "ehci_trackpad.inc"
 #include "ehci_storage.inc"
 
+_Static_assert(2 * sizeof(struct ehci_trackpad_dma) <= EHCI_PAGE_BYTES,
+    "both desktop interrupt queues fit one DMA page");
+
+static void prepare_desktop_keyboard_queue(struct ehci_control_path *path, uint64_t frame_list,
+    uint64_t transfer_page) {
+    struct ehci_trackpad_dma *queues = pmm_phys_to_virt(transfer_page);
+    uint32_t physical = (uint32_t)transfer_page + sizeof(queues[0]);
+    prepare_trackpad_queue(&queues[1], physical, &path->report->keyboard_target, &keyboard_endpoint);
+    uint32_t *frames = pmm_phys_to_virt(frame_list);
+    /* Both endpoints use the same full-speed port's TT. Dedicate one frame
+     * per keyboard interval to keep their split windows disjoint. */
+    for (unsigned i = 0; i < EHCI_FRAME_ENTRIES; i += keyboard_endpoint.interval)
+        frames[i] = (physical + offsetof(struct ehci_trackpad_dma, qh)) | EHCI_LINK_QH;
+    __asm__ volatile ("mfence" : : : "memory");
+}
+
 static uint32_t read_root_port(struct ehci_enumeration *bus, volatile uint32_t *port) {
     uint32_t status = *port;
     bus->step.port_status = status;
@@ -717,7 +734,10 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
     } else if (complete && keep_trackpad) {
         uint64_t configured_at, mode_completed_at;
         desktop_trackpad.failure = configure_trackpad(&path, &frame_list, &transfer_page, &configured_at);
+        if (!desktop_trackpad.failure && !select_keyboard_boot_protocol(&path))
+            desktop_trackpad.failure = "keyboard SET_PROTOCOL failed";
         if (!desktop_trackpad.failure) {
+            prepare_desktop_keyboard_queue(&path, frame_list, transfer_page);
             if (!select_trackpad_wellspring(&path, &mode_completed_at)) {
                 desktop_trackpad.failure = "feature mode write failed";
             } else if (!enable_periodic(&path)) {

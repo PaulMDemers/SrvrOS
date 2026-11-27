@@ -874,6 +874,30 @@ static void retire_desktop_test_report(struct ehci_trackpad_dma *queue, unsigned
     queue->qh.overlay.token = active->td.token;
 }
 
+static void test_desktop_shared_tt_schedule(void) {
+    fixture_reset();
+    struct ehci_trackpad_dma queues[2];
+    trackpad_dma = queues;
+    const struct ehci_control_target target = { .address = 3, .packet_size = 8, .tt_hub = 1, .tt_port = 2 };
+    struct ehci_probe_report report = { .keyboard_target = target };
+    struct ehci_control_path path = { .op = op, .report = &report };
+    prepare_trackpad_queue(&queues[0], 0xa000, &target, &trackpad_endpoint);
+    prepare_periodic_frames(trackpad_frames, 0xa000, trackpad_endpoint.interval);
+    prepare_desktop_keyboard_queue(&path, 0xb000, 0xa000);
+
+    uint32_t keyboard_qh = 0xa000 + sizeof(queues[0]);
+    for (unsigned i = 0; i < EHCI_FRAME_ENTRIES; i++) {
+        uint32_t expected = i % keyboard_endpoint.interval ? 0xa000u : keyboard_qh;
+        assert(trackpad_frames[i] == (expected | EHCI_LINK_QH));
+    }
+    assert(queues[0].qh.link == EHCI_LINK_END && queues[1].qh.link == EHCI_LINK_END);
+    assert(queues[0].qh.capabilities == queues[1].qh.capabilities);
+    assert(((queues[0].qh.endpoint >> 8) & 15) == 1 && ((queues[1].qh.endpoint >> 8) & 15) == 3);
+    assert(queues[1].qh.overlay.next == keyboard_qh + offsetof(struct ehci_trackpad_dma, slots));
+    assert(queues[1].slots[0].td.token & EHCI_TD_ACTIVE);
+    assert((queues[1].slots[0].td.token >> EHCI_TD_BYTES_SHIFT) == EHCI_KEYBOARD_PACKET);
+}
+
 static void test_desktop_trackpad_input(void) {
     fixture_reset();
     desktop_trackpad = (struct ehci_desktop_trackpad){0};
@@ -1015,6 +1039,7 @@ int main(void) {
     test_captured_keyboard_interface();
     test_trackpad_capture();
     test_trackpad_mode_retry();
+    test_desktop_shared_tt_schedule();
     test_desktop_trackpad_input();
     test_flash_bulk();
     test_native_trial_result();

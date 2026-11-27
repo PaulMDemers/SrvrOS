@@ -944,6 +944,16 @@ returned and the USB was remounted. The read-only allocation check passed
 for 120 files with zero writes, and prior user files were preserved. The
 one-shot was consumed and the retained recovery payloads verified.
 
+The combined input candidate uses the same `srvros.ehci=trackpad` boot
+option for the regular desktop. One controller worker owns `0x81` and
+`0x83`. The keyboard uses one frame per eight and the trackpad uses the
+other seven, giving their shared transaction translator disjoint split
+windows. Configuration replays the existing HID setup, selects keyboard
+boot protocol and enters Wellspring mode. The v2 attended profile opens
+Text, checks typing into Find, and exercises pointer motion, maximize,
+restore and the return menu. The native report counts keyboard edges and
+invalid reports alongside the existing pointer, mode and retirement data.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |

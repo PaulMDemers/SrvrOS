@@ -27,11 +27,11 @@ EHCI_KEYBOARD_VERSION = "ram-usb-v1-macbookpro8-1-ehci-keyboard"
 EHCI_MONITOR_VERSION = "ram-usb-v1-macbookpro8-1-ehci-monitor"
 EHCI_TRACKPAD_VERSION = "ram-usb-v1-macbookpro8-1-ehci-trackpad"
 EHCI_TRACKPAD_LOG_RE = re.compile(re.escape(EHCI_TRACKPAD_VERSION) + r"-log-([0-9a-f]{8})")
-EHCI_DESKTOP_VERSION = "ram-usb-v1-macbookpro8-1-ehci-desktop"
-EHCI_DESKTOP_RE = re.compile(re.escape(EHCI_DESKTOP_VERSION) + r"-log-([0-9a-f]{8})")
+EHCI_DESKTOP_VERSION = "ram-usb-v2-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_RE = re.compile(r"ram-usb-v[12]-macbookpro8-1-ehci-desktop-log-([0-9a-f]{8})")
 EHCI_DESKTOP_FILES = ("fat/bin/deskd", "fat/bin/desktools", "fat/bin/deskclient", "fat/bin/deskfs",
                       "fat/share/Trackpad trial.txt")
-EHCI_DESKTOP_CHECKLIST = b"""Built-in trackpad trial
+EHCI_DESKTOP_V1_CHECKLIST = b"""Built-in trackpad trial
 
 Move the pointer across the window and back using one finger.
 Check that it moves horizontally and vertically.
@@ -39,6 +39,22 @@ If the pointer pauses on first touch, keep moving briefly.
 
 Physically click this window's maximize button, then click it
 again to restore the window. Lift your finger between clicks.
+
+Click SrvrOS at the top left and choose Return to console.
+Leave the flash drive connected for the report and restart.
+The trial will end after 90 seconds if you cannot finish.
+"""
+EHCI_DESKTOP_CHECKLIST = b"""Built-in keyboard and trackpad trial
+
+Move the pointer across the window with the built-in trackpad.
+Check that it moves horizontally and vertically.
+
+In Text, press Control+F on the built-in keyboard.
+Type Ehci-42 and check that it appears in the Find field.
+Press Escape to close Find.
+
+Click this window's maximize button with the trackpad.
+Lift your finger, then click again to restore the window.
 
 Click SrvrOS at the top left and choose Return to console.
 Leave the flash drive connected for the report and restart.
@@ -654,7 +670,8 @@ def verify(directory, expected_release=None):
         with tarfile.open(directory / "initramfs.tar", "r:") as image:
             if tuple(image.getnames()) != EHCI_DESKTOP_FILES or not all(item.isfile() for item in image):
                 raise ValueError("Unexpected EHCI desktop boot files")
-            if image.extractfile(EHCI_DESKTOP_FILES[-1]).read() != EHCI_DESKTOP_CHECKLIST:
+            checklist = EHCI_DESKTOP_CHECKLIST if version.startswith(EHCI_DESKTOP_VERSION) else EHCI_DESKTOP_V1_CHECKLIST
+            if image.extractfile(EHCI_DESKTOP_FILES[-1]).read() != checklist:
                 raise ValueError("Missing EHCI desktop checklist")
 
     if version.startswith(("ram-usb-wifi-fw-v1-","ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-","ram-usb-wifi-fw-v6-","ram-usb-wifi-fw-v7-","ram-usb-wifi-fw-v8-","ram-usb-wifi-fw-v9-","ram-usb-wifi-fw-v10-","ram-usb-wifi-fw-v11-","ram-usb-wifi-fw-v12-","ram-usb-wifi-fw-v13-","ram-usb-wifi-fw-v14-","ram-usb-wifi-fw-v15-","ram-usb-wifi-fw-v16-","ram-usb-wifi-fw-v17-","ram-usb-wifi-fw-v18-","ram-usb-wifi-fw-v19-","ram-usb-wifi-fw-v20-","ram-usb-wifi-fw-v21-","ram-usb-wifi-fw-v22-","ram-usb-wifi-fw-v23-","ram-usb-wifi-fw-v24-","ram-usb-wifi-fw-v25-","ram-usb-wifi-fw-v26-","ram-usb-wifi-fw-v27-","ram-usb-wifi-fw-v28-","ram-usb-wifi-fw-v29-","ram-usb-wifi-fw-v30-","ram-usb-wifi-fw-v31-","ram-usb-wifi-fw-v32-","ram-usb-wifi-fw-v33-","ram-usb-wifi-fw-v34-","ram-usb-wifi-fw-v35-","ram-usb-wifi-fw-v36-","ram-usb-wifi-fw-v37-","ram-usb-wifi-fw-v38-","ram-usb-wifi-fw-v39-","ram-usb-wifi-fw-v40-","ram-usb-wifi-fw-v41-","ram-usb-wifi-fw-v42-","ram-usb-wifi-fw-v43-","ram-usb-wifi-fw-v44-","ram-usb-wifi-fw-v45-","ram-usb-wifi-fw-v46-","ram-usb-wifi-fw-v47-","ram-usb-wifi-fw-v48-","ram-usb-wifi-fw-v49-","ram-usb-wifi-fw-v50-","ram-usb-wifi-fw-v51-","ram-usb-wifi-fw-v52-","ram-usb-wifi-fw-v53-","ram-usb-wifi-fw-v54-","ram-usb-wifi-fw-v55-","ram-usb-wifi-fw-v56-","ram-usb-wifi-fw-v57-","ram-usb-wifi-fw-v58-","ram-usb-wifi-fw-v59-","ram-usb-wifi-fw-v60-","ram-usb-wifi-fw-v61-","ram-usb-wifi-fw-v62-","ram-usb-wifi-fw-v63-","ram-usb-wifi-fw-v64-","ram-usb-wifi-fw-v65-","ram-usb-wifi-fw-v66-","ram-usb-wifi-fw-v67-","ram-usb-wifi-fw-v68-","ram-usb-wifi-fw-v69-","ram-usb-wifi-fw-v70-","ram-usb-wifi-fw-v71-","ram-usb-wifi-fw-v72-","ram-usb-wifi-fw-v73-","ram-usb-wifi-fw-v74-","ram-usb-wifi-fw-v75-","ram-usb-wifi-fw-v76-","ram-usb-wifi-fw-v77-","ram-usb-wifi-fw-v78-","ram-usb-wifi-fw-v79-","ram-usb-wifi-fw-v80-","ram-usb-wifi-fw-v81-","ram-usb-wifi-fw-v82-","ram-usb-wifi-fw-v83-","ram-usb-wifi-fw-v84-","ram-usb-wifi-fw-v85-","ram-usb-wifi-fw-v86-","ram-usb-wifi-fw-v87-","ram-usb-wifi-fw-v88-","ram-usb-wifi-fw-v89-","ram-usb-wifi-fw-v90-","ram-usb-wifi-fw-v91-","ram-usb-wifi-fw-v92-","ram-usb-wifi-fw-v93-","ram-usb-wifi-fw-v94-","ram-usb-wifi-fw-v95-","ram-usb-wifi-fw-v96-","ram-usb-wifi-fw-v97-","ram-usb-wifi-fw-v98-","ram-usb-wifi-fw-v99-","ram-usb-wifi-fw-v100-","ram-usb-wifi-fw-v101-","ram-usb-wifi-fw-v102-")) or version.startswith(("ram-usb-wifi-fw-v116-","ram-usb-wifi-fw-v117-","ram-usb-wifi-fw-v118-","ram-usb-wifi-fw-v119-","ram-usb-wifi-fw-v120-")):

@@ -1,4 +1,4 @@
-/* The captured internal endpoint is owned by one kernel I/O worker. */
+/* One kernel I/O worker owns both captured topcase endpoints. */
 static enum ehci_monitor_state desktop_trackpad_state(void *arg) {
     (void)arg;
     return __atomic_load_n(&desktop_trackpad.state, __ATOMIC_ACQUIRE);
@@ -127,20 +127,85 @@ static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct 
     return NULL;
 }
 
+static bool desktop_keyboard_has_key(const uint8_t report[EHCI_KEYBOARD_REPORT]) {
+    for (unsigned i = 2; i < EHCI_KEYBOARD_REPORT; i++) {
+        if (report[i] > 3) return true;
+    }
+    return false;
+}
+
+static void desktop_keyboard_report(const uint8_t *data, unsigned length, struct keyboard_hid_state *state) {
+    if (length != EHCI_KEYBOARD_REPORT || data[1]) {
+        desktop_trackpad.keyboard_invalid++;
+        return;
+    }
+    for (unsigned i = 2; i < EHCI_KEYBOARD_REPORT; i++) {
+        if (data[i] && data[i] <= 3) {
+            desktop_trackpad.keyboard_invalid++;
+            break; /* The HID decoder cancels repeat without generating false key releases. */
+        }
+    }
+    bool was_down = desktop_keyboard_has_key(state->previous_report);
+    uint64_t flags;
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    keyboard_inject_hid_report(data, state);
+    if (flags & (1u << 9)) __asm__ volatile ("sti" : : : "memory");
+    bool down = desktop_keyboard_has_key(state->previous_report);
+    desktop_trackpad.keyboard_reports++;
+    desktop_trackpad.keyboard_presses += !was_down && down;
+    desktop_trackpad.keyboard_releases += was_down && !down;
+}
+
+static const char *desktop_keyboard_poll(struct ehci_trackpad_dma *dma, uint32_t physical,
+    struct keyboard_hid_state *state, unsigned *slot) {
+    const volatile struct ehci_trackpad_dma *progress = dma;
+    uint32_t token = progress->slots[*slot].td.token;
+    if (token & EHCI_TD_ERROR) return "keyboard interrupt transfer error";
+    if (!(token & EHCI_TD_ACTIVE)) {
+        unsigned residual = (token >> EHCI_TD_BYTES_SHIFT) & EHCI_TD_BYTES_MASK;
+        if (residual > keyboard_endpoint.length) return "invalid keyboard interrupt residual";
+        __asm__ volatile ("mfence" : : : "memory");
+        unsigned next = *slot ^ 1u;
+        uint32_t first = physical + offsetof(struct ehci_trackpad_dma, slots);
+        uint32_t retired = first + *slot * sizeof(dma->slots[0]);
+        uint32_t dummy = first + next * sizeof(dma->slots[0]);
+        if (!trackpad_queue_parked(progress, next, retired, dummy)) return "keyboard queue did not park";
+        desktop_keyboard_report(dma->slots[*slot].data, keyboard_endpoint.length - residual, state);
+        park_trackpad_qtd(&dma->slots[*slot].td);
+        publish_trackpad_qtd(&dma->slots[next].td, retired,
+            dummy + offsetof(struct ehci_trackpad_slot, data), keyboard_endpoint.length);
+        *slot = next;
+    }
+    uint64_t flags;
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    keyboard_repeat_hid(state, timer_monotonic_us());
+    if (flags & (1u << 9)) __asm__ volatile ("sti" : : : "memory");
+    return NULL;
+}
+
 static void desktop_trackpad_worker(void *arg) {
     struct ehci_control_path *path = arg;
     struct ehci_trackpad_dma *dma = pmm_phys_to_virt(desktop_trackpad.transfer_page);
+    uint32_t keyboard_queue = (uint32_t)desktop_trackpad.transfer_page + sizeof(*dma);
     struct trackpad_pointer pointer = {0};
+    struct keyboard_hid_state keyboard = {0};
     struct scheduler_wait_queue wake = {0};
-    unsigned slot = 0;
+    unsigned slot = 0, keyboard_slot = 0;
     uint64_t last_report = 0;
     while (desktop_trackpad_state(NULL) == EHCI_MONITOR_RUNNING) {
         desktop_trackpad.failure = desktop_trackpad_poll(path, dma, &pointer, &slot, &last_report);
+        if (!desktop_trackpad.failure)
+            desktop_trackpad.failure = desktop_keyboard_poll(dma + 1, keyboard_queue, &keyboard, &keyboard_slot);
         if (desktop_trackpad.failure) break;
         uint64_t due = timer_ticks() + 1;
         if (!scheduler_wait_timeout(&wake, desktop_trackpad_due, &due, due)) scheduler_yield();
     }
     cancel_desktop_pointer(&pointer);
+    uint64_t flags;
+    const uint8_t released_keys[EHCI_KEYBOARD_REPORT] = {0};
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    keyboard_inject_hid_report(released_keys, &keyboard);
+    if (flags & (1u << 9)) __asm__ volatile ("sti" : : : "memory");
     bool released = release_desktop_trackpad();
     __atomic_store_n(&desktop_trackpad.state, released ? EHCI_MONITOR_RELEASED : EHCI_MONITOR_UNSAFE,
         __ATOMIC_RELEASE);
@@ -167,14 +232,16 @@ bool ehci_desktop_trackpad_start(void) {
         return false;
     }
     desktop_trackpad.state = EHCI_MONITOR_RUNNING;
-    if (!scheduler_spawn_io_service("ehci-trackpad", desktop_trackpad_worker, &desktop_trackpad.path,
+    if (!scheduler_spawn_io_service("ehci-topcase", desktop_trackpad_worker, &desktop_trackpad.path,
             desktop_trackpad_eligible)) {
-        desktop_trackpad.failure = "trackpad worker could not start";
+        desktop_trackpad.failure = "topcase worker could not start";
         desktop_trackpad.state = release_desktop_trackpad() ? EHCI_MONITOR_RELEASED : EHCI_MONITOR_UNSAFE;
         return false;
     }
-    console_printf("ehci-desktop: trackpad ready endpoint=0x81 interval-ms=1 address=%u active-us=%u\n",
+    console_printf("ehci-desktop: trackpad ready endpoint=0x81 frames-per-8=7 address=%u active-us=%u\n",
         (uint64_t)report->trackpad_target.address, report->trackpad.mode_to_active_us);
+    console_printf("ehci-desktop-keyboard: ready endpoint=0x83 interval-ms=%u shared-tt=1\n",
+        (uint64_t)keyboard_endpoint.interval);
     return true;
 }
 
@@ -231,11 +298,15 @@ bool ehci_desktop_trackpad_stop(void) {
         (uint64_t)desktop_trackpad.motion, (uint64_t)desktop_trackpad.presses, (uint64_t)desktop_trackpad.releases,
         capture->mode_restored ? "restored" : "unverified", state == EHCI_MONITOR_RELEASED ? "released" : "unverified",
         desktop_trackpad.failure ? desktop_trackpad.failure : "none");
+    console_printf("ehci-desktop-keyboard: reports=%u invalid=%u presses=%u releases=%u\n",
+        (uint64_t)desktop_trackpad.keyboard_reports, (uint64_t)desktop_trackpad.keyboard_invalid,
+        (uint64_t)desktop_trackpad.keyboard_presses, (uint64_t)desktop_trackpad.keyboard_releases);
     print_desktop_frame_samples();
     return state == EHCI_MONITOR_RELEASED;
 }
 
 bool ehci_desktop_trackpad_verified(void) {
     return desktop_trackpad_state(NULL) == EHCI_MONITOR_RELEASED && !desktop_trackpad.failure &&
-        !desktop_trackpad.malformed && desktop_trackpad.motion && desktop_trackpad.presses && desktop_trackpad.releases;
+        !desktop_trackpad.malformed && desktop_trackpad.motion && desktop_trackpad.presses && desktop_trackpad.releases &&
+        !desktop_trackpad.keyboard_invalid && desktop_trackpad.keyboard_presses && desktop_trackpad.keyboard_releases;
 }

@@ -121,7 +121,7 @@ def exercise_trackpad(command, temp, logs, release, log_volume):
         assert marker not in first, marker
 
 
-def exercise_desktop(command, temp, logs, release, log_volume):
+def exercise_desktop(command, temp, logs, release, log_volume, keyboard_checklist):
     serial = logs / "trial-serial.log"
     serial.unlink(missing_ok=True)
     qmp = temp / "qmp.sock"
@@ -148,6 +148,19 @@ def exercise_desktop(command, temp, logs, release, log_volume):
                     ui.mouse(0, 0, 0)
 
                 x, y, width, _ = map(int, re.search(geometry, first).groups())
+                if keyboard_checklist:
+                    ui.mouse(50, 40)
+                    pointer[0] += 50
+                    pointer[1] += 40
+                    ui.call("human-monitor-command", {"command-line": "sendkey ctrl-f"})
+                    time.sleep(.3)
+                    ui.key("e", shift=True)
+                    for key in ("h", "c", "i", "minus", "4", "2"):
+                        ui.key(key)
+                    wait_for(serial, lambda s: "ehci-desktop-ui: keyboard-checklist=matched" in s, vm, 10)
+                    time.sleep(.4)
+                    ui.call("screendump", {"filename": str(logs / "vm-typed-checklist.ppm")})
+                    ui.key("esc")
                 click(x + width - 56, y + 20)
                 resized = wait_for(serial, lambda s: re.search(zoom, s), vm, 15)
                 x, y, width, _ = map(int, re.search(zoom, resized).groups())
@@ -250,7 +263,7 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
         if keyboard_monitor:
             exercise_monitor(command.copy(), temp, logs, release)
         elif desktop_match:
-            exercise_desktop(command, temp, logs, release, log_volume)
+            exercise_desktop(command, temp, logs, release, log_volume, version.startswith(boot.EHCI_DESKTOP_VERSION))
         elif trackpad_trial:
             exercise_trackpad(command, temp, logs, release, log_volume)
         else:
@@ -270,6 +283,8 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
         result.update(monitor_input="serial", case_echo=True, history_edit=True, monitor_reboot=True)
     elif desktop_match:
         result.update(guest_trial_result="INCOMPLETE", desktop_ui="PASS", vm_mouse="PS/2")
+        if version.startswith(boot.EHCI_DESKTOP_VERSION):
+            result.update(vm_keyboard="PS/2", typed_checklist="vm-typed-checklist.ppm")
     elif trackpad_trial:
         result.update(guest_trial_result="INCOMPLETE", unrelated_controller_skipped=True, trackpad_reports=0)
     else:

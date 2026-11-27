@@ -128,6 +128,12 @@ static bool keyboard_trial_line(char text[32], unsigned *length) {
     return false;
 }
 
+static bool select_keyboard_boot_protocol(struct ehci_control_path *path) {
+    const struct usb_setup_packet boot_protocol = { 0x21, 11, 0, 0, 0 };
+    unsigned received;
+    return control_transfer(path, &path->report->keyboard_target, &boot_protocol, NULL, &received);
+}
+
 static const char *configure_keyboard(struct ehci_control_path *path, uint64_t *frame_list) {
     struct ehci_probe_report *report = path->report;
     const struct ehci_control_target *target = &report->keyboard_target;
@@ -135,10 +141,9 @@ static const char *configure_keyboard(struct ehci_control_path *path, uint64_t *
     volatile uint32_t *op = path->op;
     if (op[EHCI_USBCMD] & EHCI_CMD_FRAME_SIZE) return "unsupported frame-list size";
     const struct usb_setup_packet configuration = { 0, USB_REQ_SET_CONFIGURATION, 1, 0, 0 };
-    const struct usb_setup_packet boot_protocol = { 0x21, 11, 0, 0, 0 };
     unsigned received;
     if (!control_transfer(path, target, &configuration, 0, &received)) return "SET_CONFIGURATION failed";
-    if (!control_transfer(path, target, &boot_protocol, 0, &received)) return "SET_PROTOCOL failed";
+    if (!select_keyboard_boot_protocol(path)) return "SET_PROTOCOL failed";
     const struct usb_setup_packet idle = { 0x21, EHCI_HID_SET_IDLE, EHCI_KEYBOARD_IDLE_4MS << 8, 0, 0 };
     report->keyboard_idle = control_transfer(path, target, &idle, 0, &received) ? "accepted" : "refused";
     if ((op[EHCI_USBCMD] & EHCI_CMD_SCHEDULES) ||

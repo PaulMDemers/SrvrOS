@@ -2569,6 +2569,8 @@ int main(int argc,char **argv) {
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     uint64_t ehci_deadline=ehci_trial?(uint64_t)srv_monotonic_us()+90000000u:0;
     unsigned ehci_axes=0,ehci_zoom_clicks=0,ehci_pointer_exit=0,ehci_timeout=0;
+    const char ehci_expected[]="Ehci-42";
+    unsigned ehci_typed=0,ehci_find_open=0,ehci_keyboard=0;
     uint64_t drag_identity=0,resize_identity=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
     unsigned resize_edges=0;struct desk_rect resize_start={0},resize_last={0},drag_last={0},drag_restore={0};int resize_x=0,resize_y=0,drag_x=0,drag_y=0,drag_placed=0,drag_moved=0;
@@ -3009,6 +3011,22 @@ int main(int argc,char **argv) {
             if(s.scene.focus>=0) {
                 struct desk_packet p=desk_packet_new(DESK_KEY);memcpy(p.text,&key,sizeof(key));
                 queue_input(&s,s.scene.focus,p);
+                if(ehci_trial && !ehci_keyboard && desktop_window_at(&s.scene,s.scene.focus)->application==DESK_APP_TEXT &&
+                    (key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT)) {
+                    if(key.usage==0x09 && (key.modifiers&SRV_KEY_CTRL)) {
+                        ehci_find_open=1;
+                        ehci_typed=0;
+                    } else if(key.usage==SRV_KEY_ESCAPE) {
+                        ehci_find_open=0;
+                    } else if(ehci_find_open && key.usage==SRV_KEY_BACKSPACE) {
+                        if(ehci_typed) ehci_typed--;
+                    } else if(ehci_find_open && key.codepoint) {
+                        ehci_typed=key.codepoint==(unsigned char)ehci_expected[ehci_typed]?ehci_typed+1:
+                            key.codepoint==(unsigned char)ehci_expected[0];
+                        ehci_keyboard=ehci_typed==sizeof(ehci_expected)-1;
+                        if(ehci_keyboard) desk_log("ehci-desktop-ui: keyboard-checklist=matched\n");
+                    }
+                }
             }
         }
         if(apps && s.exiting) {
@@ -3707,7 +3725,7 @@ int main(int argc,char **argv) {
     if(retina_screenshot)desk_log("retina-screenshot: result=%s scale=%u completed=%u\n",
         !failed && s.capture_success?"PASS":"FAIL",session_output_scale(&s),s.capture_finished);
     if(ehci_trial) {
-        if(ehci_axes!=3 || ehci_zoom_clicks<2 || !ehci_pointer_exit || ehci_timeout || s.child_errors)failed=1;
+        if(ehci_axes!=3 || ehci_zoom_clicks<2 || !ehci_pointer_exit || !ehci_keyboard || ehci_timeout || s.child_errors)failed=1;
         desk_log("ehci-desktop-ui: result=%s axes=%u checklist-zoom-clicks=%u pointer-exit=%u timeout=%u\n",
             failed?"INCOMPLETE":"PASS",ehci_axes,ehci_zoom_clicks,ehci_pointer_exit,ehci_timeout);
     }
