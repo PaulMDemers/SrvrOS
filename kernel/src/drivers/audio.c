@@ -14,8 +14,9 @@
 #define PCM_BYTES (192000u*4u)
 #define PCM_PAGES ((PCM_BYTES+4095)/4096)
 #define TONE_FRAMES 24000u
-#define PRO81_TONE_STEP_FRAMES 28800u
-#define PRO81_TONE_FRAMES (PRO81_TONE_STEP_FRAMES*2+TONE_FRAMES)
+#define PRO81_TONE_LEAD_FRAMES 28800u
+#define PRO81_TONE_STEP_FRAMES 48000u
+#define PRO81_TONE_FRAMES (PRO81_TONE_LEAD_FRAMES+PRO81_TONE_STEP_FRAMES*2+TONE_FRAMES)
 struct bdl_entry { uint64_t address; uint32_t length, flags; };
 static struct hda_core controller;
 static struct hda_codec codec;
@@ -80,10 +81,10 @@ static bool stop(void) {
     return stopped && muted;
 }
 #include "audio_stream.inc"
-static void tone_pulse(unsigned first,unsigned channels,unsigned volume) {
-    /* 500 Hz triangle, half a second, 10 ms attack and release. */
+static void tone_pulse(unsigned first,unsigned channels,unsigned period,unsigned volume) {
+    /* Half-second triangle with 10 ms attack and release. */
     for(unsigned frame=0;frame<TONE_FRAMES;frame++) {
-        unsigned phase=frame%96;
+        unsigned phase=(frame%period)*96/period;
         int sample=phase<48?(int)phase-24:72-(int)phase;
         int envelope=frame<480?(int)frame:(frame>TONE_FRAMES-480?(int)(TONE_FRAMES-frame):480);
         int16_t value=(int16_t)(sample*200*(int)volume/100*envelope/480);
@@ -94,10 +95,11 @@ static void tone_pulse(unsigned first,unsigned channels,unsigned volume) {
 static bool test_tone(void) {
     if(!stop() || !controller.ready) return false;
     if(codec.pro81) {
-        tone_pulse(0,1,status.volume);
-        tone_pulse(PRO81_TONE_STEP_FRAMES,2,status.volume);
-        tone_pulse(PRO81_TONE_STEP_FRAMES*2,3,status.volume);
-    } else tone_pulse(0,3,status.volume);
+        /* Give the external amplifier time to settle before the left cue. */
+        tone_pulse(PRO81_TONE_LEAD_FRAMES,1,80,status.volume); /* 600 Hz */
+        tone_pulse(PRO81_TONE_LEAD_FRAMES+PRO81_TONE_STEP_FRAMES,2,60,status.volume); /* 800 Hz */
+        tone_pulse(PRO81_TONE_LEAD_FRAMES+PRO81_TONE_STEP_FRAMES*2,3,48,status.volume); /* 1000 Hz */
+    } else tone_pulse(0,3,96,status.volume);
     __asm__ volatile("mfence":::"memory");
     if(!hda_codec_mute(&codec,false) || !hda_core_start(&controller,bdl_phys,PCM_BYTES,2)) { silence();return false; }
     started_us=timer_monotonic_us();status.tests_started++;return true;
@@ -130,7 +132,7 @@ static void service(void) {
     else if(ok && controller.playing) {
         uint32_t position;ok=hda_core_position(&controller,&position);
         uint64_t elapsed=timer_monotonic_us()-started_us;
-        if(ok && elapsed>=(codec.pro81?1950000u:750000u)) {
+        if(ok && elapsed>=(codec.pro81?3350000u:750000u)) {
             bool progressed=position>=(codec.pro81?PRO81_TONE_FRAMES:TONE_FRAMES)*4 && position<PCM_BYTES;
             ok=stop() && progressed;
             if(ok) status.tests_completed++;

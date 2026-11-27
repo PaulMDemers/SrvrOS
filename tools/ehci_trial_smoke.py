@@ -306,7 +306,7 @@ def main():
     desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
     desktop_file = version.startswith((boot.EHCI_DESKTOP_FILE_VERSION, boot.EHCI_DESKTOP_FILE_V4_VERSION))
     brightness = version.startswith(boot.EHCI_DESKTOP_BRIGHTNESS_VERSION)
-    audio = version.startswith(boot.EHCI_DESKTOP_AUDIO_VERSION)
+    audio = version.startswith((boot.EHCI_DESKTOP_AUDIO_VERSION, boot.EHCI_DESKTOP_AUDIO_V7_VERSION))
     file_checklist = boot.EHCI_DESKTOP_FILE_V4_CHECKLIST if version.startswith(boot.EHCI_DESKTOP_FILE_V4_VERSION) else boot.EHCI_DESKTOP_FILE_CHECKLIST
     desktop_trace = version.startswith(boot.EHCI_DESKTOP_VERSION)
     keyboard_checklist = desktop_trace or brightness or audio or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)

@@ -32,8 +32,9 @@ EHCI_DESKTOP_VERSION = "ram-usb-v3-macbookpro8-1-ehci-desktop"
 EHCI_DESKTOP_FILE_V4_VERSION = "ram-usb-v4-macbookpro8-1-ehci-desktop"
 EHCI_DESKTOP_FILE_VERSION = "ram-usb-v5-macbookpro8-1-ehci-desktop"
 EHCI_DESKTOP_BRIGHTNESS_VERSION = "ram-usb-v6-macbookpro8-1-ehci-desktop"
-EHCI_DESKTOP_AUDIO_VERSION = "ram-usb-v7-macbookpro8-1-ehci-desktop"
-EHCI_DESKTOP_RE = re.compile(r"ram-usb-v[1234567]-macbookpro8-1-ehci-desktop-log-([0-9a-f]{8})(?:-run-[0-9a-f]{16})?")
+EHCI_DESKTOP_AUDIO_V7_VERSION = "ram-usb-v7-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_AUDIO_VERSION = "ram-usb-v8-macbookpro8-1-ehci-desktop"
+EHCI_DESKTOP_RE = re.compile(r"ram-usb-v[12345678]-macbookpro8-1-ehci-desktop-log-([0-9a-f]{8})(?:-run-[0-9a-f]{16})?")
 EHCI_DESKTOP_FILES = ("fat/bin/deskd", "fat/bin/desktools", "fat/bin/deskclient", "fat/bin/deskfs",
                       "fat/share/Trackpad trial.txt")
 EHCI_DESKTOP_V1_CHECKLIST = b"""Built-in trackpad trial
@@ -120,7 +121,7 @@ EHCI_DESKTOP_BRIGHTNESS_CHECKLIST = b"""MacBook display brightness trial
    If the pointer fails, press Control+Alt+Escape or wait 150 seconds.
    Keep the flash drive connected until Ubuntu returns.
 """
-EHCI_DESKTOP_AUDIO_CHECKLIST = b"""MacBook built-in speaker trial
+EHCI_DESKTOP_AUDIO_V7_CHECKLIST = b"""MacBook built-in speaker trial
 
 1. Keep headphones unplugged.
 2. Click maximize, then click again to restore this window.
@@ -134,6 +135,9 @@ EHCI_DESKTOP_AUDIO_CHECKLIST = b"""MacBook built-in speaker trial
    If the pointer fails, press Control+Alt+Escape or wait 150 seconds.
    Keep the flash drive connected until Ubuntu returns.
 """
+EHCI_DESKTOP_AUDIO_CHECKLIST = EHCI_DESKTOP_AUDIO_V7_CHECKLIST.replace(
+    b"wait three seconds.\n   Listen for three short tones: left, right, then both.",
+    b"wait four seconds.\n   Listen for a low tone on the left, a middle tone on the right,\n   and a high tone on both sides.")
 EHCI_TRIAL_MODES = {
     EHCI_TRIAL_VERSION: "split-trial",
     EHCI_KEYBOARD_VERSION: "keyboard-trial",
@@ -661,7 +665,7 @@ def limine_config(release, version=CONFIG_VERSION, *, legacy_wifi_calibration=Fa
     elif logfile := EHCI_TRACKPAD_LOG_RE.fullmatch(version):
         cmdline = f"srvros.storage=ram srvros.ehci=trackpad-trial srvros.ehci-release={release} srvros.ehci-log-volume={logfile[1]}"
     elif logfile := EHCI_DESKTOP_RE.fullmatch(version):
-        if version.startswith(EHCI_DESKTOP_AUDIO_VERSION):
+        if version.startswith((EHCI_DESKTOP_AUDIO_VERSION, EHCI_DESKTOP_AUDIO_V7_VERSION)):
             mode = "desktop-audio"
         elif version.startswith(EHCI_DESKTOP_BRIGHTNESS_VERSION):
             mode = "desktop-brightness"
@@ -754,6 +758,8 @@ def verify(directory, expected_release=None):
                 raise ValueError("Unexpected EHCI desktop boot files")
             if version.startswith(EHCI_DESKTOP_AUDIO_VERSION):
                 checklist = EHCI_DESKTOP_AUDIO_CHECKLIST
+            elif version.startswith(EHCI_DESKTOP_AUDIO_V7_VERSION):
+                checklist = EHCI_DESKTOP_AUDIO_V7_CHECKLIST
             elif version.startswith(EHCI_DESKTOP_BRIGHTNESS_VERSION):
                 checklist = EHCI_DESKTOP_BRIGHTNESS_CHECKLIST
             elif version.startswith(EHCI_DESKTOP_FILE_VERSION):

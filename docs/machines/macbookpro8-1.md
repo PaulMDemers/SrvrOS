@@ -213,6 +213,15 @@ Ubuntu capture. The checkpoint is audible left and right playback,
 verified stream stop, and both release-matched USB reports after Ubuntu
 return.
 
+Source `53ce0ca9` and release `f88d28de4f58200d` verified the enabled
+CS4206 routes, five completed test streams and muted stop. The operator
+heard two of the intended three cues at each setting, so audible stereo
+coverage remains incomplete. Ubuntu verified both startup and final
+reports and a clean allocation check with 147 files and 155 clusters.
+An Ubuntu PipeWire comparison with longer gaps and three pitches also
+produced two audible cues. The next native trial uses that same timing
+and pitches to help identify which cue is missing.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
