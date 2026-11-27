@@ -180,6 +180,24 @@ VM runs passed and verified EFI phase 2 capture before the workspace
 mounts. The physical test is unattended once the hub has been cold-reset.
 Run record `build/bringup/pro112-rtl8822bu-firmware/run.json`.
 
+Physical session `session-00066149cca0c4bd-00` identified the Netgear
+with both siblings present, then stopped at digital power with zero USB
+firmware packets. The Netgear slot recorded 163 EP0 successes, up from
+seven at the identity checkpoint. The probe stopped its OUT endpoint,
+saved both logs and all seven EFI checkpoints, and returned to Ubuntu.
+All 676 existing workspace files matched. The rejected payload and
+evidence are under `evidence-dc23a246707dfa6c` in the recovery archive.
+
+Continue from `3adf338f`. Inspected main `24feebdd`, including the
+separate Pro8,1 integration. Limit the retry to the digital-power gates
+and readbacks. Linux clears WLRF1 bits 24–26 and conditionally disables
+flash boot before downloading from the host. The first SrvrOS image
+used a different RF mask and rejected the flash-boot selection. Keep
+the observed MAC-off gate and reject a live MCU or download owner.
+Test both RF-mask isolation and the flash-select path in the native
+fixture. The first failure record identifies the stage and transfer
+count. It has no register values to attribute the exact refused check.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
