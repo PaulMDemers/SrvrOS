@@ -67,6 +67,16 @@ the Pro11,2 USB Wi-Fi branch, or PRs #551, #550 and #510. The checkpoint is an
 exact-stage VM rehearsal followed by an attended native one-shot and USB
 report collection.
 
+The mode timing trial starts from `69c6e085` on the same `61111819` base.
+It prepares the trackpad queue and displays the checklist before switching
+the device mode. It then times the first queue activation and completed
+transfer and saves the first payload in the release-bound USB report. The
+feature readback moves to the end of capture, before mode restoration.
+The scope is the EHCI trackpad trial, its control completion timestamp,
+and its fixtures. The current open PRs and Pro11,2 USB Wi-Fi branch have
+no overlapping EHCI work. The native checkpoint follows the exact-stage
+VM rehearsal and uses the same Ubuntu recovery and prepared USB workspace.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
