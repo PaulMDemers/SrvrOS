@@ -24,6 +24,8 @@ long srv_wifi_snapshot(uint64_t owner,struct srv_wifi_snapshot *out){
     if(wifi_bad==2)out->count=25;
     if(wifi_bad==3 && out->count)memset(out->row[0].name,'x',129);
     if(wifi_bad==4 && out->count)out->row[0].flags|=SRV_WIFI_ROW_CONFLICT|SRV_WIFI_ROW_SELECTABLE;
+    if(wifi_bad==5 && out->count)out->row[0].channel=0;
+    if(wifi_bad==6 && out->count)out->row[0].channel=197;
     return result;
 }
 long srv_wifi_select(const struct srv_wifi_select *request){
@@ -109,6 +111,53 @@ static void wifi_render_fixture(struct tool *t){
     for(unsigned i=0;i<760*500;i++){fputc(pixels[i]>>16&255,f);fputc(pixels[i]>>8&255,f);fputc(pixels[i]&255,f);}assert(!fclose(f));
 }
 static struct tool t;
+static void test_managed_wifi(bool realtek) {
+    bool managed=true;
+    static const uint8_t demers24[]="Demers2.4";
+    const struct wifi_service_provider provider={&managed,realtek?"Realtek USB Wi-Fi":"Edimax",wifi_present};
+    const struct mt76_peer5 peer={.complete=true,.generation=9,.observations=2,.peer={.channel=161,.ssid="Test",.ssid_size=4}};
+    uint64_t owner=realtek?wifi_service_publish_fixed(&provider,demers24,sizeof demers24-1,10,2,9):
+        wifi_service_publish_connection(&provider,&peer);
+    assert(owner);
+    tool_system_refresh(&t,1);
+    assert(t.wifi_valid && t.wifi.owner==owner && t.wifi.count==1);
+    assert(t.wifi.row[0].channel==(realtek?10:161) && !strcmp(t.wifi_rows[0].cells[0],realtek?"Demers2.4":"Test"));
+    desk_list_select(&t.wifi_table.body,0);
+    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_TABLE,DESK_WIDGET_CHANGED});
+    assert(!t.buttons[5].enabled && t.buttons[7].enabled && !t.buttons[8].enabled);
+    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_CONNECT,DESK_WIDGET_ACTIVATED});
+    assert((t.wifi.flags&SRV_WIFI_CONNECTING) && !t.buttons[7].enabled && !t.buttons[8].enabled);
+    struct wifi_service_command command;
+    assert(wifi_service_take(owner,&managed,&command) && command.operation==SRV_WIFI_CONNECT);
+    assert(wifi_service_finish(owner,&managed,&command,true));
+    tool_system_refresh(&t,1);tool_system_layout(&t);
+    assert((t.wifi.flags&SRV_WIFI_CONNECTED) && t.buttons[8].enabled);
+    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_DISCONNECT,DESK_WIDGET_ACTIVATED});
+    assert(t.wifi.flags&SRV_WIFI_DISCONNECTING);
+    assert(wifi_service_take(owner,&managed,&command) && command.operation==SRV_WIFI_DISCONNECT);
+    struct srv_wifi_select stale={SRV_WIFI_VERSION,sizeof stale,owner,t.wifi.generation,0,0};
+    struct wifi_service_command old=command;old.serial++;
+    assert(!wifi_service_rearm_connection(owner,&managed,&old,10));
+    assert(!wifi_service_rearm_connection(owner,&managed,&command,11));
+    assert(wifi_service_rearm_connection(owner,&managed,&command,10));
+    assert(wifi_service_request(SRV_WIFI_CONNECT,&stale)==SRV_WIFI_STALE);
+    tool_system_refresh(&t,1);
+    assert((t.wifi.flags&SRV_WIFI_DISCONNECTED) && t.wifi.generation==10 && t.wifi_table.body.selected==-1);
+    desk_list_select(&t.wifi_table.body,0);
+    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_TABLE,DESK_WIDGET_CHANGED});
+    assert(t.buttons[7].enabled && !t.buttons[8].enabled);
+    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_CONNECT,DESK_WIDGET_ACTIVATED});
+    assert(wifi_service_take(owner,&managed,&command) && command.operation==SRV_WIFI_CONNECT);
+    assert(wifi_service_finish(owner,&managed,&command,true));
+    tool_system_refresh(&t,1);
+    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_DISCONNECT,DESK_WIDGET_ACTIVATED});
+    assert(wifi_service_take(owner,&managed,&command) && command.operation==SRV_WIFI_DISCONNECT);
+    assert(wifi_service_finish(owner,&managed,&command,true));
+    wifi_service_seal_connection(owner,&managed,true);
+    tool_system_refresh(&t,1);tool_system_layout(&t);
+    assert((t.wifi.flags&SRV_WIFI_CLOSED) && !t.buttons[7].enabled && !t.buttons[8].enabled);
+    wifi_service_remove(owner);
+}
 int main(void) {
     t.window.width=760;t.window.height=500;desk_ui_init(&t.ui);tool_system_init(&t);tool_system_layout(&t);desk_ui_layout_changed(&t.ui);
     tool_system_action(&t,(struct desk_action){SYSTEM_BATTERY_START,DESK_WIDGET_ACTIVATED});assert(!control_requests);
@@ -196,49 +245,13 @@ int main(void) {
     tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_ADAPTER,DESK_WIDGET_ACTIVATED});assert(t.wifi.owner==wifi_owner[0]);
     desk_list_select(&t.wifi_table.body,0);wifi_race=true;
     tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_SELECT,DESK_WIDGET_ACTIVATED});assert(t.wifi_table.body.selected==-1 && strstr(t.wifi_notice,"list changed") && t.wifi.selected==SRV_WIFI_NONE);
-    for(wifi_bad=1;wifi_bad<=4;wifi_bad++){tool_system_refresh(&t,1);assert(!t.wifi_valid && !t.wifi.count && !t.buttons[5].enabled);}
+    for(wifi_bad=1;wifi_bad<=6;wifi_bad++){tool_system_refresh(&t,1);assert(!t.wifi_valid && !t.wifi.count && !t.buttons[5].enabled);}
     wifi_bad=0;tool_system_refresh(&t,1);wifi_live[0]=false;tool_system_refresh(&t,1);assert(t.wifi.owner==wifi_owner[1]);
     wifi_live[0]=true;tool_system_refresh(&t,1);assert(t.wifi.adapter_count==1);
     wifi_live[1]=false;tool_system_refresh(&t,1);assert(t.wifi_valid && !t.wifi.owner && !t.wifi.count);
-    bool managed=true;
-    const struct wifi_service_provider provider={&managed,"Edimax",wifi_present};
-    const struct mt76_peer5 peer={.complete=true,.generation=9,.observations=2,.peer={.channel=161,.ssid="Test",.ssid_size=4}};
-    uint64_t owner=wifi_service_publish_connection(&provider,&peer);assert(owner);
-    tool_system_refresh(&t,1);
-    desk_list_select(&t.wifi_table.body,0);
-    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_TABLE,DESK_WIDGET_CHANGED});
-    assert(!t.buttons[5].enabled && t.buttons[7].enabled && !t.buttons[8].enabled);
-    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_CONNECT,DESK_WIDGET_ACTIVATED});
-    assert((t.wifi.flags&SRV_WIFI_CONNECTING) && !t.buttons[7].enabled && !t.buttons[8].enabled);
-    struct wifi_service_command command;
-    assert(wifi_service_take(owner,&managed,&command) && command.operation==SRV_WIFI_CONNECT);
-    assert(wifi_service_finish(owner,&managed,&command,true));
-    tool_system_refresh(&t,1);tool_system_layout(&t);
-    assert((t.wifi.flags&SRV_WIFI_CONNECTED) && t.buttons[8].enabled);
-    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_DISCONNECT,DESK_WIDGET_ACTIVATED});
-    assert(t.wifi.flags&SRV_WIFI_DISCONNECTING);
-    assert(wifi_service_take(owner,&managed,&command) && command.operation==SRV_WIFI_DISCONNECT);
-    struct srv_wifi_select stale={SRV_WIFI_VERSION,sizeof stale,owner,t.wifi.generation,0,0};
-    struct wifi_service_command old=command;old.serial++;
-    assert(!wifi_service_rearm_connection(owner,&managed,&old,10));
-    assert(!wifi_service_rearm_connection(owner,&managed,&command,11));
-    assert(wifi_service_rearm_connection(owner,&managed,&command,10));
-    assert(wifi_service_request(SRV_WIFI_CONNECT,&stale)==SRV_WIFI_STALE);
-    tool_system_refresh(&t,1);
-    assert((t.wifi.flags&SRV_WIFI_DISCONNECTED) && t.wifi.generation==10 && t.wifi_table.body.selected==-1);
-    desk_list_select(&t.wifi_table.body,0);
-    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_TABLE,DESK_WIDGET_CHANGED});
-    assert(t.buttons[7].enabled && !t.buttons[8].enabled);
-    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_CONNECT,DESK_WIDGET_ACTIVATED});
-    assert(wifi_service_take(owner,&managed,&command) && command.operation==SRV_WIFI_CONNECT);
-    assert(wifi_service_finish(owner,&managed,&command,true));
-    tool_system_refresh(&t,1);
-    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_DISCONNECT,DESK_WIDGET_ACTIVATED});
-    assert(wifi_service_take(owner,&managed,&command) && command.operation==SRV_WIFI_DISCONNECT);
-    assert(wifi_service_finish(owner,&managed,&command,true));
-    wifi_service_seal_connection(owner,&managed,true);
-    tool_system_refresh(&t,1);tool_system_layout(&t);
-    assert((t.wifi.flags&SRV_WIFI_CLOSED) && !t.buttons[7].enabled && !t.buttons[8].enabled);
+    test_managed_wifi(false);
+    test_managed_wifi(true);
+    puts("system: PASS channel 161 Edimax and channel 10 Realtek Connect, Disconnect, fresh-generation reconnect and control retirement");
     puts("system: PASS process sorting, stable selection, refresh cadence, pause/manual refresh, errors, network ABI/state/counters, page selection preservation clipped rendering;real Wi-Fi service,adapter cycling,hidden/conflict/stale refusal,malformed ABI and disconnect invalidation");
 }
 

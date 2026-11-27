@@ -2579,6 +2579,22 @@ exact-image VM rehearsals passed. The trial keeps the previous Help
 checklist and saves both workspace and independent EFI evidence. Local
 run record `build/bringup/pro112-rtl8188cu-desktop-retry/run.json`.
 
+Physical session `session-00066147a9c11ee8-00` booted the desktop
+and opened Help. Firmware loaded, the receive window saw 33 target
+beacons on channel 10 and System opened its Wi-Fi tab. No connection
+reached the network owner. System's app-level snapshot check required
+channel 161 for every controlled provider, discarding the Realtek's
+otherwise valid channel 10 row. Both logs and all seven EFI checkpoints
+were saved, all 666 workspace files were preserved, and Ubuntu returned.
+Archived under `/var/local/srvros-recovery/macbookpro11-2/evidence-1edb2bebd5f7c7ea`.
+
+Continue from kernel `0cb5cc28` with System's snapshot validation and
+its Connect and Disconnect action receipts. The existing Wi-Fi service
+reports the channel chosen by the driver. The app accepts its published
+range and still checks the snapshot, row flags and selection. Exercise
+the actual System actions against both the Edimax and Realtek providers.
+Inspected `origin/main` at `dc4a48d3` and SrvrApps main at `27e8203`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
