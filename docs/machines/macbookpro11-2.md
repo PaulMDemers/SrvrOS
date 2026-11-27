@@ -1509,6 +1509,23 @@ normal Ubuntu/SrvrOS entries stay as recorded. Scope is a local
 Ubuntu boot service and collector. No shared kernel changes are
 planned for this reference. Fetched main is `61111819`.
 
+The native rehearsal verified all 17 unbound reads before the first
+driver write, captured 5,173 vendor controls and 479 bulk IN
+completions with zero losses, and restored managed mode. The warm
+prebind sample read isolation `0x8000`, APS `0x4802` and MCU
+`0x00030004`. This is a rehearsal baseline for the upcoming
+true-cold prebind read.
+
+Verified the marker-bound systemd service and the one-time GRUB
+entry using the installed Ubuntu `7.0.0-44-generic` kernel and
+initramfs. The default entry and firmware order remain verified.
+The SrvrOS payload `e5f3a6aeef258349` and recovery
+`74da74e0b57afbb8` are installed. The collector saves the prebind
+snapshot before loading the driver, then saves the startup and
+passive receive evidence on Ubuntu's internal disk. The run
+record and collector are under
+`build/bringup/pro112-rtl8188cu-linux-cold`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
