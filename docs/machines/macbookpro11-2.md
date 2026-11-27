@@ -2283,6 +2283,26 @@ all three adapters in place and the workspace attached separately.
 The unattended trial records the first Auth outcome and returns
 to Ubuntu for collection and private image retirement.
 
+Cold session `session-0006614518838792-00` verified CR `0x02bf`
+and TXPAUSE `0xff` 294 µs before the first LLT write and 142,987 µs
+before the first firmware payload. All three adapters remained on
+the hub. Discovery received 34 Demers2.4 beacons on channel 10 across
+721 completed 4 KiB requests. The 62-byte Auth transfer on bulk OUT
+`0x02` completed in 15 µs with code 1 and zero residue, compared
+with the prior 250.5 ms timeout and full residue. The AP replied
+to Auth and Association with status zero and assigned AID 13.
+The station accepted M1, verified the M3 MIC and recorded local
+USB completion of M4. The five OUT transfers, including Leave,
+completed. Protected data and IP operation remain untested for
+this Realtek adapter.
+
+Both saved logs agreed. The run stopped IN and OUT, erased keys,
+parked the radio and returned to Ubuntu. All seven EFI checkpoints
+and all 652 pre-existing workspace files were verified. Evidence is
+archived under `/var/local/srvros-recovery/macbookpro11-2/evidence-bed12b3eedbff693`.
+The credential-bearing release was retired and the accepted passive
+entry and original EFI mount options restored.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
