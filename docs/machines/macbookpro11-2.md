@@ -198,6 +198,14 @@ Test both RF-mask isolation and the flash-select path in the native
 fixture. The first failure record identifies the stage and transfer
 count. It has no register values to attribute the exact refused check.
 
+Retry `b55734ac90635da7` on `97d39ba4` records the entry power state,
+MCU platform state, RF gates and exact refusal stage. The native fixture
+passed flash-select readback before CPU enable, preservation of adjacent
+WLRF1 bits, and active-MCU refusal. Both sibling desktop regressions and
+329 boot and trial tests passed, along with all five exact-image VM
+rehearsals. The retry uses the same pinned firmware, hub ports and
+workspace. Run record `build/bringup/pro112-rtl8822bu-firmware-retry/run.json`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
