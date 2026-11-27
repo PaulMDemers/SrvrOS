@@ -573,6 +573,12 @@ and a failed panel CRC that retains the reservation with zero PTE stores.
 Native reset and mapping require the on-device traffic provider and range
 grant. Ubuntu stayed at 1% volume. [Range handoff](../intel-bdw-edp-recovery.md#joined-pci-reset-and-panel-recovery-fixture)
 
+The traffic-owner follow-up starts at `b17d5441` with main `24feebdd`
+reviewed. It covers the Broadwell PCI reset core and its host and Q35
+fixtures. The same registered remapper source, result and callbacks must
+remain in place from the initial traffic request through PCI reopen.
+The Haswell work in PR 567 has a separate hardware lifetime.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
