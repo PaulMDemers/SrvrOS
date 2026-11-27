@@ -24,6 +24,8 @@ struct scanout_interval {
     struct scanout_space_range pages;
     struct scanout_interval *next;
     bool firmware;
+    const void *driver;
+    const struct scanout_interval *lender;
 };
 /* Register the verified inherited display fence [0, fence_end) for the boot.
  * Matching registration is idempotent. No candidate lease or write authority
@@ -45,6 +47,14 @@ bool scanout_interval_import_firmware(struct scanout_interval *, uint64_t mmio, 
 bool scanout_interval_borrow(struct scanout_interval *, const struct scanout_interval *firmware,
                              uint64_t mmio, uint64_t aperture, uint64_t bytes, uint64_t fence_end,
                              struct scanout_space_range);
+/* Register a range already granted to the boot driver for this aperture.
+ * The registry excludes software competitors; the caller supplies actual
+ * hardware ownership. The original range cannot be released with a loan live. */
+bool scanout_interval_claim_driver(struct scanout_interval *, const void *driver,
+                                   uint64_t mmio, uint64_t aperture, uint64_t bytes, uint64_t fence_end,
+                                   struct scanout_space_range);
+bool scanout_interval_borrow_driver(struct scanout_interval *, const struct scanout_interval *owner,
+                                    const void *driver, struct scanout_space_range);
 bool scanout_interval_held(const struct scanout_interval *,uint64_t mmio,uint64_t aperture,
                            uint64_t bytes,uint64_t fence_end,struct scanout_space_range);
 void scanout_interval_release(struct scanout_interval *);

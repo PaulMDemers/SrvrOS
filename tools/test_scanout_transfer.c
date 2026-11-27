@@ -933,11 +933,13 @@ static void owned_page_case(const char *mode)
     assert(table[8704] == inherited && table[target-1] == left && table[target+1] == right);
 }
 int test_bdw_boot_page(const char *mode);
+int test_bdw_boot_range(const char *mode);
 int test_bdw_boot_drain(const char *mode);
 
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];
     if(!strncmp(mode,"boot-page-",10))return test_bdw_boot_page(mode);
+    if(!strncmp(mode,"boot-range-",11))return test_bdw_boot_range(mode);
     if(!strncmp(mode,"boot-drain-",11))return test_bdw_boot_drain(mode);
     setup();
     if(!strncmp(mode,"owned-",6)) {

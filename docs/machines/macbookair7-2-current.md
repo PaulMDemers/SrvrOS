@@ -492,6 +492,15 @@ observer in PR 567 is independent. Qualify a one-page bind and rollback
 with the original plane pinned and keep the occupied-slot protocol intact.
 Physical staging depends on a same-boot source of authority for the range.
 
+The driver range now lends one page from its own pinned scratch mapping and
+refuses copied, foreign, overlapping or firmware-owned claims. It keeps the
+parent range and the original Pipe A surface pinned through both translation
+invalidations. All 312 host transfer cases and 91 Q35 cases passed, including
+13 new range cases. The Air's earlier aperture census found all 53,760
+eligible entries populated. The EFI handoff supplies zero range grants, so
+no native test was installed or armed. Ubuntu is running at 1% volume.
+[Driver range qualification](../intel-tearfree-roadmap.md#driver-owned-range-qualification)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

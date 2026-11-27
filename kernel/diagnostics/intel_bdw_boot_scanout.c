@@ -15,13 +15,15 @@ static bool live(const struct bdw_boot_page *p)
 {
     return p->object == p && p->state == BDW_PAGE_RUNNING && p->source->object == p->source &&
            p->source->consumer == p && p->source->consumed && same_binding(&p->binding,&p->source->binding) &&
+           p->source->driver_range == p->driver_range && p->source->scratch == p->scratch &&
            display_access_held(&p->binding.display);
 }
 
 static bool interval_held(const struct bdw_boot_page *p)
 {
     const struct bdw_boot_page_binding *b = &p->binding;
-    return scanout_interval_held(&p->interval,b->mmio,b->aperture,b->aperture_bytes,
+    return p->interval.lender == p->driver_range &&
+           scanout_interval_held(&p->interval,b->mmio,b->aperture,b->aperture_bytes,
                                  b->fence_end,(struct scanout_space_range){b->index,1});
 }
 
@@ -46,6 +48,7 @@ static bool prove(struct bdw_boot_page *p)
     uint64_t after = page_clock(p);
     return after && proof.at >= before && proof.at <= after && proof.source == p->source &&
            proof.driver == b->driver && proof.epoch == b->epoch && proof.root == b->root &&
+           proof.driver_range == p->driver_range && proof.scratch == p->scratch &&
            proof.index == b->index && proof.rights == BDW_PAGE_REQUIRED && proof.plane == b->plane &&
            (proof.programmed & ~8u) == b->surface && proof.live == b->surface;
 }
@@ -124,6 +127,12 @@ bool intel_bdw_boot_page_run(struct bdw_boot_page *p, struct bdw_boot_page_sourc
         !(b->plane & (1u << 31)) || (b->plane & (1u << 9)) || b->surface >= b->fence_end || (b->surface & 4095) ||
         !(b->original & 1) || b->marker[0] == b->marker[1] ||
         !scanout_interval_boot_framebuffer_matches(b->mmio,b->aperture,b->aperture_bytes,b->fence_end)) return false;
+    const struct scanout_interval *owner = source->driver_range;
+    uint64_t scratch = source->scratch;
+    if (owner) {
+        if (!scratch || (scratch & 4095) || scratch >= 0x100000000ull || b->original != (scratch | 1) ||
+            !scanout_interval_held(owner,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,owner->pages)) return false;
+    } else if (scratch) return false;
     struct scanout_transfer_manifest m = {.first=b->index,.pages=1,.original=&b->original,
         .aperture_bytes=b->aperture_bytes,.fence_end=b->fence_end};
     struct intel_bdw_ggtt_page entry;
@@ -132,16 +141,27 @@ bool intel_bdw_boot_page_run(struct bdw_boot_page *p, struct bdw_boot_page_sourc
     p->object = p;
     p->source = source;
     p->binding = *b;
+    p->driver_range = owner;
+    p->scratch = scratch;
     p->io = *io;
     p->entry = entry;
     p->state = BDW_PAGE_RUNNING;
     source->consumed = true;
     source->consumer = p;
     b = &p->binding;
-    if (!prove(p) || !display_access_pin(&b->display)) goto refuse;
+    if ((!owner && !prove(p)) || !display_access_pin(&b->display)) goto refuse;
     struct scanout_space_range managed = {b->index,1}, protected = {0,b->fence_end/4096};
-    if (!scanout_interval_claim(&p->interval,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,managed)) {
+    bool claimed = owner ? scanout_interval_borrow_driver(&p->interval,owner,b->driver,managed) :
+        scanout_interval_claim(&p->interval,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,managed);
+    if (!claimed) {
         if (!display_access_unpin(&b->display)) return retained(p);
+        goto refuse;
+    }
+    /* Establish the first proof after holding the exact child, so a provider
+     * cannot release the parent between admission and reservation. */
+    if (owner && !guard(p)) {
+        if (!interval_held(p) || !display_access_unpin(&b->display)) return retained(p);
+        scanout_interval_release(&p->interval);
         goto refuse;
     }
 

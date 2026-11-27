@@ -213,6 +213,30 @@ translation invalidation and proof that every possible user of that range
 is excluded or accounted for through retirement. This is the driver-owned
 path described under [Boot ownership decision](#boot-ownership-decision).
 
+### Driver-owned range qualification
+
+The allocator can register a range under the existing boot driver and lend
+one contained page exclusively. The inherited framebuffer fence and imported
+firmware ranges remain reserved. The page writer requires fresh proof from
+the same driver, root and reset epoch, with its pinned scratch backing and
+the original programmed and live Pipe A surface. It observes scratch, private
+and restored scratch markers through the same aperture alias, with posted
+translation invalidation after each store. Clean rollback returns the page
+loan and leaves the driver range registered. Uncertain translation retirement
+keeps the loan, range, both backings and display exclusion pinned.
+[Range registry](../kernel/src/scanout_space.c)
+· [One-page writer](../kernel/diagnostics/intel_bdw_boot_scanout.c)
+
+The Q35 fixture established the driver range and its scratch translation
+before calling the writer. On the Air, the native aperture survey found all
+53,760 eligible entries populated, and the EFI handoff grants no GPU address
+range. The physical trial needs a native takeover or firmware yield that
+specifies a disjoint interval and excludes earlier and future GPU users of it
+before the driver installs the initial scratch translation. The later
+scratch-to-private-to-scratch trial tests that lifetime with Pipe A active.
+[Air aperture survey](machines/macbookair7-2-current.md#reset-free-primary-plane-flip)
+· [EFI handoff importer](../kernel/src/drivers/intel_air_boot.inc)
+
 ## Earlier qualifications
 
 The read-only CPU backing guard has been qualified for two existing 6 MiB
