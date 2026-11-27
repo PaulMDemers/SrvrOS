@@ -124,7 +124,7 @@ static const char *poll_trackpad(struct ehci_control_path *path) {
     uint32_t toggle = 0;
     uint64_t start = timer_monotonic_us();
     while (timer_monotonic_us() - start < EHCI_TRACKPAD_WAIT_US) {
-        if (!periodic_idle(path)) return "periodic schedule busy";
+        if (!schedules_idle(path)) return "periodic schedule busy";
         prepare_periodic_transfer(path, &path->report->trackpad_target, &trackpad_endpoint, toggle);
         __asm__ volatile ("mfence" : : : "memory");
         bool enabled = enable_periodic(path);

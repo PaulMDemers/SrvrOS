@@ -28,6 +28,8 @@ static bool keyboard_stop_stuck;
 static bool keyboard_fetch;
 static uint64_t now;
 static unsigned freed_monitor_frames, unmapped_monitor_windows;
+static struct ehci_flash_io *mock_bulk;
+static bool mock_bulk_timeout;
 
 void console_write(const char *message) { assert(message); }
 
@@ -79,6 +81,31 @@ void pci_write_config32(const struct pci_device *p, uint8_t offset, uint32_t val
 
 bool timer_delay_us(uint64_t delay) {
     now += delay;
+    if (mock_bulk) {
+        if (!(op[EHCI_USBCMD] & EHCI_CMD_ASYNC)) {
+            op[EHCI_USBSTS] &= ~EHCI_STS_ASYNC;
+            return true;
+        }
+        op[EHCI_USBSTS] |= EHCI_STS_ASYNC;
+        if (mock_bulk_timeout) return true;
+        struct ehci_dma *dma = mock_bulk->path->dma;
+        bool in = (dma->setup_td.token & EHCI_TD_PID_IN) != 0;
+        assert(dma->qh.endpoint == (in ? 0x0200a102u : 0x0200a202u));
+        assert(dma->qh.overlay.token == mock_bulk->endpoint_state[in]);
+        assert(dma->setup_td.buffer[0] == mock_bulk->physical);
+        assert(dma->setup_td.alternate == EHCI_LINK_END);
+        uint32_t length = (dma->setup_td.token >> EHCI_TD_BYTES_SHIFT) & EHCI_TD_BYTES_MASK;
+        if (in) {
+            assert(length == 32);
+            memset(mock_bulk->buffer, 0x5a, 13);
+            dma->setup_td.token = 19 << EHCI_TD_BYTES_SHIFT;
+        } else {
+            assert(length == 31 && mock_bulk->buffer[0] == 0x55 && mock_bulk->buffer[30] == 0xaa);
+            dma->setup_td.token = 0;
+        }
+        dma->qh.overlay.token ^= EHCI_TD_DATA1;
+        return true;
+    }
     if (trackpad_dma) {
         if (!(op[EHCI_USBCMD] & EHCI_CMD_PERIODIC)) {
             op[EHCI_USBSTS] &= ~EHCI_STS_PERIODIC;
@@ -212,6 +239,8 @@ static void fixture_reset(void) {
     control_polls = 0;
     control_completes_at = 2;
     mock_flash = false;
+    mock_bulk = NULL;
+    mock_bulk_timeout = false;
     mock_feature_control = false;
     trackpad_dma = NULL;
     trackpad_reports = trackpad_offset = trackpad_packets = 0;
@@ -547,6 +576,33 @@ static void test_trackpad_capture(void) {
         report.trackpad.wire_max == 86);
 }
 
+static void test_flash_bulk(void) {
+    fixture_reset();
+    uint8_t config[] = {9, 2, 32, 0, 1, 1, 0, 0x80, 50,
+        9, 4, 0, 0, 2, 8, 6, 0x50, 0, 7, 5, 0x81, 2, 0, 2, 0, 7, 5, 2, 2, 0, 2, 0};
+    assert(captured_flash_interface(config, sizeof(config)));
+    assert(!captured_flash_interface(config, sizeof(config) - 1));
+    config[27] = 0x82;
+    assert(!captured_flash_interface(config, sizeof(config)));
+    struct ehci_dma dma;
+    struct ehci_probe_report report = { .flash_address = 2 };
+    struct ehci_control_path path = { .op = op, .dma = &dma, .physical = 0x9000, .report = &report };
+    uint8_t bounce[USB_STORAGE_BULK_BYTES], data[32] = {0x55, [30] = 0xaa};
+    struct ehci_flash_io flash = { .path = &path, .physical = 0xa000, .buffer = bounce };
+    op[EHCI_USBCMD] = EHCI_CMD_RUN;
+    op[EHCI_USBSTS] = 0;
+    mock_bulk = &flash;
+    uint32_t actual;
+    assert(flash_bulk(&flash, false, data, 31, &actual) && actual == 31);
+    assert(flash.endpoint_state[0] == EHCI_TD_DATA1 && flash.endpoint_state[1] == 0);
+    assert(flash_bulk(&flash, true, data, sizeof(data), &actual) && actual == 13);
+    assert(flash.endpoint_state[1] == EHCI_TD_DATA1 && data[12] == 0x5a && data[13] == 0);
+    assert(flash_bulk(&flash, true, data, sizeof(data), &actual) && !flash.endpoint_state[1]);
+    mock_bulk_timeout = true;
+    assert(!flash_bulk(&flash, true, data, sizeof(data), &actual) && !actual && !op[EHCI_USBSTS]);
+    assert(op[EHCI_USBCMD] == EHCI_CMD_RUN);
+}
+
 static void test_native_trial_result(void) {
     struct pci_device controller = { .vendor_id = 0x8086, .device_id = 0x1c2d, .device = 0x1a, .function = 7 };
     assert(trial_controller_slot(&controller) == 0);
@@ -606,6 +662,7 @@ int main(void) {
     test_keyboard_report_schedule();
     test_captured_keyboard_interface();
     test_trackpad_capture();
+    test_flash_bulk();
     test_native_trial_result();
     puts("EHCI host tests passed");
 }

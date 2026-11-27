@@ -93,7 +93,7 @@ def exercise_monitor(command, temp, logs, release):
                     vm.wait()
 
 
-def exercise_trackpad(command, temp, logs, release):
+def exercise_trackpad(command, temp, logs, release, log_volume):
     qmp = temp / "qmp.sock"
     command = command + ["-qmp", f"unix:{qmp},server=on,wait=off", "-device", "ich9-usb-ehci1"]
     first = boot_once(command, logs, "trial", lambda s: "Screen held for photo." in s,
@@ -106,6 +106,10 @@ def exercise_trackpad(command, temp, logs, release):
                    f"ehci-trackpad: release={release} result=INCOMPLETE"):
         assert marker in first, marker
     assert not has_fatal_exception(first)
+    if log_volume:
+        for marker in (f"srvros.ehci-log-volume={log_volume}", "Keep the flash drive connected.",
+                       "ehci-log: captured flash controller absent", "USB result save could not be verified."):
+            assert marker in first, marker
     for marker in ("Trackpad ready. Start the checklist now.", "ehci: bus=", "srv> ", "xhci:",
                    "workspace-log:", "ahci:", "SRVROS_VM_NEXT_ENTRY_SAVE_FAILED"):
         assert marker not in first, marker
@@ -123,14 +127,17 @@ def main():
     release = args.release
     source = boot.STAGE / release
     manifest = boot.verify(source, release)
-    if manifest["config_version"] not in boot.EHCI_TRIAL_VERSIONS:
+    version = manifest["config_version"]
+    log_match = boot.EHCI_TRACKPAD_LOG_RE.fullmatch(version)
+    log_volume = log_match[1] if log_match else None
+    if version not in boot.EHCI_TRIAL_VERSIONS and not log_volume:
         parser.error("expected an attended EHCI trial stage")
-    keyboard_trial = manifest["config_version"] == boot.EHCI_KEYBOARD_VERSION
-    keyboard_monitor = manifest["config_version"] == boot.EHCI_MONITOR_VERSION
-    trackpad_trial = manifest["config_version"] == boot.EHCI_TRACKPAD_VERSION
+    keyboard_trial = version == boot.EHCI_KEYBOARD_VERSION
+    keyboard_monitor = version == boot.EHCI_MONITOR_VERSION
+    trackpad_trial = version == boot.EHCI_TRACKPAD_VERSION or bool(log_volume)
     if (keyboard_monitor or trackpad_trial) and args.stall_hub_status:
         parser.error("the emulated hub is for the split and typing trials")
-    mode = boot.EHCI_TRIAL_MODES[manifest["config_version"]]
+    mode = "trackpad-trial" if log_volume else boot.EHCI_TRIAL_MODES[version]
     logs = boot.ROOT / "build/review" / f"macbookpro8-1-ehci-trial-{release}"
     if args.stall_hub_status:
         logs /= "hub-status-stall"
@@ -189,7 +196,7 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
         if keyboard_monitor:
             exercise_monitor(command.copy(), temp, logs, release)
         elif trackpad_trial:
-            exercise_trackpad(command, temp, logs, release)
+            exercise_trackpad(command, temp, logs, release, log_volume)
         else:
             scans = exercise_trial(command, temp, logs, release, mode, keyboard_trial, args.stall_hub_status)
 

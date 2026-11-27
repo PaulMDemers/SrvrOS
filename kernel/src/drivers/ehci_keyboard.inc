@@ -51,7 +51,7 @@ static void sample_keyboard_schedule(const struct ehci_control_path *path) {
 
 static const char *arm_keyboard_poll(struct ehci_control_path *path, uint32_t toggle) {
     struct ehci_probe_report *report = path->report;
-    if (!periodic_idle(path)) return "periodic schedule busy";
+    if (!schedules_idle(path)) return "periodic schedule busy";
     prepare_periodic_transfer(path, &report->keyboard_target, &keyboard_endpoint, toggle);
     __asm__ volatile ("mfence" : : : "memory");
     report->keyboard_schedule = (struct ehci_keyboard_schedule) {0};

@@ -933,7 +933,7 @@ static void retina_desktop_trial(const char *cmdline) {
     halt_forever();
 }
 
-static bool ehci_trial_release(const char *cmdline, char release[17], const char *mode) {
+static bool ehci_trial_release(const char *cmdline, char release[17], const char *mode, char log_volume[9]) {
     const char *prefix[] = { "srvros.storage=ram srvros.ehci=", mode, " srvros.ehci-release=" };
     for (unsigned i = 0; i < sizeof(prefix) / sizeof(prefix[0]); i++) {
         for (const char *p = prefix[i]; *p; p++) {
@@ -946,6 +946,17 @@ static bool ehci_trial_release(const char *cmdline, char release[17], const char
         release[i] = c;
     }
     release[16] = '\0';
+    if (!*cmdline) return true;
+    if (!log_volume) return false;
+    for (const char *p = " srvros.ehci-log-volume="; *p; p++) {
+        if (*cmdline++ != *p) return false;
+    }
+    for (unsigned i = 0; i < 8; i++) {
+        char c = *cmdline++;
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
+        log_volume[i] = c;
+    }
+    log_volume[8] = '\0';
     return !*cmdline;
 }
 
@@ -961,6 +972,7 @@ void kmain(void) {
         cmdline_has_token(cmdline, "srvros.ehci=split-trial") ? "split-trial" : NULL;
     bool ehci_trial = ehci_trial_mode != NULL;
     char trial_release[17];
+    char ehci_log_volume[9] = {0};
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
@@ -994,7 +1006,8 @@ void kmain(void) {
     }
 
     if (ehci_trial) {
-        bool valid = ehci_trial_release(cmdline, trial_release, ehci_trial_mode);
+        bool valid = ehci_trial_release(cmdline, trial_release, ehci_trial_mode,
+            ehci_trackpad_trial ? ehci_log_volume : NULL);
         if (ehci_keyboard_monitor || ehci_trackpad_trial) boot_set_framebuffer_quiet(false);
         else ehci_trial_screen(valid ? trial_release : "invalid", ehci_keyboard_trial);
         if (!valid) {
@@ -1129,8 +1142,12 @@ void kmain(void) {
         halt_forever();
     }
     if (ehci_trial) {
-        if (ehci_trackpad_trial) ehci_boot_trackpad_trial(trial_release);
-        else ehci_boot_trial(trial_release, ehci_keyboard_trial);
+        if (ehci_trackpad_trial) {
+            if (ehci_boot_trackpad_trial(trial_release, ehci_log_volume[0] ? ehci_log_volume : NULL)) {
+                console_sync();
+                arch_reboot_unattended();
+            }
+        } else ehci_boot_trial(trial_release, ehci_keyboard_trial);
         console_sync();
         __asm__ volatile("cli" ::: "memory");
         halt_forever();

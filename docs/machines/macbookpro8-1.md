@@ -478,6 +478,12 @@ the feature mode to be restored and both the controller DMA and MMIO access
 to be retired. The keyboard monitor payload remains available in the recovery
 archive. Power-cycle the Mac after recording the result to return to Ubuntu.
 
+For result logging, add `--ehci-trackpad-log-volume <exFAT UUID>` when staging
+the trackpad trial. Prepare the workspace marker for that volume in Ubuntu.
+The trial saves `srvros-work/ehci-trackpad-<release>.txt` and returns to
+Ubuntu after verified unmount and controller retirement. The result screen
+stays visible on a save or retirement failure.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |

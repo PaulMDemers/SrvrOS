@@ -1941,7 +1941,7 @@ test-ehci: build/tests/ehci-host$(HOST_EXE) build/tests/ehci-enumeration-host$(H
 	$<
 	build/tests/ehci-enumeration-host$(HOST_EXE)
 
-build/tests/ehci-host$(HOST_EXE): tools/test_ehci.c kernel/src/drivers/apple_trackpad.c kernel/src/drivers/ehci.c kernel/src/drivers/ehci_keyboard.inc kernel/src/drivers/ehci_trackpad.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/ehci-host$(HOST_EXE): tools/test_ehci.c kernel/src/drivers/apple_trackpad.c kernel/src/drivers/ehci.c kernel/src/drivers/ehci_keyboard.inc kernel/src/drivers/ehci_trackpad.inc kernel/src/drivers/ehci_storage.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $(filter-out kernel/src/drivers/ehci.c,$(filter %.c,$^)) -Wl,--gc-sections -o $@
 

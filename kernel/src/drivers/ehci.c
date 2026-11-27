@@ -1,5 +1,6 @@
 #include <srvros/ehci.h>
 #include <srvros/apple_trackpad.h>
+#include <srvros/bootlog.h>
 #include <srvros/console.h>
 #include <srvros/ehci_enumeration.h>
 #include <srvros/keyboard.h>
@@ -7,7 +8,10 @@
 #include <srvros/pmm.h>
 #include <srvros/scheduler.h>
 #include <srvros/timer.h>
+#include <srvros/usb_storage.h>
+#include <srvros/vfs.h>
 #include <srvros/vmm.h>
+#include <srvros/workspace.h>
 #include <stddef.h>
 
 /* EHCI 1.0, sections 2.1, 2.3 and 5.1. */
@@ -146,6 +150,9 @@ struct ehci_probe_report {
     uint64_t flash_wait_us;
     struct ehci_control_target keyboard_target;
     struct ehci_control_target trackpad_target;
+    struct ehci_control_target flash_target;
+    const char *log_volume, *log_release;
+    bool log_saved;
     struct ehci_trackpad_capture trackpad;
     const char *keyboard_result;
     bool keyboard_passed;
@@ -474,7 +481,7 @@ static void prepare_periodic_transfer(struct ehci_control_path *path, const stru
     dma->setup_td.buffer[0] = path->physical + offsetof(struct ehci_dma, data);
 }
 
-static bool periodic_idle(const struct ehci_control_path *path) {
+static bool schedules_idle(const struct ehci_control_path *path) {
     return (path->op[EHCI_USBCMD] & (EHCI_CMD_RUN | EHCI_CMD_SCHEDULES)) == EHCI_CMD_RUN &&
         !(path->op[EHCI_USBSTS] & (EHCI_STS_HALTED | EHCI_STS_SCHEDULES | EHCI_STS_HOST_ERROR));
 }
@@ -491,6 +498,7 @@ static bool disable_periodic(const struct ehci_control_path *path) {
 
 #include "ehci_keyboard.inc"
 #include "ehci_trackpad.inc"
+#include "ehci_storage.inc"
 
 static uint32_t read_root_port(struct ehci_enumeration *bus, volatile uint32_t *port) {
     uint32_t status = *port;
@@ -574,7 +582,10 @@ static void track_trial_device(void *context, const struct ehci_control_target *
         if (captured_trackpad_interfaces(configuration, length)) report->trackpad_target = *target;
     }
     if (path->trial_slot == 1 && vendor == 0x13fe && product == 0x6700 &&
-        !target->tt_hub && target->packet_size == 64) report->flash_address = target->address;
+        !target->tt_hub && target->packet_size == 64) {
+        report->flash_address = target->address;
+        if (captured_flash_interface(configuration, length)) report->flash_target = *target;
+    }
 }
 
 static void enumerate_controller(const struct pci_device *device, volatile uint32_t *op,
@@ -616,7 +627,7 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
         report->stopped = bus.step;
         report->stopped_usbsts = report->transfer_failure.reason ? report->transfer_failure.usbsts : op[EHCI_USBSTS];
     }
-    uint64_t frame_list = 0;
+    uint64_t frame_list = 0, bulk_page = 0;
     if (complete && keep_keyboard) {
         report->keyboard_result = configure_keyboard(&path, &frame_list);
         if (!report->keyboard_result) {
@@ -628,6 +639,8 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
         }
     } else if (complete && mode == EHCI_BOOT_TRACKPAD_TRIAL) {
         run_trackpad_trial(&path, &frame_list);
+    } else if (complete && mode == EHCI_BOOT_USB_LOG) {
+        run_flash_log(&path, &bulk_page);
     } else if (complete && keyboard_release && trial_slot == 0) {
         report->keyboard_result = run_keyboard_trial(&path, keyboard_release, &frame_list);
         console_set_framebuffer_muted(true);
@@ -644,6 +657,7 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
         __asm__ volatile ("mfence" : : : "memory");
         pmm_free_frame(physical);
         if (frame_list) pmm_free_frame(frame_list);
+        if (bulk_page) pmm_free_frame(bulk_page);
     }
     console_printf("ehci: enumeration complete=%u devices=%u hubs=%u deferred=%u dma=%s\n",
         (uint64_t)(complete && retired), (uint64_t)bus.devices, (uint64_t)bus.hubs, (uint64_t)bus.deferred,
@@ -998,14 +1012,31 @@ static void print_scan_stop(const struct ehci_probe_report *report) {
     }
 }
 
-void ehci_boot_trackpad_trial(const char *release) {
+static bool save_trackpad_log(uint64_t root, const char *release, const char *volume) {
+    if (!timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root)) return false;
+    for (uint64_t i = 0; i < pci_device_count(); i++) {
+        const struct pci_device *device = pci_device_at(i);
+        if (!ehci_usb_controller(device) || trial_controller_slot(device) != 1) continue;
+        struct ehci_probe_report report = {
+            .handoff = "not-attempted", .mapping = "none", .log_volume = volume, .log_release = release,
+        };
+        probe_controller(device, root, EHCI_BOOT_USB_LOG, &report, 1, NULL);
+        print_scan_stop(&report);
+        return report.log_saved && report.dma_released && report.access_retired;
+    }
+    console_write("ehci-log: captured flash controller absent\n");
+    return false;
+}
+
+bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
     console_set_framebuffer_muted(false);
     console_clear();
     console_printf("SrvrOS MacBookPro8,1 trackpad trial\nRelease %s\n\n", release);
     console_write("Wait for Trackpad ready. Then move one finger across the pad,\n"
-                  "place two fingers on it, and press and release the clickpad.\n"
-                  "Photograph the result. Power off and start again to return to Ubuntu.\n\n"
-                  "Scanning for the built-in trackpad...\n");
+                  "place two fingers on it, and press and release the clickpad.\n");
+    if (log_volume) console_write("Keep the flash drive connected. The result will be saved before restart.\n");
+    else console_write("Photograph the result. Power off and start again to return to Ubuntu.\n");
+    console_write("\nScanning for the built-in trackpad...\n");
     console_sync();
     uint64_t root = vmm_kernel_address_space();
     const struct pci_device *device = captured_topcase_controller();
@@ -1043,7 +1074,16 @@ void ehci_boot_trackpad_trial(const char *release) {
         (uint64_t)capture->status, (uint64_t)capture->token, (uint64_t)capture->overlay);
     if (report.transfer_failure.reason) log_transfer_failure(&report.transfer_failure);
     console_printf("ehci-trackpad: release=%s result=%s\n", release, passed ? "PASS" : "INCOMPLETE");
+    if (log_volume && (!device || (report.access_retired && report.dma_released))) {
+        console_write("Saving result to the USB workspace...\n");
+        if (save_trackpad_log(root, release, log_volume)) {
+            console_write("USB result saved and controller released. Restarting into Ubuntu.\n");
+            return true;
+        }
+        console_write("USB result save could not be verified.\n");
+    }
     console_write("Screen held for photo. Use the power button to return to Ubuntu.\n");
+    return false;
 }
 
 void ehci_boot_trial(const char *release, bool keyboard) {
