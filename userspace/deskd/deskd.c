@@ -151,8 +151,14 @@ static void life_cycle_log(unsigned cycle,uint64_t pid,uint64_t ready_elapsed,
         cycle,(unsigned long long)pid,(unsigned long long)ready_elapsed,
         (unsigned long long)closed_elapsed,errors);
 }
-struct pixel_cache { uint32_t *pixels,width,height; struct life_memory *job; };
+struct pixel_cache {
+    uint32_t *pixels,width,height;
+    struct life_memory *job;
+    bool startup_reserve;
+};
 #define DESKD_CACHE_BUDGET DESK_CACHE_BYTES
+#define DESKD_STARTUP_WIDTH 760u
+#define DESKD_STARTUP_HEIGHT 500u
 struct client {
     uint64_t pid,window,identity,generation,progress,present_input,parent_window;
     int managed,retiring,cooperative_close;
@@ -432,20 +438,22 @@ static void cache_release(struct session *s,struct pixel_cache *c) {
         desk_pixels_free(c->pixels,c->width,c->height);*c=(struct pixel_cache){0};
     }
 }
-/* Seed the existing two retained slots before clients/storage are launched.
- * A cold compositor helper cannot use sole-process mmap admission while its
- * dispatcher/report peers exist. Reserve common-size buffers once at startup,
- * keeping the same byte budget, reuse and actual-unmap retirement accounting.
- * Larger/different frames still use the asynchronous fallback. */
+/* Reserve two buffers for the largest default tool window (System, 760x500)
+ * before clients and storage start. The allocation worker can wait on a
+ * storage commit when it needs a cold mapping. Larger windows still use it. */
 static void cache_seed(struct session *s,struct lifecycle_worker *worker) {
     for(unsigned n=0;n<2;n++) {
-        const unsigned width=720*session_scale(s),height=480*session_scale(s);uint64_t bytes=(uint64_t)width*height*4;
+        unsigned scale=session_scale(s);
+        const unsigned width=DESKD_STARTUP_WIDTH*scale,height=DESKD_STARTUP_HEIGHT*scale;
+        uint64_t bytes=(uint64_t)width*height*4;
         if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes)break;
         uint32_t *pixels=desk_pixels_alloc(width,height);
         if(!pixels)break;
         struct life_memory *m=&worker->memory[n];
         *m=(struct life_memory){.state=LIFE_DONE,.width=width,.height=height,.pixels=pixels};
-        s->retained_cache[n]=(struct pixel_cache){.pixels=pixels,.width=width,.height=height,.job=m};
+        s->retained_cache[n]=(struct pixel_cache){
+            .pixels=pixels,.width=width,.height=height,.job=m,.startup_reserve=true
+        };
         s->cache_bytes+=bytes;if(s->cache_bytes>s->cache_peak)s->cache_peak=s->cache_bytes;
     }
 }
@@ -531,8 +539,16 @@ static uint32_t *cache_prepare(struct session *s,int i,unsigned width,unsigned h
     return pixels;
 }
 static void cache_trim(struct session *s,int i,uint64_t bytes) {
-    for(int j=0;j<2;j++)if(session_cache(s,i)[j].pixels!=desktop_window_at(&s->scene,i)->pixels &&
-        (uint64_t)session_cache(s,i)[j].width*session_cache(s,i)[j].height*4>bytes)cache_drop(s,i,j);
+    const uint32_t *front=desktop_window_at(&s->scene,i)->pixels;
+    unsigned scale=session_scale(s);
+    for(int j=0;j<2;j++) {
+        const struct pixel_cache *cache=&session_cache(s,i)[j];
+        /* A smaller Text or Files frame may borrow either startup buffer.
+         * Retain the pair for the next window, subject to normal reclamation. */
+        if(cache->startup_reserve && cache->width==DESKD_STARTUP_WIDTH*scale &&
+           cache->height==DESKD_STARTUP_HEIGHT*scale)continue;
+        if(cache->pixels!=front && (uint64_t)cache->width*cache->height*4>bytes)cache_drop(s,i,j);
+    }
 }
 static int clamp(int64_t v,int lo,int hi) { return v<lo?lo:v>hi?hi:v; }
 static void close_client(struct session *s,int i);

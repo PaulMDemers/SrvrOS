@@ -272,15 +272,49 @@ static void seeded_cache_reuse(void) {
         int before=allocations,freed=frees;
         alloc_fail=partial?allocations+1:0;cache_seed(&s,&worker);alloc_fail=0;
         unsigned count=partial?1:2;
-        assert(allocations==before+(int)count && s.cache_bytes==count*720ull*480*4);
+        assert(allocations==before+(int)count && s.cache_bytes==count*760ull*500*4);
         uint32_t *pixels=cache_prepare(&s,0,720,480);
         assert(pixels && allocations==before+(int)count && s.cache_reuses==1);
-        cache_free(&s);assert(s.cache_bytes==count*720ull*480*4);
+        cache_free(&s);assert(s.cache_bytes==count*760ull*500*4);
         life_work(&worker);lifecycle_poll(&s);
         assert(!s.cache_bytes && frees==freed+(int)count);
     }
     memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));memset(&worker,0,sizeof(worker));
     puts("desktop-cache-seed: PASS initial/partial reserve, reuse without helper mapping, deferred worker release and zero final budget");
+}
+static void seeded_cache_system_after_smaller_windows(void) {
+    static struct session s;
+    static struct lifecycle_worker worker;
+    s=(struct session){.worker=&worker};
+    worker=(struct lifecycle_worker){0};
+    const uint64_t reserved=2ull*760*500*4;
+    int before=allocations,freed=frees;
+    cache_seed(&s,&worker);
+
+    /* Keep the allocation worker idle, as when it is parked on a foreign
+     * storage commit. A front/spare swap must preserve both reservations. */
+    static const unsigned sizes[][2]={{720,480},{720,480},{760,500}};
+    for(unsigned cycle=0;cycle<6;cycle++) {
+        unsigned width=sizes[cycle%3][0],height=sizes[cycle%3][1];
+        uint32_t *first=cache_prepare(&s,0,width,height);
+        assert(first && !s.cache_pending);
+        s.scene.windows[0].pixels=first;
+        uint32_t *second=cache_prepare(&s,0,width,height);
+        assert(second && second!=first && !s.cache_pending);
+        s.scene.windows[0].pixels=second;
+        cache_trim(&s,0,(uint64_t)width*height*4);
+        cache_forget(&s,0);
+        s.scene.windows[0].pixels=NULL;
+        assert(allocations==before+2 && frees==freed);
+    }
+    assert(s.cache_bytes==reserved && s.cache_peak==reserved);
+    assert(s.retained_cache[0].job && s.retained_cache[1].job);
+    cache_free(&s);
+    assert(s.cache_bytes==reserved);
+    life_work(&worker);
+    lifecycle_poll(&s);
+    assert(!s.cache_bytes && frees==freed+2);
+    puts("desktop-cache-seed: PASS System first frame after Text/Files with the allocation worker parked");
 }
 static void retired_cache_reuse(void) {
     static struct session s;static struct lifecycle_worker worker;
@@ -1312,6 +1346,7 @@ int main(int argc,char **argv) {
     if(argc==2 && !strcmp(argv[1],"--render-proof"))return render_proof_fixture();
     display_transaction_tests();
     deferred_ui_diagnostics();
+    seeded_cache_system_after_smaller_windows();
     seeded_cache_reuse();
     retained_operations();retained_capture_history();window_navigation();
     persistent_render_timing();persistent_loop_timing();asynchronous_loop_report();
