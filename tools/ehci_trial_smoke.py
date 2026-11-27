@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Boot the exact attended EHCI release once, then verify the GRUB default."""
+"""Boot the exact EHCI trial release once, then verify the GRUB default."""
 import argparse
 import json
 from pathlib import Path
@@ -289,7 +289,7 @@ def desktop_workspace_image(temp, serial):
     return stick, volume
 
 
-def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checklist, mode):
+def read_workspace(stick, volume):
     with stick.open("rb") as stream:
         stream.seek(2048 * 512)
         saved = stream.read()
@@ -297,6 +297,11 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
     check_clean_image(volume)
     image = ExfatFixture(saved)
     assert image.read("srvros-work/anchor.txt") == b"workspace anchor\n"
+    return image
+
+
+def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checklist, mode):
+    image = read_workspace(stick, volume)
     if file_checklist is not None:
         expected = file_checklist + (b"" if keyboard_exit else b"Ehci-42")
         assert image.read(f"srvros-work/ehci-desktop-{release}.txt") == expected
@@ -321,6 +326,32 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
         assert b"pro81-audio: phase=final result=INCOMPLETE started=0 completed=0" in final
 
 
+def exercise_ethernet_probe(command, temp, logs, release, log_volume):
+    stick, volume = desktop_workspace_image(temp, log_volume)
+    command += ["-device", "qemu-xhci,id=xhci", "-drive", f"if=none,id=stick,format=raw,file={stick}",
+                "-device", "usb-storage,drive=stick,bus=xhci.0"]
+    serial = logs / "trial-serial.log"
+    serial.unlink(missing_ok=True)
+    with (logs / "trial-qemu.log").open("wb") as errors:
+        with subprocess.Popen(command + ["-serial", f"file:{serial}"], stdout=errors, stderr=errors) as vm:
+            try:
+                text = wait_for(serial, lambda s: "Ethernet probe finished. Returning to Ubuntu." in s, vm, 90)
+                assert vm.wait(timeout=20) == 0
+            finally:
+                if vm.poll() is None:
+                    vm.kill()
+                    vm.wait()
+    assert "SRVROS_VM_NEXT_ENTRY_CONSUMED" in text and not has_fatal_exception(text)
+    assert "ehci-ethernet: startup=saved final=saved workspace_retirement=safe" in text
+    image = read_workspace(stick, volume)
+    startup = image.read(f"srvros-work/ehci-ethernet-{release}-startup.txt").decode()
+    final = image.read(f"srvros-work/ehci-ethernet-{release}.txt").decode()
+    assert f"ehci-ethernet: release={release} phase=startup workspace=1" in startup
+    assert f"ehci-ethernet: release={release} phase=final result=REFUSED packet_io=0" in final
+    assert "bcm57765: refused platform identity" in final
+    assert all(marker not in final for marker in ("bcm57765: pci=", "bcm57765: phy_addr=", "net: worker"))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("release", help="exact staged EHCI trial release")
@@ -337,6 +368,7 @@ def main():
     version = manifest["config_version"]
     log_match = boot.EHCI_TRACKPAD_LOG_RE.fullmatch(version)
     desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
+    ethernet_match = boot.EHCI_ETHERNET_RE.fullmatch(version)
     desktop_file = version.startswith((boot.EHCI_DESKTOP_FILE_VERSION, boot.EHCI_DESKTOP_FILE_V4_VERSION))
     brightness = version.startswith(boot.EHCI_DESKTOP_BRIGHTNESS_VERSION)
     audio = version.startswith((boot.EHCI_DESKTOP_AUDIO_VERSION, boot.EHCI_DESKTOP_AUDIO_V7_VERSION))
@@ -347,15 +379,17 @@ def main():
     keyboard_checklist = desktop_trace or brightness or audio or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
     if args.keyboard_exit and not (desktop_trace or desktop_file or brightness or audio):
         parser.error("keyboard exit needs a v3 or later desktop stage")
-    log_volume = (log_match or desktop_match)[1] if log_match or desktop_match else None
+    volume_match = log_match or desktop_match or ethernet_match
+    log_volume = volume_match[1] if volume_match else None
     if version not in boot.EHCI_TRIAL_VERSIONS and not log_volume:
         parser.error("expected an attended EHCI trial stage")
     keyboard_trial = version == boot.EHCI_KEYBOARD_VERSION
     keyboard_monitor = version == boot.EHCI_MONITOR_VERSION
     trackpad_trial = version == boot.EHCI_TRACKPAD_VERSION or bool(log_match)
-    if (keyboard_monitor or trackpad_trial or desktop_match) and args.stall_hub_status:
+    if (keyboard_monitor or trackpad_trial or desktop_match or ethernet_match) and args.stall_hub_status:
         parser.error("the emulated hub is for the split and typing trials")
-    mode = ("desktop-battery" if battery else "desktop-telemetry" if telemetry else "desktop-audio" if audio else
+    mode = ("ethernet-probe" if ethernet_match else "desktop-battery" if battery else
+            "desktop-telemetry" if telemetry else "desktop-audio" if audio else
             "desktop-brightness" if brightness else "desktop-file" if desktop_file
             else "topcase-desktop" if desktop_trace else "trackpad-desktop" if desktop_match else
             "trackpad-trial" if log_match else boot.EHCI_TRIAL_MODES[version])
@@ -416,7 +450,9 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
                    "-drive", f"format=raw,file={esp}", "-drive", f"format=raw,file={root_disk}",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
 
-        if keyboard_monitor:
+        if ethernet_match:
+            exercise_ethernet_probe(command.copy(), temp, logs, release, log_volume)
+        elif keyboard_monitor:
             exercise_monitor(command.copy(), temp, logs, release)
         elif desktop_match:
             trial_command = command.copy()
@@ -445,7 +481,10 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
     result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source / "manifest.json"),
                   exact_payload=True, topcase="absent in VM",
                   on_screen_checklist="vm-screen.ppm", grub_next_entry="", ubuntu_default_fixture=True)
-    if keyboard_monitor:
+    if ethernet_match:
+        result.pop("on_screen_checklist")
+        result.update(ethernet_controller="refused", startup_checkpoint="verified", final_report="verified")
+    elif keyboard_monitor:
         result.update(monitor_input="serial", case_echo=True, history_edit=True, monitor_reboot=True)
     elif desktop_match:
         result.update(guest_trial_result="INCOMPLETE", desktop_ui="INCOMPLETE" if args.keyboard_exit else "PASS",

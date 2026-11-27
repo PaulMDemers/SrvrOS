@@ -21,6 +21,7 @@
 #include <srvros/desktop_session.h>
 #include <srvros/laptop_probe.h>
 #include <srvros/backlight.h>
+#include <srvros/bcm57765_probe.h>
 #include <srvros/audio.h>
 #include <srvros/capture_write_timing.h>
 #include <srvros/audio_abi.h>
@@ -1114,6 +1115,42 @@ static bool ehci_trial_release(const char *cmdline, char release[17], const char
     return !*cmdline;
 }
 
+static void ehci_ethernet_trial(const char *release, const char *volume) {
+    boot_set_framebuffer_quiet(false);
+    console_clear();
+    console_printf("MacBookPro8,1 wired Ethernet probe. Release %s.\n", release);
+    console_write("Keep the Ethernet cable and flash drive connected. No input needed.\n");
+    console_sync();
+
+    /* The Q35 refusal rehearsal uses the ordinary USB workspace fallback. */
+    xhci_init();
+    bool mounted = ehci_desktop_workspace_start(volume);
+    console_printf("ehci-ethernet: release=%s phase=startup workspace=%u\n", release, (uint64_t)mounted);
+    bool startup = mounted && ehci_ethernet_workspace_report(release, true);
+    console_printf("ehci-ethernet: startup_report=%s; sampling the controller and PHY\n",
+        startup ? "saved" : "unverified");
+    console_sync();
+
+    enum bcm57765_probe_result result = bcm57765_probe();
+    const char *state = result == BCM57765_LINK_UP ? "LINK_UP" :
+        result == BCM57765_LINK_DOWN ? "LINK_DOWN" :
+        result == BCM57765_REFUSED ? "REFUSED" :
+        result == BCM57765_UNSAFE ? "UNSAFE" : "INCOMPLETE";
+    console_printf("ehci-ethernet: release=%s phase=final result=%s packet_io=0\n", release, state);
+    bool final = mounted && ehci_ethernet_workspace_report(release, false);
+    bool retired = ehci_desktop_workspace_stop();
+    console_printf("ehci-ethernet: startup=%s final=%s workspace_retirement=%s\n",
+        startup ? "saved" : "unverified", final ? "saved" : "unverified", retired ? "safe" : "unverified");
+    if (retired && result != BCM57765_UNSAFE) {
+        console_write("Ethernet probe finished. Returning to Ubuntu.\n");
+        console_sync();
+        arch_reboot_unattended();
+    }
+    console_write("A device did not retire cleanly. Restart manually to return to Ubuntu.\n");
+    console_sync();
+    halt_forever();
+}
+
 /* Leave interrupts masked for the caller's pre-userspace storage work. */
 static void ehci_desktop_startup_trace(const char *release, bool trackpad_ready) {
     console_write("Capturing topcase queues and saving a startup report before opening the desktop...\n");
@@ -1335,6 +1372,7 @@ void kmain(void) {
     bool ehci_keyboard_trial = cmdline_has_token(cmdline, "srvros.ehci=keyboard-trial");
     bool ehci_keyboard_monitor = cmdline_has_token(cmdline, "srvros.ehci=keyboard-monitor");
     bool ehci_trackpad_trial = cmdline_has_token(cmdline, "srvros.ehci=trackpad-trial");
+    bool ehci_ethernet_probe = cmdline_has_token(cmdline, "srvros.ehci=ethernet-probe");
     bool ehci_file_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-file");
     bool ehci_brightness_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-brightness");
     bool ehci_audio_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-audio");
@@ -1352,13 +1390,18 @@ void kmain(void) {
     bool ehci_trial = ehci_trial_mode != NULL;
     char trial_release[17];
     char ehci_log_volume[9] = {0};
+    if (ehci_ethernet_probe && (!ehci_trial_release(cmdline, trial_release, "ethernet-probe", ehci_log_volume) ||
+            !ehci_log_volume[0])) {
+        console_write("ehci-ethernet: invalid boot profile\n");
+        halt_forever();
+    }
     if (ehci_trackpad_desktop_trial && (!ehci_trial_release(cmdline, trial_release,
             ehci_workspace_mode ? ehci_workspace_mode : ehci_desktop_trace ? "topcase-desktop" : "trackpad-desktop", ehci_log_volume) ||
             !ehci_log_volume[0])) {
         console_write("ehci-desktop: invalid boot profile\n");
         halt_forever();
     }
-    if (ehci_trackpad_desktop_trial) bootlog_extend_capture();
+    if (ehci_trackpad_desktop_trial || ehci_ethernet_probe) bootlog_extend_capture();
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
@@ -1504,6 +1547,7 @@ void kmain(void) {
 #endif
     }
     pci_init();
+    if (ehci_ethernet_probe) ehci_ethernet_trial(trial_release, ehci_log_volume);
     bool ssd_work = cmdline_has_token(cmdline, "srvros.capture=air61-ssd-work");
     if (ssd_work || cmdline_has_token(cmdline, "srvros.capture=air61-ssd-scratch")) {
         air61_scratch_trial(cmdline, ssd_work);

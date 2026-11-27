@@ -961,6 +961,26 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             boot.stage(ehci_keyboard_monitor=True, ehci_trackpad_trial=True)
 
+    def test_ehci_ethernet_probe_binds_release_and_workspace(self):
+        for name in ("limine-binary/BOOTX64.EFI", "kernel/srvros.elf"):
+            path = self.root / "build" / name
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"fixture")
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                side_effect=["test-revision\n", ""]):
+            release = boot.stage(ehci_ethernet_volume="0d9b53a0")
+        payload = self.stage / release
+        self.assertEqual(boot.verify(payload, release)["config_version"],
+                         "ram-usb-v1-macbookpro8-1-ehci-ethernet-log-0d9b53a0")
+        self.assertEqual((payload / "initramfs.tar").read_bytes(), bytes(1024))
+        self.assertIn(
+            f"cmdline: srvros.storage=ram srvros.ehci=ethernet-probe srvros.ehci-release={release} "
+            "srvros.ehci-log-volume=0d9b53a0\n", (payload / "limine.conf").read_text())
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_ethernet_volume="invalid")
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_ethernet_volume="0d9b53a0", ehci_split_trial=True)
+
     def test_wifi_channel_state_profile(self):
         v="ram-usb-wifi-fw-v75-laptop-probe-0e535900-auto-return"
         config=boot.limine_config("0123456789abcdef",v)

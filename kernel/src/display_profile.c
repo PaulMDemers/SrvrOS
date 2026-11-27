@@ -7,6 +7,7 @@ enum { SMBIOS2_ENTRY_SIZE = 31, SMBIOS3_ENTRY_SIZE = 24, SMBIOS_TABLE_LIMIT = 65
 
 static bool retina_pro;
 static bool air61;
+static bool pro81;
 
 static bool matches(const uint8_t *data, const char *text, size_t length) {
     for (size_t i = 0; i < length; i++) {
@@ -106,9 +107,11 @@ void display_profile_init(const struct limine_smbios_response *smbios,
                           const struct limine_memmap_response *memmap, uint64_t hhdm) {
     retina_pro = probe_model(smbios, memmap, hhdm, "MacBookPro11,2", sizeof("MacBookPro11,2") - 1);
     air61 = probe_model(smbios, memmap, hhdm, "MacBookAir6,1", sizeof("MacBookAir6,1") - 1);
+    pro81 = probe_model(smbios, memmap, hhdm, "MacBookPro8,1", sizeof("MacBookPro8,1") - 1);
 }
 
 bool display_profile_is_air61(void) { return air61; }
+bool display_profile_is_pro81(void) { return pro81; }
 
 unsigned display_profile_scale(uint64_t width, uint64_t height) {
     return retina_pro && width >= 2560 && height >= 1600 ? 2 : 1;
