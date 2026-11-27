@@ -632,6 +632,16 @@ window. The source of the native eight-byte frames remains open. The
 comparison report is saved on the USB workspace. The read-only allocation
 check passed with 106 files, and the raw Ubuntu traces are archived locally.
 
+The HID replay trial starts from `2ab5c95d` on the `61111819` base. A second
+Ubuntu capture verified that both keyboard output requests carry `01 00`.
+The native candidate replays the six observed HID requests and their
+configuration-relative submission offsets before reading and writing the
+trackpad feature report. It records partial progress and the timing of the
+mode write. The scoped MacBookPro8,1 trial retains the existing EHCI interrupt
+queue, gesture checks and USB report path. The open PRs and Pro11,2 branch
+have no overlapping EHCI work. The next checkpoint is the exact VM rehearsal
+and an attended one-shot with the same flash drive and Ubuntu recovery.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
