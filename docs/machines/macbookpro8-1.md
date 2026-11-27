@@ -581,6 +581,16 @@ that sequence and log the arm timing and first endpoint payload. The Ubuntu
 comparison was saved beside the original report on the USB workspace and the
 offline check passed with 104 files. [Linux usbmon ABI](https://docs.kernel.org/usb/usbmon.html)
 
+The timing candidate is source `5b446f31`, release `cacf59a022b41970`.
+It prepares the first batch and displays the complete checklist before the
+mode write. The timing starts when software observes the control transfer
+complete. The report records the periodic enable request, the controller's
+acknowledgment and the first observed interrupt completion relative to that
+point. It includes the entire first payload as ordered hex chunks, then uses
+the normal mode restoration and USB save path. The EHCI host tests verified
+the request order and the retained multi-packet payload. The exact VM payload
+passed the checklist, absent-controller and Ubuntu-default rehearsal.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
