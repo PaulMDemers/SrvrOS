@@ -28,6 +28,15 @@ requester status, and sampled display controls. Broadwell PR301 remains
 independent. This records observations and unknowns before an owner can be
 designed for a native bind.
 
+The [native candidate observation](../intel-hsw-tearfree.md#native-candidate-result)
+completed on source `06d711a2`, release `b35c7a643be7458e`. Pipe A advanced
+two frames in 21.059 ms with the inherited surface unchanged. Slot 4096
+was present and pointed into firmware-reserved stolen memory outside the
+sampled image pages. Both GPU and display HDA bus mastering were enabled.
+The temporary alias retired with zero GPU writes. The USB receipt and installed
+recovery verified, and Ubuntu returned with the one-shot consumed. Keep the slot
+protected while investigating its existing mapping and requesters.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

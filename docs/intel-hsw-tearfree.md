@@ -76,6 +76,28 @@ Stage the isolated AP probe kernel with `--laptop-probe-volume UUID
 `srvros-work/Logs` and returns to Ubuntu without a desktop session.
 Decode the matching `exit.log` with `tools/hardware_haswell_candidate.py`.
 
+### Native candidate result
+
+Release `b35c7a643be7458e`, source `06d711a2`, saved session
+`session-0006614726062673-00`. Both reads returned `0x8ea00001`, a
+present mapping to `0x8ea00000` in firmware-reserved stolen memory. That
+page differs from all 1,056 sampled primary-image pages. The meaning of
+its existing mapping and any other users remain unknown. Keep the slot
+protected pending that audit.
+
+Pipe A advanced from frame 934 to 936 in a 21.059 ms observation window.
+Programmed and live primary surfaces stayed at GGTT address zero. The
+sampled B/C primaries, sprites, cursors and PSR showed disabled controls.
+IGD and display HDA both had bus mastering enabled. IGD had no PCIe
+capability in its list, so its Transactions Pending state is unknown.
+Display HDA reported the bit clear in both samples.
+
+The temporary candidate alias retired with zero GPU writes. Ubuntu returned
+with the one-shot consumed, the installed recovery matched its archive,
+and the unmounted USB passed the filesystem check. The native result
+accepts the read-only observation. It supplies no exclusive binding or
+requester retirement proof.
+
 A later write trial requires an owner that maintains exclusion from
 admission through a posted DWORD store, Gen7 translation completion and
 exact rollback. Linux i915's Gen6/7 path follows the DWORD store with a
