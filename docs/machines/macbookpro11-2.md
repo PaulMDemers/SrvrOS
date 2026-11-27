@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-27. State: **native desktop, input, brightness, speaker audio, CPU and two-fan telemetry, and USB Ethernet accepted on this unit. The Retina desktop selects 2× at 2880 × 1800. Demers5 desktop connection and same-boot recovery after orderly Disconnect and USB replug passed on v154. Both v155 cold runs completed native association and safely handled active USB removal. The second passed all 60 paced gateway probes before removal and returned to Ubuntu with the workspace intact. The RTL8188CUS completed one cold Demers2.4 diagnostic with WPA2, DHCP, DNS and HTTP 200. Earlier native TCP/HTTP and USB workspace results remain recorded below.**
+Updated: 2026-11-27. State: **native desktop, input, brightness, speaker audio, CPU and two-fan telemetry, and USB Ethernet accepted on this unit. The Retina desktop selects 2× at 2880 × 1800. Demers5 desktop connection and same-boot recovery after orderly Disconnect and USB replug passed on v154. Both v155 cold runs completed native association and safely handled active USB removal. The second passed all 60 paced gateway probes before removal and returned to Ubuntu with the workspace intact. The Realtek RTL8188CUS passed the cold Demers2.4 WPA2, DHCP, DNS and HTTP 200 diagnostics, then passed desktop Connect, Disconnect and same-boot reconnect with all three adapters on the hub. Earlier native TCP/HTTP and USB workspace results remain recorded below.**
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
@@ -2604,6 +2604,25 @@ five exact-image VM rehearsals passed. Keep all three adapters on the
 hub for the cold run. Help opens the same checklist and the session
 saves each System command result and the final receipts. Local run
 record `build/bringup/pro112-rtl8188cu-desktop-channel/run.json`.
+
+Physical session `session-00066147cbc9ff7c-00` passed both System
+Connect and Disconnect cycles on Demers2.4 with all three adapters
+enumerated on the hub. Both generations completed WPA2, DHCP, gateway
+ping and DNS. Each Disconnect stopped the network worker and erased
+the association keys. The workspace exit log preserved all four UI
+commands and both sets of connection receipts. The independent EFI
+journal saved all seven checkpoints and the matching final success.
+The collector now checks detailed receipts against the workspace and
+the terminal receipt against both copies. Its first verdict required
+the full detail in each copy, which the EFI tail cap had truncated.
+Both verdicts are in the evidence archive.
+
+The workspace passed its filesystem check with all 670 existing files
+preserved, and SrvrOS returned to Ubuntu automatically. The Text save
+and reopen checklist item has no saved evidence in this session.
+Archived under `/var/local/srvros-recovery/macbookpro11-2/evidence-87649100cf3cbfe5`.
+The credential-bearing trial was retired and passive recovery
+`a662f7851095412c` was restored alongside `74da74e0b57afbb8`.
 
 ### Retina desktop default
 
