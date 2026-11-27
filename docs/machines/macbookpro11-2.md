@@ -2478,6 +2478,13 @@ automatic return across the runs. Revisit the first failing boundary
 if either repeat fails. After two fresh successful repeats, start the
 Realtek desktop Connect, Disconnect and same-boot reconnect trial.
 
+First repeat `2cbeb0e63aac144d` matches the successful kernel, loader,
+boot options and initramfs after normalizing the new release ID and
+EFI journal descriptor. The matched native xHCI fixture and all five
+exact-image rehearsals passed. The fresh Linux control verified the
+router DHCP captures and station decryption view. The local run record
+is `build/bringup/pro112-rtl8188cu-radio-repeat1/run.json`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
