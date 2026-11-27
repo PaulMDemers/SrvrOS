@@ -63,6 +63,15 @@ Shared Broadwell work remains with PR301 at `e83f19e0`. No new VT-d address,
 translation-table walk, forcewake, control write or graphics ownership
 is part of this checkpoint.
 
+The [native requester audit](../intel-hsw-tearfree.md#native-audit-refused-at-the-alias-census)
+refused on `94d2dd92` / `c75c79ae778587e3`. Early ECAM adoption succeeded,
+then the first raw pass of the pre-user RAM alias census ran out of room
+in its 4 KiB receipt. VT-d target reads and writes were zero, and requester,
+GT and slot 4096 sampling did not start. Ubuntu returned with the one-shot
+consumed. The archived snapshots, installed recovery and offline USB
+filesystem check verified. Keep slot 4096 protected and recover a complete
+alias receipt before another requester observation.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

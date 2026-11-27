@@ -185,6 +185,22 @@ Decode the matching session directory with
 preserves the original 100 ms bounds and keeps the inherited framebuffer
 active. It issues no GPU or VT-d writes, forcewake, or root-table reads.
 
+#### Native audit refused at the alias census
+
+Source `94d2dd92`, release `c75c79ae778587e3`, and session
+`session-000661490d4c5a7f-00` identify the first Air6,1 run. The early
+checked ECAM window was adopted once. The pre-user RAM alias census found
+42 page tables and reached 4,095 of 4,096 receipt bytes after 13,824 entry
+reads in its first raw pass. The next encoded value exceeded the receipt
+capacity. The census refused before the second pass and the managed-root
+cross-check remained incomplete.
+
+The run issued zero VT-d target reads and zero VT-d writes. It stopped
+before the IGD requester bracket, GT sample, and slot 4096 probe. Slot
+4096 remains protected on the basis of the earlier access audit. Ubuntu
+returned with the one-shot consumed, and the saved snapshots, installed
+recovery, and unmounted USB filesystem check verified.
+
 A later write trial requires an owner that maintains exclusion from
 admission through a posted DWORD store, Gen7 translation completion and
 exact rollback. Linux i915's Gen6/7 path follows the DWORD store with a
