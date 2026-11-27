@@ -1637,6 +1637,17 @@ Keep TX paused, the single 4 KiB request and all three hub ports.
 Exercise the combined native entry and failure retirement before
 staging and rehearsing the unattended image with both log sinks.
 
+Release `7b559d227649f423` (`24fef541`) is installed with Ubuntu as
+the default and recovery `74da74e0b57afbb8` verified. Native xHCI
+fixtures ran identity through passive receive, checked the order
+of APSD, CR, LLT and firmware, and exercised refusal and cleanup
+with the unchanged 4 KiB request. Exact-image VM rehearsals verified
+the workspace save and reset plus the four EFI journal modes. The
+collector decodes the CR, LLT, first firmware write and first USB
+receive timestamps. The run record is under
+`build/bringup/pro112-rtl8188cu-pre-fw-rx`. Reception on the Mac
+still needs the cold result.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
