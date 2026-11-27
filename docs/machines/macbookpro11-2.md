@@ -1774,6 +1774,25 @@ receive counters and cleanup readback. The run record under
 `build/bringup/pro112-rtl8188cu-cr-combined` binds the three earlier
 hardware sessions. Reception still needs the cold result.
 
+Cold session `session-0006613a2909a0bf-00` verified CR `0x02ba`
+before LLT and firmware and at all three receive snapshots. All
+three hub adapters were present and the MCU reached ready. PHY
+parity failures rose from 24 to 3,311. The 14 receive report
+counters and the RX FIFO pointer stayed at zero. The fixed 4 KiB
+request timed out with no bytes or Demers2.4 beacons. The combined
+mask matched the receive outcome of the `0x009a` control and the
+`0x029a` and `0x00ba` single-bit trials.
+
+Stop Endpoint reported all 4,096 bytes remaining. Both CR bits
+cleared to `0x0000` with `TXPAUSE=0xff`, and the radio parked. The
+workspace exit snapshot and all seven EFI checkpoints saved
+automatically and agreed on the timing and cleanup readbacks.
+SrvrOS recorded a clean unmount and normal return to Ubuntu. The
+collector verified all 632 prior workspace files and the installed
+recovery. Evidence, the three comparisons and the verified payload
+are archived locally under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-ae5625fa39f5b7de`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
