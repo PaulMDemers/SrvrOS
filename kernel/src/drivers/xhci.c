@@ -602,6 +602,7 @@ struct xhci_wifi_firmware {
 
 enum rtl8188cu_power_phase {
     RTL8188CU_POWER_BEFORE_REGULATOR,
+    RTL8188CU_POWER_AFTER_ISO_CLEAR,
     RTL8188CU_POWER_BEFORE_AUTO_ON,
     RTL8188CU_POWER_AFTER_AUTO_ON,
     RTL8188CU_POWER_FIRMWARE_READY,
@@ -3029,11 +3030,22 @@ static void rtl8188cu_power_log(const struct xhci_device *d,const char *stage) {
     console_write("\n");
 }
 
+static bool rtl8188cu_clear_cold_isolation_byte(struct xhci_device *d) {
+    /* The cold CU Linux trace writes a zero byte to SYS_ISO_CTRL before
+     * MAC auto-on. Match that access and verify the retained high byte. */
+    uint32_t iso=d->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_REGULATOR]>>16;
+    if(iso!=0x82f8 && iso!=0x8200)return false;
+    return (iso==0x8200 || rtl8188cu_write_value(d,RTL8188CU_ISOLATION,1,0)) &&
+        rtl8188cu_power_sample(d,RTL8188CU_POWER_AFTER_ISO_CLEAR) &&
+        (d->rtl8188cu_power_samples[RTL8188CU_POWER_AFTER_ISO_CLEAR]>>16)==0x8200;
+}
+
 /* Bring up only digital power. Leave RF isolation, radio, and TX gates off. */
 static bool rtl8188cu_digital_power(struct xhci_device *d) {
     uint32_t value;
     if(!rtl8188cu_poll(d,RTL8188CU_POWER,1,RTL8188CU_AUTOLOAD,RTL8188CU_AUTOLOAD,32,&value) ||
        !rtl8188cu_power_sample(d,RTL8188CU_POWER_BEFORE_REGULATOR) ||
+       !rtl8188cu_clear_cold_isolation_byte(d) ||
        !rtl8188cu_write_value(d,RTL8188CU_REG_CONTROL,1,0) ||
        !rtl8188cu_write_value(d,RTL8188CU_SWITCH_REGULATOR,1,0x2b) ||
        !timer_delay_us(100) || !rtl8188cu_read(d,RTL8188CU_LDO,1,&value))return false;

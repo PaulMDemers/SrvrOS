@@ -7390,11 +7390,12 @@ enum rtl_fw_fault {
     RTL_FW_NORMAL,RTL_FW_BAD_IMAGE,RTL_FW_WARM,RTL_FW_POWER,RTL_FW_RADIO,
     RTL_FW_SHORT,RTL_FW_CHECKSUM,RTL_FW_READY,RTL_FW_REPLACED,RTL_FW_CLOCK,
     RTL_FW_ENABLE_DROPPED,RTL_FW_PAGE_DROPPED,RTL_FW_POWER_SAMPLE,
+    RTL_FW_ISO_ALREADY_CLEAR,RTL_FW_ISO_UNEXPECTED,RTL_FW_ISO_READBACK,RTL_FW_ISO_HIGH_BYTE,
 };
 static struct {
     const uint8_t *image;
     enum rtl_fw_fault fault;
-    unsigned bytes,blocks,ports,writes,pages,arm_writes,mac_on_writes;
+    unsigned bytes,blocks,ports,writes,pages,arm_writes,mac_on_writes,iso_clears;
     uint8_t regs[0x101];
 } rtl_fw_model;
 
@@ -7458,10 +7459,21 @@ static void rtl_firmware_model(uint64_t offset,uint32_t value) {
         const uint8_t *buffer=d->descriptor_buffer;
         uint8_t old_cpu=regs[3],old_status=regs[0x80];
         switch(reg) {
-        case 0x00: assert(length==1 && !(buffer[0]&1));break;
+        case 0x00:
+            assert(length==1 && !buffer[0] && !rtl_fw_model.mac_on_writes);
+            if(d->rtl8188cu_power_valid==1) {
+                assert(rtl_fw_model.writes==1 && regs[0]==0xf8 && regs[1]==0x82);
+                rtl_fw_model.iso_clears++;
+                if(rtl_fw_model.fault==RTL_FW_ISO_READBACK) {
+                    rtl_firmware_completion(strict_control.status,slot,1,0);
+                    return;
+                }
+                if(rtl_fw_model.fault==RTL_FW_ISO_HIGH_BYTE)regs[1]=0x80;
+            }
+            break;
         case 0x02: assert(length==2 && buffer[0]==regs[2] && !((buffer[1]^old_cpu)&~4));break;
         case 0x04: assert(length==2 && (buffer[1]&1));break;
-        case 0x11: assert(length==1 && buffer[0]==0x2b);break;
+        case 0x11: assert(length==1 && buffer[0]==0x2b && regs[0]==0 && regs[1]==0x82);break;
         case 0x1c: assert(length==1 && buffer[0]==0);break;
         case 0x21: assert(length==1 && buffer[0]==(regs[0x21]|1));break;
         case 0x80:
@@ -7502,7 +7514,7 @@ static void test_rtl8188cu_firmware(const char *path) {
     FILE *firmware=fopen(path,"rb");
     assert(firmware && fread(image,1,sizeof image,firmware)==sizeof image && fgetc(firmware)==EOF);
     assert(fclose(firmware)==0 && rtl8188cu_image_matches(image,sizeof image));
-    for(enum rtl_fw_fault fault=RTL_FW_NORMAL;fault<=RTL_FW_POWER_SAMPLE;fault++) {
+    for(enum rtl_fw_fault fault=RTL_FW_NORMAL;fault<=RTL_FW_ISO_HIGH_BYTE;fault++) {
         struct xhci_device *rtl=rtl_hub_fixture();
         test_time_step=1;
         rtl_probe_case=rtl_probe_hub_requests=rtl_probe_device_requests=0;
@@ -7510,7 +7522,8 @@ static void test_rtl8188cu_firmware(const char *path) {
         assert(xhci_rtl8188cu_capture_identity());
         memset(&rtl_fw_model,0,sizeof rtl_fw_model);
         rtl_fw_model.image=image;rtl_fw_model.fault=fault;
-        rtl_fw_model.regs[0]=0xf9;rtl_fw_model.regs[1]=0x82;
+        rtl_fw_model.regs[0]=fault==RTL_FW_ISO_ALREADY_CLEAR?0:fault==RTL_FW_ISO_UNEXPECTED?0xf0:0xf8;
+        rtl_fw_model.regs[1]=0x82;
         rtl_fw_model.regs[4]=fault==RTL_FW_POWER?0:2;
         rtl_fw_model.regs[0x0a]=0x20;rtl_fw_model.regs[0x1f]=fault==RTL_FW_RADIO?7:0;
         rtl_fw_model.regs[0x80]=fault==RTL_FW_WARM?0xc6:5;
@@ -7520,7 +7533,8 @@ static void test_rtl8188cu_firmware(const char *path) {
         rtl_test_clock=fault!=RTL_FW_CLOCK;
         native_boundary_mmio_hook=rtl_firmware_model;
         if(fault==RTL_FW_BAD_IMAGE)image[32]^=1;
-        assert(xhci_rtl8188cu_capture_firmware(image,sizeof image)==(fault==RTL_FW_NORMAL));
+        bool ready=fault==RTL_FW_NORMAL || fault==RTL_FW_ISO_ALREADY_CLEAR;
+        assert(xhci_rtl8188cu_capture_firmware(image,sizeof image)==ready);
         if(fault==RTL_FW_BAD_IMAGE)image[32]^=1;
         unsigned attempted=rtl_fw_model.writes;
         assert(!xhci_rtl8188cu_capture_firmware(image,sizeof image) && attempted==rtl_fw_model.writes);
@@ -7529,18 +7543,28 @@ static void test_rtl8188cu_firmware(const char *path) {
         assert(!xhci.devices[2].control_success && !xhci.devices[3].control_success);
         assert(rtl->ep0_quarantined==(fault==RTL_FW_SHORT || fault==RTL_FW_POWER_SAMPLE) &&
                rtl->removed==(fault==RTL_FW_REPLACED));
-        if(fault==RTL_FW_NORMAL) {
+        if(ready) {
             assert(rtl_fw_model.bytes==16094 && rtl_fw_model.blocks==260 && rtl_fw_model.pages==4);
             assert((rtl_fw_model.regs[0x80]&0xc7)==0xc6 && (rtl_fw_model.regs[0x82]&0x0f)==0x0b);
-            assert(rtl->rtl8188cu_power_valid==0xf && rtl_fw_model.mac_on_writes==1);
-            assert(rtl->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_REGULATOR]==0x82f90002);
-            assert(rtl->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_AUTO_ON]==0x82f80002);
-            assert(rtl->rtl8188cu_power_samples[RTL8188CU_POWER_AFTER_AUTO_ON]==0x82d80002);
-            assert(rtl->rtl8188cu_power_samples[RTL8188CU_POWER_FIRMWARE_READY]==0x82d80002);
+            assert(rtl->rtl8188cu_power_valid==0x1f && rtl_fw_model.mac_on_writes==1);
+            assert(rtl_fw_model.iso_clears==(fault==RTL_FW_NORMAL?1u:0u));
+            assert(rtl->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_REGULATOR]==
+                   (fault==RTL_FW_NORMAL?0x82f80002u:0x82000002u));
+            assert(rtl->rtl8188cu_power_samples[RTL8188CU_POWER_AFTER_ISO_CLEAR]==0x82000002);
+            assert(rtl->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_AUTO_ON]==0x82000002);
+            assert(rtl->rtl8188cu_power_samples[RTL8188CU_POWER_AFTER_AUTO_ON]==0x82000002);
+            assert(rtl->rtl8188cu_power_samples[RTL8188CU_POWER_FIRMWARE_READY]==0x82000002);
         }
         if(fault==RTL_FW_POWER_SAMPLE)
-            assert(!rtl_fw_model.bytes && rtl_fw_model.mac_on_writes==1 && rtl->rtl8188cu_power_valid==3 &&
-                   rtl->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_AUTO_ON]==0x82f80002);
+            assert(!rtl_fw_model.bytes && rtl_fw_model.mac_on_writes==1 && rtl->rtl8188cu_power_valid==7 &&
+                   rtl->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_AUTO_ON]==0x82000002);
+        if(fault==RTL_FW_ISO_UNEXPECTED)
+            assert(!attempted && !rtl_fw_model.mac_on_writes && rtl->rtl8188cu_power_valid==1);
+        if(fault==RTL_FW_ISO_READBACK || fault==RTL_FW_ISO_HIGH_BYTE)
+            assert(attempted==1 && rtl_fw_model.iso_clears==1 && !rtl_fw_model.mac_on_writes &&
+                   !rtl_fw_model.bytes && rtl->rtl8188cu_power_valid==3 &&
+                   rtl->rtl8188cu_power_samples[RTL8188CU_POWER_AFTER_ISO_CLEAR]==
+                       (fault==RTL_FW_ISO_READBACK?0x82f80002u:0x80000002u));
         if(fault==RTL_FW_CHECKSUM || fault==RTL_FW_READY)assert(!(rtl_fw_model.regs[0x80]&3));
         if(fault==RTL_FW_BAD_IMAGE || fault==RTL_FW_WARM || fault==RTL_FW_POWER || fault==RTL_FW_CLOCK)
             assert(!attempted && !rtl_fw_model.bytes);
@@ -7550,7 +7574,7 @@ static void test_rtl8188cu_firmware(const char *path) {
     }
     rtl_test_clock=false;test_time_step=1000;
     native_boundary_mmio_hook=NULL;
-    puts("rtl8188cu: PASS firmware through native EP0, ordered power checkpoints, sibling isolation and twelve faults");
+    puts("rtl8188cu: PASS native cold byte write and high-byte guard, firmware, sibling isolation and fifteen faults");
 }
 
 enum rtl_radio_fault {
@@ -7951,11 +7975,12 @@ static void test_rtl8188cu_passive(const char *path) {
         xhci.command_ring=(struct xhci_trb *)command_memory;xhci.command_cycle=true;
         d->rtl8188cu_firmware_ready=true;d->hub_port_status=0x503;
         if(fault==RTL_RADIO_OK) {
-            d->rtl8188cu_power_valid=0xf;
-            d->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_REGULATOR]=0x82f90002;
-            d->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_AUTO_ON]=0x82f80002;
-            d->rtl8188cu_power_samples[RTL8188CU_POWER_AFTER_AUTO_ON]=0x82d80002;
-            d->rtl8188cu_power_samples[RTL8188CU_POWER_FIRMWARE_READY]=0x82d80002;
+            d->rtl8188cu_power_valid=0x1f;
+            d->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_REGULATOR]=0x82f80002;
+            d->rtl8188cu_power_samples[RTL8188CU_POWER_AFTER_ISO_CLEAR]=0x82000002;
+            d->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_AUTO_ON]=0x82000002;
+            d->rtl8188cu_power_samples[RTL8188CU_POWER_AFTER_AUTO_ON]=0x82000002;
+            d->rtl8188cu_power_samples[RTL8188CU_POWER_FIRMWARE_READY]=0x82000002;
         }
         memset(&rtl_passive,0,sizeof rtl_passive);
         memset(&rtl_radio_model,0,sizeof rtl_radio_model);
@@ -8019,9 +8044,9 @@ static void test_rtl8188cu_passive(const char *path) {
             assert(rtl_passive.aps_reads==2 && rtl_passive.aps_ready && rtl_passive.aps_after==0x0812 &&
                    rtl_radio_model.aps_writes==(fault==RTL_RADIO_SILENT?0u:1u));
             assert(rtl_passive.aps_before==(fault==RTL_RADIO_SILENT?0x0812u:0x4802u));
-            assert(d->rtl8188cu_power_valid==(fault==RTL_RADIO_OK?0x7fu:0x70u));
+            assert(d->rtl8188cu_power_valid==(fault==RTL_RADIO_OK?0xffu:0xe0u));
             if(fault==RTL_RADIO_OK)
-                assert(d->rtl8188cu_power_samples[RTL8188CU_POWER_AFTER_AUTO_ON]==0x82d80002);
+                assert(d->rtl8188cu_power_samples[RTL8188CU_POWER_AFTER_ISO_CLEAR]==0x82000002);
             assert(d->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_APS]==
                    (fault==RTL_RADIO_SILENT?0x82000812u:0x82004802u));
             assert(d->rtl8188cu_power_samples[RTL8188CU_POWER_BEFORE_RF_RELEASE]==0x82000812);
