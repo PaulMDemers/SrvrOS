@@ -486,13 +486,8 @@ bool workspace_log_window_snapshot(void){
  healthy=save("window.log");window_saved=healthy;return healthy;
 }
 
-/* Small diagnostic journal; the normal writer must already be paused. Keep
- * the original preflight immutable and never invoke a global application sync. */
-bool workspace_log_stolen_progress(const char *data,uint64_t length) {
- if(enabled || busy || !healthy || !directory[0] || !workspace_active() ||
-    !data || !length || length>4096 || stolen_progress_saves>=32)return false;
- unsigned at=copy(path,directory);path[at++]='/';copy(path+at,"stolen-progress.log");
- uint64_t flags;if(!begin(&flags))return false;
+static bool save_small_diagnostic(const char *name,const char *data,uint64_t length,uint64_t flags) {
+ unsigned at=copy(path,directory);path[at++]='/';copy(path+at,name);
  bool ok=!process_has_open_vfs_prefix(path) &&
    exfat_write_file(path,(const uint8_t *)data,length);
  const struct vfs_node *node=ok?vfs_lookup(path):NULL;
@@ -502,7 +497,47 @@ bool workspace_log_stolen_progress(const char *data,uint64_t length) {
  if(node && actual)vfs_release_data(node,actual);
  end(flags);
  if(ok)ok=workspace_flush_committed();
+ return ok;
+}
+
+/* Small diagnostic journal; the normal writer must already be paused. Keep
+ * the original preflight immutable and never invoke a global application sync. */
+bool workspace_log_stolen_progress(const char *data,uint64_t length) {
+ if(enabled || busy || !healthy || !directory[0] || !workspace_active() ||
+    !data || !length || length>4096 || stolen_progress_saves>=32)return false;
+ uint64_t flags;if(!begin(&flags))return false;
+ bool ok=save_small_diagnostic("stolen-progress.log",data,length,flags);
  ++stolen_progress_saves;healthy=healthy && ok;return ok;
+}
+
+bool workspace_log_park_timing_snapshot(void) {
+    if(enabled || busy || !healthy || !directory[0] || !workspace_active()) return false;
+    static char timing[2048];
+    static const char *const prefixes[]={
+        "laptop-capture: boot options=", "intel-park-forcewake: ", "intel-park: ",
+        "intel-park-rc6: ", "laptop-capture: completed=",
+    };
+    uint64_t total, count=bootlog_snapshot_lines(snapshot,sizeof(snapshot),&total), used=0;
+    unsigned seen[sizeof(prefixes)/sizeof(prefixes[0])]={0};
+    for(uint64_t start=0;start<count;) {
+        uint64_t end=start;
+        while(end<count && snapshot[end]!='\n') ++end;
+        if(end==count) break;
+        for(unsigned i=0;i<sizeof(prefixes)/sizeof(prefixes[0]);++i) {
+            uint64_t at=start;
+            const char *p=prefixes[i];
+            while(*p && at<end && *p==snapshot[at]) { ++p;++at; }
+            if(*p) continue;
+            if(end-start+1>sizeof(timing)-used) return false;
+            ++seen[i];
+            for(at=start;at<=end;++at) timing[used++]=snapshot[at];
+            break;
+        }
+        start=end+1;
+    }
+    if(seen[0]!=1 || seen[1]!=1 || seen[2]!=1 || seen[3]>2 || seen[4]!=1) return false;
+    uint64_t flags;
+    return begin(&flags) && save_small_diagnostic("park-timing.log",timing,used,flags);
 }
 
 /* Fixed payload and balanced order avoid comparing different-size log snapshots.

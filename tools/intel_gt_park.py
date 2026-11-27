@@ -8,6 +8,17 @@ from intel_gt_bootstrap import fields
 AUTO = 0x90040000
 PARK = 4 << 16
 GAM = 0x5f
+TIMING_FILE = 'park-timing.log'
+TIMING_PREFIXES = (b'laptop-capture: boot options=', b'intel-park-forcewake: ', b'intel-park: ',
+                   b'intel-park-rc6: ', b'laptop-capture: completed=')
+
+
+def verify_timing_file(timing, exit_log):
+    rows = [row for row in exit_log.splitlines(keepends=True) if row.startswith(TIMING_PREFIXES)]
+    counts = [sum(row.startswith(prefix) for row in rows) for prefix in TIMING_PREFIXES]
+    if (not all(counts[i] == 1 for i in (0, 1, 2, 4)) or counts[3] > 2 or
+            not 0 < len(timing) <= 2048 or timing != b''.join(rows)):
+        raise ValueError('Park timing file differs from full exit report')
 
 
 def require(value):

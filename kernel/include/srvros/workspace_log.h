@@ -20,6 +20,8 @@ bool workspace_log_pause(void);
 const char *workspace_log_directory(void);
 bool workspace_log_ecam_snapshot(void);
 bool workspace_log_window_snapshot(void);
+/* Paused Intel park capture only, after the probe has returned. */
+bool workspace_log_park_timing_snapshot(void);
 /* Paused capture only, at most32 small readback/flush checkpoints. The caller
  * must have no live diagnostic MMIO alias. Does not overwrite prerequisite logs. */
 bool workspace_log_stolen_progress(const char *data,uint64_t length);

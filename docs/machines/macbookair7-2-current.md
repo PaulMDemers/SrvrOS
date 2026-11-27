@@ -113,11 +113,19 @@ reviewing both sessions. The release path needs separate timestamps for the
 store, the first clear ACK and the closing guard to determine where the
 10 ms budget was spent.
 
-The follow-up adds release timing to the GT access core and park receipt.
-It records entry to the guarded write, the adapter timestamp immediately
-before the store, the completed write callback, the first verified clear
-request and ACK, and the closing guard. The original 10 ms deadline
-still governs the observation.
+Release `77a21050a4a1632c` at `6b456a1b` saved the measured failure in
+`session-000661378d68ce57-00/exit.log`. Relative to the start of the
+10 ms window, the driver entered the release write at 4.080 ms and
+issued it at 5.441 ms. The first verified clear request and ACK came
+at 10.885 ms, and the closing guard finished at 12.245 ms. The measured
+interval includes the guarded reads required to observe the ACK.
+The deadline expired before RC6 sampling or engine preparation.
+Ubuntu collected the report and verified exFAT integrity.
+
+The Air park profile now saves the launch options, forcewake timings,
+RC6 samples and result to `park-timing.log` in the USB session directory.
+It verifies and flushes this file before writing `exit.log`. A stall
+inside the probe leaves the earlier `session-a.log` checkpoint available.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

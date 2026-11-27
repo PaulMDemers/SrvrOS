@@ -1268,12 +1268,17 @@ void kmain(void) {
             thermal_print_status();smc_print_status();audio_print_status();
         }
         console_printf("laptop-capture: completed=%s\n",sampled?"yes":"NO");
+        bool park_saved=true;
+        if(started && cmdline_has_token(cmdline,"srvros.intel-ring=gt-bootstrap-flush-v1")) {
+            park_saved=workspace_log_park_timing_snapshot();
+            console_printf("laptop-capture: park-timing.log %s\n",park_saved?"saved and verified":"SAVE FAILED");
+        }
 #ifdef SRVROS_INTEL_EDP_BASELINE
         if (cmdline_has_token(cmdline, "srvros.intel-edp-baseline=on"))
             console_printf("intel-edp-disposition: %s\n",
                 edp_retained ? "halt-retained-state" : "return-if-logs-saved-and-unmounted");
 #endif
-        bool saved=started && workspace_log_stop();
+        bool saved=started && workspace_log_stop() && park_saved;
         bool unmounted=workspace_active() && workspace_unmount();
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
         /* The new read-only observation may save a handled refusal and return,

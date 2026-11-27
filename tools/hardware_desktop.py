@@ -866,7 +866,7 @@ def collect(mount, volume, output):
             if len(preview)>98304:raise ValueError('Log changed while reading')
         limit=session_log_limit(preview)
         payload = {}
-        for name in (*FILES, "ecam.log", "window.log", "stolen-progress.log", *(f"checkpoint-{i:02x}.log" for i in range(32))):
+        for name in (*FILES, "ecam.log", "window.log", "stolen-progress.log", "park-timing.log", *(f"checkpoint-{i:02x}.log" for i in range(32))):
             source = folder / name
             if source.is_symlink():
                 raise ValueError(f"Unsafe log path: {folder.name}/{name}")
@@ -891,7 +891,11 @@ def collect(mount, volume, output):
             (saved / filename).write_bytes(data)
             if (saved / filename).read_bytes() != data:
                 raise OSError("Local collection verification failed")
-        raw_payload=payload
+        # Compact park receipts duplicate a subset of exit.log. Preserve their
+        # bytes without passing duplicate records to full-session decoders.
+        park_timing=payload.get('park-timing.log')
+        raw_payload={name:data for name,data in payload.items() if name!='park-timing.log'}
+        payload=raw_payload
         bootstrap_profile=any(line.startswith(b'laptop-capture: boot options=') and any(t in line.split() for t in (b'srvros.intel-ring=gt-bootstrap-v1',b'srvros.intel-ring=gt-bootstrap-seconds-v1',b'srvros.intel-ring=gt-bootstrap-practical-v1',b'srvros.intel-ring=gt-bootstrap-range-v1',b'srvros.intel-ring=gt-bootstrap-primary-v1',b'srvros.intel-ring=gt-bootstrap-aux-v1',b'srvros.intel-ring=gt-bootstrap-flush-v1',b'srvros.intel-ring=gt-bootstrap-memory-v1',b'srvros.intel-ring=gt-bootstrap-arena-v1',b'srvros.intel-ring=gt-bootstrap-context-v1')) for data in raw_payload.values() for line in data.splitlines())
         vtd_profile=any(b'srvros.intel-ring=vtd-drain-v1' in data for data in raw_payload.values())
         source_audit_profile=vtd_profile or any(b'srvros.intel-ring=source-audit-v1' in data for data in raw_payload.values())
@@ -1491,7 +1495,8 @@ def collect(mount, volume, output):
             "battery_preflight": preflight,
             "session": name,
             "releases": releases,
-            "files": {key: hashlib.sha256(data).hexdigest() for key, data in payload.items()},
+            "files": {key: hashlib.sha256(data).hexdigest() for key, data in payload.items()} |
+                     ({'park-timing.log': hashlib.sha256(park_timing).hexdigest()} if park_timing is not None else {}),
             "exit_snapshot_present": "exit.log" in payload,
             "desktop_exit_seen": "deskd: exited" in text,
             "attention": attention,

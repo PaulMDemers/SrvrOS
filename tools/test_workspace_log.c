@@ -8,6 +8,7 @@ static unsigned count,depth,writes,flushes,device_reads;
 static bool capacity_ok=true;
 static unsigned expected_capacity=32;
 static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file,full_snapshot;
+static const char *snapshot_fixture;
 static uint64_t ticks=10,total=100,clock_us,save_tick_delay;
 static bool tracing,reference=true,power_enabled=true;
 static unsigned cost_reports;
@@ -71,7 +72,7 @@ uint64_t timer_ticks(void) { return ticks; }
 uint64_t timer_monotonic_us(void) { return clock_us; }
 int64_t timer_realtime_us(void) { return 123456789; }
 uint64_t bootlog_total(void) { return total; }
-uint64_t bootlog_snapshot_lines(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity>=8);*seq=total;if(full_snapshot){memset(out,'x',capacity);out[capacity-1]='\n';return capacity;}memcpy(out,"test log",8);return 8; }
+uint64_t bootlog_snapshot_lines(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity>=8);*seq=total;if(snapshot_fixture){size_t n=strlen(snapshot_fixture);assert(n<=capacity);memcpy(out,snapshot_fixture,n);return n;}if(full_snapshot){memset(out,'x',capacity);out[capacity-1]='\n';return capacity;}memcpy(out,"test log",8);return 8; }
 void smc_status(struct srv_smc_status *out) { assert(!depth);*out=(struct srv_smc_status){.version=SRV_SMC_VERSION}; }
 void power_status(struct power_snapshot *out) { assert(!depth);*out=(struct power_snapshot){.state=power_enabled?POWER_ACTIVE:POWER_DISABLED,.flags=3,.package_mw=10000,.active_mhz=2200}; }
 void audio_stream_snapshot(struct srv_pcm_status *out,uint64_t *owner) { assert(!depth);*out=pcm_fixture;*owner=pcm_owner; }
@@ -197,6 +198,21 @@ int main(void) {
     busy=true;assert(!workspace_log_ecam_snapshot());busy=false;
     assert(workspace_log_ecam_snapshot() && ecam_saved && strstr(path,"/ecam.log"));
     assert(workspace_log_window_snapshot() && window_saved && strstr(path,"/window.log"));
+    static const char park_rows[]=
+        "laptop-capture: boot options=fixture\n"
+        "intel-park-forcewake: v=2\nintel-park: v=5\n"
+        "laptop-capture: completed=NO\n";
+    snapshot_fixture="irrelevant line\nlaptop-capture: boot options=fixture\n"
+        "intel-park-forcewake: v=2\nintel-park: v=5\n"
+        "intel-park-frame: n=1\nlaptop-capture: completed=NO\n";
+    unsigned before_park_syncs=global_syncs;
+    assert(workspace_log_park_timing_snapshot());
+    struct item *timing=find(path);
+    assert(strstr(path,"/park-timing.log") && timing && timing->node.size==sizeof(park_rows)-1 &&
+           !memcmp(timing->bytes,park_rows,sizeof(park_rows)-1));
+    assert(global_syncs==before_park_syncs);
+    snapshot_fixture=NULL;
+    assert(!workspace_log_park_timing_snapshot());
     old_writes=writes;assert(!workspace_log_window_snapshot() && writes==old_writes);
     old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
     old_writes=writes;

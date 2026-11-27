@@ -546,6 +546,8 @@ class Runner:
                 state['bcs_stop_version'] = 1
             if payload.get('software_park_version') in (1, 2, 3, 4, 5):
                 state['software_park_version'] = payload['software_park_version']
+            if payload.get('park_timing_file_version') == 1:
+                state['park_timing_file_version'] = 1
             if payload.get('idle_policy_version') == 1:
                 state['idle_policy_version'] = 1
             if payload.get('cold_rc6_version') in (1, 2, 3):
@@ -712,6 +714,9 @@ class Runner:
                 atomic(directory/'efi-returned.json', trace)
             expected_raw={'boot.log','session-a.log','exit.log'}
             if manifest.get('stolen_progress_version')==1:expected_raw.add('stolen-progress.log')
+            if state.get('park_timing_file_version')==1:
+                from intel_gt_park import TIMING_FILE, verify_timing_file
+                expected_raw.add(TIMING_FILE)
             if set(after['raw'][session]) != expected_raw:
                 raise ValueError('Unexpected raw files for the frozen profile')
             before = json.loads((directory / 'before/snapshot.json').read_text())
@@ -724,6 +729,8 @@ class Runner:
                 if options != ['laptop-capture: boot options=' + state['recipe']]:
                     raise ValueError('Raw session recipe differs from the frozen stage')
             text, pre = (logs / 'exit.log').read_text(), (logs / 'session-a.log').read_text()
+            if state.get('park_timing_file_version')==1:
+                verify_timing_file((logs / TIMING_FILE).read_bytes(), (logs / 'exit.log').read_bytes())
             _, native_parser, verify_checkpoint = trial_parsers(manifest['profile'])
             if not verify_checkpoint(pre, text, native=True):
                 raise ValueError('Native checkpoint mismatch')

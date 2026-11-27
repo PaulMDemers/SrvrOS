@@ -1034,6 +1034,11 @@ def main():
                                 command=next(line.split('laptop-capture: boot options=',1)[1] for line in final.splitlines() if line.startswith('laptop-capture: boot options='))
                                 progress=intel_stolen_vm_progress(stored.read(folder+'/stolen-progress.log').decode(),command)
                                 (logs/'intel-stolen-progress.json').write_text(json.dumps(progress,indent=2)+'\n')
+                        if manifest.get('park_timing_file_version') == 1:
+                            from intel_gt_park import TIMING_FILE, verify_timing_file
+                            timing=stored.read(folder+'/'+TIMING_FILE)
+                            verify_timing_file(timing, stored.read(folder+'/exit.log'))
+                            (logs/TIMING_FILE).write_bytes(timing)
 
                         if 'srvros.intel-window=read-only' in text:
                             from intel_ggtt_window import native_window_result
