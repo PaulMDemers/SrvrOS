@@ -914,6 +914,15 @@ files with zero writes. The previous user files matched their backups, and
 the flash-drive report matched its archived copy after remount. The one-time
 Ubuntu verifier removed its own startup entry after collecting the report.
 
+Source `89c9a802`, release `e064782e489c1a51`, retains the first four
+malformed desktop completions in full and counts further rejects. The report
+records the completion ordinal, length and bytes, the observation time in
+the worker, time since queue activation and the previous valid frame, and
+the EHCI frame index and descriptor tokens. The host fixture verifies that a
+478-byte sample survives buffer reuse and that further rejects cannot
+overwrite it. The exact desktop VM rehearsal and read-only USB admission
+with all 119 files passed. The native run uses the same Text checklist.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
