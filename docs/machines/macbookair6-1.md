@@ -2,6 +2,13 @@
 
 Updated: 2026-11-13. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
+The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
+passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
+the complete EFI boot sector, and three EFI partition ranges matched cleanly
+unmounted Ubuntu references. SrvrOS used the normal AHCI initializer and issued
+four 4 KiB partition reads per boot. The SSD stayed unmounted and no ATA writes
+were issued.
+
 Current diagnostic milestone: the exact-source pre-user two-pass read-only
 sampler is physically accepted on release `2ddbd3b285f6bf41`. All24 DWORD reads
 completed with identical raw samples and borrowed mapping graphs, verified
@@ -15037,3 +15044,267 @@ underruns. Maximum desktop loop time was 122.742 ms within the existing
 The original 1800-second workload is staged with the same boot options and
 collector requirements. Ubuntu recovery `c35475f62f154f1e` is verified. The
 native run is pending and no one-shot is armed.
+
+Native run `904ed5c5e4ed449c` on release `0e572ed90dbf0f0e` passed the full
+1800-second stress workload at 1% volume and returned to Ubuntu automatically.
+Writable Home admitted both filesystems together. A read-only comparison of
+the collected USB sidecar with the preboot records confirmed all 410 prior
+live inode numbers and no duplicate IDs. The 326 pre-existing files outside
+the rewritten sidecar matched their preboot hashes, and post-return fsck and
+allocation checks passed with zero leaks or FAT/bitmap mismatches.
+
+The trial completed 1,403 app cycles, 5,882 verified 256 KiB disk bursts, and
+all three screenshots in 5.04–7.16 s. The longest desktop loop was 140.077 ms
+within the original 500 ms bound. Playback recorded zero underruns. Final
+directory admission recorded 1,380 calls and 21,042 entries. The collector
+accepted the saved lifecycle, battery retirement and live sidecar equality
+evidence. Both archives verified, and the Ubuntu boot ID matched the run's
+recorded return. The one-shot was consumed and recovery remains available.
+
+### Read-only internal SSD qualification
+
+Starting at `93e10a44` (PR554), qualify the captured Marvell `1b4b:9183`
+controller at `04:00.0` and its APPLE SSD SD0128F. Scope is bounded polling
+AHCI IDENTIFY and read commands, a dedicated early boot profile, and an Ubuntu
+GPT and hash verifier. The native boot records its receipt on the existing USB
+workspace and never mounts the internal disk. Installed-system work in PR550
+and offline image export in PR510 retain their existing paths. The next gate is
+fixture and exact-stage VM coverage, followed by native comparison to Ubuntu.
+
+Source `c67a01b3`, staged release `48d92d34bff03c7f`, passed AHCI and block
+host tests, the SMBIOS profile test, GPT and receipt fixtures, 290 stage
+checks, and USB workspace admission tests. The exact-stage VM refused a
+foreign machine before AHCI initialization or any mount. Ubuntu sysfs
+confirmed the full ATA model, LBA count, logical sector size, and PCI identity.
+The privileged launcher still needs to read the actual GPT and sample hashes
+in Ubuntu before the first native run. The small stage fits the EFI space
+margin without retiring an existing release. The native trial is unarmed.
+
+The first native run of `48d92d34bff03c7f` reached the Marvell controller and
+port 0. `PxTFD` remained `0x80` (BSY) at the existing two-second readiness
+deadline for ATA IDENTIFY. The command was never submitted (`PxCI=0`), so
+there are no native GPT or sample hashes. The internal SSD stayed unmounted.
+The probe saved its failure receipt on USB and returned automatically.
+
+Both Ubuntu GPT copies validated and all three Ubuntu hashes matched before
+and after. The read-only USB replay matched the archived receipt. Ubuntu
+initialized the same port at 6 Gb/s after return. Installed and archived
+payloads match, recovery remains `c35475f62f154f1e`, and no one-shot is armed.
+The next diagnostic is a bounded comparison of the firmware-to-AHCI port
+state before and after initialization, especially task-file and received-FIS
+state. The reason BSY stayed set is open.
+
+#### AHCI port-state diagnostic scope
+
+Starting from `37de62ed` (PR555), retain bounded register snapshots at the
+firmware handoff, engine and FIS setup edges, IDENTIFY return, and teardown.
+Only the dedicated Air6,1 probe emits them. The receive buffer is sampled only
+from the driver's own DMA page. No reset, retry, timeout or SSD access change
+is in scope. The next checkpoint is a tested and staged read-only diagnostic
+with a distinct USB receipt, preserving the first failed run.
+
+Source `d98a0619`, release `e6361b7660adbb2e`, passed AHCI/block, SMBIOS,
+GPT/receipt and stage host tests. The exact EFI image refused a foreign VM
+before AHCI access or filesystem mounting. The staged kernel drops only
+debug data and retains the same entry point and loadable segments, so it fits
+alongside the installed release and recovery. The USB copy of the first probe
+receipt still matches the archive. The next native run has its own receipt,
+Ubuntu baseline and return comparison. It is staged and unarmed.
+
+Native release `e6361b7660adbb2e` saved all eight AHCI snapshots and returned
+automatically. The diagnostic passed and the SSD read probe failed. Firmware
+handed off AHCI enabled with port 0 already busy (`TFD=0x80`). That value stayed
+at every snapshot through engine stop, buffer replacement, receive and command
+engine start, IDENTIFY readiness timeout, and teardown. The link reported
+`SSTS=0x133` throughout. The programmed receive page matched `PxFB`, and all
+three sampled status FIS dwords were zero throughout its ownership. `PxCI` and
+`PxSACT` remained zero. IDENTIFY hit the same two-second pre-submission deadline
+and no native disk sample was read.
+
+Both USB receipts match their archives. Ubuntu validated both GPT copies and
+the three reference hashes matched before and after and across the two trials.
+The internal SSD stayed unmounted in SrvrOS. The one-shot was consumed and the
+installed recovery payload matches its backup. A separate, bounded port-only
+link reset could test whether reinitializing the link produces fresh device
+status and clears the inherited BSY before IDENTIFY. The existing diagnostic
+does not establish the cause of missing device status.
+
+#### Port 0 SATA reset scope
+
+Starting at `54632d47` (PR556), test a single SATA COMRESET on the captured
+Marvell port 0. Scope is the opt-in Air6,1 probe, reset and receipt fixtures,
+and a separate staged boot. Require a stopped command engine, empty command
+and active-slot registers, and the probe-owned FIS page. The SSD stays
+unmounted and command timeouts and the five-second read budget remain in
+place. The first two USB receipts and Ubuntu recovery are kept for comparison.
+
+Source `73283472`, release `5ee3b01c4297be04`, passed AHCI/block, SMBIOS,
+GPT/receipt, stage and documentation tests. The reset fixture covers a single
+pulse, SATA control restoration, fresh status, stuck BSY, a stopped clock and
+unsafe admission. The exact EFI stage refused the foreign VM before AHCI
+access or storage mounting. The compact EFI payload preserves the kernel
+entry point and loadable segments and fits without retiring a release. Both
+earlier USB receipts match their archives. The native reset is staged and
+unarmed. The collector distinguishes a complete reset trace from an accepted
+read-only SSD probe and compares any native samples to the Ubuntu baseline.
+
+Native release `5ee3b01c4297be04` returned automatically. The trace verified
+one COMRESET held for 1,001 µs and a ready SATA link with fresh D2H status
+4,035 µs after release. BSY cleared, IDENTIFY matched the expected Apple SSD,
+and the probe read all 68 sectors without mounting the disk or issuing ATA
+writes. The primary and backup GPT range hashes matched Ubuntu exactly. The
+EFI boot sector at LBA 2048 differed, so the full three-sample check failed.
+
+Ubuntu's GPT checks passed and all three Ubuntu reference hashes matched before
+and after. The EFI partition is mounted read-write during those reference
+reads. Linux changes the FAT32 boot-sector dirty flag on writable mount and
+clean unmount. That is a plausible explanation for the single differing hash.
+The archived measurements contain digests, so the differing bytes are still
+unidentified. The next comparison should use the complete EFI sector after
+Ubuntu has cleanly unmounted the partition. All three USB receipts match the
+archives, the previous recovery payload matches its backup, and the one-shot
+was consumed. [Linux FAT implementation](https://github.com/torvalds/linux/blob/master/fs/fat/inode.c)
+
+#### Clean EFI sector comparison
+
+Starting at `ae1a64d8` (PR557), repeat the installed `5ee3b01c4297be04` payload
+with Ubuntu references acquired after cleanly unmounting `/boot/efi` before
+and after the trial. Retain the complete raw EFI sectors and exact digests,
+including a mounted snapshot for comparison. Scope is Ubuntu reference and
+receipt handling. The existing kernel, reset sequence, and deadlines remain
+the same. Archive the first reset receipt before reusing its USB filename.
+
+The launcher reuses the verified installed image from PR557 and leaves the
+current and recovery entries in place. Host checks cover aligned direct reads,
+exact sector slices, normal restoration, capture failure, unmount refusal and
+unexpected alternate mounts. The same exact-image VM refusal check passed.
+The native rerun is staged and unarmed. Ubuntu will save mounted and unmounted
+sector bytes at both endpoints. The collector requires the clean references to
+match and compares all three native digests against the clean reference.
+
+The native rerun passed on release `5ee3b01c4297be04`. The single port 0 SATA
+reset was held for 1,001 µs and the link was ready 4,038 µs after release.
+The receipt contains all 11 AHCI port snapshots, a successful IDENTIFY, and
+matching hashes for all 68 sampled sectors (the primary GPT region, the backup
+GPT region, and the full 512-byte EFI boot sector). SrvrOS left the internal
+SSD unmounted and reported zero ATA writes.
+
+Ubuntu's clean references were identical before and after the test. At both
+endpoints, the only difference between the mounted and clean EFI sectors
+was the FAT32 dirty flag at byte offset 65 (`0x01` mounted, `0x00` clean).
+The mounted snapshot reproduces the original Ubuntu hash, and the clean
+snapshot reproduces both native EFI hashes. Ubuntu returned with its EFI
+mount restored and recovery release `c35475f62f154f1e` retained. All four
+USB receipts matched the local archives. This accepts the bounded read-only
+probe on this unit.
+
+#### Bounded partition-read scope
+
+From main `917e7c5c` (PR559), use the admitted port 0 reset and IDENTIFY to
+exercise the regular block cache and GPT partition read path in a standalone
+profile. Scope is opt-in AHCI reads, staging, and Ubuntu receipt comparison.
+The SSD remains unmounted, with no write or flush callbacks. The existing
+reset, command, polling, and sample deadlines apply. Capture both GPT regions
+and fixed ranges of the clean EFI partition. PR550's installed-boot path and
+the ordinary AHCI path keep their existing behavior.
+
+#### Native partition-read return
+
+Release `d27164135e665640` (source `b563c687`, PR560) passed on this
+MacBookAir6,1. The normal GPT scanner exposed two read-only partition views
+whose extents matched Ubuntu. The primary and backup GPT regions and the full
+EFI boot sector matched the clean Ubuntu baseline. The EFI partition view read
+8, 16, and 8 sectors at offsets 0, 32, and 2,201,592. All three digests matched
+and the receipt confirmed four 4 KiB AHCI commands for those partition reads.
+The before and after Ubuntu references were identical.
+
+The single SATA reset held for 1,000 µs and the link was ready 4,038 µs after
+release. All 11 port snapshots survived. Both engines stopped with the command
+and active slot registers clear. SrvrOS left the SSD unmounted and reported
+zero ATA writes. Ubuntu returned automatically, restored its EFI mount, and
+retained recovery release `c35475f62f154f1e`. All five USB receipts matched the
+local archives. The return collector's exFAT and allocation checks found zero
+leaks, FAT/bitmap mismatches, or errors. This accepts the bounded native
+read-only partition path on this unit.
+
+#### Normal boot SSD discovery scope
+
+From main `77b4d3c3` (PR561), qualify the ordinary AHCI discovery path at
+the normal storage initialization point with a one-shot read-only Air6,1
+profile. Reuse the accepted controller, port 0 reset and disk identity.
+Keep the internal SSD unmounted, compare the same GPT and EFI partition
+samples against a clean Ubuntu baseline, and save separate cold and warm
+receipts. Scope is AHCI discovery, boot profile, and its test tooling.
+Ordinary boot policy and all timeouts stay unchanged. PR550's installed-root
+and account scope remains separate.
+
+#### Native cold and warm discovery return
+
+Release `9829a6ecc9cbc9a4` (source `021da577`, PR562) passed in both phases.
+Ubuntu reached its power-off target before the cold start and its reboot target
+before the warm start. Separate launch records and preserved USB receipts
+identify both runs. Each used the normal AHCI initializer to register
+`ahci0` read-only and expose the two expected GPT partitions. All six native
+digests matched the clean Ubuntu references, which agreed across the four
+captures. The three EFI partition ranges required four 4 KiB commands per boot.
+
+Each run performed one SATA reset. The cold and warm holds were 1,000 and
+1,001 µs, and the link became ready 3,862 and 3,861 µs after release.
+Each receipt retained 11 port snapshots and showed both AHCI engines stopped
+with command and active slots clear. The internal SSD remained unmounted and
+SrvrOS reported zero ATA writes. Ubuntu returned automatically with its
+EFI mount restored, its boot order unchanged, and recovery release
+`c35475f62f154f1e` retained. Both USB exFAT and allocation checks passed.
+All five earlier and both new USB receipts matched their saved copies.
+This accepts the opt-in read-only discovery path for the captured SSD.
+
+#### Spare SSD write and persistence scope
+
+From main `e1b4ae47` (PR563), prepare a standalone boot image for a disposable
+APPLE SSD SD0128F of the captured geometry on the Air6,1 Marvell controller.
+Scope is a private AHCI write grant, a sparse fixture builder, and two-boot
+receipt verification. Only the fixture's one 4 KiB scratch page may change.
+The Ubuntu SSD must be physically removed before the native trial. The builder
+only creates a regular image file. There is no hardware spare attached during
+preparation. Existing storage timeouts and ordinary boot policy apply.
+
+#### File-backed QEMU SSD durability scope
+
+From main `5cb57eab` (PR564), qualify a 4 KiB save, explicit sync, and
+fresh-boot readback through the ordinary AHCI path in Q35. Use one generated
+EFI-bootable disk image on the Ubuntu filesystem, with blank firmware variables
+for both boots and no host block devices. Observe the virtual disk's write and
+flush completions, and check the exact saved bytes, exFAT allocation, and bytes
+outside the data partition. Scope is host harness and evidence, with the native
+Air6,1 write fixture kept separate.
+
+On source `ac1b5dc3`, QEMU 10.2.1 booted the exact generated image twice
+using Q35 with software CPU emulation and fresh OVMF variable stores. The
+write phase saved 4,096 known bytes, issued 21 ATA write commands including
+filesystem metadata, and recorded one completed flush during explicit sync.
+Each boot ended with a separate ATA flush and a QMP-confirmed guest reset.
+The fresh readback issued 4,096 bytes of disk reads and zero writes during
+the measured read window. The guest and offline file content both matched
+SHA-256 `9c2f2ae199567ff7d841ab1bdb03af18e4e5949dacd93c5dde6824ff9117f2a6`.
+Both guest and offline exFAT checks passed, and the image bytes outside the
+data partition were identical. The Ubuntu partitions remained in place.
+This accepts the file-backed QEMU trial. Native SSD write validation remains
+pending.
+
+#### Native internal working partition scope
+
+From main `94a65bc9` (PR565), prepare a separate native trial for the planned
+4 GiB `srvros-work` partition. Qualify the offline ext4 shrink and GPT changes
+on disposable fixtures first. The guest must match both GPT copies and all
+three extents before admitting a bounded write wholly inside the scratch
+partition. Each phase returns to Ubuntu through the existing one-shot
+mechanism. Keep the Ubuntu filesystem unmounted in SrvrOS and retain its boot
+entry and recovery. Scope is the offline layout helper, bounded AHCI trial,
+boot staging, and receipt validation.
+
+The [trial guide](../air61-ssd-work-trial.md) separates the Ubuntu live-USB
+preflight from the offline resize and the two native SrvrOS boots. The sparse
+GPT and ext4 rehearsals preserved the intended partition identities and
+sample data. The host AHCI model verifies that commands outside the payload
+are refused and that the second phase issues no writes or flushes. Actual
+partition creation and native acceptance remain pending.

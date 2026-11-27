@@ -7,6 +7,7 @@
 #include <srvros/vmm.h>
 #include <srvros/timer.h>
 #include <srvros/scheduler.h>
+#include <srvros/sha256.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,6 +21,13 @@
 #define AHCI_MMIO_PAGES 4
 #define AHCI_MAX_PORTS 8
 #define AHCI_SECTOR_SIZE 512
+#define AHCI_IO_PAGE_BYTES 4096
+#define AIR61_SSD_PROBE_US UINT64_C(5000000)
+#define AIR61_SCRATCH_LBA UINT64_C(600000)
+#define AIR61_SCRATCH_PAGE_SECTORS (AHCI_IO_PAGE_BYTES / AHCI_SECTOR_SIZE)
+#define AIR61_WORK_LBA UINT64_C(228587520)
+#define AIR61_WORK_SECTORS UINT64_C(8388608)
+#define AIR61_WORK_GUARDS_LBA (AIR61_WORK_LBA + 2048)
 
 #define HBA_GHC_AHCI_ENABLE (1u << 31)
 
@@ -28,6 +36,9 @@
 #define HBA_PORT_CMD_FR (1u << 14)
 #define HBA_PORT_CMD_CR (1u << 15)
 #define HBA_PORT_IS_TFES (1u << 30)
+#define HBA_PORT_DET_MASK 0xfu
+#define HBA_PORT_DET_RESET 1u
+#define FIS_TYPE_REG_D2H 0x34u
 
 #define SATA_SIG_ATA 0x00000101u
 #define FIS_TYPE_REG_H2D 0x27
@@ -36,6 +47,7 @@
 #define ATA_CMD_WRITE_DMA_EXT 0x35
 #define ATA_CMD_FLUSH_CACHE 0xe7
 #define ATA_CMD_FLUSH_CACHE_EXT 0xea
+#define ATA_STATUS_NOT_READY 0xa9u /* BSY, DF, DRQ, ERR */
 #define AHCI_COMMAND_TIMEOUT_US 2000000ull
 #ifndef AHCI_SERVICE_LIMIT
 #define AHCI_SERVICE_LIMIT 4096
@@ -108,6 +120,10 @@ struct hba_command_table {
 
 struct ahci_disk {
     struct block_device *block;
+    bool probe_partition;
+    bool scratch_armed;
+    uint8_t scratch_writes, scratch_flushes;
+    uint64_t scratch_lba;
     bool used;
     bool failed;
     bool busy;
@@ -116,6 +132,7 @@ struct ahci_disk {
     uint8_t port_index;
     char name[8];
     uint64_t sectors;
+    uint64_t probe_start_us;
     uint64_t command_list_phys;
     uint64_t fis_phys;
     uint64_t command_table_phys;
@@ -123,6 +140,30 @@ struct ahci_disk {
     struct hba_command_header *command_list;
     struct hba_command_table *command_table;
     uint8_t *io_buffer;
+};
+
+enum ahci_trace_phase {
+    AHCI_TRACE_FIRMWARE, AHCI_TRACE_BEFORE_STOP, AHCI_TRACE_AFTER_STOP,
+    AHCI_TRACE_BUFFERS, AHCI_TRACE_FIS_ENABLED, AHCI_TRACE_RESET_ASSERTED,
+    AHCI_TRACE_RESET_RELEASED, AHCI_TRACE_RESET_RETURN, AHCI_TRACE_ENGINE_STARTED,
+    AHCI_TRACE_IDENTIFY_RETURN, AHCI_TRACE_RETIRED, AHCI_TRACE_COUNT
+};
+
+struct ahci_port_state {
+    bool valid, fis_valid;
+    uint8_t port;
+    uint64_t us, clb, fb;
+    uint32_t ghc, cmd, tfd, sig, ssts, sctl, serr, is, ci, sact;
+    uint32_t pio, d2h, sdb;
+};
+
+struct ahci_port_trace {
+    bool ghc_valid;
+    uint32_t firmware_ghc;
+    const char *reset_result;
+    unsigned reset_attempts;
+    uint64_t reset_hold_us, reset_wait_us;
+    struct ahci_port_state states[AHCI_TRACE_COUNT];
 };
 
 static volatile struct hba_memory *hba;
@@ -191,9 +232,42 @@ static bool stop_port(volatile struct hba_port *port) {
     return (port->cmd & HBA_PORT_CMD_FR) == 0;
 }
 
-static void start_port(volatile struct hba_port *port) {
+/* AHCI received-FIS area, section 4.2.1. Sample only the first dword
+ * of each status FIS, in the page owned and programmed by this driver. */
+static uint32_t fis_status(const volatile uint32_t *fis, unsigned byte_offset) {
+    return fis[byte_offset / sizeof(*fis)];
+}
+
+static void trace_port(struct ahci_port_trace *trace, enum ahci_trace_phase phase,
+    volatile struct hba_port *port, uint8_t index, const struct ahci_disk *disk) {
+    if (!trace) return;
+    struct ahci_port_state *s = &trace->states[phase];
+    *s = (struct ahci_port_state){
+        .valid = true, .port = index, .us = timer_monotonic_us(), .ghc = hba->ghc,
+        .cmd = port->cmd, .tfd = port->tfd, .sig = port->sig, .ssts = port->ssts,
+        .sctl = port->sctl, .serr = port->serr, .is = port->is, .ci = port->ci,
+        .sact = port->sact, .clb = port->clb | ((uint64_t)port->clbu << 32),
+        .fb = port->fb | ((uint64_t)port->fbu << 32),
+    };
+    if (!disk || !disk->fis_phys || s->fb != disk->fis_phys) return;
+    const volatile uint32_t *fis = pmm_phys_to_virt(disk->fis_phys);
+    __asm__ volatile ("mfence" : : : "memory");
+    s->pio = fis_status(fis, 0x20);
+    s->d2h = fis_status(fis, 0x40);
+    s->sdb = fis_status(fis, 0x58);
+    s->fis_valid = true;
+}
+
+static void enable_fis(struct ahci_disk *disk, struct ahci_port_trace *trace) {
+    volatile struct hba_port *port = disk->port;
     port->cmd |= HBA_PORT_CMD_FRE;
+    trace_port(trace, AHCI_TRACE_FIS_ENABLED, port, disk->port_index, disk);
+}
+
+static void start_port(struct ahci_disk *disk, struct ahci_port_trace *trace) {
+    volatile struct hba_port *port = disk->port;
     port->cmd |= HBA_PORT_CMD_ST;
+    trace_port(trace, AHCI_TRACE_ENGINE_STARTED, port, disk->port_index, disk);
 }
 
 static bool port_present(volatile struct hba_port *port) {
@@ -289,6 +363,23 @@ static bool service_wait(const struct ahci_request *request, uint64_t caller_spa
 
 static bool issue_command_locked(struct ahci_disk *disk, uint8_t command, uint64_t lba,
     uint16_t sectors, bool write, const struct ahci_request *request) {
+    bool scratch_operation = disk->probe_partition &&
+        (write || (command != ATA_CMD_IDENTIFY && command != ATA_CMD_READ_DMA_EXT));
+    if (scratch_operation) {
+        if (!disk->scratch_armed || (disk->scratch_lba != AIR61_SCRATCH_LBA &&
+            disk->scratch_lba != AIR61_WORK_GUARDS_LBA) ||
+            timer_monotonic_us() - disk->probe_start_us >= AIR61_SSD_PROBE_US)
+            return false;
+        if (write) {
+            if (command != ATA_CMD_WRITE_DMA_EXT || sectors != 1 ||
+                disk->scratch_writes >= AIR61_SCRATCH_PAGE_SECTORS ||
+                lba != disk->scratch_lba + AIR61_SCRATCH_PAGE_SECTORS + disk->scratch_writes)
+                return false;
+        } else if (!disk->flush_command || command != disk->flush_command || sectors || lba ||
+                   disk->scratch_writes != AIR61_SCRATCH_PAGE_SECTORS || disk->scratch_flushes) {
+            return false;
+        }
+    }
     latency_enter(LATENCY_AHCI);
     uint64_t previous_address_space = vmm_current_address_space();
     uint64_t kernel_address_space = vmm_kernel_address_space();
@@ -370,6 +461,10 @@ ready_bound:
     phase = "completion";
     port->ci = 1;
     commands_issued++;
+    if (scratch_operation) {
+        if (write) disk->scratch_writes++;
+        else disk->scratch_flushes++;
+    }
     start = timer_monotonic_us();
     spins = 0;
     elapsed_us = windows = 0;
@@ -452,14 +547,27 @@ static bool ahci_read(struct block_device *device, uint64_t offset, void *buffer
         uint64_t absolute = offset + copied;
         uint64_t lba = absolute / AHCI_SECTOR_SIZE;
         uint64_t sector_offset = absolute % AHCI_SECTOR_SIZE;
-        if (!issue_command_locked(disk, ATA_CMD_READ_DMA_EXT, lba, 1, false, &request)) {
+        uint64_t remaining = length - copied;
+        uint16_t sectors = 1;
+        if (disk->probe_partition) {
+            if (timer_monotonic_us() - disk->probe_start_us >= AIR61_SSD_PROBE_US) goto out;
+            if (!sector_offset && remaining >= AHCI_IO_PAGE_BYTES)
+                sectors = AHCI_IO_PAGE_BYTES / AHCI_SECTOR_SIZE;
+            else if (!sector_offset && remaining >= AHCI_SECTOR_SIZE)
+                sectors = remaining / AHCI_SECTOR_SIZE;
+        }
+        if (!issue_command_locked(disk, ATA_CMD_READ_DMA_EXT, lba, sectors, false, &request)) {
             goto out;
         }
 
-        uint64_t chunk = AHCI_SECTOR_SIZE - sector_offset;
-        if (chunk > length - copied) {
-            chunk = length - copied;
+        uint64_t transferred = (uint64_t)sectors * AHCI_SECTOR_SIZE;
+        if (disk->probe_partition &&
+            (((volatile struct hba_command_header *)disk->command_list)->prdbc != transferred ||
+             timer_monotonic_us() - disk->probe_start_us >= AIR61_SSD_PROBE_US)) {
+            goto out;
         }
+        uint64_t chunk = transferred - sector_offset;
+        if (chunk > remaining) chunk = remaining;
         for (uint64_t i = 0; i < chunk; i++) {
             out[copied + i] = disk->io_buffer[sector_offset + i];
         }
@@ -510,6 +618,9 @@ static bool ahci_write(struct block_device *device, uint64_t offset, const void 
         if (!issue_command_locked(disk, ATA_CMD_WRITE_DMA_EXT, lba, 1, true, &request)) {
             goto out;
         }
+        if (disk->probe_partition &&
+            (((volatile struct hba_command_header *)disk->command_list)->prdbc != AHCI_SECTOR_SIZE ||
+             timer_monotonic_us() - disk->probe_start_us >= AIR61_SSD_PROBE_US)) goto out;
         copied += chunk;
     }
 
@@ -542,19 +653,16 @@ static void make_disk_name(char *name, uint64_t index) {
     name[5] = '\0';
 }
 
-static bool init_port(uint8_t port_index, volatile struct hba_port *port) {
-    if (disk_count >= AHCI_MAX_PORTS || !port_present(port)) {
-        return false;
-    }
-
-    struct ahci_disk *disk = &disks[disk_count];
+static bool prepare_port(struct ahci_disk *disk, uint8_t port_index, volatile struct hba_port *port,
+    struct ahci_port_trace *trace) {
     disk->failed = false;
     disk->flush_command = 0;
     disk->port = port;
     disk->port_index = port_index;
-    make_disk_name(disk->name, disk_count);
 
-    if (!stop_port(port)) return false;
+    bool stopped = stop_port(port);
+    trace_port(trace, AHCI_TRACE_AFTER_STOP, port, port_index, NULL);
+    if (!stopped) return false;
     if (!allocate_port_memory(disk)) {
         return false;
     }
@@ -566,24 +674,54 @@ static bool init_port(uint8_t port_index, volatile struct hba_port *port) {
     port->serr = 0xffffffffu;
     port->is = 0xffffffffu;
     port->ie = 0;
-    start_port(port);
+    trace_port(trace, AHCI_TRACE_BUFFERS, port, port_index, disk);
+    return true;
+}
 
-    if (!issue_command(disk, ATA_CMD_IDENTIFY, 0, 0, false)) {
-        console_printf("ahci: port=%u identify failed\n", (uint64_t)port_index);
-        return false;
+static bool air61_identify(const uint8_t *identify);
+static enum ahci_probe_result air61_link_reset(struct ahci_disk *disk, struct ahci_port_trace *trace);
+
+static enum ahci_probe_result init_port(uint8_t port_index, volatile struct hba_port *port,
+    struct ahci_port_trace *trace) {
+    if (disk_count >= AHCI_MAX_PORTS || !port_present(port)) return AHCI_PROBE_REFUSED;
+    struct ahci_disk *disk = &disks[disk_count];
+    make_disk_name(disk->name, disk_count);
+    trace_port(trace, AHCI_TRACE_BEFORE_STOP, port, port_index, NULL);
+    if (trace && (port->ci || port->sact)) return AHCI_PROBE_UNSAFE;
+    if (!prepare_port(disk, port_index, port, trace)) return AHCI_PROBE_UNSAFE;
+    disk->probe_partition = trace != NULL;
+    enable_fis(disk, trace);
+    if (trace) {
+        enum ahci_probe_result reset = air61_link_reset(disk, trace);
+        trace_port(trace, AHCI_TRACE_RESET_RETURN, port, port_index, disk);
+        if (reset != AHCI_PROBE_PASS) return reset;
+        port->serr = 0xffffffffu;
+        port->is = 0xffffffffu;
     }
+    start_port(disk, trace);
+    if (trace) disk->probe_start_us = timer_monotonic_us();
+
+    bool identified = issue_command(disk, ATA_CMD_IDENTIFY, 0, 0, false);
+    trace_port(trace, AHCI_TRACE_IDENTIFY_RETURN, port, port_index, disk);
+    if (!identified || (trace &&
+        ((volatile struct hba_command_header *)disk->command_list)->prdbc != AHCI_SECTOR_SIZE)) {
+        console_printf("ahci: port=%u identify failed\n", (uint64_t)port_index);
+        return AHCI_PROBE_FAILED;
+    }
+    if (trace && !air61_identify(disk->io_buffer)) return AHCI_PROBE_REFUSED;
 
     disk->sectors = read_identify_lba_count(disk->io_buffer);
     disk->flush_command = identify_flush_command(disk->io_buffer);
     if (disk->sectors == 0 || disk->sectors > UINT64_MAX / AHCI_SECTOR_SIZE) {
         console_printf("ahci: port=%u no capacity\n", (uint64_t)port_index);
-        return false;
+        return AHCI_PROBE_FAILED;
     }
 
     struct block_device *device = block_register(disk->name, AHCI_SECTOR_SIZE,
-        disk->sectors, ahci_read, ahci_write, disk);
-    if (device == NULL) return false;
-    device->flush = ahci_flush;
+        disk->sectors, ahci_read, trace ? NULL : ahci_write, disk);
+    if (device == NULL) return AHCI_PROBE_FAILED;
+    if (trace) device->max_transfer_bytes = AHCI_IO_PAGE_BYTES;
+    else device->flush = ahci_flush;
 
     disk->block = device;
     disk->used = true;
@@ -592,11 +730,10 @@ static bool init_port(uint8_t port_index, volatile struct hba_port *port) {
         disk->name,
         (uint64_t)port_index,
         disk->sectors);
-    return true;
+    return AHCI_PROBE_PASS;
 }
 
-bool ahci_init(void) {
-    const struct pci_device *device = pci_find_by_class(0x01, 0x06);
+static bool init_controller(const struct pci_device *device, struct ahci_port_trace *trace) {
     if (device == 0 || device->prog_if != 0x01) {
         console_write("ahci: no controller\n");
         return false;
@@ -624,6 +761,14 @@ bool ahci_init(void) {
     }
 
     hba = (volatile struct hba_memory *)AHCI_MMIO_VIRTUAL;
+    if (trace) {
+        /* GHC is readable with AE clear. Only sample a firmware port when
+         * AHCI is already enabled and the captured port is implemented. */
+        trace->ghc_valid = true;
+        trace->firmware_ghc = hba->ghc;
+        if ((trace->firmware_ghc & HBA_GHC_AHCI_ENABLE) && (hba->pi & 1))
+            trace_port(trace, AHCI_TRACE_FIRMWARE, &hba->ports[0], 0, NULL);
+    }
     hba->ghc |= HBA_GHC_AHCI_ENABLE;
     uint32_t ports = hba->pi;
     console_printf("ahci: abar=%x pi=%x cap=%x\n",
@@ -631,17 +776,452 @@ bool ahci_init(void) {
         (uint64_t)ports,
         (uint64_t)hba->cap);
 
+    return true;
+}
+
+static bool air61_controller(const struct pci_device *device);
+
+static enum ahci_probe_result ahci_discover(struct ahci_port_trace *trace) {
+    const struct pci_device *device = pci_find_by_class(0x01, 0x06);
+    if (trace && (!air61_controller(device) || hba || disk_count || !timer_reference_ready()))
+        return AHCI_PROBE_REFUSED;
+    if (!init_controller(device, trace)) return AHCI_PROBE_FAILED;
+    uint32_t ports = hba->pi;
+    if (trace && ports != 1) return AHCI_PROBE_REFUSED;
     for (uint8_t port = 0; port < 32 && disk_count < AHCI_MAX_PORTS; port++) {
         if ((ports & (1u << port)) != 0) {
-            (void)init_port(port, &hba->ports[port]);
+            enum ahci_probe_result result = init_port(port, &hba->ports[port], trace);
+            if (trace) return result; /* The Air6,1 capture admits only port 0. */
         }
     }
 
     if (disk_count == 0) {
         console_write("ahci: no sata disks\n");
-        return false;
+        return AHCI_PROBE_FAILED;
+    }
+    return AHCI_PROBE_PASS;
+}
+
+bool ahci_init(void) {
+    return ahci_discover(NULL) == AHCI_PROBE_PASS;
+}
+
+/* Fixed Air6,1 SSD identity used by the read-only trials. */
+#define AIR61_SSD_SECTORS UINT64_C(236978176)
+
+static bool air61_controller(const struct pci_device *device) {
+    return device && device->bus == 4 && device->device == 0 && device->function == 0 &&
+        device->vendor_id == 0x1b4b && device->device_id == 0x9183 && device->revision == 0x14 &&
+        device->class_code == 1 && device->subclass == 6 && device->prog_if == 1;
+}
+
+static bool air61_identify(const uint8_t *identify) {
+    static const char model[] = "APPLE SSD SD0128F";
+    for (unsigned i = 0; i < 40; i++) {
+        uint8_t expected = i < sizeof(model) - 1 ? (uint8_t)model[i] : ' ';
+        if (identify[54 + (i ^ 1)] != expected) return false;
+    }
+    uint16_t geometry = read_u16(identify + 106 * 2);
+    return read_identify_lba_count(identify) == AIR61_SSD_SECTORS &&
+        (read_u16(identify + 83 * 2) & (1u << 10)) &&
+        ((geometry & 0xd000) != 0x5000 ||
+         (read_u16(identify + 117 * 2) == 256 && !read_u16(identify + 118 * 2)));
+}
+
+static const struct { uint64_t lba; unsigned sectors; } air61_samples[] = {
+    {0, 34},                         /* Protective MBR and primary GPT. */
+    {AIR61_SSD_SECTORS - 33, 33},     /* Backup GPT table and header. */
+    {2048, 1},                       /* EFI partition boot sector, read raw. */
+};
+
+static bool air61_read_sector(struct ahci_disk *disk, uint8_t opcode, uint64_t lba) {
+    uint16_t count = opcode == ATA_CMD_IDENTIFY ? 0 : 1;
+    return (opcode == ATA_CMD_IDENTIFY || opcode == ATA_CMD_READ_DMA_EXT) &&
+        issue_command(disk, opcode, lba, count, false) &&
+        ((volatile struct hba_command_header *)disk->command_list)->prdbc == AHCI_SECTOR_SIZE;
+}
+
+static void air61_hash(const uint8_t *bytes, uint64_t length, char text[65]) {
+    static const char hex[] = "0123456789abcdef";
+    uint8_t digest[32];
+    sha256_digest(bytes, length, digest);
+    for (unsigned j = 0; j < sizeof(digest); j++) {
+        text[j * 2] = hex[digest[j] >> 4];
+        text[j * 2 + 1] = hex[digest[j] & 15];
+    }
+    text[64] = 0;
+}
+
+static bool air61_read_samples(struct ahci_disk *disk, uint64_t start) {
+    static uint8_t bytes[34 * AHCI_SECTOR_SIZE];
+    for (unsigned i = 0; i < sizeof(air61_samples) / sizeof(air61_samples[0]); i++) {
+        uint64_t lba = air61_samples[i].lba;
+        unsigned sectors = air61_samples[i].sectors;
+        if (disk->probe_partition) {
+            if (!block_read(disk->block, lba * AHCI_SECTOR_SIZE, bytes,
+                sectors * AHCI_SECTOR_SIZE)) return false;
+        } else {
+            for (unsigned j = 0; j < sectors; j++) {
+                /* Each dispatched command retains its existing polling bounds. */
+                if (timer_monotonic_us() - start >= AIR61_SSD_PROBE_US ||
+                    !air61_read_sector(disk, ATA_CMD_READ_DMA_EXT, lba + j)) return false;
+                for (unsigned k = 0; k < AHCI_SECTOR_SIZE; k++)
+                    bytes[j * AHCI_SECTOR_SIZE + k] = disk->io_buffer[k];
+            }
+        }
+        if (timer_monotonic_us() - start >= AIR61_SSD_PROBE_US) return false;
+        char text[65];
+        air61_hash(bytes, sectors * AHCI_SECTOR_SIZE, text);
+        console_printf("air61-ssd-sample: lba=%u sectors=%u sha256=%s\n", lba, (uint64_t)sectors, text);
     }
     return true;
+}
+
+static bool air61_partition_samples(struct ahci_disk *disk, uint64_t start) {
+    static const uint8_t efi_type[16] = {
+        0x28, 0x73, 0x2a, 0xc1, 0x1f, 0xf8, 0xd2, 0x11, 0xba, 0x4b, 0x00, 0xa0, 0xc9, 0x3e, 0xc9, 0x3b
+    };
+    static struct block_gpt_map map;
+    static uint8_t bytes[2 * AHCI_IO_PAGE_BYTES];
+    if (!disk->block || disk->block->write || disk->block->flush ||
+        !air61_read_samples(disk, start) || !block_gpt_scan(disk->block, &map)) return false;
+    struct block_device *efi = NULL;
+    for (unsigned i = 0; i < map.count; i++) {
+        struct block_gpt_partition *part = &map.partitions[i];
+        struct block_device *view = part->view;
+        if (view->write || view->flush || block_parent(view) != disk->block) return false;
+        bool is_efi = true;
+        for (unsigned j = 0; j < sizeof(efi_type); j++) is_efi &= part->type[j] == efi_type[j];
+        if (is_efi) {
+            if (efi || view->backing_offset != 2048 * AHCI_SECTOR_SIZE || view->block_count < 56)
+                return false;
+            efi = view;
+        }
+        console_printf("air61-ssd-gpt: lba=%u sectors=%u efi=%u\n",
+            view->backing_offset / AHCI_SECTOR_SIZE, view->block_count, (uint64_t)is_efi);
+    }
+    if (!efi) return false;
+
+    const uint64_t offsets[] = {0, 32, efi->block_count - 8};
+    const uint64_t counts[] = {8, 16, 8};
+    block_forget(disk->block);
+    for (unsigned i = 0; i < 3; i++) {
+        uint64_t before = commands_issued;
+        uint64_t size = counts[i] * AHCI_SECTOR_SIZE;
+        if (timer_monotonic_us() - start >= AIR61_SSD_PROBE_US ||
+            !block_read(efi, offsets[i] * AHCI_SECTOR_SIZE, bytes, size) ||
+            commands_issued - before != size / AHCI_IO_PAGE_BYTES) return false;
+        char hash[65];
+        air61_hash(bytes, size, hash);
+        console_printf("air61-ssd-partition: offset=%u sectors=%u commands=%u sha256=%s\n",
+            offsets[i], counts[i], commands_issued - before, hash);
+    }
+    return timer_monotonic_us() - start < AIR61_SSD_PROBE_US;
+}
+
+static bool air61_reset_idle(const struct ahci_disk *disk) {
+    volatile struct hba_port *port = disk->port;
+    const uint32_t engines = HBA_PORT_CMD_ST | HBA_PORT_CMD_CR | HBA_PORT_CMD_FRE | HBA_PORT_CMD_FR;
+    return disk->port_index == 0 && disk->fis_phys && !(port->ci | port->sact) &&
+        (port->cmd & engines) == (HBA_PORT_CMD_FRE | HBA_PORT_CMD_FR) &&
+        (port->fb | ((uint64_t)port->fbu << 32)) == disk->fis_phys;
+}
+
+/* Single COMRESET, AHCI 10.4.2. The command engine stays stopped while
+ * the probe-owned receive page records the device's reset response. */
+static enum ahci_probe_result air61_link_reset(struct ahci_disk *disk, struct ahci_port_trace *trace) {
+    volatile struct hba_port *port = disk->port;
+    uint32_t control = port->sctl;
+    trace->reset_result = "refused";
+    if ((control & HBA_PORT_DET_MASK) || !air61_reset_idle(disk) || !timer_reference_ready())
+        return AHCI_PROBE_FAILED;
+    const volatile uint32_t *fis = pmm_phys_to_virt(disk->fis_phys);
+    __asm__ volatile ("mfence" : : : "memory");
+    if (fis_status(fis, 0x40)) return AHCI_PROBE_FAILED;
+
+    trace->reset_attempts = 1;
+    port->sctl = control | HBA_PORT_DET_RESET;
+    bool asserted = port->sctl == (control | HBA_PORT_DET_RESET);
+    trace_port(trace, AHCI_TRACE_RESET_ASSERTED, port, 0, disk);
+    uint64_t hold = timer_monotonic_us();
+    bool held = asserted && timer_delay_us(1000);
+    trace->reset_hold_us = timer_monotonic_us() - hold;
+    bool owned = air61_reset_idle(disk);
+    __asm__ volatile ("mfence" : : : "memory");
+    bool quiet = owned && !fis_status(fis, 0x40);
+    if ((port->cmd & (HBA_PORT_CMD_ST | HBA_PORT_CMD_CR)) || port->ci || port->sact) {
+        trace->reset_result = "ownership-lost";
+        return AHCI_PROBE_UNSAFE;
+    }
+    port->sctl = control;
+    bool released = port->sctl == control;
+    trace_port(trace, AHCI_TRACE_RESET_RELEASED, port, 0, disk);
+    if (!released) {
+        trace->reset_result = "release-unproved";
+        return AHCI_PROBE_UNSAFE;
+    }
+    if (!owned) {
+        trace->reset_result = "ownership-lost";
+        return AHCI_PROBE_UNSAFE;
+    }
+    if (!held || trace->reset_hold_us < 1000 || !quiet) {
+        trace->reset_result = "pulse-unproved";
+        return AHCI_PROBE_FAILED;
+    }
+
+    uint64_t begin = timer_monotonic_us();
+    trace->reset_result = "timeout";
+    for (uint64_t spin = 0; spin < AHCI_POLL_LIMIT; spin++) {
+        trace->reset_wait_us = timer_monotonic_us() - begin;
+        if (!air61_reset_idle(disk) || port->sctl != control) {
+            trace->reset_result = "ownership-lost";
+            return AHCI_PROBE_UNSAFE;
+        }
+        if (trace->reset_wait_us >= AHCI_COMMAND_TIMEOUT_US) break;
+        __asm__ volatile ("mfence" : : : "memory");
+        uint32_t d2h = fis_status(fis, 0x40);
+        uint8_t status = d2h >> 16;
+        if ((d2h & 0x0fffu) == FIS_TYPE_REG_D2H && status && !(status & ATA_STATUS_NOT_READY) &&
+            port_present(port) && !(port->tfd & 0x88)) {
+            trace->reset_result = "ready";
+            return AHCI_PROBE_PASS;
+        }
+        __asm__ volatile ("pause");
+    }
+    return AHCI_PROBE_FAILED;
+}
+
+static enum ahci_probe_result air61_retire(struct ahci_disk *disk, struct ahci_port_trace *trace,
+    enum ahci_probe_result result) {
+    /* Retain all DMA memory and stop in the caller if ownership is uncertain. */
+    volatile struct hba_port *port = disk->port;
+    bool stopped = !port->ci && !port->sact && stop_port(port);
+    if (disk->block) block_invalidate(disk->block);
+    trace_port(trace, AHCI_TRACE_RETIRED, port, disk->port_index, disk);
+    return stopped ? result : AHCI_PROBE_UNSAFE;
+}
+
+static bool air61_register_probe(struct ahci_disk *disk, uint64_t start) {
+    disk->sectors = AIR61_SSD_SECTORS;
+    disk->probe_start_us = start;
+    disk->block = block_register("airssd", AHCI_SECTOR_SIZE, disk->sectors, ahci_read, NULL, disk);
+    if (!disk->block) return false;
+    disk->block->max_transfer_bytes = AHCI_IO_PAGE_BYTES;
+    return air61_partition_samples(disk, start);
+}
+
+static enum ahci_probe_result air61_probe(struct ahci_port_trace *trace, bool reset, bool partition) {
+    const struct pci_device *device = NULL;
+    for (uint64_t i = 0; i < pci_device_count(); i++) {
+        const struct pci_device *candidate = pci_device_at(i);
+        if (air61_controller(candidate)) device = candidate;
+    }
+    if (!device || hba || disk_count || !timer_reference_ready() || (partition && !reset))
+        return AHCI_PROBE_REFUSED;
+    if (!init_controller(device, trace)) return AHCI_PROBE_FAILED;
+
+    uint32_t ports = hba->pi;
+    unsigned count = 0;
+    uint8_t index = 0;
+    for (uint8_t i = 0; i < 32; i++) {
+        if ((ports & (1u << i)) && port_present(&hba->ports[i])) {
+            index = i;
+            count++;
+        }
+    }
+    if (count != 1 || (reset && (index != 0 || ports != 1))) return AHCI_PROBE_REFUSED;
+    volatile struct hba_port *port = &hba->ports[index];
+    trace_port(trace, AHCI_TRACE_BEFORE_STOP, port, index, NULL);
+    if (port->ci || port->sact) return AHCI_PROBE_UNSAFE;
+    struct ahci_disk *disk = &disks[0];
+    if (!prepare_port(disk, index, port, trace)) return AHCI_PROBE_UNSAFE;
+    disk->probe_partition = partition;
+    enable_fis(disk, trace);
+    enum ahci_probe_result result = AHCI_PROBE_FAILED;
+    if (reset) {
+        enum ahci_probe_result reset_result = air61_link_reset(disk, trace);
+        trace_port(trace, AHCI_TRACE_RESET_RETURN, port, index, disk);
+        if (reset_result != AHCI_PROBE_PASS) {
+            result = reset_result;
+            goto retire;
+        }
+        port->serr = 0xffffffffu;
+        port->is = 0xffffffffu;
+    }
+    start_port(disk, trace);
+    uint64_t begin = timer_monotonic_us();
+    bool identified = air61_read_sector(disk, ATA_CMD_IDENTIFY, 0);
+    trace_port(trace, AHCI_TRACE_IDENTIFY_RETURN, port, index, disk);
+    if (identified) {
+        if (!air61_identify(disk->io_buffer)) result = AHCI_PROBE_REFUSED;
+        else {
+            console_write("air61-ssd-device: pci=1b4b:9183 revision=14 bdf=04:00.0 sectors=236978176 block_size=512\n");
+            if (partition ? air61_register_probe(disk, begin) : air61_read_samples(disk, begin))
+                result = AHCI_PROBE_PASS;
+        }
+    }
+retire:
+    return air61_retire(disk, trace, result);
+}
+
+static void air61_print_trace(const struct ahci_port_trace *trace) {
+    static const char *const names[AHCI_TRACE_COUNT] = {
+        "firmware", "before-stop", "after-stop", "buffers-programmed", "fis-enabled",
+        "reset-asserted", "reset-released", "reset-return", "engine-started", "identify-return", "retire-return"
+    };
+    /* Print outside the initialization and command waits so console traffic
+     * cannot intervene between the sampled register transitions. */
+    if (trace->ghc_valid)
+        console_printf("air61-ssd-controller: firmware_ghc=%x firmware_port=%u\n",
+            (uint64_t)trace->firmware_ghc, (uint64_t)trace->states[AHCI_TRACE_FIRMWARE].valid);
+    if (trace->reset_result)
+        console_printf("air61-ssd-reset: result=%s attempts=%u hold_us=%u wait_us=%u\n",
+            trace->reset_result, (uint64_t)trace->reset_attempts, trace->reset_hold_us, trace->reset_wait_us);
+    for (unsigned i = 0; i < AHCI_TRACE_COUNT; i++) {
+        const struct ahci_port_state *s = &trace->states[i];
+        if (!s->valid) continue;
+        console_printf("air61-ssd-port: phase=%s port=%u us=%u ghc=%x cmd=%x tfd=%x sig=%x "
+            "ssts=%x sctl=%x serr=%x is=%x ci=%x sact=%x clb=%x fb=%x "
+            "fis_valid=%u pio=%x d2h=%x sdb=%x\n",
+            names[i], (uint64_t)s->port, s->us, (uint64_t)s->ghc, (uint64_t)s->cmd,
+            (uint64_t)s->tfd, (uint64_t)s->sig, (uint64_t)s->ssts, (uint64_t)s->sctl,
+            (uint64_t)s->serr, (uint64_t)s->is, (uint64_t)s->ci, (uint64_t)s->sact, s->clb, s->fb,
+            (uint64_t)s->fis_valid, (uint64_t)s->pio, (uint64_t)s->d2h, (uint64_t)s->sdb);
+    }
+}
+
+enum ahci_probe_result ahci_air61_probe(bool port_state, bool reset, bool partition) {
+    struct ahci_port_trace trace = {0};
+    enum ahci_probe_result result = air61_probe(port_state || reset ? &trace : NULL, reset, partition);
+    air61_print_trace(&trace);
+    return result;
+}
+
+enum ahci_probe_result ahci_air61_discovery(void) {
+    struct ahci_port_trace trace = {0};
+    enum ahci_probe_result result = ahci_discover(&trace);
+    struct ahci_disk *disk = &disks[0];
+    if (result == AHCI_PROBE_PASS) {
+        console_write("air61-ssd-device: pci=1b4b:9183 revision=14 bdf=04:00.0 sectors=236978176 block_size=512\n");
+        console_write("air61-ssd-discovery: initializer=normal device=ahci0 read_only=yes\n");
+        if (!air61_partition_samples(disk, disk->probe_start_us)) result = AHCI_PROBE_FAILED;
+    }
+    if (trace.states[AHCI_TRACE_BEFORE_STOP].valid && disk->port && result != AHCI_PROBE_UNSAFE)
+        result = air61_retire(disk, &trace, result);
+    air61_print_trace(&trace);
+    return result;
+}
+
+static bool air61_scratch_equal(const uint8_t *a, const uint8_t *b, uint64_t size) {
+    for (uint64_t i = 0; i < size; i++) if (a[i] != b[i]) return false;
+    return true;
+}
+
+static void air61_scratch_page(const uint8_t seed[32], uint8_t label, uint8_t *page) {
+    uint8_t input[34];
+    for (unsigned i = 0; i < 32; i++) input[i] = seed[i];
+    input[32] = label;
+    for (unsigned i = 0; i < AHCI_IO_PAGE_BYTES / 32; i++) {
+        input[33] = i;
+        sha256_digest(input, sizeof(input), page + i * 32);
+    }
+}
+
+static bool air61_scratch_gpt(struct ahci_disk *disk, const uint8_t proof[64]) {
+    static uint8_t bytes[34 * AHCI_SECTOR_SIZE];
+    for (unsigned i = 0; i < 2; i++) {
+        uint64_t size = air61_samples[i].sectors * AHCI_SECTOR_SIZE;
+        if (!block_read(disk->block, air61_samples[i].lba * AHCI_SECTOR_SIZE, bytes, size)) return false;
+        uint8_t actual[32];
+        sha256_digest(bytes, size, actual);
+        if (!air61_scratch_equal(actual, proof + i * 32, sizeof(actual))) return false;
+    }
+    return true;
+}
+
+static bool air61_scratch_extent(const struct block_gpt_partition *partition, const struct ahci_disk *disk,
+    const uint8_t type[16], uint64_t lba, uint64_t sectors) {
+    const struct block_device *view = partition->view;
+    return air61_scratch_equal(partition->type, type, 16) && view &&
+        view->backing == disk->block && !view->write && !view->flush &&
+        view->backing_offset == lba * AHCI_SECTOR_SIZE && view->block_count == sectors;
+}
+
+/* The spare fixture and the internal partition use distinct layouts. Pin both
+ * GPT regions before ever granting a command, and check the layout separately
+ * so a mismatched host proof cannot put the write window elsewhere. */
+static bool air61_scratch_fixture(struct ahci_disk *disk, const uint8_t proof[64], bool internal) {
+    static const uint8_t scratch_type[16] = {
+        0xf1, 0x65, 0x03, 0x7a, 0xa3, 0xb9, 0xea, 0x40, 0x8e, 0x6a, 0xd1, 0xe2, 0xba, 0x82, 0x40, 0x70
+    };
+    static const uint8_t efi_type[16] = {
+        0x28, 0x73, 0x2a, 0xc1, 0x1f, 0xf8, 0xd2, 0x11, 0xba, 0x4b, 0x00, 0xa0, 0xc9, 0x3e, 0xc9, 0x3b
+    };
+    static const uint8_t linux_type[16] = {
+        0xaf, 0x3d, 0xc6, 0x0f, 0x83, 0x84, 0x72, 0x47, 0x8e, 0x79, 0x3d, 0x69, 0xd8, 0x47, 0x7d, 0xe4
+    };
+    struct block_gpt_map map;
+    if (!disk->block || disk->block->write || disk->block->flush ||
+        !air61_scratch_gpt(disk, proof) || !block_gpt_scan(disk->block, &map)) return false;
+    if (!internal)
+        return map.count == 2 && air61_scratch_extent(&map.partitions[1], disk, scratch_type,
+                                                     AIR61_SCRATCH_LBA, 3 * AIR61_SCRATCH_PAGE_SECTORS);
+    return map.count == 3 &&
+        air61_scratch_extent(&map.partitions[0], disk, efi_type, 2048, 2201600) &&
+        air61_scratch_extent(&map.partitions[1], disk, linux_type, 2203648, AIR61_WORK_LBA - 2203648) &&
+        air61_scratch_extent(&map.partitions[2], disk, scratch_type, AIR61_WORK_LBA, AIR61_WORK_SECTORS);
+}
+
+static bool air61_scratch_io(struct ahci_disk *disk, const uint8_t proof[64], bool verify, bool internal) {
+    static uint8_t expected[3 * AHCI_IO_PAGE_BYTES], observed[3 * AHCI_IO_PAGE_BYTES];
+    const uint64_t lba = internal ? AIR61_WORK_GUARDS_LBA : AIR61_SCRATCH_LBA;
+    const uint64_t offset = lba * AHCI_SECTOR_SIZE;
+    uint8_t *payload = expected + AHCI_IO_PAGE_BYTES;
+    if (!disk->flush_command || !air61_scratch_fixture(disk, proof, internal)) return false;
+    air61_scratch_page(proof, 0, expected);
+    air61_scratch_page(proof, verify ? 3 : 1, payload);
+    air61_scratch_page(proof, 2, expected + 2 * AHCI_IO_PAGE_BYTES);
+    if (!ahci_read(disk->block, offset, observed, sizeof(observed)) ||
+        !air61_scratch_equal(expected, observed, sizeof(expected))) return false;
+    if (!verify) {
+        air61_scratch_page(proof, 3, payload);
+        disk->scratch_lba = lba;
+        disk->scratch_armed = true;
+        bool wrote = ahci_write(disk->block, offset + AHCI_IO_PAGE_BYTES, payload, AHCI_IO_PAGE_BYTES);
+        bool flushed = wrote && ahci_flush(disk->block);
+        disk->scratch_armed = false;
+        if (!flushed || disk->scratch_writes != AIR61_SCRATCH_PAGE_SECTORS || disk->scratch_flushes != 1 ||
+            !ahci_read(disk->block, offset, observed, sizeof(observed)) ||
+            !air61_scratch_equal(expected, observed, sizeof(expected))) return false;
+    }
+    if (internal) {
+        block_forget(disk->block);
+        if (!air61_scratch_gpt(disk, proof)) return false;
+    }
+    if (timer_monotonic_us() - disk->probe_start_us >= AIR61_SSD_PROBE_US) return false;
+    char hash[65];
+    air61_hash(observed, sizeof(observed), hash);
+    console_printf("air61-scratch: pages-sha256=%s lba=%u sectors=%u writes=%u flushes=%u\n",
+        hash, lba + AIR61_SCRATCH_PAGE_SECTORS, (uint64_t)AIR61_SCRATCH_PAGE_SECTORS,
+        (uint64_t)disk->scratch_writes, (uint64_t)disk->scratch_flushes);
+    return true;
+}
+
+enum ahci_probe_result ahci_air61_scratch(const uint8_t proof[64], bool verify, bool internal) {
+    struct ahci_port_trace trace = {0};
+    enum ahci_probe_result result = ahci_discover(&trace);
+    struct ahci_disk *disk = &disks[0];
+    if (result == AHCI_PROBE_PASS) {
+        uint64_t claim = block_claim_raw(disk->block, NULL);
+        bool ok = claim && air61_scratch_io(disk, proof, verify, internal);
+        result = air61_retire(disk, &trace, ok ? AHCI_PROBE_PASS : AHCI_PROBE_FAILED);
+        if (result != AHCI_PROBE_UNSAFE && claim && !block_claim_release(claim))
+            result = AHCI_PROBE_UNSAFE;
+    } else if (trace.states[AHCI_TRACE_BEFORE_STOP].valid && disk->port && result != AHCI_PROBE_UNSAFE) {
+        result = air61_retire(disk, &trace, result);
+    }
+    air61_print_trace(&trace);
+    return result;
 }
 
 void ahci_print_status(void) {

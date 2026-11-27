@@ -6,6 +6,7 @@
 enum { SMBIOS2_ENTRY_SIZE = 31, SMBIOS3_ENTRY_SIZE = 24, SMBIOS_TABLE_LIMIT = 65536 };
 
 static bool retina_pro;
+static bool air61;
 
 static bool matches(const uint8_t *data, const char *text, size_t length) {
     for (size_t i = 0; i < length; i++) {
@@ -40,7 +41,8 @@ static bool mapped(const struct limine_memmap_response *map, uint64_t address, u
     return false;
 }
 
-static bool system_is_retina_pro(const uint8_t *table, size_t size) {
+static bool system_is_apple_model(const uint8_t *table, size_t size,
+                                  const char *model, size_t model_size) {
     while (size >= 4) {
         unsigned type = table[0], formatted = table[1];
         if (type == 127 || formatted < 4 || formatted > size - 2) return false;
@@ -49,7 +51,7 @@ static bool system_is_retina_pro(const uint8_t *table, size_t size) {
         if (end == size - 1) return false;
         if (type == 1) {
             if (formatted < 6 || !table[4] || !table[5]) return false;
-            bool apple = false, pro = false;
+            bool apple = false, product = false;
             size_t start = formatted;
             for (unsigned index = 1; start < end; index++) {
                 size_t stop = start;
@@ -57,11 +59,11 @@ static bool system_is_retina_pro(const uint8_t *table, size_t size) {
                 size_t length = stop - start;
                 if (index == table[4]) apple = length == sizeof("Apple Inc.") - 1 &&
                     matches(table + start, "Apple Inc.", length);
-                if (index == table[5]) pro = length == sizeof("MacBookPro11,2") - 1 &&
-                    matches(table + start, "MacBookPro11,2", length);
+                if (index == table[5]) product = length == model_size &&
+                    matches(table + start, model, length);
                 start = stop + 1;
             }
-            return apple && pro;
+            return apple && product;
         }
         table += end + 2;
         size -= end + 2;
@@ -70,7 +72,8 @@ static bool system_is_retina_pro(const uint8_t *table, size_t size) {
 }
 
 static bool probe_entry(const void *pointer, bool entry64,
-                        const struct limine_memmap_response *map, uint64_t hhdm) {
+                        const struct limine_memmap_response *map, uint64_t hhdm,
+                        const char *model, size_t model_size) {
     uint64_t virtual = (uintptr_t)pointer;
     size_t length = entry64 ? SMBIOS3_ENTRY_SIZE : SMBIOS2_ENTRY_SIZE;
     if (!virtual || virtual < hhdm || length - 1 > UINT64_MAX - virtual ||
@@ -89,14 +92,23 @@ static bool probe_entry(const void *pointer, bool entry64,
     }
     return address && size && size <= SMBIOS_TABLE_LIMIT && address <= UINT64_MAX - hhdm &&
         size - 1 <= UINT64_MAX - (hhdm + address) && mapped(map, address, size) &&
-        system_is_retina_pro((const uint8_t *)(uintptr_t)(hhdm + address), size);
+        system_is_apple_model((const uint8_t *)(uintptr_t)(hhdm + address), size, model, model_size);
+}
+
+static bool probe_model(const struct limine_smbios_response *smbios,
+                        const struct limine_memmap_response *map, uint64_t hhdm,
+                        const char *model, size_t size) {
+    return smbios && map && hhdm && (probe_entry(smbios->entry_32, false, map, hhdm, model, size) ||
+        probe_entry(smbios->entry_64, true, map, hhdm, model, size));
 }
 
 void display_profile_init(const struct limine_smbios_response *smbios,
                           const struct limine_memmap_response *memmap, uint64_t hhdm) {
-    retina_pro = smbios && memmap && hhdm && (probe_entry(smbios->entry_32, false, memmap, hhdm) ||
-        probe_entry(smbios->entry_64, true, memmap, hhdm));
+    retina_pro = probe_model(smbios, memmap, hhdm, "MacBookPro11,2", sizeof("MacBookPro11,2") - 1);
+    air61 = probe_model(smbios, memmap, hhdm, "MacBookAir6,1", sizeof("MacBookAir6,1") - 1);
 }
+
+bool display_profile_is_air61(void) { return air61; }
 
 unsigned display_profile_scale(uint64_t width, uint64_t height) {
     return retina_pro && width >= 2560 && height >= 1600 ? 2 : 1;

@@ -1,5 +1,140 @@
 # Disk installation and recovery
 
+## MacBookAir6,1 internal SSD probe
+
+The standalone Air6,1 probe qualifies raw reads on the captured Marvell
+`1b4b:9183` controller and APPLE SSD SD0128F. It admits the exact machine and
+controller, checks ATA IDENTIFY, and reads 68 sectors total. The three ranges
+cover the protective MBR and primary GPT, the backup GPT, and the EFI boot
+sector. It saves SHA-256 digests to the designated USB workspace. The internal
+disk stays unmounted and the probe publishes no block or partition devices.
+It issues only IDENTIFY and READ DMA EXT. An uncertain AHCI teardown halts
+visibly with DMA backing retained for a manual return to Ubuntu.
+
+Build `build/kernel/srvros.elf` and stage with
+`python3 tools/hardware_boot.py stage --air61-ssd-probe-volume YOUR_USB_UUID`.
+The standalone recipe has an empty initramfs. Use the exact-stage smoke test
+to verify that a foreign machine refuses before touching AHCI. On Ubuntu, the
+privileged launcher uses `tools/air61_ssd_probe.py` to read the matching raw
+device with read-only access. Both GPT headers, entry arrays, CRCs, and
+partition extents must validate. After return, the receipt's release, workspace
+and complete set of hashes must match the saved Ubuntu baseline. See the
+[Air6,1 unit record](machines/macbookair6-1.md#read-only-internal-ssd-qualification).
+
+Append `--air61-ssd-port-state` for the diagnostic stage. It records firmware
+GHC, the port before and after engine stop, buffer programming, FIS enable,
+engine start, IDENTIFY return, and teardown in a separate USB receipt. Firmware
+port registers are sampled only when AHCI is already enabled. The probe reads
+three status dwords from its own receive page and reports whether that page
+matched the controller's buffer address. Snapshots are sequential observations.
+Logging happens after the command waits. The build keeps its debug symbols
+locally, and `objcopy --strip-debug` reduces the staged EFI payload. [Intel AHCI specification](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/serial-ata-ahci-spec-rev1-3-1.pdf)
+
+Add `--air61-ssd-reset` to that profile to test one COMRESET on the captured
+Marvell port 0. The command engine must be stopped, both slot registers empty,
+and the receive engine running on the probe-owned page. The probe holds reset
+for at least 1 ms, restores SATA control, and waits at most two seconds for the
+active link and fresh device status before it starts the command engine. The
+existing IDENTIFY, read and polling bounds apply. The standalone stage saves
+its own USB receipt and leaves the internal SSD unmounted. [Intel AHCI specification, §10.4.2](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/serial-ata-ahci-spec-rev1-3-1.pdf)
+
+For a repeat of the exact EFI boot-sector comparison, use the clean Ubuntu
+reference helper. It verifies that `/boot/efi` is the sampled partition,
+captures the mounted sector, performs a normal unmount, and hashes the full
+sector while the partition is unmounted. It saves the raw sectors for byte
+comparison and restores Ubuntu's configured EFI mount, including after a
+failed read. The native hash must match the clean sector exactly. The FAT
+mount-state byte is available for analysis without altering the comparison.
+Aligned direct reads bypass the raw block-device page cache at both endpoints.
+
+Add `--air61-ssd-partition-read` alongside `--air61-ssd-port-state` and
+`--air61-ssd-reset` for the standalone partition trial. This registers the
+identified SSD with read-only block callbacks, then checks the primary GPT
+through the regular partition scanner. Both full GPT regions must also hash
+exactly to Ubuntu's CRC-checked and mutually consistent copies. It samples
+eight sectors at the start of the EFI partition, sixteen at sector offset 32,
+and the last eight. The receipt must show four 4 KiB AHCI read commands for
+those three ranges, with exact DMA completion counts checked before copying.
+The same sample deadline, command timeouts and reset bounds apply.
+
+No internal filesystem is mounted. The SSD and partition views are
+invalidated before opening the USB workspace to save
+`srvros-work/air61-ssd-partition-read.log`. The collector compares the
+partition layout and every digest against clean, unmounted Ubuntu captures
+taken before and after the trial. A PASS also requires proof that the AHCI
+engine and receive FIS engine stopped with both slot registers clear.
+
+Add `--air61-ssd-discovery` to run the same checks from the normal storage
+initialization point. The shared AHCI discovery and registration path admits
+only the captured controller and port. It applies the existing bounded reset
+and registers `ahci0` with read-only callbacks. The trial retires the disk and
+returns before installed-root selection or any internal mount. Ordinary boot
+keeps its existing AHCI policy.
+
+Use the same staged release twice. Arm the cold run from Ubuntu, perform an
+orderly shutdown, and power the Mac on after it is fully off. The native test
+returns automatically to Ubuntu after saving its receipt. The warm run starts
+with an Ubuntu reboot and uses its own evidence directory. The collector must
+verify both phases against the clean Ubuntu GPT and sample baselines. Preserve
+the cold USB receipt before reusing the discovery receipt path.
+
+### Disposable Air6,1 SSD write and reboot trial
+
+This standalone fixture is for a replacement APPLE SSD SD0128F with
+236,978,176 logical sectors of 512 bytes on the Air6,1 Marvell port 0.
+Physically remove the Ubuntu SSD before booting the spare. Provisioning the
+image replaces the spare's partition table and contents. Confirm the spare's
+identity and that its contents are disposable before any physical provisioning.
+
+Build the kernel and use `tools/air61_ssd_scratch.py build` with a new output
+directory, `--kernel`, `--loader` and the prepared evidence USB's
+`--workspace-volume`. The command creates a sparse regular image with its own
+EFI fallback loader, empty initramfs, and a dedicated raw scratch partition.
+It has no raw device output option. The generated boot configuration carries
+the full primary and backup GPT hashes for that single image.
+
+On the first boot, the runner saves a durable attempt marker to the evidence
+USB and parks it during SSD I/O. The exact controller and SSD geometry, both
+GPT hashes, scratch extent, and three initial pages must match. The runner
+then grants eight one-sector writes to the middle 4 KiB page, followed by one
+supported ATA flush. It reads all three pages directly, verifies their bytes,
+retires AHCI, and saves the write receipt before rebooting. The second boot
+requires that receipt, checks the same three pages with writes disabled, saves
+a separate receipt, and halts. A failed or interrupted write is not retried.
+The spare stays unmounted throughout. Keep the evidence USB connected.
+
+After the verified halt, power off before swapping disks. From Ubuntu, run
+`tools/air61_ssd_scratch.py collect OUTPUT RECEIPTS` with the original image
+directory and the USB's `srvros-work` directory. It requires the matching
+attempt, write, and reboot-readback receipts, verifies both guard pages
+through the digest, and checks command counts and AHCI retirement for both
+boots.
+
+### File-backed QEMU AHCI durability
+
+The [QEMU durability harness](../tools/ahci_file_persistence_smoke.py) boots a
+generated EFI disk image as the only SATA disk in Q35. SrvrOS copies a known
+4 KiB file with `dd`, runs `sync`, and reboots. QMP counters and the ATA
+trace verify disk writes and a completed sync flush. The trace also records
+the reboot flush, and QMP identifies the shutdown as a guest reset. A fresh
+QEMU process with blank firmware variables boots the same image and reads
+the exact file. Both boots also pass guest and offline exFAT checks. The
+GPT, EFI partition, and all bytes outside the data partition are compared
+before and after.
+
+On Ubuntu, build the inputs and run with matching OVMF code and variable
+templates:
+
+```sh
+tools/host-env.sh make -j2 build/kernel/srvros.elf build/userspace/dd.elf build/userspace/posixutils.elf
+tools/host-env.sh python3 tools/ahci_file_persistence_smoke.py \
+  --ovmf /usr/share/OVMF/OVMF_CODE_4M.fd --ovmf-vars /usr/share/OVMF/OVMF_VARS_4M.fd
+```
+
+The harness reports its evidence directory under `build/review/ahci-file-persistence`.
+It accepts no target disk argument. Its result covers the emulated AHCI
+controller, regular host image, and clean reboot workflow.
+
 ## Install with console sign-in
 
 For a new identity-bound installation that should start at the local console

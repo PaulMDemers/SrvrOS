@@ -897,6 +897,156 @@ static void boot_virtio_gpu_probe(void) {
 }
 
 static bool startup_journal_admitted;
+
+static void air61_ssd_refuse(void) {
+    boot_set_framebuffer_quiet(false);
+    console_write("air61-ssd: REFUSED platform or invalid profile; restart manually\n");
+    console_sync();
+    halt_forever();
+}
+
+static void air61_ssd_trial(const char *cmdline, bool discovery) {
+    bool port_state = cmdline_has_token(cmdline, "srvros.ssd-port-state=1");
+    bool reset = cmdline_has_token(cmdline, "srvros.ssd-reset=port0");
+    bool partition = cmdline_has_token(cmdline, "srvros.ssd-partition-read=1");
+    const char *receipt = "/work/srvros-work/air61-ssd-probe.log";
+    if (port_state) receipt = "/work/srvros-work/air61-ssd-port-state.log";
+    if (reset) receipt = "/work/srvros-work/air61-ssd-port-reset.log";
+    if (partition) receipt = "/work/srvros-work/air61-ssd-partition-read.log";
+    if (discovery) receipt = "/work/srvros-work/air61-ssd-discovery.log";
+    boot_set_framebuffer_quiet(false);
+    console_clear();
+    console_write(partition ? "Air6,1 read-only SSD probe. Checking GPT and EFI partition reads.\n" :
+        "Air6,1 read-only SSD probe. Checking controller and sampling raw sectors.\n");
+    if (!display_profile_is_air61() || !cmdline_tokens_unique(cmdline) ||
+        (reset && !port_state) || (partition && !reset) ||
+        (discovery && !partition) || !cmdline_has_token(cmdline, "srvros.storage=ram"))
+        air61_ssd_refuse();
+    console_printf("air61-ssd: profile %s\n", cmdline);
+    enum ahci_probe_result result = discovery ? ahci_air61_discovery() : ahci_air61_probe(port_state, reset, partition);
+    if (result == AHCI_PROBE_UNSAFE || result == AHCI_PROBE_REFUSED) {
+        console_printf("air61-ssd: %s; photograph this screen and restart manually\n",
+            result == AHCI_PROBE_UNSAFE ? "HALTED AHCI quiescence unproved" : "REFUSED controller or disk");
+        console_sync();
+        halt_forever();
+    }
+    console_printf("air61-ssd: result=%s internal_mounted=no ata_writes=0\n",
+        result == AHCI_PROBE_PASS ? "PASS" : "FAIL");
+    console_write("Saving the SSD probe receipt to the USB workspace.\n");
+    if (!discovery) xhci_init();
+    arch_enable_interrupts();
+    workspace_boot(cmdline);
+    bool saved = workspace_active() && !vfs_lookup(receipt) && bootlog_persist(receipt);
+    bool unmounted = !workspace_active() || workspace_unmount();
+    if (saved && unmounted) {
+        console_write("SSD probe receipt saved. Returning to Ubuntu.\n");
+        console_sync();
+        arch_reboot_unattended();
+    }
+    console_write("SSD probe receipt unavailable or USB teardown failed. Photograph this screen and restart manually.\n");
+    console_sync();
+    halt_forever();
+}
+
+static unsigned scratch_hex(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    return 16;
+}
+
+static bool scratch_take(const char **cursor, const char *literal) {
+    while (*literal) {
+        if (**cursor != *literal++) return false;
+        (*cursor)++;
+    }
+    return true;
+}
+
+static bool scratch_profile(const char *cmdline, bool internal, char volume[9], char identity[129], uint8_t proof[64]) {
+    if (!scratch_take(&cmdline, "srvros.storage=ram srvros.capture=") ||
+        !scratch_take(&cmdline, internal ? "air61-ssd-work" : "air61-ssd-scratch") ||
+        !scratch_take(&cmdline, " srvros.workspace-volume="))
+        return false;
+    for (unsigned i = 0; i < 8; i++) {
+        if (scratch_hex(*cmdline) >= 16) return false;
+        volume[i] = *cmdline++;
+    }
+    volume[8] = 0;
+    if (!scratch_take(&cmdline, " srvros.ssd-fixture=")) return false;
+    for (unsigned i = 0; i < 128; i++) {
+        unsigned nibble = scratch_hex(*cmdline);
+        if (nibble >= 16) return false;
+        identity[i] = *cmdline++;
+        if (i & 1) proof[i / 2] |= nibble;
+        else proof[i / 2] = nibble << 4;
+    }
+    identity[128] = 0;
+    return !*cmdline;
+}
+
+static void scratch_path(char path[80], const char *identity, const char *filename) {
+    const char *prefix = "/work/srvros-work/air61-ssd-";
+    while (*prefix) *path++ = *prefix++;
+    for (unsigned i = 0; i < 24; i++) *path++ = *identity++;
+    while ((*path++ = *filename++)) {}
+}
+
+static void scratch_halt(const char *message) {
+    console_printf("air61-scratch: %s\n", message);
+    console_sync();
+    halt_forever();
+}
+
+static void air61_scratch_trial(const char *cmdline, bool internal) {
+    char volume[9], identity[129];
+    uint8_t proof[64];
+    boot_set_framebuffer_quiet(false);
+    console_clear();
+    if (!display_profile_is_air61() || !scratch_profile(cmdline, internal, volume, identity, proof))
+        scratch_halt("REFUSED platform or invalid profile");
+
+    char armed[80], written[80], verified[80];
+    scratch_path(armed, identity, "-armed.log");
+    scratch_path(written, identity, "-write.log");
+    scratch_path(verified, identity, "-verify.log");
+    xhci_init();
+    arch_enable_interrupts();
+    if (!workspace_mount(volume)) scratch_halt("REFUSED evidence USB unavailable");
+    bool prior_arm = vfs_lookup(armed) != NULL;
+    bool verify = vfs_lookup(written) != NULL;
+    if (prior_arm != verify || vfs_lookup(verified)) {
+        bool parked = workspace_unmount();
+        scratch_halt(parked ? "REFUSED existing or interrupted trial" : "HALTED USB unmount failed");
+    }
+    console_printf("air61-scratch: profile %s\n", cmdline);
+    console_printf("air61-scratch: phase=%s\n", verify ? "verify" : "write");
+    bool arm_saved = verify || bootlog_persist(armed);
+    if (!workspace_unmount() || !arm_saved) scratch_halt("HALTED attempt marker or USB unmount failed");
+
+    enum ahci_probe_result result = ahci_air61_scratch(proof, verify, internal);
+    if (result == AHCI_PROBE_UNSAFE)
+        scratch_halt("HALTED AHCI ownership unproved, photograph this screen");
+    console_printf("air61-scratch: result=%s internal_mounted=no\n",
+        result == AHCI_PROBE_PASS ? "PASS" : "FAIL");
+    const char *receipt = result == AHCI_PROBE_PASS ? (verify ? verified : written) : NULL;
+    char failed[80];
+    if (!receipt) {
+        scratch_path(failed, identity, verify ? "-verify-failed.log" : "-write-failed.log");
+        receipt = failed;
+    }
+    if (!workspace_mount(volume)) scratch_halt("HALTED receipt USB unavailable");
+    bool saved = !vfs_lookup(receipt) && bootlog_persist(receipt);
+    if (!workspace_unmount() || !saved) scratch_halt("HALTED receipt or USB unmount failed");
+    if (result != AHCI_PROBE_PASS) scratch_halt("FAIL receipt saved, power off");
+    if (verify && !internal) scratch_halt("PASS reboot readback saved, power off before reinstalling Ubuntu SSD");
+    if (internal)
+        console_write(verify ? "air61-scratch: reboot readback saved. Returning to Ubuntu.\n" :
+            "air61-scratch: write and flush saved. Returning to Ubuntu before readback.\n");
+    else console_write("air61-scratch: write and flush receipt saved. Rebooting to verify.\n");
+    console_sync();
+    arch_reboot_unattended();
+}
+
 static void startup_checkpoint(uint32_t phase,uint64_t flags) {
     if(!startup_journal_admitted)return;
     if(startup_journal_checkpoint(phase,flags))return;
@@ -1354,6 +1504,20 @@ void kmain(void) {
 #endif
     }
     pci_init();
+    bool ssd_work = cmdline_has_token(cmdline, "srvros.capture=air61-ssd-work");
+    if (ssd_work || cmdline_has_token(cmdline, "srvros.capture=air61-ssd-scratch")) {
+        air61_scratch_trial(cmdline, ssd_work);
+        halt_forever();
+    }
+    bool ssd_discovery = cmdline_has_token(cmdline, "srvros.ssd-discovery=normal");
+    bool ssd_capture = cmdline_has_token(cmdline, "srvros.capture=air61-ssd-read-only");
+    if (ssd_discovery && (!ssd_capture || startup_journal_requested || !display_profile_is_air61() ||
+        !cmdline_tokens_unique(cmdline) || !cmdline_has_token(cmdline, "srvros.storage=ram")))
+        air61_ssd_refuse();
+    if (ssd_capture && !ssd_discovery) {
+        air61_ssd_trial(cmdline, false);
+        halt_forever();
+    }
     if (ehci_keyboard_monitor) {
         boot_set_framebuffer_quiet(false);
         console_clear();
@@ -1471,6 +1635,10 @@ void kmain(void) {
     if(!cmdline_has_token(cmdline,"srvros.capture=haswell-backing") && !cmdline_has_token(cmdline,"srvros.capture=haswell-firmware")) intel_gfx_init();
     if(cmdline_has_token(cmdline,"srvros.sensors=cpu")) thermal_init();
     if(cmdline_has_token(cmdline,"srvros.power=read-only")) power_init();
+    if (ssd_discovery) {
+        air61_ssd_trial(cmdline, true);
+        halt_forever();
+    }
     if (cmdline_has_token(cmdline, "srvros.storage=ram")) {
         console_write("storage: RAM-only mode; AHCI disabled\n");
     } else {

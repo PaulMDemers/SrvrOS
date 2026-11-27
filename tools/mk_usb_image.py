@@ -354,18 +354,7 @@ def gpt_header(current_lba, backup_lba, first_usable, last_usable, entries_lba, 
     return bytes(header).ljust(SECTOR, b"\x00")
 
 
-def build_image(args):
-    esp_size = args.esp_size_mib * 1024 * 1024
-    esp_first = 2048
-    esp_sectors = esp_size // SECTOR
-    esp_last = esp_first + esp_sectors - 1
-    exfat_data = open(args.exfat, "rb").read() if args.exfat else b""
-    data_first = align_up(esp_last + 1, 2048)
-    data_sectors = align_up(len(exfat_data), SECTOR) // SECTOR if exfat_data else 0
-    data_last = data_first + data_sectors - 1 if data_sectors else 0
-    backup_lba = align_up(max(esp_last, data_last) + 2048, 2048) - 1
-    total_sectors = backup_lba + 1
-
+def build_esp(args, esp_size, esp_first):
     fat = Fat32Builder(esp_size, esp_first)
     efi = fat.add_dir(fat.root_cluster, "EFI")
     boot = fat.add_dir(efi, "BOOT")
@@ -386,6 +375,22 @@ def build_image(args):
     fat.add_file(root_limine_dir, "limine.conf", config)
     esp = fat.build()
     validate_fat32_image(esp, fat, expected_config=config)
+    return esp
+
+
+def build_image(args):
+    esp_size = args.esp_size_mib * 1024 * 1024
+    esp_first = 2048
+    esp_sectors = esp_size // SECTOR
+    esp_last = esp_first + esp_sectors - 1
+    exfat_data = open(args.exfat, "rb").read() if args.exfat else b""
+    data_first = align_up(esp_last + 1, 2048)
+    data_sectors = align_up(len(exfat_data), SECTOR) // SECTOR if exfat_data else 0
+    data_last = data_first + data_sectors - 1 if data_sectors else 0
+    backup_lba = align_up(max(esp_last, data_last) + 2048, 2048) - 1
+    total_sectors = backup_lba + 1
+
+    esp = build_esp(args, esp_size, esp_first)
 
     entries_count = 128
     entries = bytearray(entries_count * 128)
