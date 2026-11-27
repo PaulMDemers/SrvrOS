@@ -1526,6 +1526,26 @@ passive receive evidence on Ubuntu's internal disk. The run
 record and collector are under
 `build/bringup/pro112-rtl8188cu-linux-cold`.
 
+The returned cold reference sampled all 17 registers with the
+target unbound. SYS_ISO_CTRL was `0x82f8`, APS was `0x0002` and
+MCU status was `0x00000005`, matching the native cold state. The
+first Linux driver bind wrote `0x69` then `0x00` as byte accesses
+to `0x00` during its board data phase. Before RF release it read
+`0x8200` and then wrote `0x8000`. The monitor retained
+`0x8000` and recorded 1,196 bulk IN completions with zero trace
+drops. The temporary Ubuntu entry and service were removed.
+
+#### RTL8188CUS isolation low-byte comparison
+
+On the same captured cold state, apply the observed zero-byte write
+after the first power sample and before regulator setup. Accept the
+captured already-clear state and verify the full isolation word after
+the byte operation. Continue the existing firmware and passive
+receive sequence with TX parked and one 4 KiB request on the same
+three-port hub topology. Scope is the existing pinned RTL8188CUS
+firmware capture and its native fixtures. Main `61111819` and open
+reviews have no overlap.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
