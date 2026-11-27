@@ -1563,6 +1563,27 @@ cleanup ledger and restorable archives are under
 `/var/local/srvros-recovery/macbookpro11-2/retired-artifacts`. The
 existing acceptance logs and installed recovery were preserved.
 
+Cold session `session-0006613916604064-00` verified the zero-byte
+write. Isolation went from `0x82f8` to `0x8200` and retained the
+high byte. It held through MAC auto-on, firmware download and APS
+finalization, then reached `0x8000` after RF release and at armed
+RX. The comparable isolation and APS pairs matched the cold Linux
+reference. The workspace and EFI journal agreed on the trace.
+
+Firmware was ready and all three adapters were present. Baseband
+parity failures went from 32 to 3,596, while all 14 receive reports
+and the FIFO pointer stayed zero. The fixed 4 KiB request timed out
+with no bytes or Demers2.4 beacons. Stop Endpoint left 4,096 bytes
+remaining and the radio was parked. Matching the isolation
+sequence alone did not resolve reception.
+
+SrvrOS saved the exit snapshot and all seven EFI checkpoints,
+unmounted the workspace and requested normal return to Ubuntu.
+The collector verified clean exFAT, all 622 existing files and
+Ubuntu's default boot. Evidence and the verified payload are
+archived locally under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-4754d4d28671317e`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
