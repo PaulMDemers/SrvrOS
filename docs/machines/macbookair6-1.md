@@ -2,10 +2,11 @@
 
 Updated: 2026-11-13. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
-The [bounded internal SSD probe](#clean-efi-sector-comparison) passed on
-2026-11-27. The primary GPT region, backup GPT region, and complete EFI boot
-sector matched a cleanly unmounted Ubuntu reference. The probe issued zero
-ATA writes and left the SSD unmounted.
+The [bounded internal SSD partition-read trial](#native-partition-read-return)
+passed on 2026-11-27. Both GPT regions, the complete EFI boot sector, and three
+EFI partition ranges matched cleanly unmounted Ubuntu references. The partition
+ranges used four 4 KiB AHCI reads. SrvrOS left the SSD unmounted and issued zero
+ATA writes.
 
 Current diagnostic milestone: the exact-source pre-user two-pass read-only
 sampler is physically accepted on release `2ddbd3b285f6bf41`. All24 DWORD reads
@@ -15205,3 +15206,22 @@ The SSD remains unmounted, with no write or flush callbacks. The existing
 reset, command, polling, and sample deadlines apply. Capture both GPT regions
 and fixed ranges of the clean EFI partition. PR550's installed-boot path and
 the ordinary AHCI path keep their existing behavior.
+
+#### Native partition-read return
+
+Release `d27164135e665640` (source `b563c687`, PR560) passed on this
+MacBookAir6,1. The normal GPT scanner exposed two read-only partition views
+whose extents matched Ubuntu. The primary and backup GPT regions and the full
+EFI boot sector matched the clean Ubuntu baseline. The EFI partition view read
+8, 16, and 8 sectors at offsets 0, 32, and 2,201,592. All three digests matched
+and the receipt confirmed four 4 KiB AHCI commands for those partition reads.
+The before and after Ubuntu references were identical.
+
+The single SATA reset held for 1,000 µs and the link was ready 4,038 µs after
+release. All 11 port snapshots survived. Both engines stopped with the command
+and active slot registers clear. SrvrOS left the SSD unmounted and reported
+zero ATA writes. Ubuntu returned automatically, restored its EFI mount, and
+retained recovery release `c35475f62f154f1e`. All five USB receipts matched the
+local archives. The return collector's exFAT and allocation checks found zero
+leaks, FAT/bitmap mismatches, or errors. This accepts the bounded native
+read-only partition path on this unit.
