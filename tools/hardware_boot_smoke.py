@@ -633,13 +633,13 @@ def main():
                             assert b"input-usb: dev slot=" in contents
                             assert b"Expected internal keyboard: 05ac:0291" not in contents
                         (logs/("laptop-capture-"+filename)).write_bytes(contents)
-                    assert b"laptop-capture: diagnostics collected" in stored.read(folder+"/exit.log")
+                    exit_log=stored.read(folder+"/exit.log")
+                    assert b"laptop-capture: diagnostics collected" in exit_log
                     if rtl8822bu:
                         assert b"rtl8822bu-probe: result=absent register_writes=0 firmware=0 rf=0" in exit_log
                         assert b"rtl8822bu-identity:" not in exit_log
                         assert b"laptop-capture: completed=NO" in exit_log
                     if rtl8188cu:
-                        exit_log=stored.read(folder+"/exit.log")
                         assert b"rtl8188cu-probe: result=absent register_writes=0 firmware=0 rf=0" in exit_log
                         assert b"laptop-capture: completed=NO" in exit_log
                         assert b"wifi-firmware: slot=" not in exit_log and b"rtl8188cu-identity:" not in exit_log
@@ -657,7 +657,6 @@ def main():
                             assert b"rtl8188cu-desktop-final: connections=0 disconnects=0 return_safe=1 complete=0" in exit_log
                             assert b"rtl8188cu-firmware-progress:" not in exit_log
                     if wifi_capture:
-                        exit_log=stored.read(folder+"/exit.log")
                         if wifi_5ghz_prereq:
                             assert b"wifi-5ghz-prereq-progress:" in exit_log
                             assert b"wifi-5ghz-prereq: status=" not in exit_log and b"deskd:" not in exit_log
