@@ -45,6 +45,15 @@ and retires temporary read-only aliases. Live VT-d, command-engine use and
 firmware exclusion remain separate evidence for an eventual owner. PR301 at
 `d588f83a` retains the Broadwell drain-provider scope.
 
+The [native access audit](../intel-hsw-tearfree.md#native-slot-access-result)
+completed on `b1f49e6a` / `d0929a7adbcedf69`. Slot 4096 again mapped
+`0x8ea00000`, at the start of 16 consecutive sampled stolen-memory pages.
+The same-boot DMAR names the GPU as requester for the range. Compression
+was disabled in both samples, the inherited Pipe A surface advanced one
+frame in 20.126 ms, and all three borrowed aliases retired. The receipt,
+recovery and offline USB filesystem check verified on return to Ubuntu.
+Keep slot 4096 protected while live requester ownership remains unresolved.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

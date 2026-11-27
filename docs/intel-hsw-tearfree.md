@@ -133,6 +133,28 @@ Keep slot 4096 protected.
 Run the same stage command shown above with `--haswell-access` appended.
 Decode the matching `exit.log` with `tools/hardware_haswell_access.py`.
 
+#### Native slot-access result
+
+Release `d0929a7adbcedf69`, source `b1f49e6a`, saved session
+`session-00066147aa2af540-00`. Slot 4096 again pointed to `0x8ea00000`.
+Entries 4096–4111 mapped 16 consecutive physical pages through
+`0x8ea0f000` in both samples. The target did not repeat in that window or
+in the 1,056 sampled primary image pages. The same boot's pinned DMAR
+records the GPU `00:02.0` as the explicit requester for the reserved DMA
+range covering the whole window.
+
+Both framebuffer-compression control, base and status samples were zero.
+Both the GPU and display HDA remained bus-master enabled. Pipe A
+advanced from frame 935 to 936 in 20.126 ms with its inherited surface
+unchanged. The candidate alias and both compression aliases retired with
+zero GPU writes. The complete receipt, installed recovery, unmounted USB
+filesystem check and consumed GRUB one-shot verified.
+
+The run establishes a stable, populated interval and its declared firmware
+DMA scope. Slot 4096 stays protected. The sampled compression state and
+local alias check leave live VT-d translations, GT requests, firmware/SMM
+access and display-reader retirement unresolved.
+
 A later write trial requires an owner that maintains exclusion from
 admission through a posted DWORD store, Gen7 translation completion and
 exact rollback. Linux i915's Gen6/7 path follows the DWORD store with a
