@@ -2314,6 +2314,31 @@ TX/RX framing and xHCI owner, bounded IP probe, boot/log recipe
 and native tests. Use the same three hub adapters, Demers2.4
 channel 10 and 4 KiB IN requests.
 
+Source `7fb198e3` adds the explicit Realtek v5 IP boot profile.
+The existing WPA2 station retains software CCMP keys after M4.
+Realtek OUT posts a bounded sequence of protected Ethernet frames.
+IN delivers Ethernet only after CCMP integrity and replay checks.
+The quiet IPv4 stack runs its bounded DHCP and DNS transactions,
+then requests `http://example.com/` and records the final HTTP
+status. The probe closes its TCP slot, drains OUT, retires the
+boot-only provider, erases keys, sends Leave and stops IN and OUT.
+The workspace and EFI logs carry counts and phase outcomes.
+
+The combined native fixture drove the Realtek xHCI rings, WPA2
+and CCMP through the production DHCP, DNS and TCP code against an
+independent OpenSSL AP peer. It verified matching encrypted PNs,
+two DHCP messages, DNS, an HTTP 204 header split across TCP
+segments, and provider and USB retirement. This is modeled USB
+qualification before physical validation. The run directory is
+`build/bringup/pro112-rtl8188cu-ip`.
+
+Release `a77dbe98a73728cb` passed the exact GPT workspace rehearsal
+and all four EFI journal modes, including the missing-workspace
+save path. The one-shot native run needs a ten-second cold cycle
+of the hub with all three dongles still attached and the workspace
+drive kept on the laptop. It saves the receipts and returns to
+Ubuntu for collection and private-image retirement.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
