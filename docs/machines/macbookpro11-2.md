@@ -1711,6 +1711,15 @@ files and the installed recovery. Evidence and the verified payload
 are archived locally under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-d2c591aaa60004a3`.
 
+The scheduler comparison starts at `3bcd8515` (integration base
+`50f1978a`, upstream inspected at `61111819`). In the opt-in
+RTL8188CUS passive xHCI path, set bit 5 on top of the tested
+`0x009a` baseline, yielding `0x00ba`. Keep ENSEC, MAC TX and both
+TX DMA gates clear, with `TXPAUSE=0xff`. Keep the fixed 4 KiB
+request, pre-LLT timing, firmware, RF profile and all three hub
+ports. Verify the native path and both log sinks before the cold
+run. [Linux MAC control bits](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h#L822-L833)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
