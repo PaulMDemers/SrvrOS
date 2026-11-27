@@ -291,6 +291,14 @@ and all existing user files were preserved. The release and reports are
 archived outside `build`. This unit uses the explicit
 `--ehci-desktop-battery` recipe for the read-only trial.
 
+The integration check starts at `c28c8fd0` and brings in shared baseline
+`dc4a48d3`. The conflicts overlap the Air6,1 storage work in the kernel
+boot dispatch, hardware staging, and the exact-stage VM harness. Keep
+both machines' paths and the published SrvrApps Sensors revision. The
+checkpoint is one attended native desktop boot with built-in keyboard
+and trackpad input, the Text save and reopen check, both USB reports,
+and Ubuntu return before merging the bring-up PR.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
