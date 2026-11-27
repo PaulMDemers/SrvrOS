@@ -14,6 +14,15 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_realtek_ip_profile_has_distinct_auto_return_recipe(self):
+        release = "0123456789abcdef"
+        version = "ram-usb-rtl8188cu-v5-laptop-probe-12345678-auto-return"
+        ip = boot.limine_config(release, version)
+        wpa = boot.limine_config(release, version.replace("-v5-", "-v4-"))
+        self.assertEqual(ip, wpa.replace("capture=wifi-rtl8188cu-wpa2", "capture=wifi-rtl8188cu-ip"))
+        with self.assertRaisesRegex(ValueError, "private station credential"):
+            boot.stage(rtl8188cu_ip=True)
+
     def test_rtl8188cu_identity_stage(self):
         import struct
         import tarfile
