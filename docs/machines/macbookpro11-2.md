@@ -1957,6 +1957,33 @@ Collection verified all 640 prior files and the installed recovery.
 Evidence, comparison and the verified payload are archived under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-13712a298b34232a`.
 
+#### RTL8188CUS MAC control receive gate
+
+The controlled Ubuntu `rtl8192cu` comparison starts from `f4c98790`
+(integration base `50f1978a`, upstream inspected at `93e10a44`).
+On the same adapter, hub and channel, with `TXPAUSE=0xff`, Ubuntu
+received at `CR=0x02ff` and stopped receiving at the current SrvrOS
+value `0x02ba`. Adding either TX DMA bit, or both together, still
+gave zero bulk IN completions. Adding only bit 6 (`0x02fa`) yielded
+737 and 785 positive-length completions in two three-second windows.
+The repeated `0x02ba` control returned zero. USB monitoring saw no
+bulk OUT submissions in any measured window and dropped no events.
+Ubuntu used its usual 15,360-byte receive buffers. The script restored
+the original Realtek registers and managed interface, and checked
+that the default routes and hub topology were preserved.
+
+In the opt-in xHCI trial, keep startup and calibration at `0x02ba`
+and set only the Linux `MACTXEN` bit immediately before the bounded
+receive window. Verify the full CR value and TX pause at receive
+admission and during the window. Leave both TX DMA bits clear, post
+only the fixed 4 KiB bulk IN request, and clear the added bit on park.
+Keep the three adapters on the hub. Cover the production path with
+the native xHCI fixture and qualify automatic return with both log
+sinks before the cold run. Local Linux evidence is under
+`build/bringup/pro112-rtl8188cu-linux-cr-check`.
+[Linux CR setup](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L472-L476)
+[Linux gate definitions](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h#L872-L881)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
