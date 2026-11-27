@@ -21,6 +21,11 @@ int main(void) {
     assert(!thermal_cpu_supported(b,d,c,0x40651,0,32,64));
     assert(!thermal_cpu_supported(b,d,c,0x140651,0,32,65));
     assert(!thermal_cpu_supported(b,d,c,0x40652,0,32,65));
+    assert(thermal_cpu_supported(b,d,c,0x206a7,0x1fbae3bf,0xbfebfbff,0x77));
+    assert(!thermal_cpu_supported(b,d,c,0x206a7,1u<<31,32,65));
+    assert(!thermal_cpu_supported(b,d,c,0x206a7,0,0,65));
+    assert(!thermal_cpu_supported(b,d,c,0x206a7,0,32,64));
+    assert(!thermal_cpu_supported(b,d,c,0x206a6,0,32,65));
     struct srv_thermal_status s={.version=1,.samples=2};
     thermal_decode(&s,0x690000,0x88030a80,0x88030800,true); /* Actual read-only Linux capture. */
     assert(s.core_mc==102000&&s.package_mc==102000&&s.target_mc==105000);
@@ -40,5 +45,7 @@ int main(void) {
     assert(s.target_mc==100000 && s.core_mc==64000 && s.package_mc==64000);
     assert((s.flags&(SRV_THERMAL_TARGET_VALID|SRV_THERMAL_CORE_VALID|SRV_THERMAL_PACKAGE_VALID))==
         (SRV_THERMAL_TARGET_VALID|SRV_THERMAL_CORE_VALID|SRV_THERMAL_PACKAGE_VALID));
+    thermal_decode(&s,0x640e00,0x88110000,0x88110800,true); /* Pro8,1 Linux MSRs. */
+    assert(s.target_mc==100000 && s.core_mc==83000 && s.package_mc==83000);
     puts("thermal: PASS exact CPU/feature/hypervisor gating, actual target fixture, signed readout, independent package semantics, invalid core/target, offset rejection, raw flags and cached metadata");
 }

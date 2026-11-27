@@ -965,7 +965,7 @@ static bool ehci_trial_release(const char *cmdline, char release[17], const char
 
 /* Leave interrupts masked for the caller's pre-userspace storage work. */
 static void ehci_desktop_startup_trace(const char *release, bool trackpad_ready) {
-    console_write("Capturing topcase queues and saving a startup report before opening Text...\n");
+    console_write("Capturing topcase queues and saving a startup report before opening the desktop...\n");
     console_sync();
     uint64_t start = timer_monotonic_us();
     while (trackpad_ready && timer_monotonic_us() - start < 1200000u) scheduler_yield();
@@ -1024,7 +1024,36 @@ static bool ehci_saved_document(const char *path, const uint8_t *seed, uint64_t 
     return exact;
 }
 
-enum ehci_workspace_trial { EHCI_WORKSPACE_FILE, EHCI_WORKSPACE_BRIGHTNESS, EHCI_WORKSPACE_AUDIO };
+enum ehci_workspace_trial {
+    EHCI_WORKSPACE_FILE, EHCI_WORKSPACE_BRIGHTNESS, EHCI_WORKSPACE_AUDIO, EHCI_WORKSPACE_TELEMETRY
+};
+
+struct ehci_telemetry_sample {
+    uint64_t cpu_samples, fan_samples;
+    bool fresh;
+};
+
+static struct ehci_telemetry_sample ehci_telemetry_report(const char *phase) {
+    struct srv_thermal_status cpu;
+    struct srv_smc_status fan;
+    thermal_status(&cpu);
+    smc_status(&fan);
+    uint64_t now=timer_monotonic_us();
+    uint64_t cpu_age=now>=cpu.sampled_us?now-cpu.sampled_us:UINT64_MAX;
+    uint64_t fan_age=now>=fan.sampled_us?now-fan.sampled_us:UINT64_MAX;
+    unsigned temperature_flags=SRV_THERMAL_CORE_VALID|SRV_THERMAL_PACKAGE_VALID|SRV_THERMAL_TARGET_VALID;
+    bool cpu_fresh=cpu.state==SRV_THERMAL_ACTIVE && (cpu.flags&temperature_flags)==temperature_flags &&
+        cpu.samples && cpu_age<=3000000;
+    bool fan_fresh=fan.state==SRV_SMC_ACTIVE && (fan.flags&SRV_SMC_FAN_VALID) &&
+        fan.fan_count==1 && !fan.failures && fan.samples && fan_age<=3000000;
+    console_printf("pro81-telemetry: phase=%s cpu_state=%u cpu_fresh=%u core_mc=%d package_mc=%d target_mc=%d cpu_samples=%u cpu_age_us=%u\n",
+        phase,(uint64_t)cpu.state,(uint64_t)cpu_fresh,(int64_t)cpu.core_mc,(int64_t)cpu.package_mc,
+        (int64_t)cpu.target_mc,cpu.samples,cpu.samples?cpu_age:0);
+    console_printf("pro81-telemetry: phase=%s fan_state=%u fan_fresh=%u fans=%u fan_millirpm=%u fan_samples=%u fan_age_us=%u smc_failures=%u smc_error=%u\n",
+        phase,(uint64_t)fan.state,(uint64_t)fan_fresh,(uint64_t)fan.fan_count,(uint64_t)fan.fan_millirpm,
+        fan.samples,fan.samples?fan_age:0,fan.failures,(uint64_t)fan.error);
+    return (struct ehci_telemetry_sample){cpu.samples,fan.samples,cpu_fresh && fan_fresh};
+}
 
 static void ehci_desktop_workspace_trial(const char *release, const char *volume, bool trackpad_ready,
     bool timer_running, enum ehci_workspace_trial kind) {
@@ -1033,13 +1062,29 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
     for (unsigned i = 0; i < 16; i++) path[sizeof("/work/srvros-work/ehci-desktop-") - 1 + i] = release[i];
     boot_set_framebuffer_quiet(false);
     bool file_trial=kind==EHCI_WORKSPACE_FILE, audio_trial=kind==EHCI_WORKSPACE_AUDIO;
-    if (!file_trial) laptop_pro81_brightness_init();
+    bool telemetry_trial=kind==EHCI_WORKSPACE_TELEMETRY;
+    if (!file_trial && !telemetry_trial) laptop_pro81_brightness_init();
     if (audio_trial) {
         audio_init_pro81();
         struct srv_audio_status audio;
         audio_status(&audio);
         console_printf("pro81-audio: phase=startup provider=%s volume=%u\n",
             audio.state==SRV_AUDIO_READY?"ready":"unavailable",(uint64_t)audio.volume);
+    }
+    struct ehci_telemetry_sample first={0};
+    if (telemetry_trial) {
+        console_write("Starting read-only CPU and fan telemetry. Keep the flash drive connected.\n");
+        console_sync();
+        thermal_init();
+        smc_init();
+        uint64_t start=timer_monotonic_us();
+        struct srv_smc_status fan;
+        smc_status(&fan);
+        while(fan.state==SRV_SMC_STARTING && timer_monotonic_us()-start<2000000) {
+            scheduler_yield();
+            smc_status(&fan);
+        }
+        first=ehci_telemetry_report("startup");
     }
     ehci_desktop_startup_trace(release, trackpad_ready);
     bool mounted = ehci_desktop_workspace_start(volume);
@@ -1052,13 +1097,23 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
         vfs_read_all(checklist, &seed, &seed_size) && exfat_write_file(path, seed, seed_size) && workspace_flush_committed();
     __asm__ volatile ("sti" : : : "memory");
     console_printf("ehci-desktop: opening desktop release=%s\n", release);
+    const char *desktop_args=telemetry_trial?"--ehci-telemetry-trial":audio_trial?"--ehci-audio-trial":
+        file_trial?args:"--ehci-brightness-trial";
     bool desktop_passed = (!file_trial || seeded) && timer_running &&
-        process_run_elf_args("/fat/bin/deskd", audio_trial?"--ehci-audio-trial":file_trial?args:"--ehci-brightness-trial");
+        process_run_elf_args("/fat/bin/deskd",desktop_args);
     bool sound_quiet = audio_trial && audio_listen_control(SRV_AUDIO_STOP,0) && audio_pro81_quiet();
+    bool smc_stopped = telemetry_trial && smc_quiesce();
     bool retired = ehci_desktop_trackpad_stop();
     __asm__ volatile ("cli" : : : "memory");
     bool checked=false;
-    if (!file_trial) {
+    if (telemetry_trial) {
+        struct ehci_telemetry_sample last=ehci_telemetry_report("final");
+        checked=first.fresh && last.fresh && last.cpu_samples>=first.cpu_samples+10 &&
+            last.fan_samples>=first.fan_samples+10 && smc_stopped;
+        console_printf("pro81-telemetry: result=%s smc_quiesced=%u\n",
+            checked?"PASS":"INCOMPLETE",(uint64_t)smc_stopped);
+        smc_print_status();
+    } else if (!file_trial) {
         struct backlight_trial result=backlight_pro81_finish();
         checked=result.low && result.high && result.restored;
         console_printf("pro81-backlight: result=%s initial_duty=%u last_duty=%u writes=%u low=%u high=%u restored=%u\n",
@@ -1079,14 +1134,16 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
             checked?"PASS":"INCOMPLETE",audio.tests_started,audio.tests_completed,(uint64_t)audio.last_position,
             (uint64_t)sound_quiet,(uint64_t)audio.error);
     }
-    bool passed = checkpoint_saved && trackpad_ready && desktop_passed && retired && checked && ehci_desktop_trackpad_verified();
+    bool input_checked = telemetry_trial || (trackpad_ready && ehci_desktop_trackpad_verified());
+    bool passed = checkpoint_saved && input_checked && desktop_passed && retired && checked;
     console_printf("ehci-desktop: release=%s result=%s desktop=%s retirement=%s\n", release,
         passed ? "PASS" : "INCOMPLETE", desktop_passed ? "passed" : "unverified", retired ? "safe" : "unverified");
     ehci_desktop_trackpad_print_trace("final");
     bool saved = mounted && vmm_diagnostic_sole_kernel_root(vmm_kernel_address_space()) &&
         ehci_desktop_workspace_report(release, false);
     bool flash_retired = ehci_desktop_workspace_stop();
-    console_printf("ehci-desktop-%s: report=%s flash-retirement=%s\n", audio_trial?"audio":file_trial?"file":"brightness",
+    console_printf("ehci-desktop-%s: report=%s flash-retirement=%s\n",
+        telemetry_trial?"telemetry":audio_trial?"audio":file_trial?"file":"brightness",
         saved ? "saved" : "unverified",
         flash_retired ? "safe" : "unverified");
     ehci_desktop_return(saved && retired && flash_retired, checkpoint_saved);
@@ -1102,7 +1159,9 @@ void kmain(void) {
     bool ehci_file_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-file");
     bool ehci_brightness_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-brightness");
     bool ehci_audio_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-audio");
-    const char *ehci_workspace_mode = ehci_audio_trial ? "desktop-audio" : ehci_brightness_trial ? "desktop-brightness" :
+    bool ehci_telemetry_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-telemetry");
+    const char *ehci_workspace_mode = ehci_telemetry_trial ? "desktop-telemetry" :
+        ehci_audio_trial ? "desktop-audio" : ehci_brightness_trial ? "desktop-brightness" :
         ehci_file_trial ? "desktop-file" : NULL;
     bool ehci_desktop_trace = ehci_workspace_mode || cmdline_has_token(cmdline, "srvros.ehci=topcase-desktop");
     bool ehci_trackpad_desktop_trial = ehci_desktop_trace || cmdline_has_token(cmdline, "srvros.ehci=trackpad-desktop");
@@ -1536,7 +1595,8 @@ void kmain(void) {
     console_write("srvros: kernel bootstrap complete\n");
     if (ehci_workspace_mode)
         ehci_desktop_workspace_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running,
-            ehci_audio_trial?EHCI_WORKSPACE_AUDIO:ehci_brightness_trial?EHCI_WORKSPACE_BRIGHTNESS:EHCI_WORKSPACE_FILE);
+            ehci_telemetry_trial?EHCI_WORKSPACE_TELEMETRY:ehci_audio_trial?EHCI_WORKSPACE_AUDIO:
+            ehci_brightness_trial?EHCI_WORKSPACE_BRIGHTNESS:EHCI_WORKSPACE_FILE);
     if (ehci_trackpad_desktop_trial)
         ehci_desktop_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running, ehci_desktop_trace);
     if (auth_mode == LOCAL_AUTH_SIGNIN) {

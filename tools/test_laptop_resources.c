@@ -67,6 +67,16 @@ int main(int argc,char **argv) {
         checksum(d,n);assert(!laptop_pro_display_match(0x0d26,0x8c4b,d,n));free(d);
         puts("laptop-resources: Pro capture matches; wrong chipset, length and modified firmware refused");
     }
+    if(argc==3 && !strcmp(argv[2],"pro81")) {
+        size_t n;unsigned char *d=load(argv[1],"DSDT",&n);
+        assert(laptop_pro81_firmware_match(0x0126,0x1c49,d,n));
+        assert(!laptop_pro81_firmware_match(0x0126,0x9c43,d,n));
+        assert(!laptop_pro81_firmware_match(0x0a26,0x1c49,d,n));
+        assert(!laptop_pro81_firmware_match(0x0126,0x1c49,d,n-1));
+        d[n-1]^=1;checksum(d,n);
+        assert(!laptop_pro81_firmware_match(0x0126,0x1c49,d,n));free(d);
+        puts("laptop-resources: Pro8,1 captured SMC firmware identity and refusal gates verified");
+    }
     if(argc==2) {
         size_t en,fn,dn;unsigned char *e=load(argv[1],"ECDT",&en),*f=load(argv[1],"FACP",&fn),*d=load(argv[1],"DSDT",&dn);
         assert(laptop_resources_parse(&r,e,en,f,fn) && laptop_firmware_match(d,dn));free(e);free(f);free(d);

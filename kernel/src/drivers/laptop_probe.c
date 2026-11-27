@@ -45,7 +45,7 @@ void laptop_pro81_brightness_init(void) {
     }
     size_t n;
     const uint8_t *d=find("DSDT",&n);
-    if(!gpu || !pch || !laptop_pro81_display_match(gpu->device_id,pch->device_id,d,n) ||
+    if(!gpu || !pch || !laptop_pro81_firmware_match(gpu->device_id,pch->device_id,d,n) ||
        gpu->revision!=9 || pci_read_config16(gpu,0x2c)!=0x106b || pci_read_config16(gpu,0x2e)!=0x00db) {
         console_write("pro81-backlight: provider=unavailable identity mismatch\n");
         return;

@@ -2420,8 +2420,9 @@ int main(int argc,char **argv) {
     int retina_screenshot=argc==2 && !strcmp(argv[1],"--retina-screenshot");
     int retina_trial=retina_screenshot || (argc==2 && !strcmp(argv[1],"--retina-trial"));
     int ehci_file_trial=argc==3 && !strcmp(argv[1],"--ehci-file-trial");
+    int ehci_telemetry_trial=argc==2 && !strcmp(argv[1],"--ehci-telemetry-trial");
     int ehci_settings_trial=argc==2 && (!strcmp(argv[1],"--ehci-brightness-trial") || !strcmp(argv[1],"--ehci-audio-trial"));
-    int ehci_topcase_trial=ehci_file_trial || ehci_settings_trial || (argc==2 && !strcmp(argv[1],"--ehci-topcase-trial"));
+    int ehci_topcase_trial=ehci_file_trial || ehci_settings_trial || ehci_telemetry_trial || (argc==2 && !strcmp(argv[1],"--ehci-topcase-trial"));
     int ehci_trial=ehci_topcase_trial || (argc==2 && !strcmp(argv[1],"--ehci-trackpad-trial"));
     int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
@@ -2518,6 +2519,7 @@ int main(int argc,char **argv) {
     else if(audio_io || capacity_capture) { /* Launch serially after each rendered admission below. */ }
     else if(navigation_trial) spawn_app(&s,DESK_APP_HELP,"window-navigation-trial");
     else if(lifecycle_trial) spawn_app(&s,DESK_APP_HELP,"lifecycle-trial");
+    else if(ehci_telemetry_trial) spawn_app(&s,DESK_APP_SYSTEM,"--sensors");
     else if(ehci_trial) spawn_app(&s,DESK_APP_TEXT,ehci_file_trial?argv[2]:"/fat/share/Trackpad trial.txt");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
@@ -2570,7 +2572,9 @@ int main(int argc,char **argv) {
     struct srv_scheduler_status idle_before={0};
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
-    uint64_t ehci_deadline=ehci_trial?(uint64_t)srv_monotonic_us()+(ehci_settings_trial?150000000u:90000000u):0;
+    uint64_t ehci_deadline=ehci_trial?(uint64_t)srv_monotonic_us()+
+        (ehci_telemetry_trial?25000000u:ehci_settings_trial?150000000u:90000000u):0;
+    unsigned telemetry_seconds=0;
     unsigned ehci_axes=0,ehci_zoom_clicks=0,ehci_pointer_exit=0,ehci_timeout=0;
     const char ehci_expected[]="Ehci-42";
     unsigned ehci_typed=0,ehci_find_open=0,ehci_keyboard=0;
@@ -2588,10 +2592,18 @@ int main(int argc,char **argv) {
     if(!failed) ui_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
         uint64_t loop_now=(uint64_t)srv_monotonic_us();
-        if(ehci_trial && (!s.exiting || ehci_topcase_trial) && loop_now>=ehci_deadline) {
+        if(ehci_telemetry_trial && !s.exiting && loop_now<ehci_deadline) {
+            unsigned remaining=(unsigned)((ehci_deadline-loop_now+999999)/1000000);
+            if(remaining!=telemetry_seconds) {
+                telemetry_seconds=remaining;
+                snprintf(s.scene.notice,sizeof(s.scene.notice),"Sampling CPU and fan for %u more seconds. Leave USB connected.",remaining);
+                desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
+            }
+        }
+        if(ehci_trial && (!s.exiting || (ehci_topcase_trial && !ehci_telemetry_trial)) && loop_now>=ehci_deadline) {
             ehci_timeout=1;
             /* Only this RAM trial may force cleanup of an unresponsive checklist. */
-            if(ehci_topcase_trial) { quit=1;break; }
+            if(ehci_topcase_trial && !ehci_telemetry_trial) { quit=1;break; }
             global_menu_action(&s,GLOBAL_EXIT);
         }
         if(audio_io && (audio_io_pid || audio_io_finished)) {
@@ -3730,7 +3742,10 @@ int main(int argc,char **argv) {
     }
     if(retina_screenshot)desk_log("retina-screenshot: result=%s scale=%u completed=%u\n",
         !failed && s.capture_success?"PASS":"FAIL",session_output_scale(&s),s.capture_finished);
-    if(ehci_trial) {
+    if(ehci_telemetry_trial) {
+        if(!ehci_timeout || s.child_errors)failed=1;
+        desk_log("ehci-desktop-telemetry-ui: result=%s planned-exit=%u\n",failed?"INCOMPLETE":"PASS",ehci_timeout);
+    } else if(ehci_trial) {
         if(ehci_axes!=3 || ehci_zoom_clicks<2 || !ehci_pointer_exit || (!ehci_file_trial && !ehci_keyboard) || ehci_timeout || s.child_errors)failed=1;
         desk_log("ehci-desktop-ui: result=%s axes=%u checklist-zoom-clicks=%u pointer-exit=%u timeout=%u\n",
             failed?"INCOMPLETE":"PASS",ehci_axes,ehci_zoom_clicks,ehci_pointer_exit,ehci_timeout);

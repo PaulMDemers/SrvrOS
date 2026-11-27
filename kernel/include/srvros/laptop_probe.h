@@ -8,7 +8,7 @@ struct laptop_backlight { uint32_t duty,period;unsigned mode; }; /* 0 unsupporte
 bool laptop_resources_parse(struct laptop_resources *out,const uint8_t *ecdt,size_t ec_size,const uint8_t *fadt,size_t fa_size);
 bool laptop_firmware_match(const uint8_t *dsdt,size_t size);
 bool laptop_pro_display_match(uint16_t gpu,uint16_t pch,const uint8_t *dsdt,size_t size);
-bool laptop_pro81_display_match(uint16_t gpu,uint16_t pch,const uint8_t *dsdt,size_t size);
+bool laptop_pro81_firmware_match(uint16_t gpu,uint16_t pch,const uint8_t *dsdt,size_t size);
 void laptop_pro81_brightness_init(void);
 bool laptop_air61_display_match(uint16_t gpu,uint16_t pch,const uint8_t *dsdt,size_t size);
 struct laptop_backlight laptop_backlight_decode(uint32_t cpu_control,uint32_t cpu_duty,uint32_t pch_control,uint32_t pch_duty);

@@ -14,7 +14,7 @@ static struct scheduler_wait_queue wake;
 static uint64_t due;
 static unsigned stage,expected_fans;
 static uint32_t pending_fan0;
-static bool initialized,working;
+static bool initialized,working,stopping;
 static uint64_t lock(void) {
 #ifdef SRVROS_SMC_HOST_TEST
     return 0;
@@ -41,7 +41,7 @@ static bool target(void) {
         const struct pci_device *d=pci_device_at(i);
         if(d->vendor_id==0x8086 && d->class_code==3)gpu=d->device_id;
         if(d->vendor_id==0x8086 && d->class_code==6 &&
-           (d->device_id==0x9cc3 || d->device_id==0x8c4b || d->device_id==0x9c43))pch=d->device_id;
+           (d->device_id==0x9cc3 || d->device_id==0x8c4b || d->device_id==0x9c43 || d->device_id==0x1c49))pch=d->device_id;
     }
     expected_fans=0;
     for(uint64_t i=0;i<acpi_table_count();i++) {
@@ -51,8 +51,9 @@ static bool target(void) {
         if(gpu==0x1626 && pch==0x9cc3 && laptop_firmware_match(data,t->length))expected_fans=1;
         else if(laptop_air61_display_match(gpu,pch,data,t->length))expected_fans=1;
         else if(laptop_pro_display_match(gpu,pch,data,t->length))expected_fans=2;
+        else if(laptop_pro81_firmware_match(gpu,pch,data,t->length))expected_fans=1;
     }
-    /* The three independently captured DSDTs include APP0001 I/O 0x300..0x31f. This service
+    /* The independently captured DSDTs include APP0001 I/O 0x300..0x31f. This service
      * uses only metadata/read commands for FNum/F0Ac/F1Ac; no control keys,
      * MMIO or IRQ6 ownership. Air6,1 resources are recorded in its telemetry note. */
     return expected_fans!=0;
@@ -63,13 +64,15 @@ static bool metadata(const uint8_t *p,unsigned length,const char type[4]) {
     return true;
 }
 static bool ready(void *arg) { (void)arg;return working && timer_ticks()>=due; }
+static bool transaction_boundary(void) { return transport.phase==SMC_IDLE || transport.phase==SMC_DONE; }
 static void fault(unsigned error) {
     uint64_t f=lock();snapshot.state=SRV_SMC_FAULT;snapshot.flags=0;snapshot.error=error;snapshot.failures++;
     snapshot.phase=transport.failed_phase;snapshot.last_status=transport.status;working=false;unlock(f);
     smc_print_status();
 }
 static void step(void) {
-    if(transport.phase==SMC_IDLE || transport.phase==SMC_DONE) {
+    if(transaction_boundary()) {
+        if(stopping) { working=false;return; }
         const char *key=stage<2?"FNum":(stage==3 || stage==5)?"F1Ac":"F0Ac";
         bool info=stage==0 || stage==2 || stage==3;
         if(!smc_transport_begin(&transport,info,key,info?6:stage==1?1:2,timer_monotonic_us())) { fault(0x100);return; }
@@ -118,6 +121,16 @@ void smc_init(void) {
     smc_print_status();
 }
 void smc_status(struct srv_smc_status *out) { if(out) { uint64_t f=lock();*out=snapshot;unlock(f); } }
+bool smc_quiesce(void) {
+    uint64_t f=lock();
+    stopping=true;
+    if(transaction_boundary()) working=false;
+    if(working) { due=timer_ticks();scheduler_wake_all(&wake); }
+    unlock(f);
+    uint64_t start=timer_monotonic_us();
+    while(working && timer_monotonic_us()-start<600000) scheduler_yield();
+    return !working && transaction_boundary();
+}
 void smc_print_status(void) {
     struct srv_smc_status s;smc_status(&s);
     console_printf("smc: state=%u flags=%x fans=%u fan_millirpm=%u sample_us=%u samples=%u transactions=%u failures=%u error=%u phase=%u status=%x; fan control disabled, native fan reading NOT_TESTED\n",
