@@ -84,6 +84,7 @@
 #define EHCI_TD_BYTES_MASK 0x7fffu
 #define EHCI_TD_SPLIT_STATE (1u << 1)
 #define EHCI_TRACKPAD_TRACE_COUNT 6u
+#define EHCI_TRACKPAD_PAYLOAD_SAMPLES 16u
 
 #define EHCI_LEGACY_CAP 1u
 #define EHCI_LEGACY_BIOS (1u << 16)
@@ -128,6 +129,16 @@ struct ehci_trackpad_queue_sample {
     bool split_seen;
 };
 
+struct ehci_trackpad_payload_sample {
+    uint64_t bytes, elapsed_us;
+    unsigned completion, length;
+};
+
+struct ehci_trackpad_endpoint_trace {
+    unsigned completions, short_lengths[9], sample_count;
+    struct ehci_trackpad_payload_sample samples[EHCI_TRACKPAD_PAYLOAD_SAMPLES];
+};
+
 struct ehci_trackpad_capture {
     unsigned reports, ignored, invalid, bytes, largest, contacts;
     unsigned wire_max, eight_byte_reports, eight_byte_id44;
@@ -142,12 +153,15 @@ struct ehci_trackpad_capture {
     int16_t first_x, first_y;
     uint8_t feature_before[8], feature_write[8], feature_after[8], feature_restored[8];
     struct ehci_trackpad_queue_sample first_requests[EHCI_TRACKPAD_TRACE_COUNT];
+    struct ehci_trackpad_endpoint_trace raw, mouse_raw;
     uint32_t qh_endpoint, qh_capabilities, first_td;
     uint8_t last_eight_byte_id;
     bool hid_replay_started, mode_before_read, mode_after_read;
     bool mode_write_attempted, mode_restore_read, arm_requested, arm_acknowledged;
     bool have_position, moved, pressed, released, mode_restored;
+    bool timed_out, mouse_requested;
     const char *result;
+    const char *mouse_result;
 };
 
 struct ehci_probe_report {
@@ -1101,12 +1115,30 @@ static void print_trackpad_queue(const struct ehci_trackpad_capture *capture) {
     }
 }
 
+static void print_trackpad_endpoint(const struct ehci_periodic_endpoint *endpoint,
+    const struct ehci_trackpad_endpoint_trace *trace, const char *result) {
+    console_printf("trackpad-usb endpoint=%x request=%u interval-ms=%u completions=%u result=%s\n",
+        (uint64_t)endpoint->address, (uint64_t)endpoint->length, (uint64_t)endpoint->interval,
+        (uint64_t)trace->completions, result ? result : "finished");
+    for (unsigned length = 0; length < sizeof(trace->short_lengths) / sizeof(trace->short_lengths[0]); length++) {
+        if (trace->short_lengths[length]) console_printf("trackpad-usb endpoint=%x length=%u count=%u\n",
+            (uint64_t)endpoint->address, (uint64_t)length, (uint64_t)trace->short_lengths[length]);
+    }
+    for (unsigned i = 0; i < trace->sample_count; i++) {
+        const struct ehci_trackpad_payload_sample *sample = &trace->samples[i];
+        console_printf("trackpad-usb endpoint=%x completion=%u elapsed-us=%u length=%u bytes=%x\n",
+            (uint64_t)endpoint->address, (uint64_t)sample->completion, sample->elapsed_us,
+            (uint64_t)sample->length, sample->bytes);
+    }
+}
+
 bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
     console_set_framebuffer_muted(false);
     console_clear();
     console_printf("SrvrOS MacBookPro8,1 trackpad trial\nRelease %s\n\n", release);
     console_write("When capture starts, move one finger across the pad,\n"
-                  "place two fingers on it, and press and release the clickpad.\n");
+                  "place two fingers on it, and press and release the clickpad.\n"
+                  "Repeat when the mouse endpoint check starts.\n");
     if (log_volume) console_write("Keep the flash drive connected. The result will be saved before restart.\n");
     else console_write("Photograph the result. Power off and start again to return to Ubuntu.\n");
     console_write("\nScanning for the built-in trackpad...\n");
@@ -1166,6 +1198,9 @@ bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
         (uint64_t)(capture->submissions - 1), (uint64_t)capture->completions);
     if (capture->eight_byte_reports) console_printf("Last 8-byte sample in wire order: %x\n",
         capture->last_eight_byte_sample);
+    if (capture->arm_requested) print_trackpad_endpoint(&trackpad_endpoint, &capture->raw, capture->result);
+    if (capture->mouse_requested) print_trackpad_endpoint(&trackpad_mouse_endpoint, &capture->mouse_raw,
+        capture->mouse_result);
     bool passed = !capture->result && !capture->invalid && trackpad_capture_complete(capture) &&
         capture->mode_restored && report.dma_released && report.access_retired;
     if (!passed && capture->token) console_printf("USBSTS=%x qTD=%x QH=%x\n",
