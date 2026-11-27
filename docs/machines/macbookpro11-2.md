@@ -2408,6 +2408,17 @@ preserved. The paired capture and Ubuntu control are archived under
 The private image was retired, the accepted passive entry and EFI
 mount options were restored, and the two router captures were stopped.
 
+#### RTL8188CUS protected Discover radio trace
+
+Start from `f50004f9` on the Pro hub branch. Inspected main
+`d29abcf1` and the separate Air6,1 SSD work in #561–562. Probe
+the first protected DHCP transmit through the existing Realtek station
+owner and correlate the radio outcome with the station-filtered router
+captures. Keep the hub and all three dongles in place. Scope is the
+Realtek protected data descriptor, optional firmware TX report, native
+xHCI test path and cold diagnostic evidence. The WPA2 setup, DHCP
+behavior and 4 KiB receive request stay the same.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
