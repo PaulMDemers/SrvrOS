@@ -764,13 +764,39 @@ and all three driver bindings were restored. The existing Ubuntu
 `bcm5974` 1 ms baseline shows the same frame lengths and leading byte on
 `0x81`. Both fresh traces and their summary were saved to the USB workspace.
 
+Native `d4a82982f7c2bccb` recorded one `60 02` completion about 224 ms after
+the mode write and 308 eight-byte completions on endpoint `0x81`. The 15
+logged eight-byte samples and the final response all start with `0x02`.
+The queue head identifies endpoint 1 with a 64-byte max packet, and the
+first six retired qTDs and their overlays agree on the transfer lengths.
+The separate 15-second `0x84` phase had no completions. This agrees with
+Ubuntu on `0x84`, whose mouse descriptor specifies a four-byte ID `0x02`
+report. The native trial recorded zero Type 2 gestures and verified the
+feature restoration and topcase DMA and MMIO release.
+
+Linux `bcm5974` reports the same eight-byte symptom when the mode switch
+is sent before the interrupt control response. It returns to normal mode,
+waits about 1 ms, and retries Wellspring mode. That is the leading explanation
+for the native `0x81` traffic even though the feature readback says mode 1.
+The host-side traces identify the queue that completed and leave the physical
+packet source and device state unverified. A bounded native retry after the
+`60 02` response can test whether the Linux recovery restores Type 2 frames.
+[Linux mode recovery](https://github.com/torvalds/linux/commit/fc1e8a6f129d87c64ac8e58b50d9dfa66217cfda)
+[USB trace scope](https://docs.kernel.org/usb/usbmon.html)
+
+Ubuntu returned and consumed the one-shot. EFI entries and the installed
+and recovery payloads verified. The 8,434-byte native result and comparison
+matched their archive copies after USB remount. The read-only allocation
+check passed for 115 files with zero writes. The saved native report ends
+before the flash controller's final teardown and reset.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
-| Trackpad | Feature payloads and split queue settings match Ubuntu. One running schedule sustained 384 native resubmissions and still returned 2- or 8-byte transfers with zero decoded gestures. | Establish the source of the short native payloads |
+| Trackpad | Native `0x81` returned `60 02` and then eight-byte frames, while Ubuntu captured only Type 2 frames in its controlled comparison. `0x84` completed no requests in either trace. A failed Wellspring mode transition is the leading explanation. | Verify a bounded normal-to-Wellspring recovery on native hardware |
 | USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
