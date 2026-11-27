@@ -172,11 +172,35 @@ Ubuntu verified all 1,602 bytes of USB `park-timing.log` against the exit log,
 replayed the native checkpoint and passed the offline exFAT checks. The run
 is closed as an incomplete GPU trial.
 
-The next Air trial keeps the full inherited GGTT and fence census at park
-entry and at the independent release and reacquisition checks. Each operation
-inside the timed interval also rechecks the live GPU and HDA endpoints, CPU
-exclusion, aliases, firmware registers, SMI count and original panel. The
-window still starts after the two park policy stores and ends at 10 ms.
+Release `adac45682bb62e5f` at `84d038a6` verified the reduced guard overhead
+in native session `session-0006613ab13c9770-00`. The full inherited GGTT and
+fence census runs at park entry and at the independent release and
+reacquisition checks. Inside the interval, each operation still rechecks the
+live GPU and HDA endpoints, CPU exclusion, aliases, firmware registers, SMI
+count and original panel. The window starts after the two park policy stores
+and ends at 10 ms.
+
+| Check | Time from park window start |
+| --- | ---: |
+| Forcewake release ACK clear | 1.500 ms |
+| First RC6 sample completed | 2.949 ms |
+| Second RC6 sample completed | 5.072 ms |
+| Reacquisition ACK and thread C0 | 5.177 ms |
+| Reacquisition closing guard completed | 6.540 ms |
+| Park policy restored and temporary alias retired | 9.249 ms |
+
+The timed interval recorded 13 live admissions and zero fallbacks. The two
+RC6 reads returned the same residency count of 1,570,942 ticks. Neither
+powered poll observed a device-wide traffic block, and the fresh engine mask
+and L3 acknowledgement remained zero. The original display was preserved and
+the later diagnostic reset completed both writes. This closes the timing
+diagnostic. Native GPU ownership, submission and tear-free scanout remain open.
+The larger diagnostic still used the practical timing profile. The earlier
+system-wide timing targets remain unqualified.
+The Air returned to Ubuntu, which matched the 1,805-byte USB `park-timing.log`
+against the full exit log and verified the checkpoint, raw hashes and offline
+exFAT integrity. All 19 source-bound host checks and four exact-image QEMU
+cases passed before the physical trial.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
