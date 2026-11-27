@@ -959,8 +959,10 @@ static bool scratch_take(const char **cursor, const char *literal) {
     return true;
 }
 
-static bool scratch_profile(const char *cmdline, char volume[9], char identity[129], uint8_t proof[64]) {
-    if (!scratch_take(&cmdline, "srvros.storage=ram srvros.capture=air61-ssd-scratch srvros.workspace-volume="))
+static bool scratch_profile(const char *cmdline, bool internal, char volume[9], char identity[129], uint8_t proof[64]) {
+    if (!scratch_take(&cmdline, "srvros.storage=ram srvros.capture=") ||
+        !scratch_take(&cmdline, internal ? "air61-ssd-work" : "air61-ssd-scratch") ||
+        !scratch_take(&cmdline, " srvros.workspace-volume="))
         return false;
     for (unsigned i = 0; i < 8; i++) {
         if (scratch_hex(*cmdline) >= 16) return false;
@@ -992,12 +994,12 @@ static void scratch_halt(const char *message) {
     halt_forever();
 }
 
-static void air61_scratch_trial(const char *cmdline) {
+static void air61_scratch_trial(const char *cmdline, bool internal) {
     char volume[9], identity[129];
     uint8_t proof[64];
     boot_set_framebuffer_quiet(false);
     console_clear();
-    if (!display_profile_is_air61() || !scratch_profile(cmdline, volume, identity, proof))
+    if (!display_profile_is_air61() || !scratch_profile(cmdline, internal, volume, identity, proof))
         scratch_halt("REFUSED platform or invalid profile");
 
     char armed[80], written[80], verified[80];
@@ -1018,7 +1020,7 @@ static void air61_scratch_trial(const char *cmdline) {
     bool arm_saved = verify || bootlog_persist(armed);
     if (!workspace_unmount() || !arm_saved) scratch_halt("HALTED attempt marker or USB unmount failed");
 
-    enum ahci_probe_result result = ahci_air61_scratch(proof, verify);
+    enum ahci_probe_result result = ahci_air61_scratch(proof, verify, internal);
     if (result == AHCI_PROBE_UNSAFE)
         scratch_halt("HALTED AHCI ownership unproved, photograph this screen");
     console_printf("air61-scratch: result=%s internal_mounted=no\n",
@@ -1033,8 +1035,11 @@ static void air61_scratch_trial(const char *cmdline) {
     bool saved = !vfs_lookup(receipt) && bootlog_persist(receipt);
     if (!workspace_unmount() || !saved) scratch_halt("HALTED receipt or USB unmount failed");
     if (result != AHCI_PROBE_PASS) scratch_halt("FAIL receipt saved, power off");
-    if (verify) scratch_halt("PASS reboot readback saved, power off before reinstalling Ubuntu SSD");
-    console_write("air61-scratch: write and flush receipt saved. Rebooting to verify.\n");
+    if (verify && !internal) scratch_halt("PASS reboot readback saved, power off before reinstalling Ubuntu SSD");
+    if (internal)
+        console_write(verify ? "air61-scratch: reboot readback saved. Returning to Ubuntu.\n" :
+            "air61-scratch: write and flush saved. Returning to Ubuntu before readback.\n");
+    else console_write("air61-scratch: write and flush receipt saved. Rebooting to verify.\n");
     console_sync();
     arch_reboot_unattended();
 }
@@ -1211,8 +1216,9 @@ void kmain(void) {
 #endif
     }
     pci_init();
-    if (cmdline_has_token(cmdline, "srvros.capture=air61-ssd-scratch")) {
-        air61_scratch_trial(cmdline);
+    bool ssd_work = cmdline_has_token(cmdline, "srvros.capture=air61-ssd-work");
+    if (ssd_work || cmdline_has_token(cmdline, "srvros.capture=air61-ssd-scratch")) {
+        air61_scratch_trial(cmdline, ssd_work);
         halt_forever();
     }
     bool ssd_discovery = cmdline_has_token(cmdline, "srvros.ssd-discovery=normal");

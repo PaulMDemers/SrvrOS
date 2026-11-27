@@ -49,8 +49,9 @@ def page(seed, label):
     return b"".join(hashlib.sha256(seed + bytes((label, index))).digest() for index in range(PAGE // 32))
 
 
-def profile(volume, fixture):
-    return (f"srvros.storage=ram srvros.capture=air61-ssd-scratch srvros.workspace-volume={volume} "
+def profile(volume, fixture, *, internal=False):
+    capture = "air61-ssd-work" if internal else "air61-ssd-scratch"
+    return (f"srvros.storage=ram srvros.capture={capture} srvros.workspace-volume={volume} "
             f"srvros.ssd-fixture={fixture}")
 
 
@@ -143,8 +144,8 @@ def read_log(root, fixture, phase):
     return data.decode("ascii", errors="replace")
 
 
-def compare_log(receipt, plan, phase):
-    cmdline = profile(plan["workspace_volume"], plan["fixture"])
+def compare_log(receipt, plan, phase, *, internal=False):
+    cmdline = profile(plan["workspace_volume"], plan["fixture"], internal=internal)
     expected = f"air61-scratch: profile {cmdline}"
     relevant = [line for line in receipt.splitlines() if line.startswith("air61-scratch:")]
     if phase == "armed":
@@ -152,10 +153,11 @@ def compare_log(receipt, plan, phase):
         return
     require(phase in ("write", "verify"), "Unknown receipt phase")
     writes, flushes = (PAGE // SECTOR, 1) if phase == "write" else (0, 0)
+    lba = plan["write_lba"] if internal else SCRATCH_LBA + PAGE // SECTOR
     require(relevant == [
         expected, f"air61-scratch: phase={phase}",
         f"air61-scratch: pages-sha256={plan['written_pages_sha256']} "
-        f"lba={SCRATCH_LBA + PAGE // SECTOR} sectors={PAGE // SECTOR} writes={writes} flushes={flushes}",
+        f"lba={lba} sectors={PAGE // SECTOR} writes={writes} flushes={flushes}",
         "air61-scratch: result=PASS internal_mounted=no",
     ], f"{phase} result, digest, or command counts differ")
     trace = read_port_trace_for_profile(receipt, expected, reset=True)

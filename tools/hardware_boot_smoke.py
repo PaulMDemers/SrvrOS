@@ -449,8 +449,10 @@ def main():
         with (logs / "hardware-grub-qemu.log").open("wb") as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
-                if boot.AIR61_SSD_RE.fullmatch(manifest["config_version"]):
-                    marker = "air61-ssd: REFUSED platform or invalid profile; restart manually"
+                work = boot.AIR61_WORK_RE.fullmatch(manifest["config_version"])
+                if work or boot.AIR61_SSD_RE.fullmatch(manifest["config_version"]):
+                    marker = ("air61-scratch: REFUSED platform or invalid profile" if work else
+                              "air61-ssd: REFUSED platform or invalid profile; restart manually")
                     text = wait_for(serial, lambda s: marker in s, process, args.boot_wait)
                     assert "SRVROS_GRUB_CHAINLOAD_TEST" in text and not has_fatal_exception(text)
                     assert not any(s in text for s in ("ahci: abar=", "air61-ssd-sample:", "air61-ssd-controller:",

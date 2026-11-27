@@ -24,6 +24,7 @@ static uint8_t primary_gpt[34 * AHCI_SECTOR_SIZE];
 static uint8_t backup_gpt[33 * AHCI_SECTOR_SIZE], scratch_medium[3 * AHCI_IO_PAGE_BYTES];
 static bool short_write, flush_error;
 static unsigned model_writes, model_flushes;
+static uint64_t model_scratch_lba = AIR61_SCRATCH_LBA;
 static uint64_t batched_lba[128];
 static unsigned batched_sectors[128], batch_count;
 static volatile struct hba_port *reset_port;
@@ -144,15 +145,15 @@ uint64_t timer_monotonic_us(void) {
                     assert(lba + count <= AIR61_SSD_SECTORS);
                     memcpy(buffer, backup_gpt + (lba - (AIR61_SSD_SECTORS - 33)) * AHCI_SECTOR_SIZE, size);
                 } else {
-                    assert(lba >= AIR61_SCRATCH_LBA && lba + count <= AIR61_SCRATCH_LBA + 24);
-                    memcpy(buffer, scratch_medium + (lba - AIR61_SCRATCH_LBA) * AHCI_SECTOR_SIZE, size);
+                    assert(lba >= model_scratch_lba && lba + count <= model_scratch_lba + 24);
+                    memcpy(buffer, scratch_medium + (lba - model_scratch_lba) * AHCI_SECTOR_SIZE, size);
                 }
             } else if (opcode == ATA_CMD_WRITE_DMA_EXT) {
                 assert(count == 1 && (header.flags & (1u << 6)) &&
-                       lba == AIR61_SCRATCH_LBA + AIR61_SCRATCH_PAGE_SECTORS + model_writes);
+                       lba == model_scratch_lba + AIR61_SCRATCH_PAGE_SECTORS + model_writes);
                 model_writes++;
                 if (short_write) size--;
-                memcpy(scratch_medium + (lba - AIR61_SCRATCH_LBA) * AHCI_SECTOR_SIZE, buffer, size);
+                memcpy(scratch_medium + (lba - model_scratch_lba) * AHCI_SECTOR_SIZE, buffer, size);
             } else {
                 assert(opcode == ATA_CMD_FLUSH_CACHE_EXT && !(header.flags & (1u << 6)) &&
                        count == 0 && lba == 0 && model_writes == AIR61_SCRATCH_PAGE_SECTORS);
@@ -346,14 +347,9 @@ static void start_scratch_model(struct ahci_disk *disk) {
     short_write = flush_error = false;
 }
 
-static void air61_scratch_contract(void) {
+static void air61_scratch_proof(uint8_t proof[64]) {
     uint8_t *gpt = primary_gpt + 512;
     uint8_t *entries = primary_gpt + 1024;
-    uint8_t *entry = entries + 128;
-    memcpy(entry, "\xf1\x65\x03\x7a\xa3\xb9\xea\x40\x8e\x6a\xd1\xe2\xba\x82\x40\x70", 16);
-    entry[16] = 2;
-    put_le(entry + 32, AIR61_SCRATCH_LBA, 8);
-    put_le(entry + 40, AIR61_SCRATCH_LBA + 23, 8);
     put_le(gpt + 88, fixture_crc(entries, 128 * 128), 4);
     put_le(gpt + 16, 0, 4);
     put_le(gpt + 16, fixture_crc(gpt, 92), 4);
@@ -365,44 +361,98 @@ static void air61_scratch_contract(void) {
     put_le(backup_header + 72, AIR61_SSD_SECTORS - 33, 8);
     put_le(backup_header + 16, 0, 4);
     put_le(backup_header + 16, fixture_crc(backup_header, 92), 4);
-    uint8_t proof[64], initial[sizeof(scratch_medium)];
     sha256_digest(primary_gpt, sizeof(primary_gpt), proof);
     sha256_digest(backup_gpt, sizeof(backup_gpt), proof + 32);
+}
+
+static void air61_scratch_contract(void) {
+    uint8_t *entries = primary_gpt + 1024;
+    uint8_t *entry = entries + 128;
+    memcpy(entry, "\xf1\x65\x03\x7a\xa3\xb9\xea\x40\x8e\x6a\xd1\xe2\xba\x82\x40\x70", 16);
+    entry[16] = 2;
+    put_le(entry + 32, AIR61_SCRATCH_LBA, 8);
+    put_le(entry + 40, AIR61_SCRATCH_LBA + 23, 8);
+    uint8_t proof[64], initial[sizeof(scratch_medium)];
+    air61_scratch_proof(proof);
     for (unsigned i = 0; i < 3; i++) air61_scratch_page(proof, i, initial + i * AHCI_IO_PAGE_BYTES);
     memcpy(scratch_medium, initial, sizeof(initial));
 
     struct ahci_disk disk;
     start_scratch_model(&disk);
     assert(!issue_command(&disk, ATA_CMD_WRITE_DMA_EXT, AIR61_SCRATCH_LBA + 8, 1, true));
+    disk.scratch_lba = AIR61_SCRATCH_LBA;
     disk.scratch_armed = true;
     assert(!issue_command(&disk, ATA_CMD_WRITE_DMA_EXT, AIR61_SCRATCH_LBA + 7, 1, true));
     assert(!issue_command(&disk, ATA_CMD_WRITE_DMA_EXT, AIR61_SCRATCH_LBA + 8, 2, true));
     assert(!ahci_flush(disk.block) && !commands_issued);
     disk.scratch_armed = false;
     proof[32] ^= 1;
-    assert(!air61_scratch_io(&disk, proof, false) && !model_writes && !model_flushes);
+    assert(!air61_scratch_io(&disk, proof, false, false) && !model_writes && !model_flushes);
     proof[32] ^= 1;
 
     start_scratch_model(&disk);
-    assert(air61_scratch_io(&disk, proof, false) && model_writes == 8 && model_flushes == 1);
+    assert(air61_scratch_io(&disk, proof, false, false) && model_writes == 8 && model_flushes == 1);
     assert(!memcmp(scratch_medium, initial, AHCI_IO_PAGE_BYTES));
     assert(!memcmp(scratch_medium + 2 * AHCI_IO_PAGE_BYTES, initial + 2 * AHCI_IO_PAGE_BYTES, AHCI_IO_PAGE_BYTES));
     assert(memcmp(scratch_medium + AHCI_IO_PAGE_BYTES, initial + AHCI_IO_PAGE_BYTES, AHCI_IO_PAGE_BYTES));
     start_scratch_model(&disk);
-    assert(air61_scratch_io(&disk, proof, true) && !model_writes && !model_flushes);
-    assert(!air61_scratch_io(&disk, proof, false) && !model_writes && !model_flushes);
+    assert(air61_scratch_io(&disk, proof, true, false) && !model_writes && !model_flushes);
+    assert(!air61_scratch_io(&disk, proof, false, false) && !model_writes && !model_flushes);
     scratch_medium[0] ^= 1;
-    assert(!air61_scratch_io(&disk, proof, true) && !model_writes && !model_flushes);
+    assert(!air61_scratch_io(&disk, proof, true, false) && !model_writes && !model_flushes);
 
     start_scratch_model(&disk);
     memcpy(scratch_medium, initial, sizeof(initial));
     short_write = true;
-    assert(!air61_scratch_io(&disk, proof, false) && model_writes == 1 && !model_flushes && !disk.scratch_armed);
+    assert(!air61_scratch_io(&disk, proof, false, false) && model_writes == 1 && !model_flushes && !disk.scratch_armed);
     start_scratch_model(&disk);
     memcpy(scratch_medium, initial, sizeof(initial));
     flush_error = true;
-    assert(!air61_scratch_io(&disk, proof, false) && model_writes == 8 && model_flushes == 1 && disk.failed);
+    assert(!air61_scratch_io(&disk, proof, false, false) && model_writes == 8 && model_flushes == 1 && disk.failed);
     puts("air61-ahci-scratch: PASS grant bounds, fixture refusal, exact write/flush, reboot verify, short DMA and flush failure");
+}
+
+static void air61_work_contract(void) {
+    uint8_t *efi = primary_gpt + 1024;
+    uint8_t *linux_root = efi + 128;
+    uint8_t *work = linux_root + 128;
+    memcpy(work, linux_root, 128);
+    work[16] = 3;
+    put_le(efi + 40, 2203647, 8);
+    memcpy(linux_root, "\xaf\x3d\xc6\x0f\x83\x84\x72\x47\x8e\x79\x3d\x69\xd8\x47\x7d\xe4", 16);
+    put_le(linux_root + 32, 2203648, 8);
+    put_le(linux_root + 40, AIR61_WORK_LBA - 1, 8);
+    put_le(work + 32, AIR61_WORK_LBA, 8);
+    put_le(work + 40, AIR61_WORK_LBA + AIR61_WORK_SECTORS - 1, 8);
+
+    uint8_t proof[64], initial[sizeof(scratch_medium)];
+    struct ahci_disk disk;
+    model_scratch_lba = AIR61_WORK_GUARDS_LBA;
+    put_le(linux_root + 40, AIR61_WORK_LBA - 2, 8);
+    air61_scratch_proof(proof);
+    start_scratch_model(&disk);
+    assert(!air61_scratch_io(&disk, proof, false, true) && !model_writes && !model_flushes);
+    put_le(linux_root + 40, AIR61_WORK_LBA - 1, 8);
+    air61_scratch_proof(proof);
+    for (unsigned i = 0; i < 3; i++) air61_scratch_page(proof, i, initial + i * AHCI_IO_PAGE_BYTES);
+    memcpy(scratch_medium, initial, sizeof(initial));
+    start_scratch_model(&disk);
+    assert(!air61_scratch_io(&disk, proof, false, false) && !model_writes && !model_flushes);
+
+    disk.scratch_lba = AIR61_WORK_GUARDS_LBA;
+    disk.scratch_armed = true;
+    assert(!issue_command(&disk, ATA_CMD_WRITE_DMA_EXT, AIR61_WORK_LBA - 1, 1, true));
+    assert(!issue_command(&disk, ATA_CMD_WRITE_DMA_EXT, AIR61_WORK_GUARDS_LBA, 1, true));
+    assert(!issue_command(&disk, ATA_CMD_WRITE_DMA_EXT, AIR61_WORK_GUARDS_LBA + 16, 1, true));
+    assert(!ahci_flush(disk.block) && !model_writes && !model_flushes);
+
+    start_scratch_model(&disk);
+    assert(air61_scratch_io(&disk, proof, false, true) && model_writes == 8 && model_flushes == 1);
+    assert(!memcmp(scratch_medium, initial, AHCI_IO_PAGE_BYTES));
+    assert(!memcmp(scratch_medium + 2 * AHCI_IO_PAGE_BYTES, initial + 2 * AHCI_IO_PAGE_BYTES, AHCI_IO_PAGE_BYTES));
+    start_scratch_model(&disk);
+    assert(air61_scratch_io(&disk, proof, true, true) && !model_writes && !model_flushes);
+    puts("air61-ahci-work: PASS exact internal layout, protected ranges, write/flush and read-only reboot verification");
 }
 
 static void air61_port_trace_contract(void) {
@@ -536,6 +586,7 @@ int main(void) {
     air61_probe_contract();
     air61_partition_contract();
     air61_scratch_contract();
+    air61_work_contract();
     air61_port_trace_contract();
     air61_reset_contract();
     air61_normal_init_contract();
