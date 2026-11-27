@@ -31,6 +31,7 @@ static unsigned trackpad_queue_starts, trackpad_queue_stops;
 static unsigned trackpad_mouse_reports;
 static bool mock_trackpad_dummy_overlay;
 static bool mock_trackpad_recovery, mock_trackpad_retry_wait_fails;
+static bool mock_desktop_mode_switch, mock_desktop_first_write_fails;
 static uint64_t trackpad_normal_at;
 static unsigned keyboard_packet_bytes;
 static bool keyboard_stop_stuck;
@@ -131,6 +132,29 @@ void pci_write_config32(const struct pci_device *p, uint8_t offset, uint32_t val
 
 bool timer_delay_us(uint64_t delay) {
     now += delay;
+    if (mock_desktop_mode_switch) {
+        uint32_t cmd = op[EHCI_USBCMD];
+        op[EHCI_USBSTS] = (cmd & EHCI_CMD_PERIODIC ? EHCI_STS_PERIODIC : 0) |
+            (cmd & EHCI_CMD_ASYNC ? EHCI_STS_ASYNC : 0);
+        if (!(cmd & EHCI_CMD_ASYNC)) return true;
+        assert(!(cmd & EHCI_CMD_PERIODIC) && control_dma->qh.endpoint == 0x0808c003u);
+        assert(control_dma->setup.value == 0x0300 && !control_dma->setup.index && control_dma->setup.length == 8);
+        unsigned step = trackpad_control_requests++;
+        bool fail = step == 3 && mock_desktop_first_write_fails;
+        if (!(step & 1u)) {
+            assert(control_dma->setup.request_type == 0xa1 && control_dma->setup.request == 1);
+            memcpy(control_dma->data, feature_bytes, sizeof(feature_bytes));
+            control_dma->data[0] = mock_feature_readback;
+        } else {
+            assert(control_dma->setup.request_type == 0x21 && control_dma->setup.request == 9);
+            assert(control_dma->data[0] == ((step & 2u) ? 1 : 8));
+            assert(!memcmp(control_dma->data + 1, feature_bytes + 1, sizeof(feature_bytes) - 1));
+            if (!fail) mock_feature_readback = control_dma->data[0];
+        }
+        control_dma->setup_td.token = control_dma->data_td.token = 0;
+        control_dma->status_td.token = fail ? EHCI_TD_HALTED : 0;
+        return true;
+    }
     if (mock_bulk) {
         if (!(op[EHCI_USBCMD] & EHCI_CMD_ASYNC)) {
             op[EHCI_USBSTS] &= ~EHCI_STS_ASYNC;
@@ -408,6 +432,7 @@ static void fixture_reset(void) {
     trackpad_mouse_reports = 0;
     mock_trackpad_dummy_overlay = false;
     mock_trackpad_recovery = mock_trackpad_retry_wait_fails = false;
+    mock_desktop_mode_switch = mock_desktop_first_write_fails = false;
     trackpad_normal_at = 0;
     trackpad_control_requests = trackpad_dma_allocations = trackpad_prompt_syncs = 0;
     trackpad_configured_at = 0;
@@ -874,6 +899,75 @@ static void retire_desktop_test_report(struct ehci_trackpad_dma *queue, unsigned
     queue->qh.overlay.token = active->td.token;
 }
 
+static void test_desktop_persistent_mode_recovery(void) {
+    const uint8_t legacy[] = {0x02, 0, 7, 0, 0, 0, 9, 0};
+    const uint8_t native[58] = {0x74, [46] = 5};
+    for (unsigned scenario = 0; scenario < 3; scenario++) {
+        fixture_reset();
+        desktop_trackpad = (struct ehci_desktop_trackpad){0};
+        struct ehci_dma control;
+        struct ehci_trackpad_dma queues[2];
+        struct ehci_probe_report *report = &desktop_trackpad.report;
+        const struct ehci_control_target target = { .address = 3, .packet_size = 8, .tt_hub = 1, .tt_port = 2 };
+        report->trackpad_target = target;
+        struct ehci_control_path path = { .op = op, .dma = &control, .physical = 0x9000, .report = report };
+        struct trackpad_pointer pointer = {0};
+        unsigned slot = 0;
+        uint64_t last_report = 0;
+        prepare_trackpad_queue(&queues[0], 0xa000, &target, &trackpad_endpoint);
+        prepare_trackpad_queue(&queues[1], 0xa000 + sizeof(queues[0]), &target, &keyboard_endpoint);
+        queues[1].qh.overlay.token |= EHCI_TD_DATA1;
+        uint8_t keyboard_before[sizeof(queues[1])];
+        memcpy(keyboard_before, &queues[1], sizeof(keyboard_before));
+        report->trackpad.first_td = queues[0].qh.overlay.next;
+        control_dma = &control;
+        mock_desktop_mode_switch = true;
+        mock_desktop_first_write_fails = scenario == 1;
+        mock_feature_readback = 1;
+        op[EHCI_USBCMD] = EHCI_CMD_RUN | EHCI_CMD_PERIODIC;
+        op[EHCI_USBSTS] = EHCI_STS_PERIODIC;
+        op[EHCI_PORTSC] = EHCI_PORT_CONNECTED;
+
+        retire_desktop_test_report(&queues[0], slot, legacy, sizeof(legacy));
+        queues[0].qh.overlay.token |= EHCI_TD_DATA1;
+        assert(!desktop_trackpad_poll(&path, &queues[0], &pointer, &slot, &last_report));
+        assert(desktop_trackpad.mode_attempts == 1 && trackpad_control_requests == 4);
+        assert(queues[0].qh.overlay.token & EHCI_TD_DATA1);
+        assert((desktop_trackpad.attempts[0].control_error != NULL) == mock_desktop_first_write_fails);
+        assert(op[EHCI_USBSTS] == EHCI_STS_PERIODIC && (queues[1].slots[0].td.token & EHCI_TD_ACTIVE));
+
+        now = desktop_trackpad.retry_activated_us + EHCI_DESKTOP_RECOVERY_INTERVAL_US - 1;
+        retire_desktop_test_report(&queues[0], slot, legacy, sizeof(legacy));
+        assert(!desktop_trackpad_poll(&path, &queues[0], &pointer, &slot, &last_report));
+        assert(desktop_trackpad.mode_attempts == 1 && desktop_trackpad.legacy_reports == 2);
+        assert(desktop_trackpad.attempts[0].first_reply_length == 8 && desktop_trackpad.attempts[0].first_reply_id == 2);
+
+        unsigned target_attempts = scenario == 0 ? 1 : scenario == 1 ? 2 : EHCI_DESKTOP_RECOVERY_ATTEMPTS;
+        while (desktop_trackpad.mode_attempts < target_attempts) {
+            now = desktop_trackpad.retry_activated_us + EHCI_DESKTOP_RECOVERY_INTERVAL_US;
+            retire_desktop_test_report(&queues[0], slot, legacy, sizeof(legacy));
+            assert(!desktop_trackpad_poll(&path, &queues[0], &pointer, &slot, &last_report));
+        }
+        assert(trackpad_control_requests == 4 * target_attempts && mock_feature_readback == 1);
+        assert(!desktop_trackpad.malformed && !desktop_trackpad.reports);
+        assert(desktop_trackpad.attempts[target_attempts - 1].waited_us >= EHCI_TRACKPAD_MODE_RETRY_US);
+
+        now = desktop_trackpad.retry_activated_us + 2 * EHCI_DESKTOP_RECOVERY_INTERVAL_US;
+        if (scenario == 2) {
+            retire_desktop_test_report(&queues[0], slot, legacy, sizeof(legacy));
+            assert(!desktop_trackpad_poll(&path, &queues[0], &pointer, &slot, &last_report));
+            assert(!desktop_trackpad.reports && !ehci_desktop_trackpad_verified());
+        } else {
+            retire_desktop_test_report(&queues[0], slot, native, sizeof(native));
+            assert(!desktop_trackpad_poll(&path, &queues[0], &pointer, &slot, &last_report));
+            assert(desktop_trackpad.reports == 1 && !desktop_trackpad.malformed);
+            assert(desktop_trackpad.attempts[target_attempts - 1].first_valid_us != 0);
+        }
+        assert(desktop_trackpad.mode_attempts == target_attempts && trackpad_control_requests == 4 * target_attempts);
+        assert(!memcmp(keyboard_before, &queues[1], sizeof(keyboard_before)));
+    }
+}
+
 static void test_desktop_shared_tt_schedule(void) {
     fixture_reset();
     struct ehci_trackpad_dma queues[2];
@@ -1053,6 +1147,7 @@ int main(void) {
     test_captured_keyboard_interface();
     test_trackpad_capture();
     test_trackpad_mode_retry();
+    test_desktop_persistent_mode_recovery();
     test_desktop_shared_tt_schedule();
     test_desktop_trackpad_input();
     test_flash_bulk();

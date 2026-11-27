@@ -282,11 +282,20 @@ static struct ehci_monitor_session {
 } monitor_session;
 
 #define EHCI_DESKTOP_MALFORMED_SAMPLES 4u
+#define EHCI_DESKTOP_RECOVERY_ATTEMPTS 4u
+#define EHCI_DESKTOP_RECOVERY_INTERVAL_US 1000000u
 struct ehci_desktop_frame_sample {
-    uint64_t observed_us, previous_valid_us;
+    uint64_t observed_us, previous_valid_us, retry_activated_us;
     uint32_t qtd_token, overlay_token, frame_index;
     unsigned completion, length;
     uint8_t bytes[EHCI_DESCRIPTOR_BYTES];
+};
+
+struct ehci_desktop_mode_attempt {
+    uint64_t trigger, waited_us, switch_us, resumed_at_us, first_reply_us, first_valid_us;
+    unsigned trigger_completion, first_reply_completion, first_reply_length, first_reply_id;
+    uint8_t mode_at_reset, mode_before_retry;
+    const char *control_error;
 };
 
 struct ehci_desktop_request_sample {
@@ -313,7 +322,9 @@ static struct ehci_desktop_trackpad {
     enum ehci_monitor_state state;
     unsigned completions, reports, ignored, malformed, motion, presses, releases;
     unsigned keyboard_reports, keyboard_invalid, keyboard_presses, keyboard_releases;
+    unsigned legacy_reports, mode_attempts;
     bool trace;
+    struct ehci_desktop_mode_attempt attempts[EHCI_DESKTOP_RECOVERY_ATTEMPTS];
     struct ehci_desktop_queue_trace trackpad_trace, keyboard_trace;
     struct ehci_desktop_frame_sample malformed_samples[EHCI_DESKTOP_MALFORMED_SAMPLES];
     const char *failure;

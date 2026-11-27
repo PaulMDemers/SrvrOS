@@ -115,24 +115,55 @@ static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct 
     struct apple_trackpad_frame frame;
     desktop_trackpad.completions++;
     int decoded = apple_trackpad_decode_type(EHCI_TRACKPAD_TYPE, data, length, &frame);
-    bool retry = decoded < 0 && length == 8 && !desktop_trackpad.reports && !capture->recovery.attempted;
+    uint64_t now = timer_monotonic_us();
+    unsigned attempts = desktop_trackpad.mode_attempts;
+    if (attempts) {
+        struct ehci_desktop_mode_attempt *previous = &desktop_trackpad.attempts[attempts - 1];
+        if (!previous->first_reply_completion) {
+            previous->first_reply_completion = desktop_trackpad.completions;
+            previous->first_reply_us = now - previous->resumed_at_us;
+            previous->first_reply_length = length;
+            previous->first_reply_id = length ? data[0] : 0;
+        }
+        if (decoded > 0 && !previous->first_valid_us) previous->first_valid_us = now - previous->resumed_at_us;
+    }
+
+    /* A lone legacy reply can be buffered at the switch. Give native frames
+     * a full second to arrive before treating another legacy reply as stuck. */
+    bool legacy = !desktop_trackpad.reports && length == 8 && data[0] == 0x02;
+    desktop_trackpad.legacy_reports += legacy;
+    bool retry = !desktop_trackpad.reports && length == 8 &&
+        (!attempts || (legacy && attempts < EHCI_DESKTOP_RECOVERY_ATTEMPTS &&
+            now - desktop_trackpad.retry_activated_us >= EHCI_DESKTOP_RECOVERY_INTERVAL_US));
     uint64_t retry_completed = 0;
     if (retry) {
         capture->last_eight_byte_sample = trackpad_report_word(data);
+        capture->recovery = (struct ehci_trackpad_recovery){0};
+        struct ehci_desktop_mode_attempt *attempt = &desktop_trackpad.attempts[desktop_trackpad.mode_attempts++];
+        attempt->trigger = capture->last_eight_byte_sample;
+        attempt->trigger_completion = desktop_trackpad.completions;
         const char *failure = retry_trackpad_mode(path, &retry_completed, false);
-        if (failure) return failure;
+        attempt->control_error = failure;
+        attempt->waited_us = capture->recovery.waited_us;
+        attempt->switch_us = capture->recovery.switch_us;
+        attempt->mode_at_reset = capture->recovery.mode_at_reset;
+        attempt->mode_before_retry = capture->recovery.mode_before_retry;
+        /* A failed feature request may leave EP0 safe and idle. Resume the
+         * keyboard's schedule whenever ownership and the dummy are intact. */
+        if (failure && !schedules_idle(path)) return failure;
         if (!trackpad_queue_parked(progress, next, retired, dummy)) return "parked queue changed during mode retry";
     } else if (decoded > 0) {
         desktop_trackpad.reports++;
-        *last_report = timer_monotonic_us();
+        *last_report = now;
         desktop_trackpad_pointer(pointer, &frame);
-    } else if (decoded < 0) {
+    } else if (decoded < 0 && !legacy) {
         /* Sample only retired requests, before the buffer can be reused. */
         unsigned sample = desktop_trackpad.malformed++;
         if (sample < EHCI_DESKTOP_MALFORMED_SAMPLES) {
             struct ehci_desktop_frame_sample *trace = &desktop_trackpad.malformed_samples[sample];
-            trace->observed_us = timer_monotonic_us();
+            trace->observed_us = now;
             trace->previous_valid_us = *last_report;
+            trace->retry_activated_us = desktop_trackpad.retry_activated_us;
             trace->qtd_token = token;
             trace->overlay_token = progress->qh.overlay.token;
             trace->frame_index = path->op[EHCI_FRINDEX] & EHCI_FRINDEX_MASK;
@@ -141,7 +172,7 @@ static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct 
             for (unsigned i = 0; i < length; i++) trace->bytes[i] = data[i];
         }
         cancel_desktop_pointer(pointer);
-    } else desktop_trackpad.ignored++;
+    } else if (!legacy) desktop_trackpad.ignored++;
 
     park_trackpad_qtd(&dma->slots[*slot].td);
     publish_trackpad_qtd(&dma->slots[next].td, retired,
@@ -151,7 +182,8 @@ static const char *desktop_trackpad_poll(struct ehci_control_path *path, struct 
         if (!enable_periodic(path)) return "periodic resume after mode retry failed";
         capture->recovery.resumed = true;
         desktop_trackpad.retry_activated_us = timer_monotonic_us();
-        capture->recovery.mode_to_active_us = desktop_trackpad.retry_activated_us - retry_completed;
+        desktop_trackpad.attempts[attempts].resumed_at_us = desktop_trackpad.retry_activated_us;
+        if (retry_completed) capture->recovery.mode_to_active_us = desktop_trackpad.retry_activated_us - retry_completed;
     }
     return NULL;
 }
@@ -295,7 +327,7 @@ static void print_desktop_frame_samples(void) {
         (uint64_t)count, (uint64_t)(desktop_trackpad.malformed - count));
     for (unsigned i = 0; i < count; i++) {
         const struct ehci_desktop_frame_sample *sample = &desktop_trackpad.malformed_samples[i];
-        uint64_t retry_us = desktop_trackpad.retry_activated_us;
+        uint64_t retry_us = sample->retry_activated_us;
         bool after_retry = retry_us && sample->observed_us >= retry_us;
         uint64_t phase_start = after_retry ? retry_us : desktop_trackpad.activated_us;
         console_printf("ehci-desktop-malformed: completion=%u length=%u phase=%s observed-us=%u phase-us=%u\n",
@@ -348,6 +380,22 @@ void ehci_desktop_trackpad_print_trace(const char *phase) {
         (uint64_t)capture->recovery.resumed, trackpad_report_word(capture->feature_before),
         trackpad_report_word(capture->feature_write), trackpad_report_word(capture->recovery.normal),
         trackpad_report_word(capture->recovery.wellspring));
+    unsigned count = desktop_trackpad.mode_attempts;
+    console_printf("ehci-desktop-recovery: phase=%s legacy=%u attempts=%u recovered=%u exhausted=%u\n",
+        phase, (uint64_t)desktop_trackpad.legacy_reports, (uint64_t)count,
+        (uint64_t)(count && desktop_trackpad.reports),
+        (uint64_t)(count == EHCI_DESKTOP_RECOVERY_ATTEMPTS && !desktop_trackpad.reports));
+    for (unsigned i = 0; i < count; i++) {
+        const struct ehci_desktop_mode_attempt *attempt = &desktop_trackpad.attempts[i];
+        console_printf("ehci-desktop-recovery: phase=%s attempt=%u trigger-completion=%u trigger=%x reset-read=%u retry-read=%u waited-us=%u switch-us=%u resumed=%u control=%s\n",
+            phase, (uint64_t)(i + 1), (uint64_t)attempt->trigger_completion, attempt->trigger,
+            (uint64_t)attempt->mode_at_reset, (uint64_t)attempt->mode_before_retry, attempt->waited_us,
+            attempt->switch_us, (uint64_t)(attempt->resumed_at_us != 0),
+            attempt->control_error ? attempt->control_error : "ok");
+        console_printf("ehci-desktop-recovery: phase=%s attempt=%u reply-completion=%u reply-us=%u reply-length=%u reply-id=%x first-valid-us=%u\n",
+            phase, (uint64_t)(i + 1), (uint64_t)attempt->first_reply_completion, attempt->first_reply_us,
+            (uint64_t)attempt->first_reply_length, (uint64_t)attempt->first_reply_id, attempt->first_valid_us);
+    }
     print_desktop_queue(phase, &trackpad_endpoint, &desktop_trackpad.trackpad_trace);
     print_desktop_queue(phase, &keyboard_endpoint, &desktop_trackpad.keyboard_trace);
 }

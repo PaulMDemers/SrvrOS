@@ -1068,6 +1068,17 @@ requests. The underlying reason the report format persisted is still open.
 Ubuntu consumed all three one-shots, and all six flash reports matched
 their archived copies on the final remount. Prior user files were preserved.
 
+The desktop recovery now waits an interval of one second before retrying
+again on an eight-byte `0x02` startup response, up to four total attempts.
+It stops retrying after valid trackpad reports begin. The first response
+after each attempt and the time to the first valid frame are recorded in
+the startup and final diagnostics. The worker preserves both queues and
+their data toggles. A failed feature transfer can resume the keyboard
+schedule after idle and parked-descriptor checks. The existing report
+path records these attempts and continues to count other malformed frames.
+Linux uses the same one-second throttle for a repeated mode reset.
+[Linux mode recovery](https://github.com/torvalds/linux/commit/fc1e8a6f129d87c64ac8e58b50d9dfa66217cfda)
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
