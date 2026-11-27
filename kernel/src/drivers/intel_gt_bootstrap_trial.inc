@@ -360,6 +360,7 @@ static bool command_returned(void);
 static bool gt_slot_live(void);
 static bool bootstrap_command_reservation(const struct bdw_boot_binding *);
 static bool slot_queue_boundary(unsigned phase);
+static bool slot_boot_page_preflight(void);
 static bool slot_pipe_writer_open(void);
 static bool slot_pipe_writer_reopen_bound(void);
 static bool slot_pipe_writer_close(void);
@@ -378,7 +379,7 @@ static bool bootstrap_command(unsigned value) {
  if(value==7 && !command_returned())return bootstrap_fail(1024);
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(value==7 && (!slot_queue_boundary(0) || !slot_pipe_writer_open()))return false;
+ if(value==7 && (!slot_queue_boundary(0) || !slot_boot_page_preflight() || !slot_pipe_writer_open()))return false;
  if(!gt_slot_live() || !bootstrap_smi_check(BOOT_SMI_PCI) || !bootstrap_tick())return false;
  if(value==7 && !slot_pipe_writer_reopen_bound())return false;
 #endif

@@ -493,6 +493,8 @@ static void intel_display_test_bootstrap_smi_cpuid(uint32_t leaf,uint32_t *a,uin
 }
 static uint32_t intel_display_test_bootstrap_smi_count(unsigned point) {
  assert(wake_irq && !display_access_allowed());
+ if(point==BOOT_SMI_PIPE && boot_page_preflight.sampling)
+  return bootstrap_smi.first+bf("boot-page-smi",boot_page_preflight.stage);
  if(point==BOOT_SMI_PIPE)return bootstrap_smi.first+(gpu_command==7 && bf("pipe-writer-smi",1));
  if(point==BOOT_SMI_PARK)
   return bootstrap_smi.first + (bf("park-smi",air_park.smi_checks) ||
@@ -681,7 +683,7 @@ static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t 
 }
 static bool intel_display_test_bootstrap_expected(void) {
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!strcmp(bootstrap_mode,"pipe-writer"))return true;
+ if(!strcmp(bootstrap_mode,"pipe-writer") || !strcmp(bootstrap_mode,"boot-page-valid"))return true;
  if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"park-late-ack") ||
     !strcmp(bootstrap_mode,"park-rc1e") || !strcmp(bootstrap_mode,"park-rc1e-ack") ||
     !strcmp(bootstrap_mode,"park-rc1e-stale-closed") ||
@@ -927,6 +929,10 @@ static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
  assert(bootstrap_parent() && range_pa && wake_irq && !display_access_allowed());
  *out=(struct vmm_alias_observation){1,1,3,0,0,1,1};
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(boot_page_preflight.sampling) {
+  if(bf("boot-page-alias",boot_page_preflight.access.maps))out->writable=1;
+  return true;
+ }
  if(sampling_command_slots || gt_reopened.reading || gt_widi.reading || gt_widi.sampling || gt_prepare_trace.reading)return true;
  if(flush_page(range_pa)) {
   if(bf("flush-alias",++flush_aliases))out->writable=1;
@@ -950,6 +956,12 @@ static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
 }
 static bool intel_display_test_range_map(uint64_t physical) {
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(boot_page_preflight.sampling) {
+  assert(boot_page_preflight_live() && !range_pa && gpu_command==3 && model_engine_ro==31 && host_widi_held);
+  assert(physical==0xc0004000 || physical==0xc0008000 || physical==0xc0818000);
+  if(bf("boot-page-map",boot_page_preflight.access.maps+1))return false;
+  range_pa=physical;return true;
+ }
  if (air_park.active) { assert(!range_pa && physical==0xc0008000 && wake_ack); range_pa=physical; return true; }
  if(sampling_command_slots) {
   assert(command_sampling_live() && physical==0xc0816000 && !range_pa);
@@ -1045,6 +1057,10 @@ static bool intel_display_test_range_unmap(uint64_t *physical) {
 #endif
  assert(bootstrap_parent() && range_pa);
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(boot_page_preflight.sampling) {
+  if(bf("boot-page-unmap",boot_page_preflight.access.maps))return false;
+  *physical=range_pa;range_pa=0;return true;
+ }
  if(sampling_command_slots || gt_reopened.reading || gt_widi.reading || gt_widi.sampling || gt_prepare_trace.reading){*physical=range_pa;range_pa=0;return true;}
  if(flush_page(range_pa)) {
   if(bf("flush-unmap",++flush_unmaps))return false;
@@ -1078,6 +1094,26 @@ static void test_queue_handoff_word(unsigned e, unsigned i, uint32_t *word) {
 static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
  static const uint32_t reader_offsets[13]={0x180,0x19c,0x1ac,0x1b0,0x1bc,0x80,0x84,0xac,0x280,0x29c,0x2ac,0x2b0,0x2bc};
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(boot_page_preflight.sampling) {
+  assert(boot_page_preflight_live() && gpu_command==3 && model_engine_ro==31 && host_widi_held);
+  if(!range_pa) {
+   switch(offset) {
+   case 0x70040: *out=boot_page_preflight.stage==1 ? UINT32_MAX : 0; return true;
+   case 0x70180: *out=0xd8000400; return true;
+   case 0x7019c: *out=0; return true;
+   case 0x701ac: *out=bf("boot-page-plane",boot_page_preflight.stage) ? 4096 : 0; return true;
+   default: assert(false); return false;
+   }
+  }
+  assert(boot_page_preflight_register(offset) && range_pa==result.mmio_base+(offset&~4095u));
+  *out=0;
+  if(offset==BOOT_PAGE_PTE)*out=bf("boot-page-pte-drift",1) ? 0x8f006001 : 0x8f005001;
+  if(offset==0x8104 || offset==0x802c)*out=0x7f;
+  if(offset==0x40d0 || offset==0x8028)*out=0x5f;
+  if(offset==0x8014)*out=0x1f;
+  if((offset==0x4dc0 || offset==0x4dc4) && bf("boot-page-valid",offset==0x4dc0?1:2))*out=1;
+  return !bf("boot-page-read",boot_page_preflight.access.reads+1);
+ }
  static const unsigned idle_offsets[] = {0xa09c, 0xa0a8, 0xa0ac, 0xa0b0, 0x2054, 0x12054, 0x1a054, 0x1c054, 0x22054};
  static unsigned idle_reads;
  if (idle_reads < 18 && offset == idle_offsets[idle_reads % 9]) {

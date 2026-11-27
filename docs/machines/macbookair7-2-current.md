@@ -384,6 +384,23 @@ guards. The next qualification must distinguish exact-page retirement and
 maintained firmware/proxy exclusion from read-only observations. The
 original active surface stays pinned throughout.
 
+The GT flush diagnostic now takes an exact-page preflight at this boundary.
+With the engine and WiDi programming pages guarded, it records two samples
+of the WIN clock request and reply, WiDi `GO`, and the original Pipe A
+surface. Between them it captures both WiDi translation-valid vectors,
+`WTCR` on each side, and the unchanged slot 12292 entry. It checks the boot
+CPU's SMI count on both sides of the sample and retires all four temporary
+register aliases before continuing. A changed PTE, display, SMI count or
+unsafe alias stops the diagnostic before PCI bus mastering reopens. The
+collector always reports `authority=none` for this checkpoint.
+
+Gated WIN clocks and empty translation vectors can coexist with `GO=1`.
+Intel requires the WiDi pipeline to be drained before software initiates its
+TLB invalidation. The remapper and System Agent invalidations do not provide
+that engine/proxy drain or an exclusion held through a store and rollback.
+The native build contains no one-page writer. [Broadwell register reference,
+pp. 234–237, 815–816, 1607, 1620 and 1823](https://cdrdv2.intel.com/v1/dl/getcontent/690789)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

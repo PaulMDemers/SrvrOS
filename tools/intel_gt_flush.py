@@ -17,6 +17,56 @@ SMI_PREFIX = "intel-smi-guard:"
 SMI_FAULT = 2048
 
 
+def boot_page_preflight_result(text, parent, range_proof, primary, flush):
+    prefix = 'intel-boot-page-'
+    rows = [line for line in text.splitlines() if line.startswith(prefix)]
+    if not rows:
+        return None
+    suffix = ' authority=none'
+    if not rows[0].endswith(suffix):
+        raise ValueError('Boot page preflight authority')
+    summary = fields(rows[0].removesuffix(suffix), prefix + 'preflight:',
+                     ('v', 'slot', 'stage', 'epoch', 'begin', 'end', 'smi0', 'smi1', 'maps', 'retired', 'reads', 'live'),
+                     ('live',))
+    stage = summary['stage']
+    begin, end = summary['begin'], summary['end']
+    maps, retired, reads = (summary[key] for key in ('maps', 'retired', 'reads'))
+    if (summary['slot'] != 12292 or stage not in range(1, 6) or
+            len(rows) != 1 + (stage >= 2) + (stage >= 3) + (stage >= 4) or
+            summary['epoch'] != parent['epoch_after'] or not parent['post_bound'] or parent['pci_samples'] < 3 or
+            not primary['summary']['complete'] or not 0 < primary['summary']['end1'] <= begin <= end <= parent['last'] or
+            any(summary[key] >= 1 << 32 for key in ('smi0', 'smi1')) or
+            not 0 <= retired <= maps <= 4 or reads > 19 or (stage < 4 and summary['smi1']) or
+            (stage != 5 and (parent['commands'] != 1 or parent['pci_samples'] != 3))):
+        raise ValueError('Boot page preflight scope')
+    translation = None
+    if stage >= 3:
+        keys = ('gam0', 'wtcr0', 'valid0', 'valid1', 'wtcr1', 'gam1', 'high0', 'low', 'high1')
+        translation = fields(rows[1], prefix + 'translation:', ('v', *keys), keys)
+        if any(translation[key] >= 1 << 32 for key in keys):
+            raise ValueError('Boot page translation word')
+    keys = ('req', 'ack', 'win', 'reset', 'gam', 'frame', 'plane', 'programmed', 'live')
+    wireless = []
+    for index, line in enumerate(rows[1 + (translation is not None):]):
+        sample = fields(line, prefix + 'widi:', ('v', 'n', *keys), keys)
+        baseline = primary['vectors'][1]
+        if (sample['n'] != index or any(sample[key] >= 1 << 32 for key in keys) or
+                tuple(sample[key] for key in keys[-3:]) != tuple(baseline[30:33])):
+            raise ValueError('Boot page preflight surface or sample')
+        wireless.append(sample)
+    frame_delta = (wireless[1]['frame'] - wireless[0]['frame']) & 0xffffffff if stage >= 4 else None
+    if stage == 5 and (not 0 < end - begin <= 100000 or (maps, retired, reads) != (4, 4, 19) or summary['live'] or
+                       summary['smi0'] != summary['smi1'] or summary['smi0'] != (flush['smi_guard'] or {}).get('first') or
+                       frame_delta > 8 or translation['high0'] != translation['high1'] or
+                       (translation['high0'] << 32 | translation['low']) != range_proof['vectors'][1][-1]):
+        raise ValueError('Boot page preflight closing proof')
+    return dict(summary=summary, translation=translation, wireless=wireless, frame_delta=frame_delta, capture_complete=stage == 5,
+                widi_go=[bool(sample['win'] & 16) for sample in wireless],
+                win_clock_gated=[bool(sample['req'] & sample['ack'] & 32) for sample in wireless],
+                widi_tlb_empty=translation is not None and not any(translation[key] for key in ('wtcr0', 'wtcr1', 'valid0', 'valid1')),
+                write_authority=False)
+
+
 def pipe_writer_result(text, parent, primary, aux, retire):
     rows = [line for line in text.splitlines() if line.startswith(('intel-pipe-a-writer:', 'intel-pipe-a-writer-frame:'))]
     if not rows:

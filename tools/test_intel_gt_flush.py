@@ -32,6 +32,39 @@ def observe(mode, position=0, *, entry=None, binary=ROOT / TARGET):
 
 
 class FlushAcknowledgements(unittest.TestCase):
+    def test_boot_page_preflight_stays_inside_the_pci_hold(self):
+        text = observe('pass')
+        preflight = bootstrap_result(text)['flush']['boot_page_preflight']
+        self.assertTrue(preflight['capture_complete'])
+        self.assertEqual(preflight['summary']['slot'], 12292)
+        self.assertEqual(preflight['translation']['low'], 0x8f005001)
+        self.assertEqual(preflight['widi_go'], [True, True])
+        self.assertEqual(preflight['win_clock_gated'], [True, True])
+        self.assertTrue(preflight['widi_tlb_empty'])
+        self.assertFalse(preflight['write_authority'])
+        for vector in (1, 2):
+            with self.subTest(vector=vector):
+                live = bootstrap_result(observe('boot-page-valid', vector))['flush']['boot_page_preflight']
+                self.assertTrue(live['capture_complete'])
+                self.assertFalse(live['widi_tlb_empty'])
+                self.assertFalse(live['write_authority'])
+        for mode, position, stage in (('boot-page-pte-drift', 1, 3), ('boot-page-plane', 3, 3),
+                                       ('boot-page-smi', 4, 4), ('boot-page-map', 3, 2),
+                                       ('boot-page-alias', 1, 1), ('boot-page-read', 5, 1),
+                                       ('boot-page-unmap', 2, 2)):
+            with self.subTest(mode=mode):
+                fault = bootstrap_result(observe(mode, position))
+                self.assertFalse(fault['complete'])
+                self.assertEqual(fault['summary']['commands'], 1)
+                self.assertEqual(fault['summary']['pci_samples'], 3)
+                self.assertEqual(fault['summary']['pte_writes'], 0)
+                self.assertEqual(fault['flush']['boot_page_preflight']['summary']['stage'], stage)
+        lines = text.splitlines()
+        translation = next(line for line in lines if line.startswith('intel-boot-page-translation:'))
+        for altered in ('', translation.replace('low=0x8f005001', 'low=0x8f006001')):
+            with self.assertRaises(ValueError):
+                bootstrap_result(text.replace(translation, altered))
+
     def test_samples_and_timing_on_both_original_paths(self):
         for entry in (None, "disabled"):
             for mode, expected in (("pass", [0, 31, 0, 0]), ("flush-quiet", [0, 0, 0, 0]), ("flush-stale", [31, 31, 31, 31])):

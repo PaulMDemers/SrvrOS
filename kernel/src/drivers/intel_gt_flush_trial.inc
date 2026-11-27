@@ -497,6 +497,8 @@ static bool slot_queue_boundary(unsigned phase) {
     return true;
 }
 
+#include "intel_gt_boot_page_trial.inc"
+
 /* Each span contains consecutive observations of one raw request. Split
  * even identical values across a reset pulse, where MMIO coverage pauses. */
 struct gt_request_span {
@@ -997,6 +999,7 @@ retire:
 static void gt_flush_report(void) {
     park_report();
     slot_pipe_writer_report();
+    slot_boot_page_report();
     for (unsigned n = 0; n < gt_flush.samples; n += 2) {
         const uint32_t *w = gt_idle_samples[n / 2].words;
         console_printf("intel-idle-policy: v=1 phase=%u begin=%u end=%u wake_rate=%x evaluation=%x hysteresis=%x sleep=%x rcs=%x vcs0=%x vecs=%x vcs1=%x bcs=%x\n",

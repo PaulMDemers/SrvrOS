@@ -112,6 +112,14 @@ producer and establish coverage for any platform firmware access separately.
 [One-page transaction](../kernel/diagnostics/intel_bdw_boot_scanout.c)
 · [Air qualification](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
 
+The native pre-reopen checkpoint now records the exact PTE, the original
+Pipe A registers, the boot CPU SMI count and the WiDi clock, GO and TLB state
+while the five submission ports are sealed. Its observed state identifies
+what a live provider must cover. It grants no write access. A maintained
+proxy exclusion and evidence of retirement for earlier GPU accesses remain
+required before the one-page writer can attach to this checkpoint.
+[Pre-reopen checkpoint](../kernel/src/drivers/intel_gt_boot_page_trial.inc)
+
 ## Earlier qualifications
 
 The read-only CPU backing guard has been qualified for two existing 6 MiB
