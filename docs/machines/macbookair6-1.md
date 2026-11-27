@@ -15063,3 +15063,12 @@ GPT and hash verifier. The native boot records its receipt on the existing USB
 workspace and never mounts the internal disk. Installed-system work in PR550
 and offline image export in PR510 retain their existing paths. The next gate is
 fixture and exact-stage VM coverage, followed by native comparison to Ubuntu.
+
+Source `c67a01b3`, staged release `48d92d34bff03c7f`, passed AHCI and block
+host tests, the SMBIOS profile test, GPT and receipt fixtures, 290 stage
+checks, and USB workspace admission tests. The exact-stage VM refused a
+foreign machine before AHCI initialization or any mount. Ubuntu sysfs
+confirmed the full ATA model, LBA count, logical sector size, and PCI identity.
+The privileged launcher still needs to read the actual GPT and sample hashes
+in Ubuntu before the first native run. The small stage fits the EFI space
+margin without retiring an existing release. The native trial is unarmed.
