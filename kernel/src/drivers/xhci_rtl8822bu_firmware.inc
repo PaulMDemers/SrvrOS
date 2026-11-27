@@ -8,6 +8,8 @@ enum {
     BU_DDMA_SRC=0x1200, BU_DDMA_DST=0x1204, BU_DDMA=0x1208,
     BU_DDMA_OWN=1u<<31, BU_DDMA_CHECK=1u<<29, BU_DDMA_BAD=1u<<27,
     BU_DDMA_RESET=1u<<25, BU_DDMA_MORE=1u<<24, BU_MCU_READY=0xc078,
+    BU_MCU_BUSY=0xc001, BU_MCU_FLASH=1u<<20, BU_GPIO_FLASH=1u<<19,
+    BU_WLRF1=0x00ec, BU_WLRF1_BBRF=7u<<24,
 };
 
 struct bu_upload {
@@ -17,7 +19,7 @@ struct bu_upload {
     uint64_t packet_phys;
     unsigned bytes,packets;
     uint32_t mcu;
-    bool power_touched,endpoint_ready,stopped,parked;
+    bool power_touched,unexpected_mcu,endpoint_ready,stopped,parked;
 };
 
 static bool bu_image_valid(const uint8_t *data,uint64_t size) {
@@ -82,20 +84,26 @@ static bool bu_poll(struct xhci_device *d,uint16_t reg,uint16_t width,uint32_t m
 
 static bool bu_radio_off(struct xhci_device *d) {
     uint32_t a,b,c;
-    return bu_read(d,0x02,1,&a) && !(a&3) && bu_read(d,0x1f,1,&b) && !(b&7) &&
-           bu_read(d,0xec,4,&c) && !(c&0x1c000007u);
+    if(!bu_read(d,0x02,1,&a) || !bu_read(d,0x1f,1,&b) || !bu_read(d,BU_WLRF1,4,&c))return false;
+    bool parked=!(a&3) && !(b&7) && !(c&BU_WLRF1_BBRF);
+    console_printf("rtl8822bu-radio-gate: sys_func=%x rf_ctrl=%x wlrf1=%x parked=%u\n",
+        (uint64_t)a,(uint64_t)b,(uint64_t)c,(uint64_t)parked);
+    return parked;
 }
 
-static bool bu_power_on(struct bu_upload *up) {
+static const char *bu_power_on(struct bu_upload *up) {
     struct xhci_device *d=up->device;
-    uint32_t value,status;
-    if(!bu_read(d,BU_CR,1,&value) || !bu_read(d,0x00f5,1,&status) ||
-       (value!=0xea && !(status&1)))return false;
+    uint32_t value,status,mcu;
+    if(!bu_read(d,BU_CR,1,&value) || !bu_read(d,0x00f5,1,&status) || !bu_read(d,BU_MCU,4,&mcu))
+        return "entry-read";
+    console_printf("rtl8822bu-power-entry: cr=%x sys_status=%x mcu=%x\n",
+        (uint64_t)value,(uint64_t)status,(uint64_t)mcu);
+    if((value!=0xea && !(status&1)) || (mcu&BU_MCU_BUSY))return "entry-owner";
     up->power_touched=true;
     if(!bu_write(d,0x001c,1,0) || !bu_update(d,0x0064,4,0,0x30000000u) ||
        !bu_update(d,0x004c,4,0x06000000u,0) || !bu_update(d,0x0040,4,0,4) ||
        !bu_update(d,0x0002,1,3,0) || !bu_update(d,0x001f,1,7,0) ||
-       !bu_update(d,0x00ec,4,0x1c000007u,0))return false;
+       !bu_update(d,BU_WLRF1,4,BU_WLRF1_BBRF,0))return "prepare";
 
     /* USB card-disabled -> emulation -> active. Cut 3 skips the cut-C-only
      * rows. The delay and the two polls are barriers between register writes. */
@@ -107,17 +115,36 @@ static bool bu_power_on(struct bu_upload *up) {
         {0x20,8,8},{0x29,0xff,0xf9},{0x24,4,0},{0xaf,0x20,0x20},{0xf5,1,0},
     };
     for(unsigned i=0;i<sizeof before_ready/sizeof before_ready[0];i++)
-        if(!bu_update(d,before_ready[i].reg,1,before_ready[i].clear,before_ready[i].bits))return false;
+        if(!bu_update(d,before_ready[i].reg,1,before_ready[i].clear,before_ready[i].bits))return "emulation";
     if(!timer_delay_us(1000) || !bu_update(d,0,1,0x20,0) || !bu_update(d,5,1,0x1c,0) ||
-       !bu_poll(d,6,1,2,2,100,&value))return false;
+       !bu_poll(d,6,1,2,2,100,&value))return "power-ready";
     for(unsigned i=0;i<sizeof before_active/sizeof before_active[0];i++)
-        if(!bu_update(d,before_active[i].reg,1,before_active[i].clear,before_active[i].bits))return false;
-    if(!bu_poll(d,5,1,1,0,100,&value))return false;
+        if(!bu_update(d,before_active[i].reg,1,before_active[i].clear,before_active[i].bits))return "activate";
+    if(!bu_poll(d,5,1,1,0,100,&value))return "active-ready";
     for(unsigned i=0;i<sizeof after_active/sizeof after_active[0];i++)
-        if(!bu_update(d,after_active[i].reg,1,after_active[i].clear,after_active[i].bits))return false;
-    return bu_update(d,0x1080,4,0,0x10100) && bu_update(d,3,1,0,4) &&
-           bu_update(d,0x1103,1,15,12) && bu_read(d,BU_MCU,4,&value) &&
-           !(value&0x0010c001u) && bu_radio_off(d);
+        if(!bu_update(d,after_active[i].reg,1,after_active[i].clear,after_active[i].bits))return "active-config";
+    if(!bu_update(d,3,1,4,0) || !bu_update(d,0x1080,4,0,0x10100) || !bu_update(d,0x1103,1,15,12) ||
+       !bu_read(d,BU_MCU,4,&mcu))return "platform";
+    console_printf("rtl8822bu-power-platform: mcu=%x\n",(uint64_t)mcu);
+    up->unexpected_mcu=(mcu&BU_MCU_BUSY)!=0;
+    if(up->unexpected_mcu)return "platform-owner";
+    /* Select host download before enabling the CPU interface. Do not touch
+     * flash itself. Preserve the unrelated GPIO mux and MCU control bits. */
+    if(mcu&BU_MCU_FLASH) {
+        if(!bu_write(d,BU_MCU,4,mcu&~BU_MCU_FLASH) || !bu_update(d,0x40,4,BU_GPIO_FLASH,0) ||
+           !bu_read(d,BU_MCU,4,&mcu))return "flash-select";
+        up->unexpected_mcu=(mcu&BU_MCU_BUSY)!=0;
+        if(up->unexpected_mcu || (mcu&BU_MCU_FLASH) ||
+           !bu_read(d,0x40,4,&value) || (value&BU_GPIO_FLASH))return "flash-select";
+        console_printf("rtl8822bu-power-host-download: mcu=%x gpio=%x\n",(uint64_t)mcu,(uint64_t)value);
+    }
+    if(!bu_update(d,3,1,0,4) || !bu_read(d,BU_MCU,4,&mcu))return "cpu-gate";
+    up->unexpected_mcu=(mcu&BU_MCU_BUSY)!=0;
+    if(mcu&(BU_MCU_FLASH|BU_MCU_BUSY)) {
+        console_printf("rtl8822bu-power-cpu-gate: mcu=%x\n",(uint64_t)mcu);
+        return "cpu-owner";
+    }
+    return bu_radio_off(d)?NULL:"radio-gate";
 }
 
 static bool bu_configure_out(struct bu_upload *up) {
@@ -219,7 +246,11 @@ static bool bu_load_section(struct bu_upload *up,const uint8_t *image,unsigned l
 static const char *bu_download(struct bu_upload *up,const uint8_t *image) {
     struct xhci_device *d=up->device;
     uint32_t coex,hpq,cr,pages,rqpn,beacon,mcu;
-    if(!bu_power_on(up))return "digital-power";
+    const char *power=bu_power_on(up);
+    if(power) {
+        console_printf("rtl8822bu-power: stage=%s ok=0\n",power);
+        return "digital-power";
+    }
     console_write("rtl8822bu-firmware-progress: digital power ready; preparing firmware DMA\n");
     if(!bu_write(d,0x01a0,1,0xfd) ||
        !bu_poll(d,0x1700,4,1u<<29,1u<<29,100,&coex) ||
@@ -266,7 +297,7 @@ static bool bu_park(struct bu_upload *up) {
     struct xhci_device *d=up->device;
     uint32_t value;
     if(!up->power_touched)return true;
-    return wifi_hub_check_port(d,up->hub) &&
+    return !up->unexpected_mcu && wifi_hub_check_port(d,up->hub) &&
            bu_poll(d,BU_DDMA,4,BU_DDMA_OWN,0,100,&value) &&
            bu_write(d,BU_CR,1,0) && bu_update(d,BU_CR+1,1,1,0) &&
            bu_update(d,3,1,4,0) && bu_update(d,0x1d,1,1,0) &&
