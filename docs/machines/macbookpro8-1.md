@@ -181,6 +181,17 @@ This block leaves GPU ownership and modesetting with firmware and has no
 dependency on that PR. The checkpoint is a visible dim and brighten in
 Settings, hardware readback, and both release-matched USB reports.
 
+Ubuntu exposes `acpi_video0` for the internal LVDS panel. On this unit,
+switching Ubuntu's brightness from index 15 to 12, 7 and 14 moved the
+Intel CPU PWM duty at `0x48254` from `0x0710` to `0x05a6`,
+`0x034c` and `0x0690`. Restoring index 15 restored `0x0710`.
+The PCH period stayed at 1,808 and both PWM enable words stayed
+`0x80000000`. Source `2bbb3e0b` adds the trial-only Settings provider
+with the exact GPU, PCH, DSDT and PWM-state checks. Release
+`4befbb5325d5ed2f` passed both exact VM paths, with the provider
+unavailable in Q35 and both USB reports verified. Its installed recovery
+is `c1a8e397a41363dc`. Native brightness is awaiting the attended trial.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
