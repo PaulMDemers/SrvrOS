@@ -906,6 +906,10 @@ def main():
                                     assert not any(value for row in proof['aux']['packets'] for key,value in row.items() if key not in ('v','n'))
                                 if flush:
                                     assert proof['diagnostic_flush'] and not proof['flush']['samples']
+                                    if manifest.get('software_park_version') == 10:
+                                        park = proof['flush']['park']
+                                        assert park['summary']['v'] == 10 and not park['complete'] and not park['frames']
+                                        assert not any(value for key, value in park['rc1e'].items() if key != 'v')
                                     if manifest.get('pipe_writer_version') == 1:
                                         writer = proof['flush']['pipe_writer']
                                         assert not writer['complete'] and not writer['frames']

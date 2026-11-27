@@ -7,23 +7,26 @@ from intel_gt_bootstrap import fields
 
 AUTO = 0x90040000
 PARK = 4 << 16
+RC1E = 2 << 16
 GAM = 0x5f
 TIMING_FILE = 'park-timing.log'
 TIMING_PREFIXES = (b'laptop-capture: boot options=', b'intel-park-forcewake: ', b'intel-park: ',
                    b'intel-park-rc6: ', b'laptop-capture: completed=', b'intel-park-rc6-clock: ',
-                   b'intel-park-rewake: ', b'intel-park-guard: ', b'intel-park-vcs1: ', b'intel-park-edge: ')
+                   b'intel-park-rewake: ', b'intel-park-guard: ', b'intel-park-vcs1: ', b'intel-park-edge: ',
+                   b'intel-park-rc1e: ')
 
 
 def verify_timing_file(timing, exit_log):
     rows = [row for row in exit_log.splitlines(keepends=True) if row.startswith(TIMING_PREFIXES)]
     counts = [sum(row.startswith(prefix) for row in rows) for prefix in TIMING_PREFIXES]
     edge = any(row.startswith(b'intel-park: v=9 ') for row in rows)
+    rc1e = any(row.startswith(b'intel-park: v=10 ') for row in rows)
     vcs1 = edge or any(row.startswith(b'intel-park: v=8 ') for row in rows)
     scoped = vcs1 or any(row.startswith(b'intel-park: v=7 ') for row in rows)
     detailed = scoped or any(row.startswith(b'intel-park: v=6 ') for row in rows)
     if (not all(counts[i] == 1 for i in (0, 1, 2, 4)) or counts[3] > 2 or
             counts[5] > (2 if detailed else 0) or counts[6] != int(detailed) or counts[7] != int(scoped) or
-            counts[8] != int(vcs1) or counts[9] != int(edge) or
+            counts[8] != int(vcs1) or counts[9] != int(edge) or counts[10] != int(rc1e) or
             not 0 < len(timing) <= (2304 if edge else 2048) or timing != b''.join(rows)):
         raise ValueError('Park timing file differs from full exit report')
 
@@ -202,19 +205,20 @@ def park_result(text, cold, change, timing, wake_complete, flush):
     require(len(headers) == 1)
     regs = ('ctl', 'target', 'set_ctl', 'set_target', 'final_ctl', 'final_target', 'restore_ctl', 'restore_target')
     counts = ('attempts', 'returns', 'opened', 'unmapped', 'sampled', 'held', 'reopened', 'returned')
+    rc1e_trial = headers[0].startswith('intel-park: v=10 ')
     edge_trial = headers[0].startswith('intel-park: v=9 ')
     vcs1_trial = edge_trial or headers[0].startswith('intel-park: v=8 ')
     scoped = vcs1_trial or headers[0].startswith('intel-park: v=7 ')
     detailed = scoped or headers[0].startswith('intel-park: v=6 ')
     timed = detailed or headers[0].startswith('intel-park: v=5 ')
     cold_trial = timed or headers[0].startswith('intel-park: v=4 ')
-    spaced = cold_trial or headers[0].startswith('intel-park: v=3 ')
+    spaced = rc1e_trial or cold_trial or headers[0].startswith('intel-park: v=3 ')
     pre_reset = spaced or headers[0].startswith('intel-park: v=2 ')
     panel = ('plane', 'surface', 'live') if pre_reset else ()
     stamps = ('returned_us', 'prepare_us', 'smi_checks', 'smi_last', 'panel_checks') if pre_reset else ()
     if spaced:
         stamps = ('poll_origin_us', *stamps)
-    version = 9 if edge_trial else 8 if vcs1_trial else 7 if scoped else 6 if detailed else 5 if timed else 4 if cold_trial else 3 if spaced else 2 if pre_reset else 1
+    version = 10 if rc1e_trial else 9 if edge_trial else 8 if vcs1_trial else 7 if scoped else 6 if detailed else 5 if timed else 4 if cold_trial else 3 if spaced else 2 if pre_reset else 1
     h = fields(headers[0], 'intel-park:', ('v', *stamps, *panel, *counts, *regs), (*regs, *panel), versions=(version,))
     require(h['returns'] <= h['attempts'] <= 2 and h['unmapped'] <= h['opened'] <= 1 and
             max(h['sampled'], h['reopened'], h['returned']) <= 1 and h['held'] <= 2)
@@ -235,8 +239,27 @@ def park_result(text, cold, change, timing, wake_complete, flush):
                   fresh_engine_mask=0, fresh_l3=False, hardware_ownership=False)
     if not detailed:
         require(not any(l.startswith(('intel-park-rc6-clock: ', 'intel-park-rewake: ')) for l in lines))
+    if not rc1e_trial:
+        require(not any(line.startswith('intel-park-rc1e:') for line in lines))
     if cold_trial:
         result['cold'] = cold_park_result(lines, h['poll_origin_us'], timed, detailed)
+    elif rc1e_trial:
+        wake_prefix = 'intel-park-forcewake:'
+        wakes = [line for line in lines if line.startswith(wake_prefix)]
+        rc1e_rows = [line for line in lines if line.startswith('intel-park-rc1e:')]
+        require(len(wakes) == len(rc1e_rows) == 1 and
+                not any(line.startswith('intel-park-rc6:') for line in lines))
+        wake_keys = ('attempted', 'writes', 'rewake_us', 'write_enter_us', 'store_us',
+                     'write_exit_us', 'ack_clear_us', 'guard_exit_us', 'stop_us')
+        wake = fields(wakes[0], wake_prefix, ('v', *wake_keys), versions=(2,))
+        require(not any(wake[k] for k in wake_keys))
+        row = fields(rc1e_rows[0], 'intel-park-rc1e:', ('v', 'reads', 'cpd_before', 'cpd_after'),
+                     ('cpd_before', 'cpd_after'))
+        reads, before, after = (row[k] for k in ('reads', 'cpd_before', 'cpd_after'))
+        require(0 <= reads <= 2 and max(before, after) <= 0xffffffff and
+                (reads or not before) and (reads == 2 or not after) and
+                (not h['attempts'] or reads >= 1) and (reads != 2 or h['reopened']))
+        result['rc1e'] = row
     else:
         require(not any(l.startswith(('intel-park-rc6:', 'intel-park-forcewake:')) for l in lines))
     guards = [line for line in lines if line.startswith('intel-park-guard: ')]
@@ -269,8 +292,11 @@ def park_result(text, cold, change, timing, wake_complete, flush):
     if not (h['sampled'] and h['returned'] and h['reopened'] and interval_complete):
         require(not wake_complete)
         return result
+    target = RC1E if rc1e_trial else PARK
     require(h['attempts'] == h['returns'] == 2 and h['opened'] == h['unmapped'] == 1 and
-            tuple(h[k] for k in regs) == (AUTO, PARK, PARK, PARK, PARK, PARK, AUTO, PARK))
+            tuple(h[k] for k in regs) == (AUTO, PARK, PARK, target, PARK, target, AUTO, PARK))
+    if rc1e_trial:
+        require(reads == 2 and before == after and before != 0xffffffff)
     if vcs1_trial:
         require(result['vcs1']['restore'] and result['vcs1']['set'] == result['vcs1']['at_return'] == 10)
     if edge_trial:
@@ -337,5 +363,7 @@ def park_result(text, cold, change, timing, wake_complete, flush):
         high = pulse
         drained = bool(closed and fresh and engine_ack == 31 and go_closed == 63 and w[12] & 1)
     require(drained == bool(h['held']) and all(held_frame(f['words']) for f in frames if f['op'] == 2))
+    if rc1e_trial and drained:
+        require(frames[-2]['begin'] - frames[-3]['end'] >= 250)
     result.update(complete=True, powered_block_observed=drained, fresh_engine_mask=engine_ack, fresh_l3=fresh)
     return result

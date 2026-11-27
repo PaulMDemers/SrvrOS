@@ -416,6 +416,38 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertEqual(park['summary']['attempts'], 0)
         self.assertEqual(flush['idle_change']['summary']['returned'], 31)
 
+    def test_powered_rc1e_request_distinguishes_fresh_acks_from_readback(self):
+        text = observe('park-rc1e')
+        result = bootstrap_result(text)['flush']['park']
+        self.assertTrue(result['complete'])
+        self.assertFalse(result['powered_block_observed'])
+        self.assertEqual(result['summary']['set_target'], 0x20000)
+        self.assertEqual(result['summary']['restore_target'], 0x40000)
+        self.assertEqual(result['rc1e'],
+                         dict(v=1, reads=2, cpd_before=0xc5280000, cpd_after=0xc5280000))
+        self.assertEqual(len([frame for frame in result['frames'] if frame['op'] == 1]), 8)
+
+        result = bootstrap_result(observe('park-rc1e-ack'))['flush']['park']
+        self.assertTrue(result['complete'] and result['powered_block_observed'])
+        self.assertEqual((result['fresh_engine_mask'], result['fresh_l3'], result['summary']['held']),
+                         (31, True, 2))
+        for fault in ('park-rc1e-stale', 'park-rc1e-cpd-drift'):
+            with self.subTest(fault=fault):
+                result = bootstrap_result(observe(fault))['flush']['park']
+                self.assertFalse(result['complete'] or result['powered_block_observed'])
+                self.assertTrue(result['summary']['returned'] and result['summary']['reopened'])
+        full = (text + '\nlaptop-capture: boot options=test\nlaptop-capture: completed=yes\n').encode()
+        compact = b''.join(row for row in full.splitlines(keepends=True) if row.startswith(TIMING_PREFIXES))
+        verify_timing_file(compact, full)
+        row = next(line for line in compact.splitlines(keepends=True) if line.startswith(b'intel-park-rc1e: '))
+        with self.assertRaises(ValueError):
+            verify_timing_file(compact.replace(row, b''), full)
+        for altered in ('set_target=0x40000', 'attempted=1', 'cpd_after=0xc7280000'):
+            key = altered.split('=')[0]
+            with self.subTest(altered=altered), self.assertRaises(ValueError):
+                bootstrap_result(re.sub(rf'(?m)(^intel-park[^\n]*\s){key}=[^\s]+',
+                                        rf'\g<1>{altered}', text, count=1))
+
     def test_pre_reset_vcs1_idle_override_and_rollback(self):
         text = observe('park-cold-vcs1')
         park = bootstrap_result(text)['flush']['park']

@@ -151,6 +151,16 @@ requires fresh powered endpoints on either side and finishes within 250 µs
 of verified forcewake ACK and thread C0. The independent closing census
 still precedes the scheduled traffic polls. Only those later polls feed
 the traffic-block and drain checks. The v9 USB report is bounded to 2,304 bytes.
+Park receipt v10 selects the Broadwell software RC1e target and keeps
+forcewake held. It records the inherited CPD policy at both ends without
+changing it. Up to eight polls use the same 10 ms window. A positive result
+requires all five fresh engine acknowledgements, an L3 pulse after GAM and
+WiDi closure, and two held samples at least 250 µs apart. The diagnostic
+restores the original target and control and verifies the open traffic state. The USB
+timing report includes the RC1e policy receipt. The full exit log retains
+the raw traffic samples.
+[Broadwell register reference, p. 1317](https://cdrdv2-public.intel.com/v1/dl/getcontent/690789).
+
 The Pipe A writer receipt in `exit.log` qualifies the CPU register mapping
 under the same guard as the five engine ports. The diagnostic makes the
 sole supervisor UC alias writable, pins it across PCI bus-master reopening,

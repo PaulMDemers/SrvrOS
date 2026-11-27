@@ -799,7 +799,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             manifest["bcs_stop_version"] = 1
             manifest["cold_rc6_version"] = 3
             manifest["idle_policy_version"] = 1
-            manifest["software_park_version"] = 9
+            manifest["software_park_version"] = 10
             manifest["park_timing_file_version"] = 1
             manifest["pipe_writer_version"] = 1
             manifest["scanout_backing_guard_version"] = 1

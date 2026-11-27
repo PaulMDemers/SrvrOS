@@ -840,9 +840,9 @@ bool intel_gt_wake_probe_report(void) {
     console_write("intel-memory: same-owner remapper drain/GGTT invalidation and new census; temporary UC aliases retire before requester return. No GPU mappings or submission.\n");
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
-    console_write("intel-power: pre-reset software RC6 park before blitter stop; checking GAM, five engines, WiDi and L3 under forcewake. Original panel active; silent automatic return.\n");
+    console_write("intel-power: pre-reset software render-idle request before blitter stop. Checking GAM, five engines, WiDi and L3 under forcewake. Original panel active.\n");
     console_write("intel-power: saving all five post-reset MAX_IDLE values, setting each to 10 and checking readback. No input.\nintel-power: measuring RC6 for 100ms on the active panel, then restoring each engine and sampling again.\n");
-    console_write("intel-wake: pre-reset RC6 probe, paired request/ACK reads, 10ms deadline. Original panel active. No input.\n");
+    console_write("intel-wake: pre-reset RC1e software target, 10ms deadline. Forcewake held, original panel active. No input.\n");
     console_write("intel-slot: holding five submission pages read-only across PCI reopening. Original panel active, volume 1%, no input.\n");
     console_write("intel-flush: holding WiDi programming pages through GT reset and PCI reopening. Checking the blitter register mapping, original display and slot 12291. No input needed.\n");
 #endif
@@ -1075,7 +1075,7 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_GT_FLUSH
     complete = complete && air_rc6_count == 9 && air_idle.verified == 31 &&
         air_idle.persisted == 31 && air_idle.returned == 31 && air_idle.restore_end && air_park.sampled &&
-        air_park.returned && air_park.at_return[0] == PARK_RC6 && air_park.at_return[1] == PARK_RC6;
+        air_park.returned && air_park.at_return[0] == PARK_RC6 && air_park.at_return[1] == park_target();
 #endif
     unsigned engine_reads=0;
 #ifdef SRVROS_INTEL_ENGINE_TRIAL

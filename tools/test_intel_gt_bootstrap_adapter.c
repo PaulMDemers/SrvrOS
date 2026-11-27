@@ -24,6 +24,7 @@ static uint32_t intel_display_test_idle_load(unsigned);
 static void intel_display_test_idle_store(unsigned,uint32_t);
 static uint32_t intel_display_test_park_read(unsigned);
 static void intel_display_test_park_store(unsigned,uint32_t);
+static bool intel_display_test_park_rc1e_trial(void);
 static bool intel_display_test_park_cold_trial(void);
 static bool intel_display_test_park_vcs1_trial(void);
 static bool intel_display_test_park_edge_trial(void);
@@ -137,6 +138,9 @@ static uint32_t model_park_vcs1 = PARK_VCS1_INHERITED;
 static unsigned model_park_vcs1_stores;
 static unsigned model_edge_reads;
 static uint32_t park_model[2] = {PARK_AUTO,PARK_RC6};
+static bool intel_display_test_park_rc1e_trial(void) {
+    return !strncmp(bootstrap_mode,"park-rc1e",9);
+}
 static bool intel_display_test_park_cold_trial(void) {
     return !strncmp(bootstrap_mode,"park-cold",9);
 }
@@ -170,7 +174,8 @@ static void intel_display_test_park_store(unsigned reg,uint32_t value) {
     assert(wake_irq && wake_ack == 1 && !display_access_allowed() && air_park.active && !model_engine_ro);
     assert(bootstrap_parent() && gpu_command == 3 && !pulses && !bwrites && !bcs_stop.writes);
     assert((reg == PARK_CTL && (value == PARK_AUTO || value == PARK_RC6)) ||
-           (reg == PARK_STATE && value == PARK_RC6));
+           (reg == PARK_STATE && (value == PARK_RC6 ||
+                                  (intel_display_test_park_rc1e_trial() && value == PARK_RC1E))));
     park_model[reg == PARK_STATE] = value;
 }
 static uint32_t intel_display_test_park_read(unsigned reg) {
@@ -178,6 +183,8 @@ static uint32_t intel_display_test_park_read(unsigned reg) {
            (intel_display_test_park_cold_trial() && reg>=0x70180 && reg<=0x701ac)) &&
            !display_access_allowed() && air_park.active);
     if (reg == PARK_CTL || reg == PARK_STATE) return park_model[reg == PARK_STATE];
+    if (reg == PARK_CPD) return 0xc5280000u ^
+        ((air_park.cpd_reads && !strcmp(bootstrap_mode,"park-rc1e-cpd-drift")) ? 1u << 25 : 0);
     if (air_park.edge.begin && air_park.owner->state == GT_ACCESS_OPENING && reg < 0x70000) {
         static const uint32_t regs[] = {0x40d0,0x8028,0x8108,0x8014,0x8038,0x8014,
                                         0x8000,0x8004,0x8008,0x800c,0x8010,0x8028,0x40d0};
@@ -193,8 +200,10 @@ static uint32_t intel_display_test_park_read(unsigned reg) {
     const struct park_frame *frame = &air_park.frames[air_park.frames_used-1];
     bool late = !strcmp(bootstrap_mode,"park-late-ack");
     bool blocked = park_model[0] == PARK_RC6 && (!strcmp(bootstrap_mode,"park-ack") ||
+        (!strcmp(bootstrap_mode,"park-rc1e-ack") && park_model[1] == PARK_RC1E) ||
         (late && frame->begin >= air_park.poll_origin_us + 7500));
-    bool stale = !strcmp(bootstrap_mode,"park-early-l3") && frame->op == PARK_POLL;
+    bool stale = (!strcmp(bootstrap_mode,"park-early-l3") || !strcmp(bootstrap_mode,"park-rc1e-stale")) &&
+        frame->op == PARK_POLL;
     switch (reg) {
     case 0x70180: return 0xd8000400;
     case 0x7019c: return 0;
@@ -673,6 +682,7 @@ static bool intel_display_test_bootstrap_expected(void) {
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(!strcmp(bootstrap_mode,"pipe-writer"))return true;
  if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"park-late-ack") ||
+    !strcmp(bootstrap_mode,"park-rc1e") || !strcmp(bootstrap_mode,"park-rc1e-ack") ||
     !strcmp(bootstrap_mode,"park-cold") || !strcmp(bootstrap_mode,"park-cold-cost") ||
     !strcmp(bootstrap_mode,"park-cold-vcs1") || !strcmp(bootstrap_mode,"park-cold-vcs1-edge") ||
     !strcmp(bootstrap_mode,"flush-quiet") || !strcmp(bootstrap_mode,"flush-stale") ||
@@ -1337,6 +1347,7 @@ int main(int argc,char **argv) {
   return code;
  }
  if(!strcmp(bootstrap_mode,"park-early-l3") || !strcmp(bootstrap_mode,"park-panel-drift") ||
+    !strcmp(bootstrap_mode,"park-rc1e-stale") || !strcmp(bootstrap_mode,"park-rc1e-cpd-drift") ||
     !strcmp(bootstrap_mode,"park-missed-slot") || !strcmp(bootstrap_mode,"park-wait-failed") ||
     !strcmp(bootstrap_mode,"park-cold-float") || !strcmp(bootstrap_mode,"park-cold-sample-over")) {
   assert(air_park.returned && !air_park.sampled && !air_park.held && air_park.reopened &&
