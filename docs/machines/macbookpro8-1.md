@@ -119,6 +119,14 @@ consumes `origin/main` at `93e10a44` and the boot-inode repair in PR #554.
 Scope is integrating the landed fix, replaying this unit's USB workspace, and
 verifying the same desktop checklist with a native flash report.
 
+The malformed-frame trace starts from `628deda5` on `93e10a44`. The
+`37de62ed` integration baseline and open device scopes have no overlapping
+EHCI input changes. The resident `0x81` worker will retain a bounded set of
+rejected frame bytes and the observation timing before republishing the
+transfer descriptor. Scope is diagnostic capture and its fixture. The
+attended retry will use the same desktop checklist and release-bound USB
+report.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
