@@ -269,6 +269,23 @@ the writer immediately after the PCI readback, then runs the unchanged
 queue and scanout checks under the remaining owners. The writer deadline
 and the VMM exclusivity rule are unchanged.
 
+Physical retry `1407ff34e228d690` (source `5f45432b`, session
+`session-0006613d404ab7c3-00`) completed the Pipe A lease and both
+five-engine queue checks. PCI command readback was `7,3,3,7`. The Pipe A
+samples were 1.334 ms apart on frame 911, with the same stride and programmed
+and live surfaces. The alias returned to read-only 2.200 ms after the first
+sample. The parent reset and retirement both completed, with zero display
+register stores and zero GPU page-table writes.
+
+The Air returned automatically to Ubuntu at 1% volume. The collector verified
+the checkpoint, all four raw file hashes, the 2,031-byte timing report, and the
+offline exFAT allocation with zero errors. Fifteen source-bound workflow
+checks, four supplemental checks and four exact-image QEMU cases passed
+before boot. The native park sample again showed RC6 residency and no fresh
+engine or L3 acknowledgements. This run closes the Pipe A CPU register lease
+diagnostic. Sustained traffic blocking, GPU ownership and tear-free scanout
+remain open. Shared baseline `54632d47` was inspected for this run.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
