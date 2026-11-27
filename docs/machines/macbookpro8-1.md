@@ -172,6 +172,15 @@ will edit and reopen one release-bound document while the keyboard and
 trackpad run. The checkpoint includes startup and final USB reports,
 safe controller retirement and Ubuntu readback of the edited file.
 
+The display-brightness block starts at `c324781e`, with merge base
+`93e10a44` and integration tip `5cb57eab` inspected. It reuses the local
+desktop and flash-report path from `75525ae902f943ab`. Scope is the captured
+Sandy Bridge LVDS backlight provider, its host fixture and one attended
+Settings trial. PR #301 covers guarded Intel GPU ownership and GT reset.
+This block leaves GPU ownership and modesetting with firmware and has no
+dependency on that PR. The checkpoint is a visible dim and brighten in
+Settings, hardware readback, and both release-matched USB reports.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
