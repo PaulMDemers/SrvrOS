@@ -788,6 +788,7 @@ class FlushAcknowledgements(unittest.TestCase):
             "intel-slot-reopened: v=4 pinned=5 restored=5 ro_mask=0 writer=3 hwsp=0 hwstam=0xffffffff", "intel-slot-reopened: v=2")
         old = re.sub(r" clock_before=\w+ clock_ack=\w+ clock_after=\w+", "", old).replace(
             "intel-widi-device: v=2", "intel-widi-device: v=1")
+        old = re.sub(r"^intel-boot-page-.*\n", "", old, flags=re.M)
         self.assertTrue(bootstrap_result(old)["complete"])
 
     def test_wireless_programming_guard_spans_requester_reopening(self):
@@ -830,6 +831,7 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
         legacy = re.sub(r"^intel-(?:command-slots|scanout-backing-guard|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6|idle-change|idle-engine|park|park-frame):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=8 ", "intel-range-summary: v=3 ")
+        legacy = re.sub(r"^intel-boot-page-.*\n", "", legacy, flags=re.M)
         self.assertTrue(bootstrap_result(legacy)["complete"])
 
     def test_primary_backing_with_independent_slot(self):
