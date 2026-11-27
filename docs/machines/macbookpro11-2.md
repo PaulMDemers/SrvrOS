@@ -2031,6 +2031,19 @@ session is the control.
 [xHCI Transfer Ring and Stop Endpoint specification](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf)
 [Linux CU receive descriptor](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/trx.h)
 
+Release `a662f7851095412c` (`cdab5cd0`) is installed with recovery
+`74da74e0b57afbb8`, workspace `0E53-5900` and all three hub ports
+verified. The native-path fixture completed 159 requests across
+two Link transitions, reached the full deadline after the second
+target beacon, and covered every rejection reason. It also checked
+stale events before reuse, Stop on either side of a wrap, a late
+completion during Stop, and refusal on an incorrect stopped
+address or cycle. The exact image passed GPT workspace logging and
+all four EFI journal modes. Decoder replay verified the counters and
+stop positions and kept the new receipts in both bounded EFI tails.
+The handoff is in `build/bringup/pro112-rtl8188cu-rx-reuse`. Physical
+four-second reception and discovery still need the cold result.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
