@@ -1307,6 +1307,7 @@ struct takeover_fixture {
     uint64_t epoch, translation;
     volatile uint64_t pte;
     unsigned grants, stores, invalidates, apertures;
+    bool recovery_loan_tested;
 };
 
 static bool takeover_is(const struct takeover_fixture *f, const char *mode)
@@ -1338,11 +1339,13 @@ static bool takeover_recover(void *context, const struct bdw_edp_source_image *i
 }
 
 static bool takeover_range(void *context, const struct bdw_edp_source_image *image,
-                           struct bdw_display_takeover_range *out)
+                           const struct bdw_flr_report *report, struct bdw_display_takeover_grant *out)
 {
     struct takeover_fixture *f = context;
     assert(f->display.dark && f->display.function_reset && !f->display.panel.backlight &&
            !f->display.proofs && display_access_held(&f->lease));
+    assert(report == f->display.active_flr && report->stage == BDW_FLR_COMPLETE &&
+           f->display.drain.complete && f->display.drain_alias_retired);
     ++f->grants;
     if (takeover_is(f,"takeover-no-grant")) return false;
     struct scanout_space_range range = {TAKEOVER_SLOT - 1, 4};
@@ -1350,18 +1353,33 @@ static bool takeover_range(void *context, const struct bdw_edp_source_image *ima
     if (!scanout_interval_claim_driver(&f->range,f,takeover_mmio,takeover_aperture,
                                         takeover_bytes,takeover_fence,range)) return false;
     f->epoch = image->epoch + 1;
-    out->seed = (struct bdw_boot_page_source){.object=&out->seed,.driver_range=&f->range,.scratch=takeover_scratch,
+    *out = (struct bdw_display_takeover_grant){.driver_range=&f->range,.scratch=takeover_scratch,
         .binding={.driver=f,.epoch=f->epoch,.root=takeover_root,.mmio=takeover_mmio,.aperture=takeover_aperture,
             .aperture_bytes=takeover_bytes,.fence_end=takeover_fence,.display=f->lease,
             .index=TAKEOVER_SLOT,.plane=0x98000400u,.backing=takeover_scratch,
-            .marker={scratch_marker[0],scratch_marker[1]}}};
-    if (takeover_is(f,"takeover-foreign-lease")) ++out->seed.binding.display.epoch;
-    if (takeover_is(f,"takeover-epoch-replay")) out->seed.binding.epoch = image->epoch;
-    if (takeover_is(f,"takeover-root-drift")) out->seed.binding.root += 4096;
-    out->private_backing = takeover_private;
-    out->private_marker[0] = private_marker[0];
-    out->private_marker[1] = private_marker[1];
+            .marker={scratch_marker[0],scratch_marker[1]}},.private_backing=takeover_private,
+        .private_marker={private_marker[0],private_marker[1]}};
+    if (takeover_is(f,"takeover-foreign-lease")) ++out->binding.display.epoch;
+    if (takeover_is(f,"takeover-epoch-replay")) out->binding.epoch = image->epoch;
+    if (takeover_is(f,"takeover-root-drift")) out->binding.root += 4096;
+    if (takeover_is(f,"takeover-bar-drift")) out->binding.mmio += 0x1000000;
     return true;
+}
+
+static bool takeover_read_display(void *context, uint32_t offset, uint32_t *word)
+{
+    struct takeover_fixture *f = context;
+    if (takeover_is(f,"takeover-range-protected") && f->grants && !f->recovery_loan_tested) {
+        struct scanout_interval competing = {0};
+        const struct scanout_space_range slot = {TAKEOVER_SLOT,1};
+        assert(!f->display.proofs && !f->stores && !f->range.sealed);
+        scanout_interval_release(&f->range);
+        assert(scanout_interval_held(&f->range,takeover_mmio,takeover_aperture,takeover_bytes,
+                                     takeover_fence,f->range.pages));
+        assert(!scanout_interval_borrow_driver(&competing,&f->range,f,slot));
+        f->recovery_loan_tested = true;
+    }
+    return source_read(context,offset,word);
 }
 
 static uint64_t takeover_now(void *context)
@@ -1437,9 +1455,10 @@ static int test_takeover(const char *mode)
     }
     const struct bdw_edp_baseline_report reference = setup_cycle(&f.display);
     f.display.panel.aux_setup = 0x24030152u;
-    const struct bdw_display_takeover_io io = {.display=source_io(&f.display),.prepare_reset=takeover_reset,
+    struct bdw_display_takeover_io io = {.display=source_io(&f.display),.prepare_reset=takeover_reset,
         .recover=takeover_recover,.range=takeover_range,
         .page={&f,takeover_prove,takeover_now,takeover_read,takeover_exchange,takeover_invalidate,takeover_aperture_read}};
+    io.display.read = takeover_read_display;
     assert(display_access_acquire(42,&f.lease));
     assert(scanout_interval_protect_boot_framebuffer(takeover_mmio,takeover_aperture,takeover_bytes,takeover_fence));
     assert(scanout_interval_import_firmware(&f.occupied,takeover_mmio,takeover_aperture,takeover_bytes,takeover_fence,
@@ -1449,7 +1468,8 @@ static int test_takeover(const char *mode)
     bool stale = takeover_is(&f,"takeover-stale-rollback");
     bool retained = stale || l3_held || l3_selector || takeover_is(&f,"takeover-traffic-open") ||
                     takeover_is(&f,"takeover-bad-crc");
-    assert(ok == takeover_is(&f,"takeover-roundtrip"));
+    assert(ok == (takeover_is(&f,"takeover-roundtrip") || takeover_is(&f,"takeover-range-protected")));
+    assert(f.recovery_loan_tested == takeover_is(&f,"takeover-range-protected"));
     assert(takeover.state == (ok ? BDW_TAKEOVER_READY : retained ? BDW_TAKEOVER_RETAINED : BDW_TAKEOVER_REFUSED));
     assert(display_access_release(&f.lease,true) == !retained);
     assert(scanout_interval_held(&f.occupied,takeover_mmio,takeover_aperture,takeover_bytes,takeover_fence,f.occupied.pages));
@@ -1465,6 +1485,9 @@ static int test_takeover(const char *mode)
     } else {
         assert(!f.stores && !f.invalidates && !f.apertures && !f.range.sealed);
     }
+    assert(scanout_interval_held(&takeover.recovery_loan,takeover_mmio,takeover_aperture,takeover_bytes,
+                                 takeover_fence,(struct scanout_space_range){TAKEOVER_SLOT,1}) ==
+           takeover_is(&f,"takeover-bad-crc"));
     assert(f.display.panel.backlight == (stale || !retained));
     printf("PASS %s\n",mode);
     return 0;

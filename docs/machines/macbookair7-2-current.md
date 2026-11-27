@@ -567,8 +567,11 @@ The next takeover checkpoint starts at `555a8de5`; main `24feebdd`
 and the independent Haswell PR 567 were reviewed. This block binds the
 post-reset range to the completed remapper drain and restored PCI BARs,
 and reserves the exact page through native-style panel recovery in the
-Broadwell host and Q35 fixture. Native reset and mapping still require
-the on-device traffic provider and range grant.
+Broadwell host and Q35 fixtures. All 16 joined cases passed, including a
+competing loan and parent release during recovery, a mismatched PCI BAR,
+and a failed panel CRC that retains the reservation with zero PTE stores.
+Native reset and mapping require the on-device traffic provider and range
+grant. Ubuntu stayed at 1% volume. [Range handoff](../intel-bdw-edp-recovery.md#joined-pci-reset-and-panel-recovery-fixture)
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

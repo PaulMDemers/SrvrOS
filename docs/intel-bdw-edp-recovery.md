@@ -636,6 +636,17 @@ the matching translation and cache ownership.
 [Intel Broadwell processor datasheet, §§3.2.29–3.2.31](https://cdrdv2-public.intel.com/330835/5th-gen-core-family-datasheet-vol-2.pdf#page=86) ·
 [Linux AF reset implementation](https://github.com/torvalds/linux/blob/v6.12/drivers/pci/pci.c#L4304).
 
+The joined takeover hands the exact completed reset report to the range
+provider. It checks the proposed range against the completed remapper
+drain's owner and CPU root, a newer epoch, and the restored PCI BARs. It
+reserves the exact page in the driver's range before restoring the panel.
+That reservation blocks competing software loans and prevents the parent
+range from being released during recovery. Failed recovery keeps the
+reservation pinned. After both CRCs verify, the boot CPU hands the slot
+to the scratch publication transaction, which seals the parent before
+the first PTE store. The provider must still establish hardware ownership
+and keep both backing frames pinned throughout.
+
 References for the AUX controller and PPS are Broadwell Register Reference
 Volume 2c, pp. 343–345 and 1230–1236. The source sequencing and delay policy
 were checked against the i915 implementation. [Intel Broadwell PRM index](https://www.intel.com/content/www/us/en/docs/graphics-for-linux/developer-reference/1-0/broadwell.html) ·
