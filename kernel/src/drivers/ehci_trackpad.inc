@@ -4,8 +4,19 @@
 #define EHCI_TRACKPAD_WAIT_US 60000000u
 #define EHCI_TRACKPAD_POLL_US 250u
 #define EHCI_TRACKPAD_MOVE_UNITS 32
+#define EHCI_TRACKPAD_BATCH_SIZE 6u
 
-_Static_assert(EHCI_TRACKPAD_REPORT_MAX <= EHCI_DESCRIPTOR_BYTES, "trackpad report fits one DMA page");
+struct ehci_trackpad_slot {
+    _Alignas(32) struct ehci_qtd td;
+    uint8_t data[EHCI_TRACKPAD_REPORT_MAX];
+};
+
+struct ehci_trackpad_dma {
+    _Alignas(32) struct ehci_qh qh;
+    struct ehci_trackpad_slot slots[EHCI_TRACKPAD_BATCH_SIZE];
+};
+
+_Static_assert(sizeof(struct ehci_trackpad_dma) <= EHCI_PAGE_BYTES, "trackpad batch fits one DMA page");
 
 static const struct ehci_periodic_endpoint trackpad_endpoint = { 0x81, 64, 1, EHCI_TRACKPAD_REPORT_MAX };
 
@@ -77,6 +88,9 @@ static void record_trackpad_frame(struct ehci_trackpad_capture *capture, const u
     if (length == 8) {
         capture->eight_byte_reports++;
         capture->last_eight_byte_id = data[0];
+        uint64_t sample = 0;
+        for (unsigned i = 0; i < length; i++) sample = (sample << 8) | data[i];
+        capture->last_eight_byte_sample = sample;
         /* Interface 1 advertises this HID report ID on the captured topcase. */
         if (data[0] == 0x44) capture->eight_byte_id44++;
     }
@@ -118,45 +132,70 @@ static void record_trackpad_frame(struct ehci_trackpad_capture *capture, const u
     }
 }
 
-static const char *poll_trackpad(struct ehci_control_path *path) {
+static void prepare_trackpad_batch(struct ehci_trackpad_dma *dma, uint32_t physical,
+    const struct ehci_control_target *target, uint32_t toggle) {
+    *dma = (struct ehci_trackpad_dma) {0};
+    uint32_t first = physical + offsetof(struct ehci_trackpad_dma, slots);
+    prepare_periodic_qh(&dma->qh, target, &trackpad_endpoint, first, toggle);
+    for (unsigned i = 0; i < EHCI_TRACKPAD_BATCH_SIZE; i++) {
+        struct ehci_qtd *td = &dma->slots[i].td;
+        uint32_t next = i + 1 < EHCI_TRACKPAD_BATCH_SIZE ? first + (i + 1) * sizeof(dma->slots[0]) : EHCI_LINK_END;
+        /* Each short IN ends only its report. Both links advance to the next buffer. */
+        td->next = td->alternate = next;
+        td->token = (EHCI_TRACKPAD_REPORT_MAX << EHCI_TD_BYTES_SHIFT) |
+            EHCI_TD_PID_IN | EHCI_TD_RETRIES | EHCI_TD_ACTIVE;
+        td->buffer[0] = first + i * sizeof(dma->slots[0]) + offsetof(struct ehci_trackpad_slot, data);
+    }
+}
+
+static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_trackpad_dma *dma, uint32_t physical) {
     struct ehci_trackpad_capture *capture = &path->report->trackpad;
-    const volatile struct ehci_dma *dma = path->dma;
+    const volatile struct ehci_trackpad_dma *progress = dma;
     uint32_t toggle = 0;
     uint64_t start = timer_monotonic_us();
     while (timer_monotonic_us() - start < EHCI_TRACKPAD_WAIT_US) {
         if (!schedules_idle(path)) return "periodic schedule busy";
-        prepare_periodic_transfer(path, &path->report->trackpad_target, &trackpad_endpoint, toggle);
+        prepare_trackpad_batch(dma, physical, &path->report->trackpad_target, toggle);
         __asm__ volatile ("mfence" : : : "memory");
-        bool enabled = enable_periodic(path);
-        uint32_t token = dma->setup_td.token;
-        uint32_t status = path->op[EHCI_USBSTS];
-        const char *failure = enabled ? NULL : "periodic enable timeout";
-        while (!failure && (token & EHCI_TD_ACTIVE) && !(token & EHCI_TD_ERROR) &&
-            !(status & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR)) &&
-            timer_monotonic_us() - start < EHCI_TRACKPAD_WAIT_US) {
-            if (!timer_delay_us(EHCI_TRACKPAD_POLL_US)) failure = "capture timer failure";
-            token = dma->setup_td.token;
-            status = path->op[EHCI_USBSTS];
+        capture->batches++;
+        const char *failure = enable_periodic(path) ? NULL : "periodic enable timeout";
+        for (unsigned i = 0; i < EHCI_TRACKPAD_BATCH_SIZE && !failure; i++) {
+            for (;;) {
+                capture->token = progress->slots[i].td.token;
+                capture->overlay = progress->qh.overlay.token;
+                capture->status = path->op[EHCI_USBSTS];
+                if ((capture->token & EHCI_TD_ERROR) || (capture->status & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR))) {
+                    failure = "interrupt transfer error";
+                } else if (!(capture->token & EHCI_TD_ACTIVE)) {
+                    break;
+                } else if (timer_monotonic_us() - start >= EHCI_TRACKPAD_WAIT_US) {
+                    failure = "gesture capture timeout";
+                } else if (!timer_delay_us(EHCI_TRACKPAD_POLL_US)) {
+                    failure = "capture timer failure";
+                }
+                if (failure) break;
+            }
+            if (failure) break;
+            unsigned residual = (capture->token >> EHCI_TD_BYTES_SHIFT) & EHCI_TD_BYTES_MASK;
+            if (residual > EHCI_TRACKPAD_REPORT_MAX) {
+                failure = "invalid interrupt residual";
+                break;
+            }
+            __asm__ volatile ("mfence" : : : "memory");
+            capture->completions++;
+            record_trackpad_frame(capture, dma->slots[i].data, EHCI_TRACKPAD_REPORT_MAX - residual);
+            if (trackpad_capture_complete(capture)) break;
         }
-        capture->token = token;
-        capture->overlay = dma->qh.overlay.token;
-        capture->status = status;
+        /* Keep the frame linked across reports. Reuse the batch only after PSS clears. */
         if (!disable_periodic(path)) return "periodic stop timeout";
-        if (failure) return failure;
-        if ((token & EHCI_TD_ERROR) || (status & (EHCI_STS_HALTED | EHCI_STS_HOST_ERROR)))
-            return "interrupt transfer error";
-        if (token & EHCI_TD_ACTIVE) break;
+        if (failure || trackpad_capture_complete(capture)) return failure;
         __asm__ volatile ("mfence" : : : "memory");
-        unsigned residual = (token >> EHCI_TD_BYTES_SHIFT) & EHCI_TD_BYTES_MASK;
-        if (residual > trackpad_endpoint.length) return "invalid interrupt residual";
-        toggle = dma->qh.overlay.token & EHCI_TD_DATA1;
-        record_trackpad_frame(capture, path->dma->data, trackpad_endpoint.length - residual);
-        if (trackpad_capture_complete(capture)) return NULL;
+        toggle = progress->qh.overlay.token & EHCI_TD_DATA1;
     }
     return "gesture capture timeout";
 }
 
-static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_list) {
+static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_list, uint64_t *transfer_page) {
     struct ehci_probe_report *report = path->report;
     struct ehci_trackpad_capture *capture = &report->trackpad;
     capture->result = "captured trackpad interfaces unavailable";
@@ -172,12 +211,20 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
     capture->mode_before = original[0];
     capture->result = activate_trackpad_mode(path, original);
     if (!capture->result) {
-        capture->result = configure_periodic_frames(path, &trackpad_endpoint, frame_list);
-        if (!capture->result) {
-            console_set_framebuffer_muted(false);
-            console_write("Trackpad ready. Start the checklist now. You have 60 seconds.\n");
-            console_sync();
-            capture->result = poll_trackpad(path);
+        uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
+        if (!physical || physical > UINT32_MAX) {
+            if (physical) pmm_free_frame(physical);
+            capture->result = "trackpad interrupt DMA unavailable";
+        } else {
+            *transfer_page = physical;
+            uint32_t qh = (uint32_t)physical + offsetof(struct ehci_trackpad_dma, qh);
+            capture->result = configure_periodic_frames(path, &trackpad_endpoint, qh, frame_list);
+            if (!capture->result) {
+                console_set_framebuffer_muted(false);
+                console_write("Trackpad ready. Start the checklist now. You have 60 seconds.\n");
+                console_sync();
+                capture->result = poll_trackpad(path, pmm_phys_to_virt(physical), (uint32_t)physical);
+            }
         }
     }
     capture->mode_restored = write_trackpad_mode(path, original) &&

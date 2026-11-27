@@ -36,6 +36,7 @@ struct ehci_enumeration {
         uint16_t vendor, uint16_t product, uint8_t parent, uint8_t port,
         const uint8_t *configuration, uint16_t configuration_length);
     bool split;
+    bool trackpad_multi_tt;
     unsigned devices;
     unsigned split_devices;
     unsigned hubs;

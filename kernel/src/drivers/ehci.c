@@ -120,6 +120,8 @@ struct ehci_keyboard_schedule {
 struct ehci_trackpad_capture {
     unsigned reports, ignored, invalid, bytes, largest, contacts;
     unsigned wire_max, eight_byte_reports, eight_byte_id44;
+    unsigned batches, completions;
+    uint64_t last_eight_byte_sample;
     uint32_t token, overlay, status;
     int16_t first_x, first_y;
     uint8_t mode_before, mode_after, last_eight_byte_id;
@@ -448,7 +450,7 @@ static void prepare_periodic_frames(uint32_t *frames, uint32_t qh, unsigned inte
 }
 
 static const char *configure_periodic_frames(struct ehci_control_path *path,
-    const struct ehci_periodic_endpoint *endpoint, uint64_t *frame_list) {
+    const struct ehci_periodic_endpoint *endpoint, uint32_t qh, uint64_t *frame_list) {
     if (path->op[EHCI_USBCMD] & EHCI_CMD_FRAME_SIZE) return "unsupported frame-list size";
     uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
     if (!physical || physical > UINT32_MAX) {
@@ -456,26 +458,30 @@ static const char *configure_periodic_frames(struct ehci_control_path *path,
         return "periodic DMA unavailable";
     }
     *frame_list = physical;
-    prepare_periodic_frames(pmm_phys_to_virt(physical), path->physical + offsetof(struct ehci_dma, qh),
-        endpoint->interval);
+    prepare_periodic_frames(pmm_phys_to_virt(physical), qh, endpoint->interval);
     __asm__ volatile ("mfence" : : : "memory");
     path->op[EHCI_PERIODICLISTBASE] = (uint32_t)physical;
     return path->op[EHCI_PERIODICLISTBASE] == physical ? NULL : "periodic frame-list readback failed";
+}
+
+static void prepare_periodic_qh(struct ehci_qh *qh, const struct ehci_control_target *target,
+    const struct ehci_periodic_endpoint *endpoint, uint32_t first_td, uint32_t toggle) {
+    qh->link = EHCI_LINK_END;
+    qh->endpoint = target->address | ((endpoint->address & 15u) << 8) |
+        (endpoint->packet << EHCI_QH_PACKET_SHIFT);
+    /* Full speed, one start-split at uframe 0 and complete-splits at 2–4. */
+    qh->capabilities = EHCI_QH_MULT_ONE | ((uint32_t)target->tt_hub << EHCI_QH_TT_HUB_SHIFT) |
+        ((uint32_t)target->tt_port << EHCI_QH_TT_PORT_SHIFT) | 0x1c01u;
+    qh->overlay.next = first_td;
+    qh->overlay.alternate = EHCI_LINK_END;
+    qh->overlay.token = toggle;
 }
 
 static void prepare_periodic_transfer(struct ehci_control_path *path, const struct ehci_control_target *target,
     const struct ehci_periodic_endpoint *endpoint, uint32_t toggle) {
     struct ehci_dma *dma = path->dma;
     *dma = (struct ehci_dma) {0};
-    dma->qh.link = EHCI_LINK_END;
-    dma->qh.endpoint = target->address | ((endpoint->address & 15u) << 8) |
-        (endpoint->packet << EHCI_QH_PACKET_SHIFT);
-    /* Full speed, one start-split at uframe 0 and complete-splits at 2–4. */
-    dma->qh.capabilities = EHCI_QH_MULT_ONE | ((uint32_t)target->tt_hub << EHCI_QH_TT_HUB_SHIFT) |
-        ((uint32_t)target->tt_port << EHCI_QH_TT_PORT_SHIFT) | 0x1c01u;
-    dma->qh.overlay.next = path->physical + offsetof(struct ehci_dma, setup_td);
-    dma->qh.overlay.alternate = EHCI_LINK_END;
-    dma->qh.overlay.token = toggle;
+    prepare_periodic_qh(&dma->qh, target, endpoint, path->physical + offsetof(struct ehci_dma, setup_td), toggle);
     dma->setup_td.next = dma->setup_td.alternate = EHCI_LINK_END;
     dma->setup_td.token = (endpoint->length << EHCI_TD_BYTES_SHIFT) | EHCI_TD_PID_IN | EHCI_TD_RETRIES | EHCI_TD_ACTIVE;
     dma->setup_td.buffer[0] = path->physical + offsetof(struct ehci_dma, data);
@@ -603,6 +609,7 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
     struct ehci_control_path path = { .op = op, .dma = pmm_phys_to_virt(physical), .physical = (uint32_t)physical,
         .report = report, .trial_slot = trial_slot };
     struct ehci_enumeration bus = { .control = control_transfer, .context = &path, .split = split,
+        .trackpad_multi_tt = mode == EHCI_BOOT_TRACKPAD_TRIAL,
         .device_found = trial_slot >= 0 ? track_trial_device : 0, .step = { .operation = "configure DMA and bus mastering" } };
     path.scan = &bus.step;
     *path.dma = (struct ehci_dma) { .qh = { .link = EHCI_LINK_END,
@@ -627,7 +634,7 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
         report->stopped = bus.step;
         report->stopped_usbsts = report->transfer_failure.reason ? report->transfer_failure.usbsts : op[EHCI_USBSTS];
     }
-    uint64_t frame_list = 0, bulk_page = 0;
+    uint64_t frame_list = 0, transfer_page = 0;
     if (complete && keep_keyboard) {
         report->keyboard_result = configure_keyboard(&path, &frame_list);
         if (!report->keyboard_result) {
@@ -638,9 +645,9 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
             return;
         }
     } else if (complete && mode == EHCI_BOOT_TRACKPAD_TRIAL) {
-        run_trackpad_trial(&path, &frame_list);
+        run_trackpad_trial(&path, &frame_list, &transfer_page);
     } else if (complete && mode == EHCI_BOOT_USB_LOG) {
-        run_flash_log(&path, &bulk_page);
+        run_flash_log(&path, &transfer_page);
     } else if (complete && keyboard_release && trial_slot == 0) {
         report->keyboard_result = run_keyboard_trial(&path, keyboard_release, &frame_list);
         console_set_framebuffer_muted(true);
@@ -657,7 +664,7 @@ static void enumerate_controller(const struct pci_device *device, volatile uint3
         __asm__ volatile ("mfence" : : : "memory");
         pmm_free_frame(physical);
         if (frame_list) pmm_free_frame(frame_list);
-        if (bulk_page) pmm_free_frame(bulk_page);
+        if (transfer_page) pmm_free_frame(transfer_page);
     }
     console_printf("ehci: enumeration complete=%u devices=%u hubs=%u deferred=%u dma=%s\n",
         (uint64_t)(complete && retired), (uint64_t)bus.devices, (uint64_t)bus.hubs, (uint64_t)bus.deferred,
@@ -1068,6 +1075,10 @@ bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
     if (capture->wire_max) console_printf("Wire max=%u. 8-byte=%u. ID 0x44=%u. Last 8-byte ID=%u (decimal).\n",
         (uint64_t)capture->wire_max, (uint64_t)capture->eight_byte_reports,
         (uint64_t)capture->eight_byte_id44, (uint64_t)capture->last_eight_byte_id);
+    if (capture->batches) console_printf("Periodic batches=%u completions=%u.\n",
+        (uint64_t)capture->batches, (uint64_t)capture->completions);
+    if (capture->eight_byte_reports) console_printf("Last 8-byte sample in wire order: %x\n",
+        capture->last_eight_byte_sample);
     bool passed = !capture->result && !capture->invalid && trackpad_capture_complete(capture) &&
         capture->mode_restored && report.dma_released && report.access_retired;
     if (!passed && capture->token) console_printf("USBSTS=%x qTD=%x QH=%x\n",

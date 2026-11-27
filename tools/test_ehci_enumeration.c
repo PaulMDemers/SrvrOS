@@ -23,6 +23,7 @@ struct fixture {
     bool low_speed;
     bool bad_packet;
     bool split_stuck;
+    bool multi_tt, multi_tt_selected, wrong_alternate, missing_alternate;
 };
 
 static uint64_t now;
@@ -86,10 +87,19 @@ static bool control_fixture(void *context, const struct ehci_control_target *tar
             assert(!address && (!f->addresses || f->default_port == 2));
             uint8_t bytes[] = {18, USB_DESC_DEVICE, 0, 2, USB_CLASS_HUB, 0, 1, 64,
                 0x24, 0x04, 0x13, 0x25, 0, 1, 0, 0, 0, 1};
+            if (f->multi_tt) bytes[6] = 2;
             if (f->addresses) { bytes[4] = 0; bytes[6] = 0; }
             return reply(setup, data, received, bytes, sizeof(bytes));
         }
         assert(setup->value == (USB_DESC_CONFIGURATION << 8) && address && address <= f->addresses);
+        if (address == 1 && f->multi_tt && !f->missing_alternate) {
+            const uint8_t bytes[] = {9, USB_DESC_CONFIGURATION, 41, 0, 1, 1, 0, 0xe0, 1,
+                9, USB_DESC_INTERFACE, 0, 0, 1, USB_CLASS_HUB, 0, 1, 0,
+                7, USB_DESC_ENDPOINT, 0x81, 3, 1, 0, 12,
+                9, USB_DESC_INTERFACE, 0, 1, 1, USB_CLASS_HUB, 0, 2, 0,
+                7, USB_DESC_ENDPOINT, 0x81, 3, 1, 0, 12};
+            return reply(setup, data, received, bytes, sizeof(bytes));
+        }
         uint8_t bytes[] = {9, USB_DESC_CONFIGURATION, 25, 0, 1, 1, 0, 0xe0, 0,
             9, USB_DESC_INTERFACE, 0, 0, 1, USB_CLASS_HUB, 0, 0, 0,
             7, USB_DESC_ENDPOINT, 0x81, 3, 1, 0, 12};
@@ -111,7 +121,19 @@ static bool control_fixture(void *context, const struct ehci_control_target *tar
         return true;
     }
     assert(f->configured);
+    if (setup->request_type == 0x01 && setup->request == USB_REQ_SET_INTERFACE) {
+        assert(f->multi_tt && !f->multi_tt_selected && setup->value == 1 && !setup->index && !setup->length);
+        assert(!(f->ports[0] & USB_HUB_PORT_POWER));
+        f->multi_tt_selected = true;
+        return true;
+    }
+    if (setup->request_type == 0x81 && setup->request == USB_REQ_GET_INTERFACE) {
+        assert(f->multi_tt_selected && !setup->value && !setup->index && setup->length == 1);
+        uint8_t alternate = f->wrong_alternate ? 0 : 1;
+        return reply(setup, data, received, &alternate, 1);
+    }
     if (setup->request_type == 0xa0) {
+        assert(!f->multi_tt || f->multi_tt_selected);
         assert(setup->request == USB_REQ_GET_DESCRIPTOR && setup->value == (USB_DESC_HUB << 8) && !setup->index);
         uint8_t bytes[] = {9, USB_DESC_HUB, 3, 1, 0, 5, 0, 0, 0xff};
         if (f->bad_hub) bytes[2] = 16; /* Declared bitmap cannot fit in the response. */
@@ -159,7 +181,8 @@ static bool control_fixture(void *context, const struct ehci_control_target *tar
 static bool run(struct fixture *f, struct ehci_enumeration *bus) {
     f->ports[0] = f->ports[1] = USB_HUB_PORT_CONNECTION | PORT_CHANGED;
     now = 0;
-    *bus = (struct ehci_enumeration) { .control = control_fixture, .context = f, .split = f->split };
+    *bus = (struct ehci_enumeration) { .control = control_fixture, .context = f, .split = f->split,
+        .trackpad_multi_tt = f->multi_tt };
     return ehci_enumerate_device(bus, 0, 1, 0, false);
 }
 
@@ -191,6 +214,17 @@ int main(void) {
     assert(run(&f, &bus));
     assert(bus.devices == 3 && bus.split_devices == 1 && bus.hubs == 1 && !bus.deferred && f.addresses == 3);
     assert(f.split_requests == 5 && !f.default_port && !f.reset_polls[2]);
+
+    f = (struct fixture) { .split = true, .multi_tt = true };
+    assert(run(&f, &bus) && f.multi_tt_selected && f.split_requests == 5);
+
+    f = (struct fixture) { .split = true, .multi_tt = true, .wrong_alternate = true };
+    assert(!run(&f, &bus) && f.multi_tt_selected && !f.split_requests);
+    assert(!strcmp(bus.step.operation, "verify hub multi-TT"));
+
+    f = (struct fixture) { .split = true, .multi_tt = true, .missing_alternate = true };
+    assert(!run(&f, &bus) && !f.configured && !f.multi_tt_selected);
+    assert(!strcmp(bus.step.operation, "match hub multi-TT descriptor"));
 
     f = (struct fixture) { .split = true, .low_speed = true };
     assert(run(&f, &bus));

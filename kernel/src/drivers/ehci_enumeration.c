@@ -99,11 +99,20 @@ static bool reset_hub_port(struct ehci_enumeration *bus, const struct ehci_contr
 }
 
 static bool enumerate_hub(struct ehci_enumeration *bus, const struct ehci_control_target *hub, uint8_t configuration,
-    unsigned depth) {
+    unsigned depth, bool multi_tt) {
     unsigned received;
     uint8_t descriptor[64];
     bus->step.operation = "set hub configuration";
     if (!usb_control(bus, hub, 0, USB_REQ_SET_CONFIGURATION, configuration, 0, 0, 0, &received)) return false;
+    if (multi_tt) {
+        bus->step.operation = "select hub multi-TT";
+        if (!usb_control(bus, hub, 0x01, USB_REQ_SET_INTERFACE, 1, 0, 0, 0, &received)) return false;
+        uint8_t alternate;
+        bus->step.operation = "verify hub multi-TT";
+        if (!usb_control(bus, hub, 0x81, USB_REQ_GET_INTERFACE, 0, 0, 1, &alternate, &received) ||
+            received != 1 || alternate != 1) return false;
+        console_printf("ehci: hub address=%u alternate=1 multi-TT\n", (uint64_t)hub->address);
+    }
     bus->step.operation = "hub descriptor";
     if (!usb_control(bus, hub, 0xa0, USB_REQ_GET_DESCRIPTOR, USB_DESC_HUB << 8, 0,
             sizeof(descriptor), descriptor, &received) || received < 9 || descriptor[1] != USB_DESC_HUB) {
@@ -211,5 +220,17 @@ bool ehci_enumerate_device(struct ehci_enumeration *bus, uint8_t parent, uint8_t
         if (hub) console_printf("ehci: hub address=%u deferred downstream scan\n", (uint64_t)address);
         return true;
     }
-    return !hub || enumerate_hub(bus, &target, configuration[5], depth);
+    bool multi_tt = bus->trackpad_multi_tt && hub && !parent && port == 1 && vendor == 0x0424 && product == 0x2513;
+    if (multi_tt) {
+        bus->step.operation = "match hub multi-TT descriptor";
+        if (descriptor[6] != 2 || configuration[4] != 1 || configuration[5] != 1) return false;
+        bool alternate = false;
+        for (unsigned pos = 9; pos < configuration_length; pos += configuration[pos]) {
+            const uint8_t *entry = configuration + pos;
+            if (entry[0] == 9 && entry[1] == USB_DESC_INTERFACE && !entry[2] && entry[3] == 1 &&
+                entry[4] == 1 && entry[5] == USB_CLASS_HUB && !entry[6] && entry[7] == 2) alternate = true;
+        }
+        if (!alternate) return false;
+    }
+    return !hub || enumerate_hub(bus, &target, configuration[5], depth, multi_tt);
 }

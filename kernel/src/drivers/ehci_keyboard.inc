@@ -146,7 +146,7 @@ static const char *configure_keyboard(struct ehci_control_path *path, uint64_t *
         return "idle request schedule unverified";
     }
 
-    return configure_periodic_frames(path, &keyboard_endpoint, frame_list);
+    return configure_periodic_frames(path, &keyboard_endpoint, path->physical + offsetof(struct ehci_dma, qh), frame_list);
 }
 
 static const char *run_keyboard_trial(struct ehci_control_path *path, const char *release, uint64_t *frame_list) {
