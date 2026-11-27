@@ -115,6 +115,22 @@ firmware, register, RX and TX paths before publishing a Wi-Fi provider. The
 Linux reference entry points are [rtl8192cu](https://github.com/torvalds/linux/blob/master/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c)
 and [rtw8822bu](https://github.com/torvalds/linux/blob/master/drivers/net/wireless/realtek/rtw88/rtw8822bu.c).
 
+#### Netgear A6150 RTL8822BU identity checkpoint
+
+Start from `f5cba01f`, with integration base `50f1978a`. Inspected main
+`dc4a48d3` and the open Air6,1 display and Pro8,1 EHCI work. The change
+covers xHCI EP0 identification and an unattended journaled boot recipe.
+All three adapters stay in their recorded ports on the Genesys hub.
+
+The Netgear `0846:9055` enumerates on port 4 at 480 Mbit/s, revision
+`0210`. Ubuntu's read-only vendor request returned SYS_CFG1 `0x0c493d35`,
+cut 3 with two RF chains, as a warm reference. Linux selects
+`rtw88/rtw8822b_fw.bin`. The first SrvrOS cold trial checks the exact
+USB2 descriptor and reads SYS_CFG1 through EP0 before verifying that the
+port is still current. It performs zero register writes and transfers no
+firmware or Wi-Fi traffic. Save the workspace exit and independent EFI
+checkpoints and return automatically to Ubuntu.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
