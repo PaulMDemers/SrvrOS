@@ -21,7 +21,7 @@ enum {
     MEMORY_ARBITER = 0x4000, BUFFER_MANAGER = 0x4400,
     READ_DMA = 0x4800, WRITE_DMA = 0x4c00,
     READ_DMA_RESERVE = 0x4900, GENERAL_MODE = 0x6800, GENERAL_CONFIG = 0x6804,
-    SRAM_TX_RCB = 0x100, SRAM_RETURN_RCB = 0x200,
+    SRAM_TX_RCB = 0x100, SRAM_RETURN_RCB = 0x200, SRAM_RX_BD_CACHE = 0x6000,
     SRAM_DATA_SIGNATURE = 0xb54, SRAM_DATA_CONFIG = 0xb58,
     MODE_ENABLE = 2, RCB_DISABLED = 2, HOST_STACK_UP = 0x10000,
     IRQ_MASK = 2, DMA_ERROR_BITS = 0x3fc,
@@ -233,6 +233,7 @@ static bool program_rings(struct bcm_packet *nic) {
     mac_write(RX_STANDARD_RCB, 0);
     mac_write(RX_STANDARD_RCB + 4, nic->dma + offsetof(struct bcm_packet_memory, rx));
     mac_write(RX_STANDARD_RCB + 8, (RING_SIZE << 16) | (RX_DMA_BYTES << 2));
+    mac_write(RX_STANDARD_RCB + 12, SRAM_RX_BD_CACHE);
     mac_write(RX_JUMBO_RCB + 8, RCB_DISABLED);
     mac_write(HOST_STATUS_HIGH, 0);
     mac_write(HOST_STATUS_LOW, nic->dma + offsetof(struct bcm_packet_memory, status));
