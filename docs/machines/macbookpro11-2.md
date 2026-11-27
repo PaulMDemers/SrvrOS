@@ -1736,6 +1736,24 @@ The run record under `build/bringup/pro112-rtl8188cu-cr-schedule`
 binds the `0x009a` hardware control session for return comparison.
 The effect on reception still needs the cold result.
 
+Cold session `session-00066139fc463ebb-00` verified CR `0x00ba`
+before LLT and firmware and at all three receive snapshots. All
+three hub adapters were present and the MCU reached ready. PHY
+parity failures rose from 21 to 4,090, while all 14 receive report
+counters and the RX FIFO pointer stayed at zero. The single 4 KiB
+request timed out with no bytes or Demers2.4 beacons, matching the
+`0x009a` control outcome. Scheduler bit 5 alone did not restore
+reception with TX paused.
+
+Stop Endpoint reported 4,096 bytes remaining. The radio parked
+with CR `0x0000` and `TXPAUSE=0xff`. The workspace exit snapshot
+and seven EFI checkpoints saved automatically and agreed on the
+timing and cleanup readbacks. SrvrOS recorded a clean unmount and
+normal return to Ubuntu. The collector verified all 630 prior
+workspace files and the installed recovery. Evidence and the
+verified payload are archived locally under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-e94ac7fc57df8ce9`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
