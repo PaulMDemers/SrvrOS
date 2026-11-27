@@ -111,7 +111,7 @@ def exercise_trackpad(command, temp, logs, release, log_volume):
                        "ehci-log: captured flash controller absent", "USB result save could not be verified."):
             assert marker in first, marker
     for marker in ("Trackpad capture starting. Start the checklist now.", "Trackpad HID replay completed=",
-                   "Trackpad feature before payload=", "trackpad-qh endpoint=",
+                   "Trackpad feature before payload=", "trackpad-qh endpoint=", "Trackpad running queue starts=",
                    "Trackpad mode-to-arm request",
                    "Trackpad first payload offset", "ehci: bus=", "srv> ", "xhci:",
                    "workspace-log:", "ahci:", "SRVROS_VM_NEXT_ENTRY_SAVE_FAILED"):

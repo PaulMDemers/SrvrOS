@@ -72,16 +72,18 @@
 #define EHCI_QH_TT_PORT_SHIFT 23
 #define EHCI_QH_MULT_ONE (1u << 30)
 #define EHCI_TD_ACTIVE (1u << 7)
+#define EHCI_TD_HALTED (1u << 6)
 #define EHCI_TD_ERROR 0x7cu
 #define EHCI_TD_PID_OUT (0u << 8)
 #define EHCI_TD_PID_IN (1u << 8)
 #define EHCI_TD_PID_SETUP (2u << 8)
 #define EHCI_TD_RETRIES (3u << 10)
+#define EHCI_TD_IOC (1u << 15)
 #define EHCI_TD_DATA1 (1u << 31)
 #define EHCI_TD_BYTES_SHIFT 16
 #define EHCI_TD_BYTES_MASK 0x7fffu
 #define EHCI_TD_SPLIT_STATE (1u << 1)
-#define EHCI_TRACKPAD_BATCH_SIZE 6u
+#define EHCI_TRACKPAD_TRACE_COUNT 6u
 
 #define EHCI_LEGACY_CAP 1u
 #define EHCI_LEGACY_BIOS (1u << 16)
@@ -129,7 +131,7 @@ struct ehci_trackpad_queue_sample {
 struct ehci_trackpad_capture {
     unsigned reports, ignored, invalid, bytes, largest, contacts;
     unsigned wire_max, eight_byte_reports, eight_byte_id44;
-    unsigned batches, completions;
+    unsigned submissions, completions;
     uint64_t last_eight_byte_sample;
     uint64_t mode_to_arm_us, mode_to_active_us, mode_to_first_completion_us;
     uint64_t configuration_to_feature_read_us, configuration_to_mode_us;
@@ -139,7 +141,7 @@ struct ehci_trackpad_capture {
     uint32_t token, overlay, status;
     int16_t first_x, first_y;
     uint8_t feature_before[8], feature_write[8], feature_after[8], feature_restored[8];
-    struct ehci_trackpad_queue_sample first_batch[EHCI_TRACKPAD_BATCH_SIZE];
+    struct ehci_trackpad_queue_sample first_requests[EHCI_TRACKPAD_TRACE_COUNT];
     uint32_t qh_endpoint, qh_capabilities, first_td;
     uint8_t last_eight_byte_id;
     bool hid_replay_started, mode_before_read, mode_after_read;
@@ -1087,13 +1089,13 @@ static void print_trackpad_queue(const struct ehci_trackpad_capture *capture) {
     if (!capture->arm_requested) return;
     console_printf("trackpad-qh endpoint=%x capabilities=%x first=%x stride=%u\n", (uint64_t)capture->qh_endpoint,
         (uint64_t)capture->qh_capabilities, (uint64_t)capture->first_td, (uint64_t)sizeof(struct ehci_trackpad_slot));
-    for (unsigned i = 0; i < EHCI_TRACKPAD_BATCH_SIZE; i++) {
-        const struct ehci_trackpad_queue_sample *sample = &capture->first_batch[i];
+    for (unsigned i = 0; i < EHCI_TRACKPAD_TRACE_COUNT; i++) {
+        const struct ehci_trackpad_queue_sample *sample = &capture->first_requests[i];
         if (!sample->polls) break;
-        console_printf("trackpad-qh slot=%u polls=%u first-frame=%u last-frame=%u td=%x overlay=%x\n",
+        console_printf("trackpad-qh request=%u polls=%u first-frame=%u last-frame=%u td=%x overlay=%x\n",
             (uint64_t)i, (uint64_t)sample->polls, (uint64_t)sample->first_frame, (uint64_t)sample->last_frame,
             (uint64_t)sample->td_token, (uint64_t)sample->overlay_token);
-        console_printf("trackpad-qh slot=%u current=%x next=%x c-progress=%x split-seen=%u\n",
+        console_printf("trackpad-qh request=%u current=%x next=%x c-progress=%x split-seen=%u\n",
             (uint64_t)i, (uint64_t)sample->current, (uint64_t)sample->next, (uint64_t)sample->c_progress,
             (uint64_t)sample->split_seen);
     }
@@ -1159,8 +1161,9 @@ bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
     if (capture->wire_max) console_printf("Wire max=%u. 8-byte=%u. ID 0x44=%u. Last 8-byte ID=%u (decimal).\n",
         (uint64_t)capture->wire_max, (uint64_t)capture->eight_byte_reports,
         (uint64_t)capture->eight_byte_id44, (uint64_t)capture->last_eight_byte_id);
-    if (capture->batches) console_printf("Periodic batches=%u completions=%u.\n",
-        (uint64_t)capture->batches, (uint64_t)capture->completions);
+    if (capture->submissions) console_printf("Trackpad running queue starts=%u submissions=%u resubmissions=%u completions=%u.\n",
+        (uint64_t)capture->arm_acknowledged, (uint64_t)capture->submissions,
+        (uint64_t)(capture->submissions - 1), (uint64_t)capture->completions);
     if (capture->eight_byte_reports) console_printf("Last 8-byte sample in wire order: %x\n",
         capture->last_eight_byte_sample);
     bool passed = !capture->result && !capture->invalid && trackpad_capture_complete(capture) &&
