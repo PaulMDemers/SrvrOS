@@ -2528,6 +2528,23 @@ boot-only probe and Edimax behavior, and keep all three adapters
 on the hub. Qualify the real driver and provider path before an
 attended desktop run.
 
+Source `64873821` lets System queue Connect and Disconnect for the
+Realtek's pinned Demers2.4 peer. The resident worker starts after
+DHCP. The first Disconnect drains OUT, stops the worker, clears
+network state and erases keys before a fresh WPA2 and DHCP
+association can start. The native routed fixture passed both
+connections, DHCP, ping and DNS twice, resident UDP traffic
+across a TX ring wrap, stale-generation refusal and two clean
+disconnects. The existing Edimax desktop reconnect and Realtek
+boot-only probes passed their regressions.
+
+Release `1f1c77d2ad6bbe2b` passed the exact GPT workspace rehearsal
+and four EFI journal modes. The attended trial opens the complete
+Demers2.4 checklist in Help. It tests two connections in one boot
+with all three dongles attached and saves the workspace exit and
+EFI journal before the automatic Ubuntu return. Local run record
+`build/bringup/pro112-rtl8188cu-desktop/run.json`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
