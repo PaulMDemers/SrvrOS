@@ -2086,6 +2086,23 @@ collection. Captures in `build/bringup/pro112-rtl8188cu-wpa2`
 contain metadata only.
 [Linux CU TX descriptor and queue implementation](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/trx.c)
 
+Release `acd08221b588ce4a` (`d1faeebc`) is installed with recovery
+`74da74e0b57afbb8` and workspace `0E53-5900`. The native xHCI
+fixture exercised successful Auth/Association and all four EAPOL
+messages, bad M3 MIC refusal, uncertain OUT, missing sibling refusal
+and stopped IN/OUT with radio park. The full xHCI regression, boot
+unit suite and exact-image workspace and EFI journal modes passed.
+The live run tests the matched Association Response, AP M3 MIC,
+local M4 USB completion, software key erasure and teardown.
+
+The one-shot run is under `build/bringup/pro112-rtl8188cu-wpa2`.
+Ubuntu mounts the EFI partition root-only while this release holds
+the private station record. On return, collect and replay the two
+log copies, then archive the receipts without the credential-bearing
+image. Restore the accepted passive release and the original EFI
+mount options after retiring the private image. The cold result is
+still pending.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
