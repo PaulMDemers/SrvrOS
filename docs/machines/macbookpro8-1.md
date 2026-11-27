@@ -842,6 +842,22 @@ the recovery comparison matched the archived copies after USB remount. The
 offline allocation check passed for 117 files with zero writes. The saved
 native report ends before flash-controller teardown and reset.
 
+Source `738795d8`, release `c431c3461b31a9a3`, is the desktop pointer
+candidate. The boot option `srvros.ehci=trackpad` selects the resident
+input worker for the captured topcase during regular startup. The attended
+profile connects the same worker to the regular compositor and launches
+the checklist in Text. It checks cursor movement on both axes, mouse
+activation of maximize and restore, and pointer selection of Return to
+console. A 90-second deadline allows an incomplete run to save its report.
+
+The host fixtures passed EHCI transfer, Type 2 pointer, ordered button-edge,
+and mouse ABI checks. The exact QEMU boot opened the in-guest checklist at
+1280 × 800. Virtual PS/2 input exercised both axes, both title-bar actions,
+and the return menu. The absence of the captured topcase kept the VM's
+overall hardware result incomplete. The reboot rehearsal returned to the
+Ubuntu default. The attended image carries the compositor, Text and its
+required helpers in RAM so the recovery image still fits on the EFI volume.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
