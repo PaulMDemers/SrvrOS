@@ -1121,18 +1121,36 @@ reports. Mode restoration and topcase retirement verified.
 
 The startup and final reports matched their archives after Ubuntu returned
 and the drive was remounted. The offline allocation check passed for 134
-files with zero writes. The revised normal-mode poll has one native pass.
-Its recovery from an already persistent eight-byte stream and its
-repeatability across boots remain open.
+files with zero writes.
+
+Three more warm boots used the same kernel, desktop image and EFI loader
+as `be59d55498834452`. Each boot passed the full desktop checklist and the
+strict native result. Each observed one initial eight-byte response and
+returned a valid 58-byte `0x74` report on the first completion after one
+recovery attempt. The normal-mode dwell was 309,466–309,474 µs and the
+valid completion followed resumption by 8,748–8,769 µs. No normal-mode
+status responses or malformed frames were observed.
+
+| Release | Valid trackpad reports | Valid keyboard reports | Flash readback |
+| --- | ---: | ---: | --- |
+| `886c207a4111afe2` | 873 | 21 | Startup and final |
+| `256f075ccad6f9a4` | 888 | 36 | Startup and final |
+| `207ea10a0545a290` | 844 | 22 | Startup and final |
+
+Ubuntu consumed all three one-shots. All six reports matched their archives
+after final remount. The offline allocation check passed for 140 files with
+zero writes. This is four consecutive native passes for the revised image.
+The persistent eight-byte stream did not recur. Recovery from an already
+persistent stream remains unverified on this build.
 
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
-| Keyboard | Built-in monitor commands and keyboard input verified in all three combined desktop repeats | Retain keyboard coverage during trackpad mode work |
-| Trackpad | The original recovery exhausted four attempts on `66f988ee64dc5135`. The revised normal-mode poll passed the desktop checklist on `be59d55498834452`. | Repeat the revised recovery across warm boots and capture persistent eight-byte streams if they recur |
-| USB workspace | Both EHCI reports verified after each of three repeat boots, including a keyboard-only exit | Collect startup-only evidence if the desktop cannot exit |
+| Keyboard | Built-in monitor commands and desktop typing verified, including all four revised-recovery boots | Retain keyboard coverage during further topcase work |
+| Trackpad | Revised normal-mode polling passed motion, clicks and strict transport checks on four consecutive warm boots | Capture an already persistent eight-byte stream if it recurs |
+| USB workspace | Startup and final reports verified across the revised recovery and all three repeats | Collect startup-only evidence if the desktop cannot exit |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
