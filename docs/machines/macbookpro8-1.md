@@ -77,6 +77,16 @@ and its fixtures. The current open PRs and Pro11,2 USB Wi-Fi branch have
 no overlapping EHCI work. The native checkpoint follows the exact-stage
 VM rehearsal and uses the same Ubuntu recovery and prepared USB workspace.
 
+The raw endpoint trace starts from `936d6c77` on integration base `61111819`.
+The current `origin/main` at `c523e036` and open device scopes have no
+overlapping EHCI changes. Keep the HID replay and endpoint `0x81` queue from
+the last trial, record a length distribution and bounded raw samples, then
+poll the sibling endpoint `0x84` separately in the same feature mode.
+Compare with Ubuntu USB completions from this unit. Scope is the attended
+EHCI trackpad trial, its queue fixture and existing USB report. The next
+checkpoint is exact-stage VM rehearsal and an attended one-shot with Ubuntu
+recovery.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
