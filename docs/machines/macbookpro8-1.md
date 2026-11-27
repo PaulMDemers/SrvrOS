@@ -706,6 +706,16 @@ installed and recovery payloads matched. The native report ends before the
 USB controller's final teardown and reset. The evidence and exact payload
 are archived outside `build/`.
 
+The single-request trial starts from `1a3c2da6` on the `61111819` base.
+The existing HID replay and mode timing stay in place. The candidate keeps
+one periodic queue head linked, with one active interrupt request followed
+by an inactive dummy qTD. On verified retirement it publishes work through
+the old dummy while preserving the controller-owned overlay and toggle.
+The changes are scoped to the trackpad trial and its fixtures. The current
+open PRs have no overlapping EHCI changes. The next checkpoint is an exact
+VM rehearsal and an attended one-shot with USB logging and Ubuntu recovery.
+[Linux EHCI queue publication](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/usb/host/ehci-q.c)
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
