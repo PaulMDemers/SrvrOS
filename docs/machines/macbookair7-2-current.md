@@ -304,6 +304,13 @@ boot. This closes the inherited CPU backing guard diagnostic. The
 device-side traffic block and fresh engine and L3 acknowledgements remain
 unverified, so the first native translation store is still gated.
 
+The next traffic trial will request the documented RC1e software target with
+forcewake held, before any GT reset, and use the original 10 ms window to
+look for a sustained block and fresh engine and L3 acknowledgements. Scope
+is the Air park adapter, exact read-only proof and rollback. Pipe A keeps
+the inherited framebuffer and no GPU mapping stores are authorized. The
+shared baseline `0d764d9f` was inspected.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
