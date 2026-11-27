@@ -15290,3 +15290,21 @@ Both guest and offline exFAT checks passed, and the image bytes outside the
 data partition were identical. The Ubuntu partitions remained in place.
 This accepts the file-backed QEMU trial. Native SSD write validation remains
 pending.
+
+#### Native internal working partition scope
+
+From main `94a65bc9` (PR565), prepare a separate native trial for the planned
+4 GiB `srvros-work` partition. Qualify the offline ext4 shrink and GPT changes
+on disposable fixtures first. The guest must match both GPT copies and all
+three extents before admitting a bounded write wholly inside the scratch
+partition. Each phase returns to Ubuntu through the existing one-shot
+mechanism. Keep the Ubuntu filesystem unmounted in SrvrOS and retain its boot
+entry and recovery. Scope is the offline layout helper, bounded AHCI trial,
+boot staging, and receipt validation.
+
+The [trial guide](../air61-ssd-work-trial.md) separates the Ubuntu live-USB
+preflight from the offline resize and the two native SrvrOS boots. The sparse
+GPT and ext4 rehearsals preserved the intended partition identities and
+sample data. The host AHCI model verifies that commands outside the payload
+are refused and that the second phase issues no writes or flushes. Actual
+partition creation and native acceptance remain pending.
