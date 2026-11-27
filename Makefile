@@ -2100,7 +2100,7 @@ build/tests/ahci-host$(HOST_EXE): tools/test_ahci.c kernel/src/drivers/ahci.c ke
 .PHONY: test-air61-ssd-probe
 test-core: test-air61-ssd-probe
 test-air61-ssd-probe:
-	$(PYTHON) -m unittest discover -s tools -p test_air61_ssd_probe.py
+	$(PYTHON) -m unittest discover -s tools -p 'test_air61_ssd_*.py'
 
 .PHONY: test-core
 test-core: test-console test-keyboard test-clock test-storage test-xhci

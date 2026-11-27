@@ -78,6 +78,38 @@ with an Ubuntu reboot and uses its own evidence directory. The collector must
 verify both phases against the clean Ubuntu GPT and sample baselines. Preserve
 the cold USB receipt before reusing the discovery receipt path.
 
+### Disposable Air6,1 SSD write and reboot trial
+
+This standalone fixture is for a replacement APPLE SSD SD0128F with
+236,978,176 logical sectors of 512 bytes on the Air6,1 Marvell port 0.
+Physically remove the Ubuntu SSD before booting the spare. Provisioning the
+image replaces the spare's partition table and contents. Confirm the spare's
+identity and that its contents are disposable before any physical provisioning.
+
+Build the kernel and use `tools/air61_ssd_scratch.py build` with a new output
+directory, `--kernel`, `--loader` and the prepared evidence USB's
+`--workspace-volume`. The command creates a sparse regular image with its own
+EFI fallback loader, empty initramfs, and a dedicated raw scratch partition.
+It has no raw device output option. The generated boot configuration carries
+the full primary and backup GPT hashes for that single image.
+
+On the first boot, the runner saves a durable attempt marker to the evidence
+USB and parks it during SSD I/O. The exact controller and SSD geometry, both
+GPT hashes, scratch extent, and three initial pages must match. The runner
+then grants eight one-sector writes to the middle 4 KiB page, followed by one
+supported ATA flush. It reads all three pages directly, verifies their bytes,
+retires AHCI, and saves the write receipt before rebooting. The second boot
+requires that receipt, checks the same three pages with writes disabled, saves
+a separate receipt, and halts. A failed or interrupted write is not retried.
+The spare stays unmounted throughout. Keep the evidence USB connected.
+
+After the verified halt, power off before swapping disks. From Ubuntu, run
+`tools/air61_ssd_scratch.py collect OUTPUT RECEIPTS` with the original image
+directory and the USB's `srvros-work` directory. It requires the matching
+attempt, write, and reboot-readback receipts, verifies both guard pages
+through the digest, and checks command counts and AHCI retirement for both
+boots.
+
 ## Install with console sign-in
 
 For a new identity-bound installation that should start at the local console

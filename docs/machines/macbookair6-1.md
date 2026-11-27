@@ -15257,3 +15257,13 @@ EFI mount restored, its boot order unchanged, and recovery release
 `c35475f62f154f1e` retained. Both USB exFAT and allocation checks passed.
 All five earlier and both new USB receipts matched their saved copies.
 This accepts the opt-in read-only discovery path for the captured SSD.
+
+#### Spare SSD write and persistence scope
+
+From main `e1b4ae47` (PR563), prepare a standalone boot image for a disposable
+APPLE SSD SD0128F of the captured geometry on the Air6,1 Marvell controller.
+Scope is a private AHCI write grant, a sparse fixture builder, and two-boot
+receipt verification. Only the fixture's one 4 KiB scratch page may change.
+The Ubuntu SSD must be physically removed before the native trial. The builder
+only creates a regular image file. There is no hardware spare attached during
+preparation. Existing storage timeouts and ordinary boot policy apply.
