@@ -1832,6 +1832,19 @@ verified all 634 prior workspace files and the installed recovery.
 Evidence, comparison and the verified payload are archived under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-8a47a308e7ec0538`.
 
+The USB interface comparison starts at `4b7f2475` (integration base
+`50f1978a`, upstream inspected at `61111819`). Linux writes
+`0xe0`, `0x8d` and `0x80` to `0xfe40` through `0xfe42` in order.
+The cold trace records this sequence twice, with the first final
+write 3,383 µs before the first successful USB payload. Working
+Linux reads `e0/8d/00` while SrvrOS reads `e7/ad/01`. Apply the
+three one-byte writes after the MAC loopback setting, accepting
+only the measured initial or settled tuple. Verify the settled
+tuple again at receive admission. Retain CR `0x02ba`, TX pause,
+the fixed 4 KiB request and all three hub ports. Exercise the
+native path and both log sinks before the cold run.
+[Linux CU hardware configuration](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/hw.c#L767-L782)
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
