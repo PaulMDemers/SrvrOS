@@ -5,6 +5,7 @@
 #include <srvros/intel_pci_requester.h>
 #ifdef SRVROS_INTEL_GT_FLUSH
 #include <srvros/intel_bdw_bcs_port.h>
+enum { PIPE_WRITER_SLOT = 10, PIPE_WRITER_PAGE = 0x70000 };
 #endif
 #include <stddef.h>
 #if defined(SRVROS_INTEL_BCS_CONTEXT) || defined(SRVROS_INTEL_GT_FLUSH)
@@ -19,7 +20,7 @@ static bool context_wp(void)
 #endif
 }
 
-static bool engine_page_protect(uint64_t root,unsigned slot,bool writable) {
+static bool bootstrap_page_protect(uint64_t root,unsigned slot,bool writable) {
  if(vmm_current_address_space()!=root)return false;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
   return intel_display_test_context_protect(slot,writable);
@@ -46,6 +47,9 @@ static struct {
  unsigned closing;
 #if defined(SRVROS_INTEL_BCS_CONTEXT) || defined(SRVROS_INTEL_GT_FLUSH)
  unsigned engine_ro_mask;
+#endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+ bool pipe_writer_writable;
 #endif
  uint32_t state,reason,issued,prepared,prepare_polls[5],prepare_first[5],prepare_final[5];
  uint32_t pci[4][9],pci_counts[4],pci_samples,pci_reads,command_writes,guards,alias_checks,cache_checks;
@@ -87,7 +91,7 @@ static bool bootstrap_fail(unsigned reason) {
  * access and cannot speak for other logical CPUs or independent requesters. */
 enum bootstrap_smi_point {
  BOOT_SMI_START=1, BOOT_SMI_PCI, BOOT_SMI_ENGINE, BOOT_SMI_TRANSLATION,
- BOOT_SMI_RETURN, BOOT_SMI_END, BOOT_SMI_PARK,
+ BOOT_SMI_RETURN, BOOT_SMI_END, BOOT_SMI_PARK, BOOT_SMI_PIPE,
 };
 enum {BOOT_SMI_UNAVAILABLE=1, BOOT_SMI_CHANGED=2, BOOT_SMI_FAULT=2048};
 static struct {
@@ -288,6 +292,9 @@ static bool bootstrap_guard(void) {
 #if defined(SRVROS_INTEL_BCS_CONTEXT) || defined(SRVROS_INTEL_GT_FLUSH)
   if (i>=3 && i<=7 && (gt_bootstrap_native.engine_ro_mask & (1u<<(i-3)))) writable=false;
 #endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+  if (i==PIPE_WRITER_SLOT && gt_bootstrap_native.pipe_writer_writable) writable=true;
+#endif
   if(!gt_bootstrap_native.a->mapped[i] || !ok || alias.pages!=1 || alias.leaves!=1 || alias.pat_index!=2 ||
    alias.writable!=(unsigned)writable || alias.user || !alias.no_execute || alias.leaf_sizes!=1 ||
    !x86_cache_page(&cache,physical,alias.pat_index,&m,&p,&e) || m || e)return bootstrap_fail(8);
@@ -353,6 +360,8 @@ static bool command_returned(void);
 static bool gt_slot_live(void);
 static bool bootstrap_command_reservation(const struct bdw_boot_binding *);
 static bool slot_queue_boundary(unsigned phase);
+static bool slot_pipe_writer_open(void);
+static bool slot_pipe_writer_reopen_bound(void);
 #endif
 static bool bootstrap_command(unsigned value) {
  unsigned issued=gt_bootstrap_native.command_writes;
@@ -368,8 +377,9 @@ static bool bootstrap_command(unsigned value) {
  if(value==7 && !command_returned())return bootstrap_fail(1024);
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(value==7 && !slot_queue_boundary(0))return false;
+ if(value==7 && (!slot_queue_boundary(0) || !slot_pipe_writer_open()))return false;
  if(!gt_slot_live() || !bootstrap_smi_check(BOOT_SMI_PCI) || !bootstrap_tick())return false;
+ if(value==7 && !slot_pipe_writer_reopen_bound())return false;
 #endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  if(!intel_display_test_bootstrap_command(value))return bootstrap_fail(32);
@@ -377,6 +387,9 @@ static bool bootstrap_command(unsigned value) {
  pci_write_config16(gt_bootstrap_native.a->fw.gt.a.common.gpu,4,(uint16_t)value);
 #endif
  ++gt_bootstrap_native.command_writes;
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(value==7 && !slot_pipe_writer_reopen_bound())return false;
+#endif
  return bootstrap_guard();
 }
 static unsigned bootstrap_slot(uint32_t offset) {

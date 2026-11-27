@@ -329,6 +329,118 @@ static bool slot_writer_census(void) {
     slot_writer.stage=3;
     return true;
 }
+
+/* Qualify the unique CPU mapping needed by a future Pipe A writer. The GT,
+ * HDA, engine and original framebuffer lifetimes stay with the parent. */
+static struct {
+    unsigned stage;
+    uint64_t before_us, after_us, return_us;
+    uint32_t before[5], after[5];
+} pipe_writer;
+
+static bool slot_pipe_writer_trial(void)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_pipe_writer_trial();
+#else
+    return true;
+#endif
+}
+
+static bool slot_pipe_writer_live(void)
+{
+    struct wake_adapter *a = gt_bootstrap_native.a;
+    return gt_slot_live() && gt_primary.complete && gt_aux.samples == 2 &&
+           !(gt_aux.blockers[0] | gt_aux.blockers[1]) && gt_bootstrap_native.post_bound &&
+           gt_bootstrap_native.post.engine_epoch == gt_bootstrap_native.g->engine_epoch &&
+           gt_bootstrap_native.engine_ro_mask == 31 && slot_ports_pinned == INTEL_ENGINE_COUNT &&
+           intel_bdw_peer_ports_held(&command_slots.routes) && context_wp() &&
+           bootstrap_smi.reads && !bootstrap_smi.fault && bootstrap_smi_count(BOOT_SMI_PIPE) == bootstrap_smi.first &&
+           wake_pages[PIPE_WRITER_SLOT] == PIPE_WRITER_PAGE && completion_mapping(a,PIPE_WRITER_SLOT);
+}
+
+static bool slot_pipe_writer_held(void)
+{
+    return slot_pipe_writer_live() && vmm_reserved_guard_writer_held(&slot_widi.guard,
+        gt_bootstrap_native.root,result.mmio_base+PIPE_WRITER_PAGE,WAKE_VA+4096*PIPE_WRITER_SLOT,&pipe_writer);
+}
+
+static bool slot_pipe_writer_reopen_bound(void)
+{
+    return !slot_pipe_writer_trial() || (pipe_writer.stage == 3 && slot_pipe_writer_held());
+}
+
+static bool slot_pipe_writer_sample(uint32_t words[5], uint64_t *at)
+{
+    static const uint32_t registers[] = {0x40, 0x180, 0x188, 0x19c, 0x1ac};
+    if (!slot_pipe_writer_held() || !bootstrap_guard() || !bootstrap_tick()) return false;
+    for (unsigned i=0; i<sizeof(registers)/sizeof(registers[0]); ++i) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+        words[i] = intel_display_test_pipe_writer_read(registers[i]);
+#else
+        words[i] = *(volatile const uint32_t *)(WAKE_VA + 4096*PIPE_WRITER_SLOT + registers[i]);
+#endif
+    }
+    const struct intel_bdw_primary_sample *primary = &gt_primary.input.sample[1];
+    if (words[1] != primary->reader[0][0] || words[2] != primary->pipe[0][3] ||
+        words[3] != primary->reader[0][1] || words[4] != primary->reader[0][2] ||
+        !slot_pipe_writer_held() || !bootstrap_guard() || !bootstrap_tick()) return false;
+    *at = gt_bootstrap_native.last;
+    return true;
+}
+
+static bool slot_pipe_writer_open(void)
+{
+    if (!slot_pipe_writer_trial()) return true;
+    uint64_t root = gt_bootstrap_native.root;
+    if (pipe_writer.stage || gt_bootstrap_native.command_writes != 1 || gt_bootstrap_native.pci_samples != 3 ||
+        !slot_pipe_writer_live() || !bootstrap_guard() || !bootstrap_tick() ||
+        !bootstrap_page_protect(root,PIPE_WRITER_SLOT,true)) return false;
+    gt_bootstrap_native.pipe_writer_writable = true;
+    pipe_writer.stage = 1;
+    if (!bootstrap_guard() || !vmm_reserved_guard_pin_writer(&slot_widi.guard,root,
+            result.mmio_base+PIPE_WRITER_PAGE,WAKE_VA+4096*PIPE_WRITER_SLOT,&pipe_writer)) return false;
+    pipe_writer.stage = 2;
+    if (!slot_pipe_writer_sample(pipe_writer.before,&pipe_writer.before_us)) return false;
+    pipe_writer.stage = 3;
+    return true;
+}
+
+static bool slot_pipe_writer_close(void)
+{
+    if (!slot_pipe_writer_trial()) return true;
+    uint64_t root = gt_bootstrap_native.root;
+    if (pipe_writer.stage != 3 || gt_bootstrap_native.command_writes != 2 || gt_bootstrap_native.pci_samples != 4 ||
+        !slot_pipe_writer_sample(pipe_writer.after,&pipe_writer.after_us) ||
+        pipe_writer.after_us <= pipe_writer.before_us || pipe_writer.after_us - pipe_writer.before_us > BDW_BOOT_PHASE_US ||
+        (uint32_t)(pipe_writer.after[0] - pipe_writer.before[0]) > 8) return false;
+    pipe_writer.stage = 4;
+    if (!vmm_reserved_guard_unpin_writer(&slot_widi.guard,root,result.mmio_base+PIPE_WRITER_PAGE,
+            WAKE_VA+4096*PIPE_WRITER_SLOT,&pipe_writer)) return false;
+    pipe_writer.stage = 5;
+    if (!bootstrap_page_protect(root,PIPE_WRITER_SLOT,false)) return false;
+    gt_bootstrap_native.pipe_writer_writable = false;
+    if (!bootstrap_guard() || !bootstrap_tick() || gt_bootstrap_native.last <= pipe_writer.after_us ||
+        gt_bootstrap_native.last - pipe_writer.before_us > BDW_BOOT_PHASE_US) return false;
+    pipe_writer.return_us = gt_bootstrap_native.last;
+    pipe_writer.stage = 6;
+    return true;
+}
+
+static void slot_pipe_writer_report(void)
+{
+    if (!slot_pipe_writer_trial()) return;
+    console_printf("intel-pipe-a-writer: v=1 stage=%u before=%u after=%u returned=%u writable=%u writes=0\n",
+        (uint64_t)pipe_writer.stage,pipe_writer.before_us,pipe_writer.after_us,pipe_writer.return_us,
+        (uint64_t)gt_bootstrap_native.pipe_writer_writable);
+    for (unsigned n=0;n<2;++n) {
+        if (!(n ? pipe_writer.after_us : pipe_writer.before_us)) continue;
+        const uint32_t *w = n ? pipe_writer.after : pipe_writer.before;
+        console_printf("intel-pipe-a-writer-frame: v=1 n=%u frame=%x plane=%x stride=%x programmed=%x live=%x\n",
+            (uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4]);
+    }
+}
+
 static bool slot_submission_hold(void) {
     if (gt_bootstrap_native.engine_ro_mask || slot_ports_pinned || !context_wp()) return false;
     for (unsigned first = 0; first < INTEL_ENGINE_COUNT; first += VMM_ALIAS_SPANS) {
@@ -338,7 +450,7 @@ static bool slot_submission_hold(void) {
         for (unsigned i = 0; i < count; ++i) {
             unsigned engine = first + i, slot = 3 + engine;
             if (engine==4 && !slot_writer_census()) return false;
-            if (!bootstrap_guard() || !bootstrap_tick() || !engine_page_protect(gt_bootstrap_native.root,slot, false)) return false;
+            if (!bootstrap_guard() || !bootstrap_tick() || !bootstrap_page_protect(gt_bootstrap_native.root,slot, false)) return false;
             gt_bootstrap_native.engine_ro_mask |= 1u << engine;
             spans[i] = (struct vmm_alias_span){WAKE_VA + 4096 * slot, result.mmio_base + wake_pages[slot], 1};
         }
@@ -353,7 +465,7 @@ static bool slot_submission_restore(void) {
     if (slot_ports_pinned != INTEL_ENGINE_COUNT || gt_bootstrap_native.engine_ro_mask != 31 ||
         !slot_widi.closed || !independent_returned || !gt_slot_returned) return false;
     for (unsigned n = INTEL_ENGINE_COUNT; n; --n) {
-        if (!context_wp() || !bootstrap_guard() || !bootstrap_tick() || !engine_page_protect(gt_bootstrap_native.root, n+2, true))
+        if (!context_wp() || !bootstrap_guard() || !bootstrap_tick() || !bootstrap_page_protect(gt_bootstrap_native.root, n+2, true))
             return false;
         gt_bootstrap_native.engine_ro_mask &= ~(1u << (n-1));
         ++slot_ports_restored;
@@ -884,6 +996,7 @@ retire:
 
 static void gt_flush_report(void) {
     park_report();
+    slot_pipe_writer_report();
     for (unsigned n = 0; n < gt_flush.samples; n += 2) {
         const uint32_t *w = gt_idle_samples[n / 2].words;
         console_printf("intel-idle-policy: v=1 phase=%u begin=%u end=%u wake_rate=%x evaluation=%x hysteresis=%x sleep=%x rcs=%x vcs0=%x vecs=%x vcs1=%x bcs=%x\n",

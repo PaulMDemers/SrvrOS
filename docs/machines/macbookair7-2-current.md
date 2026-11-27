@@ -250,6 +250,14 @@ The run is closed as a diagnostic. A sustained traffic block, GPU
 ownership and tear-free scanout remain open. Shared baseline `93e10a44`
 was inspected for this run.
 
+The next PR 301 checkpoint qualifies a native CPU writer lease for the
+Pipe A register page. It extends the existing full-GT reset and PCI reopen
+diagnostic and keeps the original framebuffer programmed. The trial will
+bind the sole mapping to the live owner and verify it before and after
+reopening, then restore the mapping to read-only. Scope is the register
+mapping, its receipt, and the host and VM checks. It issues no display
+register store or GGTT write. Shared baseline `37de62ed` was inspected.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

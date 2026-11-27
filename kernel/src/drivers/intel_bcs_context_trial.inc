@@ -117,7 +117,7 @@ static bool context_engine_permissions(bool writable)
   unsigned engine=writable?INTEL_ENGINE_COUNT-1-n:n,bit=1u<<engine,slot=3+engine;
   if(!bootstrap_tick() || !command_context_live() || !gt_bootstrap_native.a->mapped[slot] ||
      !context_register_alias(slot,!writable) || !context_wp())return false;
-  bool ok=engine_page_protect(gt_bootstrap_native.root,slot,writable);
+  bool ok=bootstrap_page_protect(gt_bootstrap_native.root,slot,writable);
   if(!ok)return false;
   /* Record each successful change even if later verification fails. */
   if(writable){*mask &= ~bit;++bcs_context_native.reopened;}

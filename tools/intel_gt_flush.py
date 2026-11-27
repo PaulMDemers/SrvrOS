@@ -17,6 +17,44 @@ SMI_PREFIX = "intel-smi-guard:"
 SMI_FAULT = 2048
 
 
+def pipe_writer_result(text, parent, primary, aux, retire):
+    rows = [line for line in text.splitlines() if line.startswith(('intel-pipe-a-writer:', 'intel-pipe-a-writer-frame:'))]
+    if not rows:
+        return None
+    summary = fields(rows[0], 'intel-pipe-a-writer:', ('v', 'stage', 'before', 'after', 'returned', 'writable', 'writes'))
+    stage, before, after, returned, writable, writes = (summary[key] for key in
+        ('stage', 'before', 'after', 'returned', 'writable', 'writes'))
+    if (stage > 6 or writable > 1 or writes or (stage in (0, 6) and writable) or
+            (1 <= stage <= 4 and not writable) or bool(before) != (stage >= 3) or
+            (stage >= 4 and not after) or (after and (stage < 3 or parent['pci_samples'] != 4)) or
+            bool(returned) != (stage == 6) or len(rows) != 1 + bool(before) + bool(after)):
+        raise ValueError('Pipe A writer lifetime')
+    if stage and (not primary['summary']['complete'] or not aux['summary']['inactive'] or parent['commands'] == 0):
+        raise ValueError('Pipe A writer lacks its original display or PCI owner')
+    if before and not 0 < primary['summary']['end1'] <= before <= parent['last']:
+        raise ValueError('Pipe A writer admission clock')
+    if after and not before <= after <= parent['last']:
+        raise ValueError('Pipe A writer reopen clock')
+    frames = []
+    keys = ('frame', 'plane', 'stride', 'programmed', 'live')
+    for n, line in enumerate(rows[1:]):
+        row = fields(line, 'intel-pipe-a-writer-frame:', ('v', 'n', *keys), keys)
+        baseline = primary['vectors'][1]
+        if (row['n'] != n or row['frame'] >= 1 << 32 or
+                tuple(row[key] for key in keys[1:]) != (baseline[30], baseline[6], baseline[31], baseline[32])):
+            raise ValueError('Pipe A writer observed a different surface')
+        frames.append(row)
+    delta = ((frames[1]['frame'] - frames[0]['frame']) & 0xffffffff) if after else None
+    if stage >= 4 and (not before < after <= before + 100000 or delta > 8):
+        raise ValueError('Pipe A writer display progress')
+    if returned and (not after < returned <= min(before + 100000, parent['last']) or
+                     (retire['guard_begin'] and returned > retire['guard_begin'])):
+        raise ValueError('Pipe A writer retirement clock')
+    if parent['complete'] and stage != 6:
+        raise ValueError('Pipe A writer omitted retirement')
+    return dict(summary=summary, frames=frames, frame_delta=delta, complete=stage == 6)
+
+
 def smi_guard_result(rows, version, parent, memory, retire, selector_writes=0):
     if version == 1:
         if rows or parent["reason"] & SMI_FAULT:

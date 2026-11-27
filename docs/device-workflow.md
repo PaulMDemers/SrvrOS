@@ -151,6 +151,12 @@ requires fresh powered endpoints on either side and finishes within 250 µs
 of verified forcewake ACK and thread C0. The independent closing census
 still precedes the scheduled traffic polls. Only those later polls feed
 the traffic-block and drain checks. The v9 USB report is bounded to 2,304 bytes.
+The Pipe A writer receipt in `exit.log` qualifies the CPU register mapping
+under the same guard as the five engine ports. The diagnostic makes the
+sole supervisor UC alias writable, pins it across PCI bus-master reopening,
+reads the inherited plane before and after, and restores read-only access.
+The actual display register stores, firmware and device reader ownership,
+and a native second surface are separate prerequisites.
 
 The opt-in [private CPU context-image](intel-bdw-bcs-context.md) profile
 `intel-bcs-context-v46` selects a separate `--intel-bcs-context` image/recipe

@@ -36,6 +36,8 @@ static void intel_display_test_cold_sample(unsigned, uint32_t *, uint32_t *, uin
 static uint32_t intel_display_test_bcs_stop_read(uint32_t);
 static void intel_display_test_bcs_stop_write(uint32_t);
 static void intel_display_test_slot_writer_sample(uint32_t *,uint32_t *);
+static bool intel_display_test_pipe_writer_trial(void);
+static uint32_t intel_display_test_pipe_writer_read(uint32_t);
 static bool intel_display_test_context_wp(void);
 static bool intel_display_test_context_protect(unsigned,bool);
 static void intel_display_test_backing_access(void);
@@ -64,7 +66,6 @@ static volatile uint64_t *intel_display_test_command_pointer(void);
 static void intel_display_test_command_preserved(void);
 #ifdef SRVROS_INTEL_BCS_CONTEXT
 static unsigned model_engine_ro;
-static void intel_display_test_cold_sample(unsigned, uint32_t *, uint32_t *, uint32_t *, uint32_t *, uint32_t *);
 struct vmm_alias_span;
 static bool intel_display_test_context_aliases(const struct vmm_alias_span *,unsigned);
 static bool intel_display_test_context_protect(unsigned,bool);
@@ -314,14 +315,29 @@ static uint32_t intel_display_test_command_aperture_read(unsigned i) {
 }
 static unsigned host_port_pins;
 static const void *host_bcs_writer;
+static const void *host_pipe_writer;
+static bool model_pipe_writable;
+static bool intel_display_test_pipe_writer_trial(void) {
+ return !strncmp(bootstrap_mode,"pipe-writer",11);
+}
 bool vmm_reserved_guard_pin_writer(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,uint64_t alias,const void *owner) {
  assert(g==&slot_widi.guard && g->object==g && root==gt_bootstrap_native.root && host_widi_held && wake_irq);
+ if(owner==&pipe_writer) {
+  assert(page==result.mmio_base+PIPE_WRITER_PAGE && alias==WAKE_VA+4096*PIPE_WRITER_SLOT &&
+         model_pipe_writable && !host_pipe_writer && !host_bcs_writer && model_engine_ro==31 && gpu_command==3);
+  if(bf("pipe-writer-admit",1))return false;
+  host_pipe_writer=owner;return true;
+ }
  assert(page==result.mmio_base+0x22000 && alias==WAKE_VA+7*4096 && host_port_pins==4 &&
         model_engine_ro==15 && gpu_command==3 && owner && !host_bcs_writer);
  if(bf("writer-admit",1))return false;
  host_bcs_writer=owner;return true;
 }
 bool vmm_reserved_guard_writer_held(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,uint64_t alias,const void *owner) {
+ if(owner==&pipe_writer)
+  return owner==host_pipe_writer && model_pipe_writable && model_engine_ro==31 &&
+         page==result.mmio_base+PIPE_WRITER_PAGE && alias==WAKE_VA+4096*PIPE_WRITER_SLOT &&
+         vmm_reserved_guard_io_page_held(g,root,0xb3003000);
  return owner && owner==host_bcs_writer && vmm_reserved_guard_io_page_held(g,root,0xb3003000) &&
         page==result.mmio_base+0x22000 && alias==WAKE_VA+7*4096 && !bf("writer-lost",1);
 }
@@ -331,6 +347,11 @@ static void intel_display_test_slot_writer_sample(uint32_t *hwsp,uint32_t *mask)
 }
 bool vmm_reserved_guard_unpin_writer(const struct vmm_reserved_guard *g,uint64_t root,uint64_t page,uint64_t alias,const void *owner) {
  assert(vmm_reserved_guard_writer_held(g,root,page,alias,owner));
+ if(owner==&pipe_writer) {
+  assert(gpu_command==7);
+  if(bf("pipe-writer-return",1))return false;
+  host_pipe_writer=NULL;return true;
+ }
  if(bf("writer-return",1))return false;
  host_bcs_writer=NULL;return true;
 }
@@ -338,6 +359,13 @@ static bool intel_display_test_context_wp(void) {
  return !bf("slot-wp",1);
 }
 static bool intel_display_test_context_protect(unsigned slot,bool writable) {
+ if(slot==PIPE_WRITER_SLOT) {
+  assert(intel_display_test_pipe_writer_trial() && wake_irq && !host_pipe_writer && model_pipe_writable!=writable &&
+         host_widi_held && model_engine_ro==31 && gpu_command==(writable?3u:7u));
+  if(!writable && bf("pipe-writer-protect",1))return false;
+  model_pipe_writable=writable;
+  return true;
+ }
  assert(slot>=3 && slot<8 && wake_irq && gpu_command==(writable?7u:3u));
  assert(host_widi_held!=writable);
  unsigned bit=1u<<(slot-3);
@@ -346,6 +374,18 @@ static bool intel_display_test_context_protect(unsigned slot,bool writable) {
  if(writable)model_engine_ro &= ~bit;
  else model_engine_ro |= bit;
  return true;
+}
+static uint32_t intel_display_test_pipe_writer_read(uint32_t reg) {
+ assert(host_pipe_writer==&pipe_writer && wake_irq && vmm_reserved_guard_writer_held(&slot_widi.guard,
+        gt_bootstrap_native.root,result.mmio_base+PIPE_WRITER_PAGE,WAKE_VA+4096*PIPE_WRITER_SLOT,&pipe_writer));
+ switch(reg) {
+ case 0x40: return gpu_command==3 ? UINT32_MAX : 0; /* One frame across wrap. */
+ case 0x180: return 0xd8000400;
+ case 0x188: return 6144;
+ case 0x19c: return 0;
+ case 0x1ac: return gpu_command==7 && bf("pipe-writer-drift",1) ? 0x1000 : 0;
+ default: assert(false); return UINT32_MAX;
+ }
 }
 bool vmm_reserved_guard_hold_readonly_registers(const struct vmm_reserved_guard *g,uint64_t root,
                                                 const struct vmm_alias_span *spans,unsigned count) {
@@ -428,6 +468,7 @@ static void intel_display_test_bootstrap_smi_cpuid(uint32_t leaf,uint32_t *a,uin
 }
 static uint32_t intel_display_test_bootstrap_smi_count(unsigned point) {
  assert(wake_irq && !display_access_allowed());
+ if(point==BOOT_SMI_PIPE)return bootstrap_smi.first+(gpu_command==7 && bf("pipe-writer-smi",1));
  if(point==BOOT_SMI_PARK)
   return bootstrap_smi.first + (bf("park-smi",air_park.smi_checks) ||
    (!strcmp(bootstrap_mode,"park-cold-vcs1-edge-smi") && model_edge_reads) ||
@@ -505,6 +546,9 @@ static bool intel_display_test_bootstrap_alias(unsigned i,uint64_t physical,stru
 #if defined(SRVROS_INTEL_BCS_CONTEXT) || defined(SRVROS_INTEL_GT_FLUSH)
  if(i>=3 && i<=7 && (model_engine_ro & (1u<<(i-3))))writable=false;
 #endif
+#ifdef SRVROS_INTEL_GT_FLUSH
+ if(i==PIPE_WRITER_SLOT)writable=model_pipe_writable;
+#endif
  *out=(struct vmm_alias_observation){1,1,2,writable,0,1,1};*range=(struct vmm_range_observation){0};
  if(bf("user-alias",balias))out->user=1;
  if(bf("exec-alias",balias))out->no_execute=0;
@@ -540,6 +584,7 @@ static bool intel_display_test_bootstrap_command(unsigned value) {
 #ifdef SRVROS_INTEL_GT_FLUSH
  assert(gt_slot_live() && !independent_returned && test_backing_allocated);
  if(value==7) {
+  if(intel_display_test_pipe_writer_trial())assert(host_pipe_writer==&pipe_writer && pipe_writer.stage==3);
   const struct intel_bdw_gt_bootstrap *reset=&gt_bootstrap_native.reset;
   assert(reset->binding.blitter_port_owner==&slot_backing);
   assert(intel_bdw_bcs_port_held(reset->binding.blitter_port_owner));
@@ -611,6 +656,7 @@ static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t 
 }
 static bool intel_display_test_bootstrap_expected(void) {
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(!strcmp(bootstrap_mode,"pipe-writer"))return true;
  if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"park-late-ack") ||
     !strcmp(bootstrap_mode,"park-cold") || !strcmp(bootstrap_mode,"park-cold-cost") ||
     !strcmp(bootstrap_mode,"park-cold-vcs1") || !strcmp(bootstrap_mode,"park-cold-vcs1-edge") ||
@@ -1220,6 +1266,14 @@ int main(int argc,char **argv) {
  int code=original_display_fixture_main(2,args);
  bootstrap_churn_stack();
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if(intel_display_test_pipe_writer_trial() && strcmp(bootstrap_mode,"pipe-writer")) {
+  assert(hit && bcommands==(!strcmp(bootstrap_mode,"pipe-writer-admit") ? 1u : 2u));
+  assert(intel_gt_wake_retained() && model_pipe_writable && !pipe_writer.return_us && !display_access_allowed());
+  return code;
+ }
+ if(intel_display_test_pipe_writer_trial()) {
+  assert(!host_pipe_writer && !model_pipe_writable && pipe_writer.stage==6);
+ }
  if (intel_display_test_park_edge_trial()) {
   if (!strcmp(bootstrap_mode,"park-cold-vcs1-edge-smi")) {
    assert(model_edge_reads == 13 && !air_park.guard_rewake_us && !air_park.returned &&

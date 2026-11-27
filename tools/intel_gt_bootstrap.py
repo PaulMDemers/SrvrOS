@@ -272,8 +272,11 @@ def bootstrap_result(text,*,native=False):
         raise ValueError("Unexpected active panel RC6 observation")
     flush_proof=None
     if flush:
-        from intel_gt_flush import flush_result
+        from intel_gt_flush import flush_result, pipe_writer_result
         flush_proof=flush_result(text,s,r,range_proof['summary'],primary_proof['summary'],retire,memory_proof['summary'],range_proof.get('widi_messages'))
+        pipe_writer = pipe_writer_result(text,s,primary_proof,aux_proof,retire)
+        if pipe_writer is not None:
+            flush_proof['pipe_writer'] = pipe_writer
         if stop:
             if flush_proof['summary']['v'] != 9:
                 raise ValueError('Blitter stop lacks a compatible baseline')

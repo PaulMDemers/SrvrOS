@@ -548,6 +548,8 @@ class Runner:
                 state['software_park_version'] = payload['software_park_version']
             if payload.get('park_timing_file_version') == 1:
                 state['park_timing_file_version'] = 1
+            if payload.get('pipe_writer_version') == 1:
+                state['pipe_writer_version'] = 1
             if payload.get('idle_policy_version') == 1:
                 state['idle_policy_version'] = 1
             if payload.get('cold_rc6_version') in (1, 2, 3):
@@ -775,6 +777,10 @@ class Runner:
                 park = native['flush'].get('park', {})
                 diagnostic_complete = (diagnostic_complete and park.get('complete', False) and
                                        park['summary']['v'] == state['software_park_version'])
+            if state.get('pipe_writer_version'):
+                writer = native['flush'].get('pipe_writer', {})
+                diagnostic_complete = (diagnostic_complete and writer.get('complete', False) and
+                                       writer['summary']['v'] == state['pipe_writer_version'])
             if state.get('idle_policy_version'):
                 diagnostic_complete = diagnostic_complete and len(native['flush'].get('idle_policy', [])) == 2
             if state.get('cold_rc6_version'):

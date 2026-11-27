@@ -622,6 +622,32 @@ class FlushAcknowledgements(unittest.TestCase):
             command_slots_version=observed["command_slots"]["v"], range_version=observed["summary"]["v"],
         ))
 
+    def test_pipe_a_writer_remains_exclusive_across_pci_reopen(self):
+        text = observe('pipe-writer')
+        result = bootstrap_result(text)
+        writer = result['flush']['pipe_writer']
+        self.assertTrue(writer['complete'])
+        self.assertFalse(result['hardware_ownership'])
+        self.assertEqual(writer['frame_delta'], 1)
+        self.assertEqual([row['frame'] for row in writer['frames']], [0xffffffff, 0])
+        self.assertEqual([writer['summary'][key] for key in ('stage', 'writable', 'writes')], [6, 0, 0])
+        for before, after in (('stage=6', 'stage=5'), ('writable=0 writes=0', 'writable=0 writes=1'),
+                              ('live=0', 'live=0x1000')):
+            rows = text.splitlines(keepends=True)
+            wrong = ''.join(line.replace(before, after) if line.startswith('intel-pipe-a-writer') else line for line in rows)
+            self.assertTrue(wrong != text, before)
+            with self.assertRaises(ValueError):
+                bootstrap_result(wrong)
+
+        for fault, stage, commands in (('admit', 1, 1), ('drift', 3, 2), ('smi', 3, 2), ('return', 4, 2), ('protect', 5, 2)):
+            with self.subTest(fault=fault):
+                failed = bootstrap_result(observe('pipe-writer-' + fault, 1))
+                writer = failed['flush']['pipe_writer']
+                self.assertFalse(writer['complete'])
+                self.assertEqual(writer['summary']['stage'], stage)
+                self.assertEqual(failed['summary']['commands'], commands)
+                self.assertEqual(writer['summary']['returned'], 0)
+
     def test_bcs_register_loan_before_requester_reopens(self):
         text = observe("pass")
         receipt = bootstrap_result(text)["range"]["reopened_pte"]
@@ -955,6 +981,7 @@ class FlushAcknowledgements(unittest.TestCase):
             ))
             for mode, pos in (("pass", 0), ("park-cold-vcs1", 0), ("park-cold-vcs1-restore", 0),
                               ("park-cold-vcs1-edge", 0), ("park-cold-vcs1-edge-smi", 0),
+                              ("pipe-writer", 0), ("pipe-writer-return", 1),
                               ("flush-clock", 12), ("flush-unmap", 2), ("flush-float", 100),
                               ("smi-count", 2), ("smi-wrap", 2), ("smi-hypervisor", 1)):
                 observe(mode, pos, binary=binary)
