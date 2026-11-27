@@ -450,6 +450,39 @@ class FlushAcknowledgements(unittest.TestCase):
                 if mode == 'restore':
                     self.assertEqual(result['reset']['reset_writes'], 0)
 
+    def test_immediate_forcewake_packet_cannot_grant_traffic_ownership(self):
+        text = observe('park-cold-vcs1-edge')
+        park = bootstrap_result(text)['flush']['park']
+        edge = park['edge']
+        self.assertTrue(park['complete'] and edge['complete'])
+        self.assertEqual(edge['words'], [0, 0, 0, 0, 1, 0, 32, 32, 32, 32, 32, 0, 0])
+        self.assertLessEqual(park['cold']['rewake']['ack_c0'], edge['begin'])
+        self.assertLessEqual(edge['end'] - park['cold']['rewake']['ack_c0'], 250)
+        self.assertLessEqual(edge['end'], park['cold']['guard']['rewake'])
+        self.assertLessEqual(park['cold']['rewake']['close'] - park['summary']['poll_origin_us'], 7500)
+        self.assertFalse(park['hardware_ownership'] or park['powered_block_observed'] or
+                         park['fresh_engine_mask'] or park['fresh_l3'])
+        row = next(line for line in text.splitlines(keepends=True) if line.startswith('intel-park-edge: '))
+        for altered in ('', row.replace(f"begin={edge['begin']}", 'begin=0'),
+                        row.replace(f"end={edge['end']}", f"end={park['cold']['guard']['rewake'] + 1}")):
+            with self.assertRaises(ValueError):
+                bootstrap_result(text.replace(row, altered))
+        full = (text + '\nlaptop-capture: boot options=test\nlaptop-capture: completed=yes\n').encode()
+        compact = b''.join(line for line in full.splitlines(keepends=True) if line.startswith(TIMING_PREFIXES))
+        verify_timing_file(compact, full)
+        with self.assertRaises(ValueError):
+            verify_timing_file(compact.replace(row.encode(), b''), full)
+
+        for fault in ('float', 'late', 'smi'):
+            with self.subTest(fault=fault):
+                result = bootstrap_result(observe('park-cold-vcs1-edge-' + fault))
+                failed = result['flush']['park']
+                self.assertFalse(failed['edge']['complete'] or failed['complete'])
+                self.assertTrue(failed['edge']['begin'])
+                self.assertEqual(bool(failed['summary']['returned']), fault != 'smi')
+                if fault == 'smi':
+                    self.assertEqual(result['reset']['reset_writes'], 0)
+
     def test_max_idle_rollback(self):
         text = observe('pass')
         change = bootstrap_result(text)['flush']['idle_change']
@@ -921,6 +954,7 @@ class FlushAcknowledgements(unittest.TestCase):
                 cc, [*flags, "-O1", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"], sources,
             ))
             for mode, pos in (("pass", 0), ("park-cold-vcs1", 0), ("park-cold-vcs1-restore", 0),
+                              ("park-cold-vcs1-edge", 0), ("park-cold-vcs1-edge-smi", 0),
                               ("flush-clock", 12), ("flush-unmap", 2), ("flush-float", 100),
                               ("smi-count", 2), ("smi-wrap", 2), ("smi-hypervisor", 1)):
                 observe(mode, pos, binary=binary)

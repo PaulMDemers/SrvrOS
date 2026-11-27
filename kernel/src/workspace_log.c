@@ -512,11 +512,11 @@ bool workspace_log_stolen_progress(const char *data,uint64_t length) {
 
 bool workspace_log_park_timing_snapshot(void) {
     if(enabled || busy || !healthy || !directory[0] || !workspace_active()) return false;
-    static char timing[2048];
+    static char timing[2304];
     static const char *const prefixes[]={
         "laptop-capture: boot options=", "intel-park-forcewake: ", "intel-park: ",
         "intel-park-rc6: ", "laptop-capture: completed=", "intel-park-rc6-clock: ", "intel-park-rewake: ",
-        "intel-park-guard: ", "intel-park-vcs1: ",
+        "intel-park-guard: ", "intel-park-vcs1: ", "intel-park-edge: ",
     };
     uint64_t total, count=bootlog_snapshot_lines(snapshot,sizeof(snapshot),&total), used=0;
     unsigned seen[sizeof(prefixes)/sizeof(prefixes[0])]={0};
@@ -536,7 +536,8 @@ bool workspace_log_park_timing_snapshot(void) {
         }
         start=end+1;
     }
-    if(seen[0]!=1 || seen[1]!=1 || seen[2]!=1 || seen[3]>2 || seen[4]!=1 || seen[5]>2 || seen[6]>1 || seen[7]>1 || seen[8]>1)
+    if(seen[0]!=1 || seen[1]!=1 || seen[2]!=1 || seen[3]>2 || seen[4]!=1 || seen[5]>2 ||
+       seen[6]>1 || seen[7]>1 || seen[8]>1 || seen[9]>1)
         return false;
     uint64_t flags;
     return begin(&flags) && save_small_diagnostic("park-timing.log",timing,used,flags);

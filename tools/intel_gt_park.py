@@ -11,19 +11,20 @@ GAM = 0x5f
 TIMING_FILE = 'park-timing.log'
 TIMING_PREFIXES = (b'laptop-capture: boot options=', b'intel-park-forcewake: ', b'intel-park: ',
                    b'intel-park-rc6: ', b'laptop-capture: completed=', b'intel-park-rc6-clock: ',
-                   b'intel-park-rewake: ', b'intel-park-guard: ', b'intel-park-vcs1: ')
+                   b'intel-park-rewake: ', b'intel-park-guard: ', b'intel-park-vcs1: ', b'intel-park-edge: ')
 
 
 def verify_timing_file(timing, exit_log):
     rows = [row for row in exit_log.splitlines(keepends=True) if row.startswith(TIMING_PREFIXES)]
     counts = [sum(row.startswith(prefix) for row in rows) for prefix in TIMING_PREFIXES]
-    vcs1 = any(row.startswith(b'intel-park: v=8 ') for row in rows)
+    edge = any(row.startswith(b'intel-park: v=9 ') for row in rows)
+    vcs1 = edge or any(row.startswith(b'intel-park: v=8 ') for row in rows)
     scoped = vcs1 or any(row.startswith(b'intel-park: v=7 ') for row in rows)
     detailed = scoped or any(row.startswith(b'intel-park: v=6 ') for row in rows)
     if (not all(counts[i] == 1 for i in (0, 1, 2, 4)) or counts[3] > 2 or
             counts[5] > (2 if detailed else 0) or counts[6] != int(detailed) or counts[7] != int(scoped) or
-            counts[8] != int(vcs1) or
-            not 0 < len(timing) <= 2048 or timing != b''.join(rows)):
+            counts[8] != int(vcs1) or counts[9] != int(edge) or
+            not 0 < len(timing) <= (2304 if edge else 2048) or timing != b''.join(rows)):
         raise ValueError('Park timing file differs from full exit report')
 
 
@@ -180,13 +181,29 @@ def park_vcs1_result(line, summary, frames, policy):
     return record
 
 
+def park_edge_result(line, origin, cold):
+    match = re.fullmatch(r'intel-park-edge: v=1 begin=(\d+) end=(\d+) words=(0|13) data=(\S*)', line)
+    require(match)
+    begin, end, count = map(int, match.groups()[:3])
+    data = base64.b64decode(match[4], validate=True)
+    require(len(data) == 4 * count and bool(end) == bool(count))
+    ack = cold['rewake']['ack_c0']
+    require(not begin or (0 < origin <= ack <= begin))
+    words = list(struct.unpack(f'<{count}I', data))
+    if count:
+        require(0 < begin < end <= min(ack + 250, origin + 10000, cold['guard']['rewake']) and
+                0xffffffff not in words)
+    return dict(begin=begin, end=end, words=words, complete=bool(count))
+
+
 def park_result(text, cold, change, timing, wake_complete, flush):
     lines = text.splitlines()
     headers = [l for l in lines if l.startswith('intel-park:')]
     require(len(headers) == 1)
     regs = ('ctl', 'target', 'set_ctl', 'set_target', 'final_ctl', 'final_target', 'restore_ctl', 'restore_target')
     counts = ('attempts', 'returns', 'opened', 'unmapped', 'sampled', 'held', 'reopened', 'returned')
-    vcs1_trial = headers[0].startswith('intel-park: v=8 ')
+    edge_trial = headers[0].startswith('intel-park: v=9 ')
+    vcs1_trial = edge_trial or headers[0].startswith('intel-park: v=8 ')
     scoped = vcs1_trial or headers[0].startswith('intel-park: v=7 ')
     detailed = scoped or headers[0].startswith('intel-park: v=6 ')
     timed = detailed or headers[0].startswith('intel-park: v=5 ')
@@ -197,7 +214,7 @@ def park_result(text, cold, change, timing, wake_complete, flush):
     stamps = ('returned_us', 'prepare_us', 'smi_checks', 'smi_last', 'panel_checks') if pre_reset else ()
     if spaced:
         stamps = ('poll_origin_us', *stamps)
-    version = 8 if vcs1_trial else 7 if scoped else 6 if detailed else 5 if timed else 4 if cold_trial else 3 if spaced else 2 if pre_reset else 1
+    version = 9 if edge_trial else 8 if vcs1_trial else 7 if scoped else 6 if detailed else 5 if timed else 4 if cold_trial else 3 if spaced else 2 if pre_reset else 1
     h = fields(headers[0], 'intel-park:', ('v', *stamps, *panel, *counts, *regs), (*regs, *panel), versions=(version,))
     require(h['returns'] <= h['attempts'] <= 2 and h['unmapped'] <= h['opened'] <= 1 and
             max(h['sampled'], h['reopened'], h['returned']) <= 1 and h['held'] <= 2)
@@ -230,6 +247,10 @@ def park_result(text, cold, change, timing, wake_complete, flush):
     require(len(vcs1_rows) == int(vcs1_trial))
     if vcs1_trial:
         result['vcs1'] = park_vcs1_result(vcs1_rows[0], h, frames, flush.get('idle_policy'))
+    edges = [line for line in lines if line.startswith('intel-park-edge: ')]
+    require(len(edges) == int(edge_trial))
+    if edge_trial:
+        result['edge'] = park_edge_result(edges[0], h['poll_origin_us'], result['cold'])
     if pre_reset:
         baseline = flush.get('samples', [])
         stop = flush.get('stop_messages')
@@ -252,6 +273,8 @@ def park_result(text, cold, change, timing, wake_complete, flush):
             tuple(h[k] for k in regs) == (AUTO, PARK, PARK, PARK, PARK, PARK, AUTO, PARK))
     if vcs1_trial:
         require(result['vcs1']['restore'] and result['vcs1']['set'] == result['vcs1']['at_return'] == 10)
+    if edge_trial:
+        require(result['edge']['complete'])
     polls = [f for f in frames if f['op'] == 1]
     first_poll = 6 if cold_trial else 0
     poll_count = 8 - first_poll

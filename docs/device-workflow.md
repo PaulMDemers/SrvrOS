@@ -146,6 +146,11 @@ reacquisition timings. Park receipt v8 also binds the single pre-reset VCS1
 MAX_IDLE adjustment to the measured five-engine baseline and to verified
 restoration before any engine preparation. Failed restoration retains
 exclusion and stops before reset. Earlier USB reports still replay.
+Park receipt v9 adds one read-only GAM, WiDi, engine and L3 packet. It
+requires fresh powered endpoints on either side and finishes within 250 µs
+of verified forcewake ACK and thread C0. The independent closing census
+still precedes the scheduled traffic polls. Only those later polls feed
+the traffic-block and drain checks. The v9 USB report is bounded to 2,304 bytes.
 
 The opt-in [private CPU context-image](intel-bdw-bcs-context.md) profile
 `intel-bcs-context-v46` selects a separate `--intel-bcs-context` image/recipe

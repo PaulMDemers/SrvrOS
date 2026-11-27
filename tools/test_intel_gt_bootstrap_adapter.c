@@ -26,6 +26,7 @@ static uint32_t intel_display_test_park_read(unsigned);
 static void intel_display_test_park_store(unsigned,uint32_t);
 static bool intel_display_test_park_cold_trial(void);
 static bool intel_display_test_park_vcs1_trial(void);
+static bool intel_display_test_park_edge_trial(void);
 static bool intel_display_test_park_wake_step(uint32_t);
 static void intel_display_test_park_cold_read(unsigned,uint32_t *,uint32_t *);
 static void intel_display_test_park_census(unsigned);
@@ -132,12 +133,16 @@ static uint32_t model_max_idle[5]={14,15,16,17,18};
 static unsigned model_idle_stores;
 static uint32_t model_park_vcs1 = PARK_VCS1_INHERITED;
 static unsigned model_park_vcs1_stores;
+static unsigned model_edge_reads;
 static uint32_t park_model[2] = {PARK_AUTO,PARK_RC6};
 static bool intel_display_test_park_cold_trial(void) {
     return !strncmp(bootstrap_mode,"park-cold",9);
 }
 static bool intel_display_test_park_vcs1_trial(void) {
     return !strncmp(bootstrap_mode,"park-cold-vcs1",14);
+}
+static bool intel_display_test_park_edge_trial(void) {
+    return !strncmp(bootstrap_mode,"park-cold-vcs1-edge",19);
 }
 static void intel_display_test_park_census(unsigned phase) {
     assert(phase<4 && air_park.active && wake_irq && gpu_command==3 && hda_command==2);
@@ -171,6 +176,18 @@ static uint32_t intel_display_test_park_read(unsigned reg) {
            (intel_display_test_park_cold_trial() && reg>=0x70180 && reg<=0x701ac)) &&
            !display_access_allowed() && air_park.active);
     if (reg == PARK_CTL || reg == PARK_STATE) return park_model[reg == PARK_STATE];
+    if (air_park.edge.begin && air_park.owner->state == GT_ACCESS_OPENING && reg < 0x70000) {
+        static const uint32_t regs[] = {0x40d0,0x8028,0x8108,0x8014,0x8038,0x8014,
+                                        0x8000,0x8004,0x8008,0x800c,0x8010,0x8028,0x40d0};
+        assert(model_edge_reads < sizeof(regs)/sizeof(regs[0]) && regs[model_edge_reads++] == reg);
+        assert(wake_ack == 1 && air_park.owner->idle_rewake.ack_us && !air_park.guard_rewake_us &&
+               air_park.cold_count == 2 && !bcs_stop.writes && !pulses && gpu_command == 3);
+        if (!strcmp(bootstrap_mode,"park-cold-vcs1-edge-float")) return UINT32_MAX;
+        if (!strcmp(bootstrap_mode,"park-cold-vcs1-edge-late")) ticks += PARK_EDGE_US;
+        if (reg == 0x8038) return 1;
+        if (reg >= 0x8000 && reg <= 0x8010) return 0x20;
+        return 0;
+    }
     const struct park_frame *frame = &air_park.frames[air_park.frames_used-1];
     bool late = !strcmp(bootstrap_mode,"park-late-ack");
     bool blocked = park_model[0] == PARK_RC6 && (!strcmp(bootstrap_mode,"park-ack") ||
@@ -413,6 +430,7 @@ static uint32_t intel_display_test_bootstrap_smi_count(unsigned point) {
  assert(wake_irq && !display_access_allowed());
  if(point==BOOT_SMI_PARK)
   return bootstrap_smi.first + (bf("park-smi",air_park.smi_checks) ||
+   (!strcmp(bootstrap_mode,"park-cold-vcs1-edge-smi") && model_edge_reads) ||
    (!strcmp(bootstrap_mode,"park-cold-window-smi") && air_park.cold_attempts==2));
  assert(point>=BOOT_SMI_START && point<=BOOT_SMI_END);
  unsigned sample=bootstrap_smi.reads+1;
@@ -595,7 +613,7 @@ static bool intel_display_test_bootstrap_expected(void) {
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"park-late-ack") ||
     !strcmp(bootstrap_mode,"park-cold") || !strcmp(bootstrap_mode,"park-cold-cost") ||
-    !strcmp(bootstrap_mode,"park-cold-vcs1") ||
+    !strcmp(bootstrap_mode,"park-cold-vcs1") || !strcmp(bootstrap_mode,"park-cold-vcs1-edge") ||
     !strcmp(bootstrap_mode,"flush-quiet") || !strcmp(bootstrap_mode,"flush-stale") ||
     !strcmp(bootstrap_mode,"flush-chatter") || !strcmp(bootstrap_mode,"flush-latched"))return true;
 #endif
@@ -1202,6 +1220,19 @@ int main(int argc,char **argv) {
  int code=original_display_fixture_main(2,args);
  bootstrap_churn_stack();
 #ifdef SRVROS_INTEL_GT_FLUSH
+ if (intel_display_test_park_edge_trial()) {
+  if (!strcmp(bootstrap_mode,"park-cold-vcs1-edge-smi")) {
+   assert(model_edge_reads == 13 && !air_park.guard_rewake_us && !air_park.returned &&
+          !bcs_stop.writes && !pulses && intel_gt_wake_retained());
+   return code;
+  }
+  if (strcmp(bootstrap_mode,"park-cold-vcs1-edge")) {
+   assert(model_edge_reads == 1 && !air_park.edge.end && !air_park.sampled &&
+          air_park.guard_rewake_us && air_park.returned && air_park.vcs1.restore_us);
+   return code;
+  }
+  assert(model_edge_reads == 13 && air_park.edge.end <= air_park.guard_rewake_us);
+ }
  if (intel_display_test_park_vcs1_trial()) {
   bool restore_failed = !strcmp(bootstrap_mode,"park-cold-vcs1-restore");
   bool baseline_failed = !strcmp(bootstrap_mode,"park-cold-vcs1-baseline");

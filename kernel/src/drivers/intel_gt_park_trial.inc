@@ -5,7 +5,7 @@
 enum { PARK_CTL = 0xa090, PARK_STATE = 0xa094, PARK_RC6 = 4u << 16,
        PARK_AUTO = 0x90040000, PARK_POLLS = 8, PARK_WORDS = 24,
        PARK_INTERVAL_US = BDW_TRAFFIC_BLOCK_US / PARK_POLLS,
-       PARK_COLD_END_US = 5000, PARK_COLD_FIRST_POLL = 6,
+       PARK_COLD_END_US = 5000, PARK_COLD_FIRST_POLL = 6, PARK_EDGE_US = 250,
        PARK_VCS1 = 3, PARK_MAX_IDLE = 10, PARK_VCS1_INHERITED = 64 };
 enum park_op { PARK_OPEN, PARK_POLL, PARK_HELD, PARK_REOPEN };
 enum park_rc6_failure {
@@ -24,7 +24,7 @@ struct park_frame {
 static struct {
     struct wake_adapter *adapter;
     struct intel_gt_access *owner;
-    struct park_frame frames[1 + PARK_POLLS + 2 + 1];
+    struct park_frame frames[1 + PARK_POLLS + 2 + 1], edge;
     uint32_t original[2], programmed[2], at_return[2], restored[2];
     uint64_t poll_origin_us, returned_us, prepare_us;
     struct bdw_pci_rc6_sample cold[2];
@@ -55,6 +55,15 @@ static bool park_vcs1_trial(void)
 {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
     return intel_display_test_park_vcs1_trial();
+#else
+    return true;
+#endif
+}
+
+static bool park_edge_trial(void)
+{
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_park_edge_trial();
 #else
     return true;
 #endif
@@ -162,6 +171,16 @@ static bool park_pci_inhibited(struct wake_adapter *a)
 #endif
 }
 
+static bool park_live_endpoint(struct wake_adapter *a)
+{
+    struct intel_gt_endpoint endpoint;
+    return joint_fast() && gt_binding(&a->fw.gt) && gt_endpoint(&a->fw.gt,&endpoint) &&
+           endpoint.asls == a->fw.endpoint.asls && endpoint.swsci == a->fw.endpoint.swsci &&
+           wake_mappings_bound(a);
+}
+
+static bool park_capture_edge(struct wake_adapter *a);
+
 /* The full two-pass inherited PTE/fence census brackets this serialized
  * forcewake operation at entry, release acknowledgement and ACK/C0 on return.
  * Between censuses the CPU holds the same root and leases, GPU/HDA bus
@@ -172,7 +191,6 @@ static bool park_pci_inhibited(struct wake_adapter *a)
 static bool park_interval_guard(struct wake_adapter *a)
 {
     const struct intel_gt_access *g = air_park.owner;
-    struct intel_gt_endpoint endpoint;
     if (a != air_park.adapter || a != gt_bootstrap_native.a || g != gt_bootstrap_native.g ||
         !air_park.active || !air_park.guard_entry_us || !bootstrap_owner_binding() ||
         (g->state != GT_ACCESS_AWAKE && g->state != GT_ACCESS_OPENING) || !bootstrap_borrow_bound() ||
@@ -184,16 +202,15 @@ static bool park_interval_guard(struct wake_adapter *a)
     bool rewake = g->idle_rewake.ack_us && !g->idle_rewake.guard_exit_us;
     bool late = gt_bootstrap_native.last - air_park.poll_origin_us >= BDW_TRAFFIC_BLOCK_US;
     if (release || rewake || late) {
+        bool edge_safe = !rewake || late || !park_edge_trial() || park_capture_edge(a);
         if (late) ++air_park.guard_fallback;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
         intel_display_test_park_census(release ? 1 : rewake ? 2 : 3);
 #endif
-        if (!wake_endpoint_guard(a,true) || !bootstrap_tick()) goto fault;
+        if (!wake_endpoint_guard(a,true) || !bootstrap_tick() || !edge_safe) goto fault;
     } else {
         ++a->guards;
-        if (!joint_fast() || !gt_binding(&a->fw.gt) || !gt_endpoint(&a->fw.gt,&endpoint) ||
-            endpoint.asls != a->fw.endpoint.asls || endpoint.swsci != a->fw.endpoint.swsci ||
-            !wake_mappings_bound(a)) goto fault;
+        if (!park_live_endpoint(a)) goto fault;
     }
     if (!park_pci_inhibited(a) || !park_panel_bound() ||
         bootstrap_smi_count(BOOT_SMI_PARK) != bootstrap_smi.first)
@@ -372,15 +389,10 @@ static bool park_vcs1_restore(void)
     return true;
 }
 
-static bool park_read(void *ctx, uint32_t reg, uint32_t *value)
+static bool park_read_register(struct wake_adapter *a, uint32_t reg, uint32_t *value)
 {
-    struct park_frame *f = ctx;
-    struct wake_adapter *a = air_park.adapter;
     unsigned slot;
     uint64_t address, actual;
-    if (f->count >= PARK_WORDS || !air_park.active || !engine_requesters(a) ||
-        air_park.owner->state != GT_ACCESS_AWAKE || !air_park.owner->pinned ||
-        !display_access_held(&air_park.owner->exclusion)) return false;
     switch (reg & ~4095u) {
     case 0x8000:
         if (!gt_range_translation(&actual) || actual != result.mmio_base+0x8000) return false;
@@ -401,8 +413,62 @@ static bool park_read(void *ctx, uint32_t reg, uint32_t *value)
 #else
     *value = *(volatile const uint32_t *)(address + (reg & 4095));
 #endif
+    return true;
+}
+
+static bool park_read(void *ctx, uint32_t reg, uint32_t *value)
+{
+    struct park_frame *f = ctx;
+    struct wake_adapter *a = air_park.adapter;
+    if (f->count >= PARK_WORDS || !air_park.active || !engine_requesters(a) ||
+        air_park.owner->state != GT_ACCESS_AWAKE || !air_park.owner->pinned ||
+        !display_access_held(&air_park.owner->exclusion)) return false;
+    if (!park_read_register(a,reg,value)) return false;
     f->raw[f->count++] = *value;
     return *value != UINT32_MAX;
+}
+
+static bool park_edge_live(struct wake_adapter *a)
+{
+    return park_live_endpoint(a) && park_pci_inhibited(a) && park_panel_bound() &&
+           bootstrap_smi_count(BOOT_SMI_PARK) == bootstrap_smi.first && engine_requesters(a);
+}
+
+/* Sample the newly powered domain once before paying the independent closing
+ * census. This packet never feeds the scheduled poll or the drain classifier. */
+static bool park_capture_edge(struct wake_adapter *a)
+{
+    static const uint32_t regs[] = {0x40d0,0x8028,0x8108,0x8014,0x8038,0x8014,
+                                    0x8000,0x8004,0x8008,0x800c,0x8010,0x8028,0x40d0};
+    struct park_frame *f = &air_park.edge;
+    const struct intel_gt_access *g = air_park.owner;
+    uint64_t ack = g->idle_rewake.ack_us;
+    if (f->begin || g->state != GT_ACCESS_OPENING || g->idle_writes != 2 || !g->pinned ||
+        !display_access_held(&g->exclusion) || !park_edge_live(a)) return false;
+    uint64_t begin = timer_monotonic_us();
+    if (begin < ack) return false;
+    f->begin = begin;
+    if (f->begin - ack >= PARK_EDGE_US || f->begin - air_park.poll_origin_us >= BDW_TRAFFIC_BLOCK_US)
+        return true;
+    unsigned n = 0;
+    uint64_t previous = begin;
+    for (; n < sizeof(regs)/sizeof(regs[0]); ++n) {
+        if (!engine_requesters(a)) return false;
+        uint64_t now = timer_monotonic_us();
+        if (now < previous) return false;
+        previous = now;
+        if (now - ack >= PARK_EDGE_US || now - air_park.poll_origin_us >= BDW_TRAFFIC_BLOCK_US ||
+            !park_read_register(a,regs[n],&f->raw[n]) || f->raw[n] == UINT32_MAX) break;
+    }
+    if (!park_edge_live(a)) return false;
+    uint64_t end = timer_monotonic_us();
+    if (end < previous) return false;
+    if (n == sizeof(regs)/sizeof(regs[0]) && end > f->begin && end - ack <= PARK_EDGE_US &&
+        end - air_park.poll_origin_us <= BDW_TRAFFIC_BLOCK_US) {
+        f->count = n;
+        f->end = end;
+    }
+    return true;
 }
 
 /* Bracket the L3 pulse itself with WiDi, as the command owner does. */
@@ -516,7 +582,7 @@ static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
             break;
         }
     }
-    air_park.sampled = park_owner(a,g) && bootstrap_guard();
+    air_park.sampled = park_owner(a,g) && bootstrap_guard() && (!park_edge_trial() || air_park.edge.end);
     return air_park.sampled;
 }
 
@@ -591,6 +657,14 @@ static void park_report(void)
             console_printf("intel-park-vcs1: v=1 apply=%u restore=%u saved=%u set=%u at_return=%u returned=%u\n",
                 air_park.vcs1.apply_us,air_park.vcs1.restore_us,(uint64_t)air_park.vcs1.saved,
                 (uint64_t)air_park.vcs1.applied,(uint64_t)air_park.vcs1.at_return,(uint64_t)air_park.vcs1.restored);
+        if (park_edge_trial()) {
+            const struct park_frame *f = &air_park.edge;
+            unsigned words = air_park.guard_rewake_us ? f->count : 0;
+            char encoded[(PARK_WORDS*4+2)/3*4+1];
+            entry_requester_base64((const uint8_t *)f->raw,4*words,encoded);
+            console_printf("intel-park-edge: v=1 begin=%u end=%u words=%u data=%s\n",
+                f->begin,words ? f->end : 0,(uint64_t)words,encoded);
+        }
     }
     for (unsigned i=0; i<air_park.frames_used; ++i) {
         const struct park_frame *f = &air_park.frames[i];
@@ -600,7 +674,8 @@ static void park_report(void)
             (uint64_t)i,(uint64_t)f->op,f->begin,f->end,(uint64_t)f->count,encoded);
     }
     console_printf("intel-park: v=%u poll_origin_us=%u returned_us=%u prepare_us=%u smi_checks=%u smi_last=%u panel_checks=%u plane=%x surface=%x live=%x attempts=%u returns=%u opened=%u unmapped=%u sampled=%u held=%u reopened=%u returned=%u ctl=%x target=%x set_ctl=%x set_target=%x final_ctl=%x final_target=%x restore_ctl=%x restore_target=%x\n",
-        (uint64_t)(park_vcs1_trial() ? 8 : park_cold_trial() ? 7 : 3),air_park.poll_origin_us,air_park.returned_us,air_park.prepare_us,(uint64_t)air_park.smi_checks,(uint64_t)air_park.smi_last,
+        (uint64_t)(park_edge_trial() ? 9 : park_vcs1_trial() ? 8 : park_cold_trial() ? 7 : 3),
+        air_park.poll_origin_us,air_park.returned_us,air_park.prepare_us,(uint64_t)air_park.smi_checks,(uint64_t)air_park.smi_last,
         (uint64_t)air_park.panel_checks,(uint64_t)air_park.plane,(uint64_t)air_park.surface,(uint64_t)air_park.live,
         (uint64_t)air_park.attempts,(uint64_t)air_park.returns,(uint64_t)air_park.mapped,
         (uint64_t)air_park.unmapped,(uint64_t)air_park.sampled,(uint64_t)air_park.held,

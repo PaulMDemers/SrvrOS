@@ -227,6 +227,14 @@ raw hashes, and offline exFAT integrity. All 19 source-bound host checks
 and four exact-image QEMU cases passed before this run. The result is
 closed as a diagnostic, with tear-free scanout still pending.
 
+The next PR 301 diagnostic samples the Broadwell GAM, WiDi, engine and L3
+messages immediately after the original forcewake requester verifies ACK
+and thread C0. It keeps the independent closing census, both scheduled
+polls, the original panel, and the 10 ms park window. The early packet is
+read-only evidence and carries no traffic hold or mapping authority. Scope
+is the Air park adapter, timing receipt, and host/VM qualification. The
+latest shared baseline inspected is `93e10a44`.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
