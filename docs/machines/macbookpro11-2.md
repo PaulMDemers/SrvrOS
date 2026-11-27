@@ -1720,6 +1720,22 @@ request, pre-LLT timing, firmware, RF profile and all three hub
 ports. Verify the native path and both log sinks before the cold
 run. [Linux MAC control bits](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/reg.h#L822-L833)
 
+The alternate Linux `rtl8xxxu` CU power-on path also adds the
+scheduler to CR after APSD settles. Its OR mask omits ENSEC. Both
+Linux CU drivers enable TX for normal operation. The SrvrOS trial
+tests the scheduler with `TXPAUSE=0xff`, MAC TX and TX DMA clear.
+[Linux rtl8xxxu CU power-on](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtl8xxxu/8192c.c#L537-L558)
+
+Release `e94ac7fc57df8ce9` (`639e3150`) is installed with recovery
+`74da74e0b57afbb8`, workspace `0E53-5900` and all three hub ports
+verified. The native fixture verifies CR `0x00ba`, the unchanged
+4 KiB request, refusal on scheduler, MAC TX or TXPAUSE readback
+drift, and retirement with bit 5 cleared. The exact image passed
+automatic reset, workspace logging and the four EFI journal modes.
+The run record under `build/bringup/pro112-rtl8188cu-cr-schedule`
+binds the `0x009a` hardware control session for return comparison.
+The effect on reception still needs the cold result.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
