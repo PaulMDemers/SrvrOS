@@ -1899,6 +1899,23 @@ The run record under `build/bringup/pro112-rtl8188cu-rcr-trailer`
 binds the USB interface control session and Linux reference.
 Reception still needs the cold result.
 
+Cold session `session-0006613ac3b699e1-00` verified `RCR=0xf000790f`
+at setup, armed receive, while pending and before Stop Endpoint.
+The MCU reached ready and all three hub adapters were present. PHY
+parity failures rose from 26 to 4,561. All 14 receive report
+counters and the FIFO pointer stayed at zero. The fixed 4 KiB
+request timed out with no bytes or Demers2.4 beacons, matching the
+`0x1000790f` control. The payload parser had no native frames to
+inspect during this run.
+
+Stop Endpoint reported 4,096 bytes remaining, and the radio parked
+with CR `0x0000` and `TXPAUSE=0xff`. Both logs saved automatically
+and agreed on RCR and the receive counters. All seven EFI checkpoints
+survived, including clean unmount and normal Ubuntu return. The
+collector verified all 638 prior files and the installed recovery.
+Evidence, comparison and the verified payload are archived under
+`/var/local/srvros-recovery/macbookpro11-2/evidence-9a088d0b7f9867a1`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
