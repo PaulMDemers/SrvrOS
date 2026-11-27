@@ -894,6 +894,44 @@ static void boot_virtio_gpu_probe(void) {
 }
 
 static bool startup_journal_admitted;
+
+static void air61_ssd_trial(const char *cmdline) {
+    static const char receipt[] = "/work/srvros-work/air61-ssd-probe.log";
+    boot_set_framebuffer_quiet(false);
+    console_clear();
+    console_write("Air6,1 read-only SSD probe. Checking controller and sampling raw sectors.\n");
+    if (!display_profile_is_air61() || !cmdline_tokens_unique(cmdline) ||
+        !cmdline_has_token(cmdline, "srvros.storage=ram")) {
+        console_write("air61-ssd: REFUSED platform or invalid profile; restart manually\n");
+        console_sync();
+        halt_forever();
+    }
+    console_printf("air61-ssd: profile %s\n", cmdline);
+    enum ahci_probe_result result = ahci_air61_probe();
+    if (result == AHCI_PROBE_UNSAFE || result == AHCI_PROBE_REFUSED) {
+        console_printf("air61-ssd: %s; photograph this screen and restart manually\n",
+            result == AHCI_PROBE_UNSAFE ? "HALTED AHCI quiescence unproved" : "REFUSED controller or disk");
+        console_sync();
+        halt_forever();
+    }
+    console_printf("air61-ssd: result=%s internal_mounted=no ata_writes=0\n",
+        result == AHCI_PROBE_PASS ? "PASS" : "FAIL");
+    console_write("Saving the SSD probe receipt to the USB workspace.\n");
+    xhci_init();
+    arch_enable_interrupts();
+    workspace_boot(cmdline);
+    bool saved = workspace_active() && !vfs_lookup(receipt) && bootlog_persist(receipt);
+    bool unmounted = !workspace_active() || workspace_unmount();
+    if (saved && unmounted) {
+        console_write("SSD probe receipt saved. Returning to Ubuntu.\n");
+        console_sync();
+        arch_reboot_unattended();
+    }
+    console_write("SSD probe receipt unavailable or USB teardown failed. Photograph this screen and restart manually.\n");
+    console_sync();
+    halt_forever();
+}
+
 static void startup_checkpoint(uint32_t phase,uint64_t flags) {
     if(!startup_journal_admitted)return;
     if(startup_journal_checkpoint(phase,flags))return;
@@ -1066,6 +1104,10 @@ void kmain(void) {
 #endif
     }
     pci_init();
+    if (cmdline_has_token(cmdline, "srvros.capture=air61-ssd-read-only")) {
+        air61_ssd_trial(cmdline);
+        halt_forever();
+    }
     if(startup_journal_requested) {
         boot_set_framebuffer_quiet(false);
         if(cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1"))

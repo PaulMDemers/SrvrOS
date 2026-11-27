@@ -1,5 +1,26 @@
 # Disk installation and recovery
 
+## MacBookAir6,1 internal SSD probe
+
+The standalone Air6,1 probe qualifies raw reads on the captured Marvell
+`1b4b:9183` controller and APPLE SSD SD0128F. It admits the exact machine and
+controller, checks ATA IDENTIFY, and reads 68 sectors total. The three ranges
+cover the protective MBR and primary GPT, the backup GPT, and the EFI boot
+sector. It saves SHA-256 digests to the designated USB workspace. The internal
+disk stays unmounted and the probe publishes no block or partition devices.
+It issues only IDENTIFY and READ DMA EXT. An uncertain AHCI teardown halts
+visibly with DMA backing retained for a manual return to Ubuntu.
+
+Build `build/kernel/srvros.elf` and stage with
+`python3 tools/hardware_boot.py stage --air61-ssd-probe-volume YOUR_USB_UUID`.
+The standalone recipe has an empty initramfs. Use the exact-stage smoke test
+to verify that a foreign machine refuses before touching AHCI. On Ubuntu, the
+privileged launcher uses `tools/air61_ssd_probe.py` to read the matching raw
+device with read-only access. Both GPT headers, entry arrays, CRCs, and
+partition extents must validate. After return, the receipt's release, workspace
+and complete set of hashes must match the saved Ubuntu baseline. See the
+[Air6,1 unit record](machines/macbookair6-1.md#read-only-internal-ssd-qualification).
+
 ## Install with console sign-in
 
 For a new identity-bound installation that should start at the local console
