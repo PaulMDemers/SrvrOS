@@ -24,6 +24,7 @@
 #include <srvros/mouse.h>
 #include <srvros/mouse_position.h>
 #include <srvros/sys.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
