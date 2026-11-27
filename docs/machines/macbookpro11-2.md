@@ -1499,6 +1499,16 @@ verified clean exFAT, all 620 existing files and the default Ubuntu
 boot. Evidence and the verified payload are archived locally under
 `/var/local/srvros-recovery/macbookpro11-2/evidence-e5f3a6aeef258349`.
 
+#### RTL8188CUS Linux cold power reference
+
+Match the SrvrOS cold topology in Ubuntu. Defer automatic binding of
+the two Linux modules matching `0bda:8176` for a single boot, sample
+the unbound adapter, then trace the first `rtl8192cu` probe and
+passive channel-10 receive. The downstream ports, workspace and
+normal Ubuntu/SrvrOS entries stay as recorded. Scope is a local
+Ubuntu boot service and collector. No shared kernel changes are
+planned for this reference. Fetched main is `61111819`.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
