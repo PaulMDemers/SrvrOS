@@ -2124,6 +2124,18 @@ the accepted passive release `a662f7851095412c` was restored as
 the SrvrOS entry, and the original Ubuntu EFI mount options were
 restored and verified.
 
+#### RTL8188CUS first Auth USB OUT trace
+
+This unit will repeat the active Demers2.4 trial from `5015ccae`.
+Integration main `54632d47` and Air6,1 AHCI work in #556 were
+inspected. Keep this comparison on the same Pro boot profile,
+hub ports and 4 KiB receive path. Scope is the Realtek station
+OUT driver, native xHCI fixture, and saved trial evidence.
+Capture the first OUT transfer event and endpoint context before
+the doorbell, at wait exit, and after Stop Endpoint. Keep teardown
+events distinct from the live completion. Preserve the independent
+EFI checkpoint path, Ubuntu recovery and private image retirement.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
