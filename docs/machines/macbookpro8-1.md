@@ -507,6 +507,16 @@ The host regression checks file creation and remount with the reserved bytes
 preserved. Native report save and automatic return still need verification.
 [exFAT allocation bitmap specification](https://learn.microsoft.com/en-us/windows/win32/fileio/exfat-specification#715-allocation-bitmap)
 
+The updated Ubuntu checker read all 100 files with zero allocation errors.
+The separate writable check found a primary volume dirty flag with valid,
+matching boot regions. Offline exfatprogs cleared the flag and normalized
+the bitmap length. The read-only writable check then passed with zero writes.
+Native release `a730b00708a8820b` mounted the USB workspace and saved a
+4,047-byte report that Ubuntu read back and verified by release and hash.
+The saved log ends before the final unmount and reset messages. Ubuntu
+booted with the one-shot entry consumed. The trackpad still timed out with
+zero decoded reports, 242 eight-byte transfers and one ignored response.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
@@ -514,7 +524,7 @@ preserved. Native report save and automatic return still need verification.
 | Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
 | Keyboard | Operator verified built-in input and commands in the regular monitor | Capture the native EHCI release line on a future monitor run |
 | Trackpad | Native EHCI polling completed transfers. The first capture decoded zero type 2 frames. | Check feature-mode readback and short packet framing, then qualify motion and clicks |
-| USB workspace | Native block registration and MBR reads verified. A read-only Ubuntu capture identified the bitmap padding that blocked the native mount. | Verify the updated parser on the drive, then native write, unmount and readback |
+| USB workspace | Native exFAT mount, report write and Ubuntu readback verified after offline repair | Capture the native unmount and controller retirement receipt |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
