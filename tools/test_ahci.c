@@ -18,6 +18,8 @@ static struct ahci_disk *active_disk;
 static const char *failure_phase,*failure_reason;
 static uint64_t failure_ci,failure_is,failure_elapsed;
 static unsigned failure_logs;
+static uint64_t probe_reads[68];
+static unsigned probe_count;
 void latency_enter(enum latency_site site) { assert(site==LATENCY_AHCI); profile_depth++; }
 void latency_leave(enum latency_site site) { assert(site==LATENCY_AHCI && profile_depth); profile_depth--; }
 bool scheduler_io_begin(void) {
@@ -66,6 +68,15 @@ uint64_t timer_monotonic_us(void) {
     polls++;
     if(behavior==14 && model.tfd && polls==2) { model.tfd=0;now+=AHCI_COMMAND_TIMEOUT_US; }
     if(model.ci) {
+        if (behavior == 18 || behavior == 19) {
+            assert(table.cfis[2] == ATA_CMD_READ_DMA_EXT && table.cfis[12] == 1 &&
+                   !(header.flags & (1u << 6)) && probe_count < 68);
+            probe_reads[probe_count++] = (uint64_t)table.cfis[4] |
+                (uint64_t)table.cfis[5] << 8 | (uint64_t)table.cfis[6] << 16 |
+                (uint64_t)table.cfis[8] << 24;
+            header.prdbc = behavior == 18 ? 512 : 511;
+            model.ci = 0;
+        }
         if((behavior==11 || behavior==12) && ++issued_polls==2) {
             model.ci=0;now+=AHCI_COMMAND_TIMEOUT_US;
             if(behavior==12) model.is=HBA_PORT_IS_TFES;
@@ -104,8 +115,45 @@ static void allocation_contract(void) {
         for(unsigned i=1;i<=4;i++)assert(!dma_live[i]);
     }
 }
+static void air61_probe_contract(void) {
+    struct pci_device pci = {.bus=4, .vendor_id=0x1b4b, .device_id=0x9183,
+        .revision=0x14, .class_code=1, .subclass=6, .prog_if=1};
+    assert(air61_controller(&pci));
+    pci.revision++;
+    assert(!air61_controller(&pci));
+    uint8_t identify[512] = {0};
+    const char name[] = "APPLE SSD SD0128F";
+    for (unsigned i = 0; i < 40; i++) identify[54 + (i ^ 1)] = i < sizeof(name) - 1 ? name[i] : ' ';
+    for (unsigned i = 0; i < 8; i++) identify[200 + i] = AIR61_SSD_SECTORS >> (8 * i);
+    identify[167] = 4;
+    assert(air61_identify(identify));
+    identify[213] = 0x50;
+    identify[235] = 2;
+    assert(!air61_identify(identify));
+    identify[235] = 1;
+    assert(air61_identify(identify));
+    identify[54] ^= 1;
+    assert(!air61_identify(identify));
+
+    struct ahci_disk disk = setup(18);
+    probe_count = 0;
+    assert(air61_read_samples(&disk, 0) && probe_count == 68);
+    for (unsigned i = 0; i < 34; i++) assert(probe_reads[i] == i);
+    for (unsigned i = 0; i < 33; i++) assert(probe_reads[34 + i] == AIR61_SSD_SECTORS - 33 + i);
+    assert(probe_reads[67] == 2048);
+    assert(!air61_read_sector(&disk, ATA_CMD_WRITE_DMA_EXT, 0));
+
+    disk = setup(19);
+    probe_count = 0;
+    assert(!air61_read_samples(&disk, 0) && probe_count == 1);
+    disk = setup(18);
+    probe_count = 0;
+    now = AIR61_SSD_PROBE_US;
+    assert(!air61_read_samples(&disk, 0) && !probe_count);
+}
 int main(void) {
     allocation_contract();
+    air61_probe_contract();
     struct ahci_disk disk=setup(0);
     assert(issue_command(&disk,ATA_CMD_IDENTIFY,0,0,false));
     assert(header.prdt_length==1 && (table.prdt[0].dbc_i&0x3fffff)==511 && current_space==2);
