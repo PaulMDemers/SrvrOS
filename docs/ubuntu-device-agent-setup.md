@@ -872,6 +872,13 @@ allow the 90-second deadline to end the trial. On Ubuntu, verify both files
 against the run record and preserve a startup-only result as incomplete
 evidence. Use the final report to verify desktop input and teardown.
 
+The MacBookPro8,1 saved-file variant stages with
+`--ehci-desktop-trial UUID --ehci-desktop-file`. It keeps the selected
+workspace mounted while Text edits and reopens `ehci-desktop-<release>.txt`.
+The instructions open in the file. After Ubuntu returns, compare the edited
+document and both reports with the run record, and run the offline allocation
+check. The final report includes the Text write and reopen receipts.
+
 Omit `--save` for a JSON report on stdout. The command reads the recorded
 model and volume UUID, checks the marker, excludes pre-existing sessions,
 and matches the release in boot-option records. An unidentified new session

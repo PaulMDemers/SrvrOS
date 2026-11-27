@@ -1151,14 +1151,39 @@ zero writes. This is four consecutive native passes for the revised image.
 The persistent eight-byte stream did not recur. Recovery from an already
 persistent stream remains unverified on this build.
 
+## Live desktop saved-file checkpoint
+
+Runtime source `0c067180` retains the captured `00:1d.7` flash controller
+while the desktop runs. The v5 file trial at staging source `1664abbe`
+opens a new release-bound document at `/work/srvros-work`. The startup and
+final reports use the same mounted workspace. The file trial verifies the
+edited bytes after Text exits and flushes the reports before unmounting
+and retiring the flash controller. Its on-screen checklist uses pointer
+placement to reach the last line on the built-in keyboard layout.
+
+Release `75525ae902f943ab` passed the EHCI, keyboard and pointer fixtures.
+The exact-stage VM used disposable MBR/exFAT media and verified Text
+save and reopen, both report files, clean allocation and Ubuntu default
+return. The keyboard-only variant saved both reports and left its trial
+document at the original content.
+
+The MacBook mounted the flash workspace over the captured EHCI controller,
+then Text opened the 542-byte seed, saved the edit and reopened the
+549-byte document. The native 1280 × 800 desktop passed typing, both
+pointer axes, maximize and restore, and return. The topcase recorded
+1,143 valid trackpad reports, 26 valid keyboard reports and zero malformed
+frames. Ubuntu consumed the one-shot. After remount, all three new files
+matched their archives and the 140 previous user files were preserved.
+Offline allocation passed for 143 files with zero writes.
+
 ## Capability ledger
 
 | Capability | State | Next evidence |
 | --- | --- | --- |
-| Native boot and display | Console observed on hardware | `c1a8e397a41363dc` reached the terminal. Measure panel mode and qualify desktop separately. |
+| Native boot and display | Console and the 1280 × 800 desktop verified on the internal panel | Qualify individual display providers |
 | Keyboard | Built-in monitor commands and desktop typing verified, including all four revised-recovery boots | Retain keyboard coverage during further topcase work |
 | Trackpad | Revised normal-mode polling passed motion, clicks and strict transport checks on four consecutive warm boots | Capture an already persistent eight-byte stream if it recurs |
-| USB workspace | Startup and final reports verified across the revised recovery and all three repeats | Collect startup-only evidence if the desktop cannot exit |
+| USB workspace | Live desktop Text save and reopen and both report files verified on `75525ae902f943ab` | Qualify longer desktop file activity in a separate trial |
 | Audio, brightness, telemetry, power and networking | Linux inventory | Individual native checks against the captured providers |
 
 The local host checkpoint, exact VM evidence and first console return are in
