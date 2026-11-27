@@ -1459,6 +1459,24 @@ park and three-adapter topology as in the crystal trial. Scope is the
 RTL8188CUS firmware and passive paths, fixtures and local collector.
 Fetched main `61111819` and open reviews have no overlapping changes.
 
+The Linux reference comes from two startup sequences during a
+target-only driver rebind. Both show APS `0x4802` before and after
+MAC auto-on, then APS `0x0812` followed by an isolation read and
+write of `0x8000`. The first captured isolation read follows APS
+finalization. The Linux trace and the armed monitor reads do not
+resolve earlier cold isolation state.
+
+Installed cold candidate `e5f3a6aeef258349` from `d710b3c1`, with
+recovery `74da74e0b57afbb8`, workspace `0E53-5900` and all three hub
+ports verified. Native firmware and passive fixtures passed the
+ordered checkpoints, partial failure, fixed 4 KiB request and
+beacon parsing. Exact-image tests passed GPT workspace logging and
+all four journal availability cases. The decoder recovered the full
+power trace and receive counters from both bounded checkpoints.
+The run record and Linux sequence are in
+`build/bringup/pro112-rtl8188cu-power-chain`. The native isolation
+transition and receive result remain pending.
+
 ### Retina desktop default
 
 Start from `b275e57d`. This unit reports Apple Inc. `MacBookPro11,2`
