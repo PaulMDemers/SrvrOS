@@ -122,10 +122,14 @@ struct ehci_trackpad_capture {
     unsigned wire_max, eight_byte_reports, eight_byte_id44;
     unsigned batches, completions;
     uint64_t last_eight_byte_sample;
+    uint64_t mode_to_arm_us, mode_to_active_us, mode_to_first_completion_us;
+    unsigned first_payload_length;
+    uint8_t first_payload[EHCI_DESCRIPTOR_BYTES];
     uint32_t token, overlay, status;
     int16_t first_x, first_y;
     uint8_t mode_before, mode_after, last_eight_byte_id;
     bool mode_before_read, mode_after_read;
+    bool arm_requested, arm_acknowledged;
     bool have_position, moved, pressed, released, mode_restored;
     const char *result;
 };
@@ -380,7 +384,8 @@ static bool flash_descriptor_request(const struct ehci_control_path *path, const
 /* Both success and failure must acknowledge schedule disable before the next
  * request can overwrite the shared descriptor page. */
 static bool control_transfer_payload(struct ehci_control_path *path, const struct ehci_control_target *target,
-    const struct usb_setup_packet *setup, uint8_t *in_data, const uint8_t *out_data, unsigned *received) {
+    const struct usb_setup_packet *setup, uint8_t *in_data, const uint8_t *out_data, unsigned *received,
+    uint64_t *completed_us) {
     volatile uint32_t *op = path->op;
     *received = 0;
     bool in = (setup->request_type & USB_ENDPOINT_IN) != 0;
@@ -405,6 +410,7 @@ static bool control_transfer_payload(struct ehci_control_path *path, const struc
     uint64_t start = timer_monotonic_us();
     const char *failure = enabled ? wait_control(path, setup->length != 0,
         flash_probe ? EHCI_FLASH_DESCRIPTOR_US : EHCI_CONTROL_US, start) : "schedule enable timeout";
+    if (!failure && completed_us) *completed_us = timer_monotonic_us();
     if (flash_probe) {
         path->report->flash_attempted = true;
         path->report->flash_wait_us = timer_monotonic_us() - start;
@@ -435,7 +441,7 @@ static bool control_transfer_payload(struct ehci_control_path *path, const struc
 
 static bool control_transfer(void *context, const struct ehci_control_target *target, const struct usb_setup_packet *setup,
     uint8_t *data, unsigned *received) {
-    return control_transfer_payload(context, target, setup, data, NULL, received);
+    return control_transfer_payload(context, target, setup, data, NULL, received, NULL);
 }
 
 struct ehci_periodic_endpoint {
@@ -1035,11 +1041,39 @@ static bool save_trackpad_log(uint64_t root, const char *release, const char *vo
     return false;
 }
 
+static void print_trackpad_arm_timing(const struct ehci_trackpad_capture *capture) {
+    if (!capture->arm_requested) return;
+    console_printf("Trackpad mode-to-arm request %u us.\n", capture->mode_to_arm_us);
+    if (capture->arm_acknowledged) {
+        console_printf("Trackpad mode-to-periodic-active %u us.\n", capture->mode_to_active_us);
+    } else console_write("Trackpad periodic activation unverified.\n");
+    if (!capture->completions) {
+        console_write("Trackpad first completion unavailable.\n");
+        return;
+    }
+    console_printf("Trackpad mode-to-first completion %u us. First payload %u bytes.\n",
+        capture->mode_to_first_completion_us, (uint64_t)capture->first_payload_length);
+    static const char digits[] = "0123456789abcdef";
+    enum { bytes_per_line = 24 };
+    for (unsigned offset = 0; offset < capture->first_payload_length; offset += bytes_per_line) {
+        char hex[2 * bytes_per_line + 1];
+        unsigned count = capture->first_payload_length - offset;
+        if (count > bytes_per_line) count = bytes_per_line;
+        for (unsigned i = 0; i < count; i++) {
+            uint8_t byte = capture->first_payload[offset + i];
+            hex[2 * i] = digits[byte >> 4];
+            hex[2 * i + 1] = digits[byte & 15u];
+        }
+        hex[2 * count] = '\0';
+        console_printf("Trackpad first payload offset %u %s\n", (uint64_t)offset, hex);
+    }
+}
+
 bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
     console_set_framebuffer_muted(false);
     console_clear();
     console_printf("SrvrOS MacBookPro8,1 trackpad trial\nRelease %s\n\n", release);
-    console_write("Wait for Trackpad ready. Then move one finger across the pad,\n"
+    console_write("When capture starts, move one finger across the pad,\n"
                   "place two fingers on it, and press and release the clickpad.\n");
     if (log_volume) console_write("Keep the flash drive connected. The result will be saved before restart.\n");
     else console_write("Photograph the result. Power off and start again to return to Ubuntu.\n");
@@ -1068,10 +1102,11 @@ bool ehci_boot_trackpad_trial(const char *release, const char *log_volume) {
         capture->mode_restored ? "restored" : "unverified");
     console_printf("Invalid %u. Ignored %u.\n", (uint64_t)capture->invalid, (uint64_t)capture->ignored);
     if (capture->mode_before_read) {
-        if (capture->mode_after_read) console_printf("Feature mode before=%u after write=%u (expected 1).\n",
+        if (capture->mode_after_read) console_printf("Feature mode before=%u after capture=%u (expected 1).\n",
             (uint64_t)capture->mode_before, (uint64_t)capture->mode_after);
-        else console_printf("Feature mode before=%u. Activation readback unavailable.\n", (uint64_t)capture->mode_before);
+        else console_printf("Feature mode before=%u. Post-capture readback unavailable.\n", (uint64_t)capture->mode_before);
     }
+    print_trackpad_arm_timing(capture);
     if (capture->wire_max) console_printf("Wire max=%u. 8-byte=%u. ID 0x44=%u. Last 8-byte ID=%u (decimal).\n",
         (uint64_t)capture->wire_max, (uint64_t)capture->eight_byte_reports,
         (uint64_t)capture->eight_byte_id44, (uint64_t)capture->last_eight_byte_id);

@@ -17,6 +17,8 @@ struct ehci_trackpad_dma {
 };
 
 _Static_assert(sizeof(struct ehci_trackpad_dma) <= EHCI_PAGE_BYTES, "trackpad batch fits one DMA page");
+_Static_assert(EHCI_TRACKPAD_REPORT_MAX <= sizeof(((struct ehci_trackpad_capture *)0)->first_payload),
+    "trackpad capture retains the whole first payload");
 
 static const struct ehci_periodic_endpoint trackpad_endpoint = { 0x81, 64, 1, EHCI_TRACKPAD_REPORT_MAX };
 
@@ -56,24 +58,12 @@ static bool read_trackpad_mode(struct ehci_control_path *path, uint8_t data[8]) 
     return control_transfer(path, &path->report->trackpad_target, &request, data, &received) && received == 8;
 }
 
-static bool write_trackpad_mode(struct ehci_control_path *path, const uint8_t data[8]) {
+static bool write_trackpad_mode(struct ehci_control_path *path, const uint8_t data[8], uint64_t *completed_us) {
     const struct usb_setup_packet request = { 0x21, 9, 0x0300, 0, 8 };
     unsigned transferred;
-    return control_transfer_payload(path, &path->report->trackpad_target, &request, NULL, data, &transferred) &&
+    return control_transfer_payload(path, &path->report->trackpad_target, &request, NULL, data, &transferred,
+        completed_us) &&
         transferred == 8;
-}
-
-static const char *activate_trackpad_mode(struct ehci_control_path *path, const uint8_t original[8]) {
-    struct ehci_trackpad_capture *capture = &path->report->trackpad;
-    uint8_t mode[8];
-    for (unsigned i = 0; i < sizeof(mode); i++) mode[i] = original[i];
-    mode[0] = 1;
-    if (!write_trackpad_mode(path, mode)) return "feature mode write failed";
-    if (!read_trackpad_mode(path, mode)) return "feature mode activation readback failed";
-    capture->mode_after_read = true;
-    capture->mode_after = mode[0];
-    /* The endpoint's frame format supplies independent evidence of activation. */
-    return NULL;
 }
 
 static bool trackpad_capture_complete(const struct ehci_trackpad_capture *capture) {
@@ -148,17 +138,21 @@ static void prepare_trackpad_batch(struct ehci_trackpad_dma *dma, uint32_t physi
     }
 }
 
-static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_trackpad_dma *dma, uint32_t physical) {
+/* The first batch and frame list are ready before the mode write. A successful
+ * control transfer has acknowledged async stop, so the next action can set PSE. */
+static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_trackpad_dma *dma, uint32_t physical,
+    uint64_t mode_completed_us) {
     struct ehci_trackpad_capture *capture = &path->report->trackpad;
     const volatile struct ehci_trackpad_dma *progress = dma;
-    uint32_t toggle = 0;
+    capture->arm_requested = true;
+    capture->mode_to_arm_us = timer_monotonic_us() - mode_completed_us;
+    bool enabled = enable_periodic(path);
     uint64_t start = timer_monotonic_us();
-    while (timer_monotonic_us() - start < EHCI_TRACKPAD_WAIT_US) {
-        if (!schedules_idle(path)) return "periodic schedule busy";
-        prepare_trackpad_batch(dma, physical, &path->report->trackpad_target, toggle);
-        __asm__ volatile ("mfence" : : : "memory");
+    capture->arm_acknowledged = enabled;
+    if (enabled) capture->mode_to_active_us = start - mode_completed_us;
+    for (;;) {
         capture->batches++;
-        const char *failure = enable_periodic(path) ? NULL : "periodic enable timeout";
+        const char *failure = enabled ? NULL : "periodic enable timeout";
         for (unsigned i = 0; i < EHCI_TRACKPAD_BATCH_SIZE && !failure; i++) {
             for (;;) {
                 capture->token = progress->slots[i].td.token;
@@ -182,17 +176,27 @@ static const char *poll_trackpad(struct ehci_control_path *path, struct ehci_tra
                 break;
             }
             __asm__ volatile ("mfence" : : : "memory");
+            unsigned length = EHCI_TRACKPAD_REPORT_MAX - residual;
+            if (!capture->completions) {
+                capture->mode_to_first_completion_us = timer_monotonic_us() - mode_completed_us;
+                capture->first_payload_length = length;
+                for (unsigned byte = 0; byte < length; byte++) capture->first_payload[byte] = dma->slots[i].data[byte];
+            }
             capture->completions++;
-            record_trackpad_frame(capture, dma->slots[i].data, EHCI_TRACKPAD_REPORT_MAX - residual);
+            record_trackpad_frame(capture, dma->slots[i].data, length);
             if (trackpad_capture_complete(capture)) break;
         }
         /* Keep the frame linked across reports. Reuse the batch only after PSS clears. */
         if (!disable_periodic(path)) return "periodic stop timeout";
         if (failure || trackpad_capture_complete(capture)) return failure;
+        if (timer_monotonic_us() - start >= EHCI_TRACKPAD_WAIT_US) return "gesture capture timeout";
+        if (!schedules_idle(path)) return "periodic schedule busy";
         __asm__ volatile ("mfence" : : : "memory");
-        toggle = progress->qh.overlay.token & EHCI_TD_DATA1;
+        uint32_t toggle = progress->qh.overlay.token & EHCI_TD_DATA1;
+        prepare_trackpad_batch(dma, physical, &path->report->trackpad_target, toggle);
+        __asm__ volatile ("mfence" : : : "memory");
+        enabled = enable_periodic(path);
     }
-    return "gesture capture timeout";
 }
 
 static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_list, uint64_t *transfer_page) {
@@ -204,29 +208,38 @@ static void run_trackpad_trial(struct ehci_control_path *path, uint64_t *frame_l
     unsigned received;
     capture->result = "SET_CONFIGURATION failed";
     if (!control_transfer(path, &report->trackpad_target, &configuration, NULL, &received)) return;
-    uint8_t original[8], mode[8];
+    uint8_t original[8];
     capture->result = "feature mode read failed";
     if (!read_trackpad_mode(path, original)) return;
     capture->mode_before_read = true;
     capture->mode_before = original[0];
-    capture->result = activate_trackpad_mode(path, original);
-    if (!capture->result) {
-        uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
-        if (!physical || physical > UINT32_MAX) {
-            if (physical) pmm_free_frame(physical);
-            capture->result = "trackpad interrupt DMA unavailable";
-        } else {
-            *transfer_page = physical;
-            uint32_t qh = (uint32_t)physical + offsetof(struct ehci_trackpad_dma, qh);
-            capture->result = configure_periodic_frames(path, &trackpad_endpoint, qh, frame_list);
-            if (!capture->result) {
-                console_set_framebuffer_muted(false);
-                console_write("Trackpad ready. Start the checklist now. You have 60 seconds.\n");
-                console_sync();
-                capture->result = poll_trackpad(path, pmm_phys_to_virt(physical), (uint32_t)physical);
-            }
-        }
+    uint64_t physical = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
+    if (!physical || physical > UINT32_MAX) {
+        if (physical) pmm_free_frame(physical);
+        capture->result = "trackpad interrupt DMA unavailable";
+        return;
     }
-    capture->mode_restored = write_trackpad_mode(path, original) &&
+    *transfer_page = physical;
+    struct ehci_trackpad_dma *dma = pmm_phys_to_virt(physical);
+    prepare_trackpad_batch(dma, (uint32_t)physical, &report->trackpad_target, 0);
+    uint32_t qh = (uint32_t)physical + offsetof(struct ehci_trackpad_dma, qh);
+    capture->result = configure_periodic_frames(path, &trackpad_endpoint, qh, frame_list);
+    if (capture->result) return;
+
+    console_set_framebuffer_muted(false);
+    console_write("Trackpad capture starting. Start the checklist now. You have 60 seconds.\n");
+    console_sync();
+    uint8_t mode[8];
+    for (unsigned i = 0; i < sizeof(mode); i++) mode[i] = original[i];
+    mode[0] = 1;
+    uint64_t mode_completed_us;
+    if (write_trackpad_mode(path, mode, &mode_completed_us)) {
+        capture->result = poll_trackpad(path, dma, (uint32_t)physical, mode_completed_us);
+        if (schedules_idle(path) && read_trackpad_mode(path, mode)) {
+            capture->mode_after_read = true;
+            capture->mode_after = mode[0];
+        } else if (!capture->result) capture->result = "post-capture feature readback failed";
+    } else capture->result = "feature mode write failed";
+    capture->mode_restored = write_trackpad_mode(path, original, NULL) &&
         read_trackpad_mode(path, mode) && mode[0] == original[0];
 }
