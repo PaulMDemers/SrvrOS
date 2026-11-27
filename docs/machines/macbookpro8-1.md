@@ -271,6 +271,26 @@ System Sensors trial. The checkpoint is fresh connected, disconnected
 and reconnected readings, signed current, and both EHCI flash reports.
 The SMC path requires no EC/SCI or AML ownership.
 
+Ubuntu's charger cycle correlated SMC `ACIN` with ADP1 and the signed
+`B0AC` current with BAT0 discharge. The sampler also verifies `BBIN`
+battery presence and reads `B0AV`, `B0RM`, `B0FC` and `BRSC` for
+voltage, remaining and full charge, and gauge percentage. Matching ACIN
+reads bracket each sample. The SMC gauge was 98% while Ubuntu's BAT0
+reported 92% during the comparison. Those values retain their respective
+provider identities.
+
+Source `f0651539` and native release `0cb82183e1678a63` passed the
+three-phase System Sensors trial. Each phase used three consecutive
+fresh samples. The accepted checkpoints recorded 12.433 V and 0 A on
+AC, 12.234 V and −1.382 A unplugged, then 12.418 V and 0 A after
+reconnect. The SMC gauge read 98% at each checkpoint. Twenty samples
+completed with zero rejections, and SMC reached a transaction boundary
+before shutdown. Ubuntu returned automatically and verified both reports.
+The read-only allocation check passed with 153 files and 161 clusters,
+and all existing user files were preserved. The release and reports are
+archived outside `build`. This unit uses the explicit
+`--ehci-desktop-battery` recipe for the read-only trial.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

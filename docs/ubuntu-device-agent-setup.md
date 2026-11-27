@@ -899,6 +899,15 @@ fan RPM, sample age and count, and the SMC transaction outcome. Verify
 both providers are fresh at startup and exit, the counts advance, and
 the read-only allocation check passes.
 
+The MacBookPro8,1 charger variant stages with
+`--ehci-desktop-trial UUID --ehci-desktop-battery`. Start with the charger
+connected and keep the flash drive connected throughout. System opens on
+Sensors and prompts when to unplug and reconnect the charger. It requires
+three fresh readings in each phase, saves both reports and returns to
+Ubuntu automatically. Check the release, AC sequence, signed current,
+SMC retirement and read-only allocation result. The percentage comes
+from the SMC gauge on this profile.
+
 Omit `--save` for a JSON report on stdout. The command reads the recorded
 model and volume UUID, checks the marker, excludes pre-existing sessions,
 and matches the release in boot-option records. An unidentified new session
