@@ -317,6 +317,20 @@ the desktop and keyboard-only exit paths. The integrated branch also
 passed the EHCI hub and xHCI console smokes and the Air6,1 SSD probe's
 foreign-platform refusal.
 
+The wired Ethernet block starts from merged baseline `24feebdd`. The
+open Air6,1 and Air7,2 graphics PRs and the Apple Silicon runtime PRs
+have no Ethernet dependency. This checkout owns the exact BCM57765
+`14e4:16b4` revision `10` at `02:00.0`, its standalone RAM boot
+recipe, and the EHCI USB reports. Ubuntu's `tg3` reports firmware
+`57765-v1.37`, PHY address 1 with ID `0362:5e44`, and a negotiated
+1 Gb/s full-duplex link. BAR0 and BAR2 are each 64 KiB.
+
+The first native checkpoint is PCI and ASIC identity, bounded PHY
+register reads, carrier and link mode, verified MMIO retirement, and
+two release-matched reports after Ubuntu returns. It precedes reset
+ownership, descriptor and DMA setup, and packet exchange. The standard
+network provider selection stays outside this probe.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
