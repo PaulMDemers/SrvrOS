@@ -127,6 +127,17 @@ RC6 samples and result to `park-timing.log` in the USB session directory.
 It verifies and flushes this file before writing `exit.log`. A stall
 inside the probe leaves the earlier `session-a.log` checkpoint available.
 
+Physical release `04f8f381c448b72c` at `9b997ecd` verified the compact
+report in `session-0006613942583cf0-00`. Ubuntu read back all 1,199 bytes
+from exFAT, matched them byte for byte against the selected exit log rows,
+and verified the raw hashes, preflight checkpoint and offline USB integrity.
+The compact report captured `completed=NO`. The release store occurred at
+5.447 ms, the first verified clear request and ACK at 10.904 ms, and the
+closing guard finished at 12.265 ms. Times are measured from the start of
+the 10 ms park window. The repeat missed the deadline during ACK sampling
+and ended before RC6 sampling, engine preparation or GT reset. The run is
+closed as an incomplete GPU trial with verified physical log persistence.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
