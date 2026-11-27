@@ -270,7 +270,7 @@ static struct {
     unsigned sends,completed,reply_status,aid,last_rx;
     unsigned auth_sent,auth_ok,assoc_sent,assoc_ok,m1,m2,m3,m4,leave;
     const char *phase;
-    bool requested,ready,enabled,pending,failed,stopping,tx_stopped,keys_erased,qos;
+    bool requested,ip_requested,ready,enabled,pending,failed,stopping,tx_stopped,keys_erased,qos;
 } rtl_station;
 
 static bool rtl_cu_station_same_hub(const struct xhci_device *d);
@@ -989,7 +989,8 @@ static bool rtl_cu_rx_configure(struct xhci_device *d) {
     context_write32(d->input_context,1,0,(slot&~(31u<<27))|(last_dci<<27));
     for(unsigned i=1;i<3;i++)context_write32(d->input_context,1,i,context_read32(d->output_context,0,i));
     rtl_cu_bulk_context(d,ep,6,RTL_CU_RX_BYTES);
-    if(rtl_station.requested)rtl_cu_bulk_context(d,&rtl_station.ep,2,RTL_CU_STATION_TX_MAX);
+    if(rtl_station.requested)rtl_cu_bulk_context(d,&rtl_station.ep,2,
+        rtl_station.ip_requested?RTL_CU_DATA_TX_MAX:RTL_CU_STATION_TX_MAX);
     const struct xhci_trb cmd={.parameter_low=(uint32_t)d->input_context_phys,.parameter_high=d->input_context_phys>>32,
         .control=(XHCI_TRB_TYPE_CONFIGURE_ENDPOINT<<10)|((uint32_t)d->slot_id<<24)};
     uint64_t completed=UINT64_MAX;
@@ -1314,12 +1315,13 @@ bool xhci_rtl8188cu_capture_passive(const uint8_t *image,uint64_t image_size,
     return rtl_cu_capture_passive_window(profile,ready,NULL);
 }
 
-bool xhci_rtl8188cu_capture_wpa2(const uint8_t *image,uint64_t image_size,
+static bool rtl_cu_capture_station(const uint8_t *image,uint64_t image_size,
                                 const uint8_t *profile,uint64_t profile_size,
-                                const uint8_t *credential,uint64_t credential_size) {
+                                const uint8_t *credential,uint64_t credential_size,bool ip) {
     static const uint8_t magic[]={'S','R','C','U','W','P','A',1};
     if(rtl_passive.owner || rtl_station.requested)return false;
     rtl_station.requested=true;
+    rtl_station.ip_requested=ip;
     if(!credential || credential_size!=52 || !bytes_equal(credential,magic,sizeof magic)) {
         rtl_station.phase="credential";
         rtl_cu_station_log(false);
@@ -1330,4 +1332,14 @@ bool xhci_rtl8188cu_capture_wpa2(const uint8_t *image,uint64_t image_size,
     bool ready=rtl_cu_station_identity(&rtl_station.peer) && rtl_cu_profile_valid(profile,profile_size) &&
         rtl8188cu_capture_firmware(image,image_size,true);
     return rtl_cu_capture_passive_window(profile,ready,credential+20);
+}
+
+bool xhci_rtl8188cu_capture_wpa2(const uint8_t *image,uint64_t image_size,
+    const uint8_t *profile,uint64_t profile_size,const uint8_t *credential,uint64_t credential_size) {
+    return rtl_cu_capture_station(image,image_size,profile,profile_size,credential,credential_size,false);
+}
+
+bool xhci_rtl8188cu_capture_ip(const uint8_t *image,uint64_t image_size,
+    const uint8_t *profile,uint64_t profile_size,const uint8_t *credential,uint64_t credential_size) {
+    return rtl_cu_capture_station(image,image_size,profile,profile_size,credential,credential_size,true);
 }

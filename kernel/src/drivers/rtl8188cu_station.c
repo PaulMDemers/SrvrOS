@@ -31,6 +31,68 @@ static bool unicast(const uint8_t *id) {
     return any && !(id[0]&1);
 }
 
+static void tx_descriptor(uint8_t *packet,unsigned length,unsigned sequence,unsigned queue,unsigned pad) {
+    put16(packet,length);
+    packet[2]=32;
+    packet[3]=0x8c;
+    packet[4]=0x40; /* Break aggregation. */
+    packet[5]=queue;
+    packet[6]=7;
+    packet[7]=pad?4:0; /* PKT_OFFSET is counted in eight-byte units. */
+    put16(packet+14,sequence);
+    packet[17]=1;
+    packet[21]=0xff;
+    packet[22]=1;
+    unsigned checksum=0;
+    for(unsigned i=0;i<32;i+=2)checksum^=le16(packet+i);
+    put16(packet+28,checksum);
+}
+
+static bool ethernet_protocol(const uint8_t *protocol) {
+    return protocol[0]==8 && (protocol[1]==0 || protocol[1]==6);
+}
+
+/* Disjoint, caller-owned Ethernet, CCMP scratch and USB buffers. The
+ * software cipher owns the IV and MIC. Use the proven HQ/OUT 2 mapping. */
+size_t rtl_cu_data_tx(struct wpa2_ccmp *keys,uint64_t generation,const uint8_t *eth,size_t size,
+                       unsigned sequence,uint8_t *plain,uint8_t *usb) {
+    static const uint8_t snap[]={0xaa,0xaa,3,0,0,0};
+    if(size<14 || size>RTL_CU_ETH_MAX || !sequence || sequence>4095 ||
+       !equal(eth+6,keys->peer.spa,6) || !ethernet_protocol(eth+12))return 0;
+    uint8_t header[24]={0};
+    put16(header,0x0108);
+    put16(header+2,314);
+    put16(header+22,sequence<<4);
+    copy(header+4,keys->peer.aa,6);
+    copy(header+10,keys->peer.spa,6);
+    copy(header+16,eth,6);
+    copy(plain,snap,sizeof snap);
+    copy(plain+6,eth+12,size-12);
+    size_t wire=32+24+16+size-6;
+    unsigned pad=wire%512?0:8;
+    scrub(usb,32+pad);
+    size_t mpdu=wpa2_ccmp_seal(keys,generation,header,plain,size-6,usb+32+pad,RTL_CU_DATA_TX_MAX-32-pad);
+    scrub(plain,size-6);
+    if(!mpdu)return 0;
+    tx_descriptor(usb,(unsigned)mpdu,sequence,7,pad);
+    return mpdu+32+pad;
+}
+
+size_t rtl_cu_data_rx(struct wpa2_ccmp *keys,uint64_t generation,const uint8_t *frame,size_t size,
+                       uint8_t *plain,uint8_t *eth) {
+    static const uint8_t snap[]={0xaa,0xaa,3,0,0,0};
+    if(size<48 || !(frame[1]&0x40))return 0;
+    size_t n=wpa2_ccmp_open(keys,generation,frame,size,plain,WPA2_CCMP_DATA_MAX);
+    bool allowed=n>=8 && n<=RTL_CU_ETH_MAX-6 && equal(plain,snap,6) && ethernet_protocol(plain+6);
+    if(allowed) {
+        copy(eth,frame+4,6);
+        copy(eth+6,frame+16,6);
+        copy(eth+12,plain+6,n-6);
+    }
+    scrub(plain,n);
+    return allowed?n+6:0;
+}
+
 bool rtl_cu_station_identity(const struct rtl_cu_station_peer *p) {
     return p && unicast(p->station) && unicast(p->bssid) && !equal(p->station,p->bssid,6);
 }
@@ -133,19 +195,7 @@ size_t rtl_cu_station_tx(const struct rtl_cu_station_peer *peer,enum rtl_cu_stat
 
     /* Observed 32-byte CU USB descriptor. First/last/own, MACID 0,
      * rate table 7, 1 Mbps with the driver rate, manual sequence. */
-    put16(packet,(unsigned)length);
-    packet[2]=32;
-    packet[3]=0x8c;
-    packet[4]=0x40; /* Break aggregation. */
-    packet[5]=data?7:0x12; /* VO or management, both mapped to OUT 0x02. */
-    packet[6]=7;
-    put16(packet+14,sequence);
-    packet[17]=1;
-    packet[21]=0xff;
-    packet[22]=1;
-    unsigned checksum=0;
-    for(unsigned i=0;i<32;i+=2)checksum^=le16(packet+i);
-    put16(packet+28,checksum);
+    tx_descriptor(packet,(unsigned)length,sequence,data?7:0x12,0);
     copy(out,packet,total);
     scrub(packet,sizeof packet);
     return total;

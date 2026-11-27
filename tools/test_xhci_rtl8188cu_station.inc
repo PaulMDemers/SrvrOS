@@ -9,6 +9,11 @@ enum rtl_station_fixture {
 };
 static enum rtl_station_fixture rtl_station_fixture;
 static bool rtl_station_test_m1;
+#ifdef SRVROS_RTL8188CU_IP_TEST
+static bool rtl_station_ip_fixture;
+static void rtl_test_ap_tx(const uint8_t *,size_t);
+static void rtl_test_ap_rx(unsigned);
+#endif
 
 static bool rtl_station_early_dma_failure(void) {
     return rtl_station_fixture>=RTL_STATION_DMA_READBACK && rtl_station_fixture<=RTL_STATION_DMA_FIRMWARE;
@@ -70,15 +75,24 @@ static bool rtl_radio_station_doorbell(uint64_t value) {
         const struct xhci_trb *trb=(const struct xhci_trb *)(uintptr_t)rtl_station.trb;
         assert(((uint64_t)trb->parameter_high<<32|trb->parameter_low)==rtl_station.physical);
         unsigned sent=rtl_station.sends;
-        assert(sent>0 && sent<=5);
         const uint8_t *packet=rtl_station.buffer;
+        assert(sent>0);
+#ifdef SRVROS_RTL8188CU_IP_TEST
+        if(rtl_station_ip_fixture && rtl_ip.live) {
+            rtl_radio_out_event(0,rtl_station.trb,1,0,false);
+            rtl_test_ap_tx(packet,trb->status);
+            rtl_test_ap_rx(1);
+            return true;
+        }
+#endif
+        assert(sent<=5 || rtl_station.ip_requested);
         assert(trb->status==(unsigned)(packet[0]|packet[1]<<8)+32 && packet[2]==32 && packet[3]==0x8c);
         unsigned check=0;
         for(unsigned i=0;i<32;i+=2)check^=packet[i]|(unsigned)packet[i+1]<<8;
         assert(!check && packet[14]==sent && packet[17]==1);
         assert(!memcmp(packet+36,hs_aa,6) && !memcmp(packet+42,hs_spa,6) && !memcmp(packet+48,hs_aa,6));
         bool leaving=packet[32]==0xc0;
-        if(leaving)assert(sent==5 || (sent==4 && rtl_station_fixture==RTL_STATION_BAD_MIC));
+        if(leaving)assert(sent==5 || (sent==4 && rtl_station_fixture==RTL_STATION_BAD_MIC) || rtl_station.ip_requested);
         else assert(packet[32]==frame_control[sent-1]);
         assert(packet[5]==((!leaving && (sent==3 || sent==4))?7:0x12));
         if(!leaving && sent==3)assert(!memcmp(packet+66,hs_m2,sizeof hs_m2));
@@ -104,6 +118,12 @@ static bool rtl_radio_station_doorbell(uint64_t value) {
         return true;
     }
     if(value==RTL_CU_RX_DCI && rtl_station.enabled) {
+#ifdef SRVROS_RTL8188CU_IP_TEST
+        if(rtl_station_ip_fixture && rtl_ip.live) {
+            rtl_test_ap_rx(0);
+            return true;
+        }
+#endif
         if(rtl_station.aid && !rtl_station_test_m1) {
             rtl_station_test_m1=true;
             rtl_radio_station_response(0,0x88,hs_m1,sizeof hs_m1);

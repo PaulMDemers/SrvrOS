@@ -4,10 +4,13 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <srvros/wpa2_ccmp.h>
 
 #define RTL_CU_STATION_TX_MAX 192u
 #define RTL_CU_STATION_CHANNEL 10u
 #define RTL_CU_STATION_SSID "Demers2.4"
+#define RTL_CU_DATA_TX_MAX (32u+8u+24u+16u+1508u)
+#define RTL_CU_ETH_MAX 1514u
 
 struct rtl_cu_station_peer {
     uint8_t station[6], bssid[6], rsne[64];
@@ -30,5 +33,7 @@ enum rtl_cu_station_reply rtl_cu_station_reply(const struct rtl_cu_station_peer 
     enum rtl_cu_station_tx,const uint8_t *,size_t,struct rtl_cu_station_response *);
 bool rtl_cu_station_eapol(const struct rtl_cu_station_peer *,const uint8_t *,size_t,
                           const uint8_t **,size_t *);
+size_t rtl_cu_data_tx(struct wpa2_ccmp *,uint64_t,const uint8_t *,size_t,unsigned,uint8_t *,uint8_t *);
+size_t rtl_cu_data_rx(struct wpa2_ccmp *,uint64_t,const uint8_t *,size_t,uint8_t *,uint8_t *);
 
 #endif

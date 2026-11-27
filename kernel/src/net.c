@@ -1404,18 +1404,17 @@ static struct tcp_connection *find_connection_by_id_owner(uint64_t id, struct pr
     return 0;
 }
 
-static struct tcp_connection *alloc_client_connection(uint32_t remote_ip,
+static struct tcp_connection *alloc_client_connection_owned(uint32_t remote_ip,
     uint16_t remote_port,
-    const uint8_t *remote_mac) {
-    struct process *owner = process_current();
+    const uint8_t *remote_mac,struct process *owner,bool probe) {
     uint64_t now = timer_ticks();
     uint16_t local_port;
     (void)tcp_reap_expired_time_wait(now);
 
 retry:
     local_port = allocate_client_port();
-    if (owner == 0 || local_port == 0) {
-        if (owner != 0) {
+    if ((!owner && !probe) || !local_port) {
+        if (owner || probe) {
             tcp_table_full_drops++;
         }
         return 0;
@@ -1467,6 +1466,11 @@ retry:
 
     tcp_table_full_drops++;
     return 0;
+}
+
+static struct tcp_connection *alloc_client_connection(uint32_t remote_ip,uint16_t remote_port,
+    const uint8_t *remote_mac) {
+    return alloc_client_connection_owned(remote_ip,remote_port,remote_mac,process_current(),false);
 }
 
 static uint32_t tcp_sequence_advance(uint8_t flags, uint16_t payload_length) {
@@ -3639,6 +3643,55 @@ done:
     bounded_probe_scrub(mac,sizeof mac);
     if (result<0) bounded_probe_protocol_fail(p);
     p->busy=false;return result;
+}
+
+static int http_probe_status(const uint8_t *bytes,size_t length) {
+    if(length<14)return 0;
+    static const uint8_t prefix[]="HTTP/1.";
+    for(unsigned i=0;i<sizeof prefix-1;i++)if(bytes[i]!=prefix[i])return -1;
+    if((bytes[7]!='0' && bytes[7]!='1') || bytes[8]!=' ' || bytes[9]<'2' || bytes[9]>'5' ||
+       bytes[10]<'0' || bytes[10]>'9' || bytes[11]<'0' || bytes[11]>'9' ||
+       (bytes[12]!=' ' && bytes[12]!='\r'))return -1;
+    for(size_t i=12;i+3<length;i++)
+        if(bytes[i]=='\r' && bytes[i+1]=='\n' && bytes[i+2]=='\r' && bytes[i+3]=='\n')
+            return 100*(bytes[9]-'0')+10*(bytes[10]-'0')+(bytes[11]-'0');
+    return 0;
+}
+
+int64_t net_http_status_bounded(struct net_bounded_probe *p,uint32_t remote_ip) {
+    static const uint8_t request[]="GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n";
+    if(!bounded_probe_enter(p))return -1;
+    struct tcp_connection *c=NULL;
+    unsigned polls=0;
+    uint8_t mac[6]={0};
+    int status=-1;
+    if(!remote_ip || p->connection_scope || !dhcp_configured || !probe_worker_table_empty() ||
+       !bounded_resolve_mac(p,route_next_hop(remote_ip),mac,&polls,10000u))goto done;
+    c=alloc_client_connection_owned(remote_ip,80,mac,NULL,true);
+    if(!c || !send_tcp_segment(c,c->local_port,TCP_SYN,NULL,0))goto done;
+    uint64_t start=p->last_us;
+    while(c->state==TCP_STATE_SYN_SENT && !c->reset && p->last_us-start<2000000u)
+        if(!bounded_probe_progress(p,&polls,40000u))goto done;
+    if(c->state!=TCP_STATE_ESTABLISHED || c->reset || !bounded_probe_check(p) ||
+       !send_tcp_segment(c,c->local_port,TCP_ACK|TCP_PSH,request,sizeof request-1))goto done;
+    start=p->last_us;
+    while(!c->reset && p->last_us-start<3000000u && bounded_probe_check(p)) {
+        int received=http_probe_status((const uint8_t *)c->rx_data,c->rx_length);
+        if(received) {status=received;break;}
+        if(c->peer_closed || c->rx_length>=TCP_RX_WINDOW || !bounded_probe_progress(p,&polls,40000u))break;
+    }
+done:
+    if(c) {
+        /* This private probe consumes only the headers. Terminate any
+         * established connection before dropping the slot and its body. */
+        if(tcp_state_can_read(c->state) && !c->reset && !p->failed &&
+           !send_tcp_segment(c,c->local_port,TCP_RST|TCP_ACK,NULL,0))status=-1;
+        close_connection(c);
+    }
+    bounded_probe_scrub(mac,sizeof mac);
+    if(status<200)bounded_probe_protocol_fail(p);
+    p->busy=false;
+    return status>=200?status:-1;
 }
 
 int64_t net_ping_bounded(struct net_bounded_probe *p,uint32_t remote_ip,uint16_t sequence,uint64_t *elapsed_ticks_out) {

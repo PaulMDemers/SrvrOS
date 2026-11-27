@@ -282,6 +282,16 @@ static void ap_packet(const uint8_t *p,size_t n){
  assert(p[23]==6);ap.tcp++;const uint8_t *t=p+34;unsigned header=(t[12]>>4)*4,size=(unsigned)n-34;assert(header>=20 && header<=size && ap_u16(t+2)==80 && ap_sum(t,size,ap_sum(p+26,8,6+size))==65535);uint32_t seq=ap_u32(t+4);unsigned flags=t[13];
  if(flags&2){assert(flags==2);ap.server_seq=9000;ap_tcp_reply(p,0x12,ap.server_seq++,seq+1,NULL,0);}
  else if(size>header){
+#ifdef SRVROS_RTL8188CU_IP_TEST
+  if(rtl_station_ip_fixture){
+   static const char request[]="GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n";
+   static const uint8_t headers[]="HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n";
+   assert(size-header==sizeof request-1 && !memcmp(t+header,request,sizeof request-1));
+   ap_tcp_reply(p,0x18,ap.server_seq,seq+size-header,headers,15);ap.server_seq+=15;
+   ap_tcp_reply(p,0x18,ap.server_seq,seq+size-header,headers+15,sizeof headers-16);ap.server_seq+=sizeof headers-16;
+   return;
+  }
+#endif
   if(http_reconnect_peer){
    assert(size-header<=sizeof http_peer_request-http_peer_length);
    memcpy(http_peer_request+http_peer_length,t+header,size-header);http_peer_length+=size-header;
@@ -297,8 +307,55 @@ static void ap_packet(const uint8_t *p,size_t n){
   if(!sent_fin)ap.server_seq++;
   ap.closed=true;
  }
- else assert(flags==0x10);
+ else {
+#ifdef SRVROS_RTL8188CU_IP_TEST
+  if(rtl_station_ip_fixture && flags==0x14){ap.closed=true;return;}
+#endif
+  assert(flags==0x10);
+ }
 }
+#ifdef SRVROS_RTL8188CU_IP_TEST
+static bool rtl_test_register(const struct net_device_ops *ops) {
+ assert(rtl_station_ip_fixture && ops==&rtl_ip.ops);
+ return net_device_register(ops);
+}
+static bool rtl_test_retire(const struct net_device_ops *ops) {
+ assert(rtl_station_ip_fixture && ops==&rtl_ip.ops);
+ return net_device_retire(ops);
+}
+static void rtl_test_ethernet(const uint8_t *frame,uint16_t length) {
+ assert(rtl_station_ip_fixture && rtl_ip.live);
+ net_handle_ethernet_frame(frame,length);
+}
+static void rtl_test_ap_tx(const uint8_t *raw,size_t length) {
+ size_t n=raw[0]|(unsigned)raw[1]<<8;
+ unsigned pad=raw[7]>>2;
+ unsigned check=0;
+ for(unsigned i=0;i<32;i+=2)check^=raw[i]|(unsigned)raw[i+1]<<8;
+ assert(!check && raw[2]==32 && raw[3]==0x8c && raw[5]==7 && pad<=1 && n+32+8*pad==length);
+ uint8_t wire[1580]={0},eth[1514];
+ unsigned span=(20+n+3)&~3u,descriptor=span|(1u<<19)|(1u<<24)|(2u<<25);
+ for(unsigned i=0;i<4;i++)wire[i]=descriptor>>(i*8);
+ wire[7]=0x20;wire[8]=1;wire[9]=255;wire[10]=n;wire[11]=n>>8;wire[23]=128;
+ memcpy(wire+24,raw+32+8*pad,n);
+ assert(wire[26]==0x3a && wire[27]==1); /* duration is outside CCMP AAD */
+ wire[26]=60;wire[27]=0;
+ size_t size=0;uint64_t pn=0;
+ assert(stack5_peer_open(wire,span+8,eth,sizeof eth,&size,&pn) && pn==++ap.tx_pn);
+ ap_packet(eth,size);
+}
+static void rtl_test_ap_rx(unsigned offset) {
+ if(!ap.count || !rtl_passive.pending)return;
+ size_t n=ap.length[ap.head];
+ uint8_t *raw=rtl_passive.buffer;
+ memset(raw,0,28+n);
+ raw[0]=n+4;raw[1]=(n+4)>>8;
+ memcpy(raw+24,ap.response[ap.head],n);
+ ap.head=(ap.head+1)%8;ap.count--;
+ rtl_radio_transfer_event(offset,rtl_passive.trb,13,4096-28-n);
+ rtl_radio_model.rx_index++;
+}
+#endif
 static void stack_test_progress(void){
  if(wifi_stream5.connection_mode && wifi_stream5.data_active){
   unsigned g=wifi_stream5_current==&wifi_stream5_slots[1];
@@ -1284,6 +1341,17 @@ static void connection_dhcp_receipt(unsigned fault){
 #define STACK5_TEST_MAIN main
 #endif
 int STACK5_TEST_MAIN(int argc,char **argv){
+#ifdef SRVROS_RTL8188CU_IP_TEST
+ if(argc==4 && !strcmp(argv[1],"--rtl8188cu-ip")){
+  rtl_station_ip_fixture=true;
+  assert(stack5_peer_generation(1));
+  test_rtl8188cu_passive(argv[2],argv[3]);
+  assert(rtl_ip.retired && rtl_ip.drained && rtl_ip.dhcp && rtl_ip.dns && rtl_ip.http==204 &&
+         ap.dhcp==2 && ap.dns==1 && ap.closed && rtl_ip.completed==ap.tx_pn);
+  puts("rtl8188cu: PASS native encrypted xHCI, DHCP, DNS and HTTP through production stack and OpenSSL peer");
+  return 0;
+ }
+#endif
  if(argc==2 && !strcmp(argv[1],"--desktop-case")){desktop_case(false);return 0;}
  if(argc==2 && !strcmp(argv[1],"--desktop-hub")){desktop_hub_case();return 0;}
  if(argc==2 && !strcmp(argv[1],"--desktop-removed")){desktop_case(true);return 0;}

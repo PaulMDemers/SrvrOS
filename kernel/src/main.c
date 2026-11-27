@@ -964,15 +964,17 @@ void kmain(void) {
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
+    const char *realtek_ip_token="srvros.capture=wifi-rtl8188cu-ip";
     const char *realtek_wpa_token="srvros.capture=wifi-rtl8188cu-wpa2";
     const char *realtek_passive_token="srvros.capture=wifi-rtl8188cu-passive";
     const char *realtek_firmware_token="srvros.capture=wifi-rtl8188cu-firmware";
     const char *realtek_identity_token="srvros.capture=wifi-rtl8188cu";
-    bool rtl8188cu_wpa2=cmdline_has_token(cmdline,realtek_wpa_token);
+    bool rtl8188cu_ip=cmdline_has_token(cmdline,realtek_ip_token);
+    bool rtl8188cu_wpa2=rtl8188cu_ip || cmdline_has_token(cmdline,realtek_wpa_token);
     bool rtl8188cu_passive=rtl8188cu_wpa2 || cmdline_has_token(cmdline,realtek_passive_token);
     bool rtl8188cu_firmware=rtl8188cu_passive || cmdline_has_token(cmdline,realtek_firmware_token);
     bool rtl8188cu_capture=rtl8188cu_firmware || cmdline_has_token(cmdline,realtek_identity_token);
-    if(rtl8188cu_capture && !rtl8188cu_recipe(cmdline,rtl8188cu_wpa2?realtek_wpa_token:rtl8188cu_passive?realtek_passive_token:
+    if(rtl8188cu_capture && !rtl8188cu_recipe(cmdline,rtl8188cu_ip?realtek_ip_token:rtl8188cu_wpa2?realtek_wpa_token:rtl8188cu_passive?realtek_passive_token:
         rtl8188cu_firmware?realtek_firmware_token:realtek_identity_token))halt_forever();
     if(startup_journal_requested && (!(rtl8188cu_capture || wifi_reconnect5_recipe(cmdline) || wifi_early5_recipe(cmdline) ||
                                        wifi_connection5_recipe(cmdline,true)) ||
@@ -1103,6 +1105,8 @@ void kmain(void) {
         boot_set_framebuffer_quiet(false);
         if(cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1"))
             boot_status("Demers5 desktop trial: calibrating. The desktop will open Help when ready.\n");
+        else if(rtl8188cu_ip)
+            boot_status("Realtek Wi-Fi trial: testing encrypted DHCP, DNS and HTTP. No input required.\n");
         else if(rtl8188cu_passive)
             boot_status("Realtek passive Wi-Fi trial: checking channel 10 for Demers2.4. No input required.\n");
         else if(rtl8188cu_firmware)
@@ -1161,7 +1165,7 @@ void kmain(void) {
             const struct initramfs_file *profile=initramfs_find("/rtl8188cu-passive.bin");
             if(rtl8188cu_wpa2) {
                 const struct initramfs_file *credential=initramfs_find("/cfg/rtl8188cu-wpa2.bin");
-                rtl8188cu_sampled=xhci_rtl8188cu_capture_wpa2(image?image->data:NULL,image?image->size:0,
+                rtl8188cu_sampled=(rtl8188cu_ip?xhci_rtl8188cu_capture_ip:xhci_rtl8188cu_capture_wpa2)(image?image->data:NULL,image?image->size:0,
                     profile?profile->data:NULL,profile?profile->size:0,
                     credential?credential->data:NULL,credential?credential->size:0);
             } else {
@@ -1295,6 +1299,7 @@ void kmain(void) {
     else if(wifi_early5_requested)console_write("wifi-early5-boot: calibration_only=1 net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_reconnect5_requested)console_write("wifi-reconnect5-boot: net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_stack5_trial)console_write("wifi-stack5-boot: net_init_deferred=1 worker_deferred=1\n");
+    else if(rtl8188cu_ip)console_write("rtl8188cu-ip-boot: private probe; ordinary network worker deferred\n");
     else if(wifi_provider_trial)console_write("wifi-provider5-boot: net_init_deferred=1 worker_deferred=1\n");
     else {
         net_init();

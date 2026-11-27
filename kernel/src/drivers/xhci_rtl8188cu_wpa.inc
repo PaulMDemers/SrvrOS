@@ -3,6 +3,7 @@
 #define RTL_CU_STATION_RX_US 1500000u
 #define RTL_CU_STATION_TX_US 250000u
 #define RTL_CU_STATION_GENERATION 1u
+#define RTL_CU_DATA_TX_LIMIT 44u
 
 static void rtl_cu_erase(void *memory,size_t size) {
     volatile uint8_t *out=memory;
@@ -118,14 +119,8 @@ static void rtl_cu_auth_wait_end(struct xhci_device *d,struct rtl_cu_auth_trace 
     trace->outcome=outcome;
 }
 
-static bool rtl_cu_station_send(struct xhci_device *d,enum rtl_cu_station_tx type,
-                                 const uint8_t *key,size_t size) {
+static void rtl_cu_station_post(struct xhci_device *d,size_t length,bool first_auth) {
     struct xhci_bulk_endpoint *ep=&rtl_station.ep;
-    if(!rtl_cu_station_owned(d) || rtl_station.pending || rtl_station.sends!=rtl_station.completed ||
-       rtl_station.sends>=5)return false;
-    size_t length=rtl_cu_station_tx(&rtl_station.peer,type,rtl_station.sends+1,rtl_station.qos,
-        key,size,rtl_station.buffer,RTL_CU_STATION_TX_MAX);
-    if(!length)return false;
     struct xhci_trb *entry=&ep->ring[ep->enqueue];
     struct xhci_trb transfer={.parameter_low=(uint32_t)rtl_station.physical,
         .parameter_high=rtl_station.physical>>32,.status=(uint32_t)length,
@@ -133,9 +128,8 @@ static bool rtl_cu_station_send(struct xhci_device *d,enum rtl_cu_station_tx typ
     rtl_station.trb=ring_push_owned(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&transfer,true);
     rtl_station.pending=true;
     rtl_station.sends++;
-    bool first_auth=type==RTL_CU_AUTH && rtl_station.sends==1;
-    struct rtl_cu_auth_trace *trace=&rtl_station.auth_out;
     if(first_auth) {
+        struct rtl_cu_auth_trace *trace=&rtl_station.auth_out;
         trace->trb=rtl_station.trb;
         trace->slot=d->slot_id;
         trace->length=length;
@@ -144,6 +138,18 @@ static bool rtl_cu_station_send(struct xhci_device *d,enum rtl_cu_station_tx typ
     __atomic_thread_fence(__ATOMIC_RELEASE);
     ((volatile struct xhci_trb *)entry)->control=transfer.control|1;
     db_write32(d->slot_id,RTL_CU_TX_DCI);
+}
+
+static bool rtl_cu_station_send(struct xhci_device *d,enum rtl_cu_station_tx type,
+                                 const uint8_t *key,size_t size) {
+    if(!rtl_cu_station_owned(d) || rtl_station.pending || rtl_station.sends!=rtl_station.completed ||
+       rtl_station.sends>=(rtl_station.ip_requested?RTL_CU_DATA_TX_LIMIT+5u:5u))return false;
+    size_t length=rtl_cu_station_tx(&rtl_station.peer,type,rtl_station.sends+1,rtl_station.qos,
+        key,size,rtl_station.buffer,RTL_CU_STATION_TX_MAX);
+    if(!length)return false;
+    bool first_auth=type==RTL_CU_AUTH && rtl_station.sends==0;
+    struct rtl_cu_auth_trace *trace=&rtl_station.auth_out;
+    rtl_cu_station_post(d,length,first_auth);
     uint64_t start=timer_monotonic_us();
     const char *outcome="spin-limit";
     for(uint64_t spins=0;spins<XHCI_TRANSFER_TIMEOUT;spins++) {
@@ -251,6 +257,8 @@ static bool rtl_cu_station_install_keys(void) {
     return installed && wpa2_hs_install_result(&rtl_station.handshake,RTL_CU_STATION_GENERATION,WPA2_HS_CONFIRMED);
 }
 
+#include "xhci_rtl8188cu_ip.inc"
+
 static bool rtl_cu_station_exchange(struct xhci_device *d,struct xhci_device *hub,const uint8_t *pmk) {
     struct wpa2_hs_peer peer={.rsne_size=rtl_station.peer.rsne_size};
     copy_bytes(peer.aa,rtl_station.peer.bssid,sizeof peer.aa);
@@ -304,6 +312,10 @@ static bool rtl_cu_station_exchange(struct xhci_device *d,struct xhci_device *hu
         rtl_station.m4=rtl_cu_station_send_key(d,RTL_CU_M4);
         ok=rtl_station.m4 && wpa2_ccmp_activate(&rtl_station.keys,&rtl_station.handshake);
     }
+    if(ok && rtl_station.ip_requested) {
+        rtl_station.phase="data";
+        ok=rtl_cu_ip_run(d);
+    }
     rtl_cu_erase(m1_digest,sizeof m1_digest);
     if(rtl_station.keys.phase!=WPA2_CCMP_EMPTY)
         rtl_station.keys_erased=wpa2_ccmp_retire(&rtl_station.keys,RTL_CU_STATION_GENERATION) &&
@@ -335,7 +347,7 @@ static bool rtl_cu_station_stop(struct xhci_device *d,struct xhci_device *hub) {
     rtl_station.tx_stopped=context.sampled && context.state==3 && context.dequeue==(at|1);
     if(rtl_station.tx_stopped) {
         rtl_station.pending=false;
-        rtl_cu_erase(rtl_station.buffer,RTL_CU_STATION_TX_MAX);
+        rtl_cu_erase(rtl_station.buffer,rtl_station.ip_requested?RTL_CU_DATA_TX_MAX:RTL_CU_STATION_TX_MAX);
     }
     return paused && rtl_station.tx_stopped;
 }
@@ -369,6 +381,7 @@ static void rtl_cu_station_log(bool complete) {
         (uint64_t)rtl_station.leave,(uint64_t)rtl_station.keys_erased,(uint64_t)rtl_station.tx_stopped,
         (uint64_t)rtl_station.sends,(uint64_t)rtl_station.completed,(uint64_t)rtl_station.last_rx,
         (uint64_t)rtl_station.failed,(uint64_t)complete);
+    if(rtl_station.ip_requested)rtl_cu_ip_log();
     if(rtl_station.early_tx_dma) {
         const struct xhci_device *d=rtl_passive.owner;
         console_printf("rtl8188cu-tx-dma: cr_valid=%u cr=%x pause_valid=%u pause=%x enable_us=%u llt_us=%u fw_us=%u fw_ready=%u parked=%u\n",

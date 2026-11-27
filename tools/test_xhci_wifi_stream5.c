@@ -22,7 +22,9 @@ static const struct initramfs_file *stream_test_credential(void);
 #include "test_xhci.c"
 #undef main
 #pragma GCC diagnostic pop
+#ifndef SRVROS_RTL8188CU_STATION_TEST
 #include "fixtures/wpa2-handshake-synthetic.h"
+#endif
 
 /* Independent public wire/AESCCM oracle from temporary generate.py. */
 /* Public synthetic70-frame stream fixture;independent Python AESCCM oracle. */

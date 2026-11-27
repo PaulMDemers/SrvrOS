@@ -234,6 +234,9 @@ bool net_bounded_probe_poll(struct net_bounded_probe *probe);
 int64_t net_prepare_route_bounded(struct net_bounded_probe *probe,uint32_t remote_ip);
 int64_t net_dhcp_request_bounded(struct net_bounded_probe *probe);
 int64_t net_dns_resolve_bounded(struct net_bounded_probe *probe,const char *name,uint32_t *ip_out);
+/* Boot-only one-shot HTTP GET over the probe's existing provider. Returns
+ * the final response status and releases its private TCP slot on all paths. */
+int64_t net_http_status_bounded(struct net_bounded_probe *probe,uint32_t remote_ip);
 int64_t net_ping_bounded(struct net_bounded_probe *probe,uint32_t remote_ip,
     uint16_t sequence,uint64_t *elapsed_ticks_out);
 /* Final owner/clock check,then clear callback/context/MAC references and close

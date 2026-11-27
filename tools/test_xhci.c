@@ -320,21 +320,55 @@ static void xhci_test_write32(uint64_t offset, uint32_t value) {
 
 /* Removal admission must return before any provider registration/allocation. */
 void *kcalloc(size_t count,size_t size) { (void)count;(void)size;abort(); }
-bool net_device_register(const struct net_device_ops *ops) { (void)ops;abort(); }
+#ifdef SRVROS_RTL8188CU_IP_TEST
+static bool rtl_test_register(const struct net_device_ops *);
+static bool rtl_test_retire(const struct net_device_ops *);
+static void rtl_test_ethernet(const uint8_t *,uint16_t);
+#else
+/* Legacy controller-only tests never open the protected IP profile. */
+__attribute__((weak)) bool net_device_registry_empty(void) { abort(); }
+__attribute__((weak)) bool net_init_bounded_probe(void) { abort(); }
+__attribute__((weak)) bool net_bounded_probe_init(struct net_bounded_probe *p,const struct net_bounded_probe_io *io,
+    uint64_t epoch,uint64_t deadline) { (void)p;(void)io;(void)epoch;(void)deadline;abort(); }
+__attribute__((weak)) bool net_bounded_probe_finish(struct net_bounded_probe *p) { (void)p;abort(); }
+__attribute__((weak)) int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) { (void)p;abort(); }
+__attribute__((weak)) int64_t net_dns_resolve_bounded(struct net_bounded_probe *p,const char *name,uint32_t *ip) {
+    (void)p;(void)name;(void)ip;abort();
+}
+__attribute__((weak)) int64_t net_http_status_bounded(struct net_bounded_probe *p,uint32_t ip) { (void)p;(void)ip;abort(); }
+#endif
+bool net_device_register(const struct net_device_ops *ops) {
+#ifdef SRVROS_RTL8188CU_IP_TEST
+    return rtl_test_register(ops);
+#else
+    (void)ops;abort();
+#endif
+}
 bool net_device_select(void){abort();}
 const char *net_device_name(void){abort();}
 #ifndef SRVROS_XHCI_STACK5_TEST
 const uint8_t *net_device_mac(void){abort();}
 #endif
 bool net_device_send(const uint8_t *frame,uint16_t length){(void)frame;(void)length;abort();}
-void net_handle_ethernet_frame(const uint8_t *frame,uint16_t length) { (void)frame;(void)length;abort(); }
+void net_handle_ethernet_frame(const uint8_t *frame,uint16_t length) {
+#ifdef SRVROS_RTL8188CU_IP_TEST
+    rtl_test_ethernet(frame,length);
+#else
+    (void)frame;(void)length;abort();
+#endif
+}
 bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,bool writable) {
     (void)s;(void)context;(void)bulk;(void)writable;abort();
 }
 bool usb_storage_retire(struct usb_storage *s) {if(!storage_retire_ready || s->busy || s->diagnostic_users)return false;s->failed=s->retired=true;return true;}
 uint16_t pci_read_config16(const struct pci_device *p,uint8_t offset) {assert(p==&reclaim_pci && offset==4);return pci_command;}
 void pci_write_config16(const struct pci_device *p,uint8_t offset,uint16_t value) {assert(p==&reclaim_pci && offset==4);if(!reject_bus_master)pci_command=value;}
-bool net_device_retire(const struct net_device_ops *ops) { assert(ops && ops->send && ops->context);retire_calls++;return retire_ready; }
+bool net_device_retire(const struct net_device_ops *ops) {
+#ifdef SRVROS_RTL8188CU_IP_TEST
+    if(ops==&rtl_ip.ops)return rtl_test_retire(ops);
+#endif
+    assert(ops && ops->send && ops->context);retire_calls++;return retire_ready;
+}
 uint64_t vmm_current_address_space(void) { return test_space; }
 uint64_t vmm_kernel_address_space(void) { return 1; }
 void console_write(const char *s) { if(batch_trace)fputs(s,stdout); }
@@ -8309,6 +8343,9 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
     trials+=RTL_STATION_NO_SIBLING;
 #endif
     for(unsigned trial=0;trial<trials;trial++) {
+#ifdef SRVROS_RTL8188CU_IP_TEST
+        if(rtl_station_ip_fixture && trial!=RTL_RADIO_RX_BAD_CURSOR+RTL_STATION_OK)continue;
+#endif
         enum rtl_radio_fault fault=trial<=RTL_RADIO_RX_BAD_CURSOR?(enum rtl_radio_fault)trial:RTL_RADIO_OK;
         struct xhci_device *d=rtl_hub_fixture();
         uint8_t *command_memory;
@@ -8376,7 +8413,11 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
             memcpy(credential+8,hs_spa,6);
             memcpy(credential+14,hs_aa,6);
             memcpy(credential+20,hs_pmk,32);
-            bool ok=xhci_rtl8188cu_capture_wpa2(image,sizeof image,blob,sizeof blob,credential,sizeof credential);
+            bool ip=false;
+#ifdef SRVROS_RTL8188CU_IP_TEST
+            ip=rtl_station_ip_fixture;
+#endif
+            bool ok=rtl_cu_capture_station(image,sizeof image,blob,sizeof blob,credential,sizeof credential,ip);
             assert(ok==(rtl_station_fixture==RTL_STATION_OK));
             if(rtl_station_fixture==RTL_STATION_QUEUE_LOAD || rtl_station_early_dma_failure()) {
                 assert(rtl_passive.parked && !rtl_radio_cr() && rtl_radio_model.reg[0x522]==0xff &&
@@ -8392,7 +8433,8 @@ static void test_rtl8188cu_passive(const char *path,const char *firmware_path) {
             if(ok) {
                 assert(rtl_station.auth_ok && rtl_station.assoc_ok && rtl_station.aid==23 && rtl_station.qos &&
                        rtl_station.m1 && rtl_station.m2 && rtl_station.m3 && rtl_station.m4 &&
-                       rtl_station.leave && rtl_station.sends==5 && rtl_station.completed==5);
+                       rtl_station.leave && rtl_station.sends==rtl_station.completed);
+                assert(rtl_station.sends==(ip?rtl_ip.completed+5u:5u));
             } else if(rtl_station_fixture==RTL_STATION_BAD_MIC) {
                 assert(rtl_station.last_rx==WPA2_HS_RX_MIC && rtl_station.m1 && rtl_station.m2 &&
                        !rtl_station.m3 && !rtl_station.m4 && rtl_station.leave && rtl_station.sends==4);
