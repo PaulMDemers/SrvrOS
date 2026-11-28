@@ -1076,6 +1076,12 @@ and recovery `74da74e0b57afbb8` is verified. The new image awaits
 installation and a cold run. Its local stage receipt and collection
 recipe are under `build/bringup/pro112-rtl8822bu-auth-out-compare/`.
 
+The comparison image is installed with the same verified recovery and a
+fresh journal descriptor. The pre-boot workspace baseline covers 718
+files. The return collector checks the first Auth USB completion and
+the AP's authentication reply separately, and compares workspace and
+journal evidence. The hardware result is pending.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
