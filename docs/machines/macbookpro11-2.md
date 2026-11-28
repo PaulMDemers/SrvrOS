@@ -455,6 +455,25 @@ retired safely, all 692 workspace files matched, and Ubuntu returned
 automatically. The verified payload and logs are in
 `evidence-4d207e420eb0e290` in the recovery archive.
 
+#### RTL8822BU host-to-firmware initialization
+
+Device branch scope from `3f900582`, with main inspected at `24feebdd`.
+Compare the Netgear firmware command queue and the first two USB commands
+against a Linux startup trace. This touches the bounded xHCI diagnostic
+and its native-path fixture. Keep the 32 KiB IN, channel 10, TX pause,
+three-adapter hub and independent journal from the scheduler trial.
+Keep MAC transmit disabled while testing command delivery.
+
+The Ubuntu USB capture had zero drops. General Info (0x0d) and PHYDM
+Info (0x11) completed as 80-byte USB OUTs on endpoint 5 at 623.327 ms
+and 623.329 ms from capture start. Linux sent two additional coexistence
+mailbox writes before the first successful bulk IN on endpoint 0x84
+at 697.243 ms, with 391 bytes returned from a 32 KiB request. A passive
+scan found both Demers networks. The cold comparison isolates the two
+board information packets.
+[Linux rtw88 firmware commands](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/fw.c)
+and [USB packet framing](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/usb.c).
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
