@@ -727,6 +727,23 @@ unattended profile saves the result to the USB workspace and returns
 to Ubuntu. Decode the exit snapshot with
 `tools/hardware_haswell_forcewake.py`.
 
+#### Native forcewake result
+
+The MacBookAir6,1 receipt verified the kernel forcewake cycle on source
+`d8f8ec68`, release `d0683f5c9453e017`. ACK read `0` before the
+request, set to `1` in 55 µs and stayed set across the GT thread
+read. The thread status was `0xc0000000`, with the low three C0
+status bits clear 4 µs after ACK. ACK returned to `0` in 4 µs
+after the clear attempt.
+
+Pipe A stayed on the inherited framebuffer and advanced from frame 924
+to 926. Both aliases retired and the full observation took 21.211 ms.
+The receipt recorded two masked stores, zero engine-ring reads and zero
+reads of protected slots 4096 and 16385. The exit snapshot, installed
+recovery and offline USB check verified after Ubuntu returned with the
+one-shot consumed. Requester hold, DMA drain and firmware exclusion
+remain unverified.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

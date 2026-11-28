@@ -236,12 +236,13 @@ The exit snapshot, recovery and offline USB check verified after Ubuntu
 returned. Air7,2 PR301 at `cb578981` owns its independent occupied-slot
 handoff work.
 
-The next PR567 checkpoint is an isolated Haswell kernel forcewake
-acquire/release trial. It extends the Air6,1 backing diagnostic, boot
-recipe and receipt tests on the device branch at `d945cdcd`, against
-integration head `24feebdd`. The trial keeps Pipe A on the inherited
-framebuffer and leaves GGTT slots 4096 and 16385 untouched. It checks
-the ACK and GT thread C0 under one masked request and verifies release.
+The [native forcewake result](../intel-hsw-tearfree.md#native-forcewake-result)
+verified on `d8f8ec68` / `d0683f5c9453e017`. ACK went from clear to
+set in 55 µs, GT thread C0 followed 4 µs later and ACK cleared in 4 µs
+after the release attempt. Pipe A advanced two frames on the inherited
+surface. Both temporary aliases retired in the 21.211 ms observation,
+and GGTT slots 4096 and 16385 were untouched. The exit snapshot, recovery
+and offline USB check verified. Requester hold remains unverified.
 Air7,2 PR301 at `e69ae6fa` has a separate Broadwell full-GT range scope.
 
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
