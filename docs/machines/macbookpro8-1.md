@@ -899,6 +899,29 @@ GPE handling. The native EHCI workspace must flush and retire before
 sleep, then be rediscovered and remounted after wake before saving the
 final report. The normal desktop stays outside the test path.
 
+On `0bf23f73`, Q35 entered S3 and QMP observed the suspended state. A wake
+resumed the original SrvrOS kernel stack through the firmware waking
+vector. The fixture verified the original kernel root, restored the
+zero FACS vector, and retired the low identity mapping and wake frame.
+The fixture runs before device drivers and uses a QMP wake source.
+
+Native preflight `f32d2e4f96b80d54` matched the FADT and SSDT S3 object.
+The FACS was mapped ACPI NVS at `0x8ad3e000` with zero vectors and Global
+Lock bits clear. It found an available identity-map candidate at `0x1000`
+and a sole, below-4-GiB kernel root. PM1a control and the lid GPE `0x23`
+enable and status bytes all read zero. ACPI SCI mode and lid wake need
+explicit setup for a native sleep attempt. The awake preflight saved both
+reports to the flash drive, matched their archived digests, passed offline
+allocation and prior-file checks, and returned to Ubuntu. The known-good
+entry was restored.
+
+Offline ACPICA execution of the captured Apple tables evaluated `_S3`,
+EC `_REG`, lid `_PSW`, `_PTS(3)`, and `_WAK(3)` using simulated operation
+regions. It showed EC, GNVS, GPIO, and chipset MMIO side effects. Native
+execution still needs bounded ownership and rollback for these regions,
+followed by EHCI retirement and fresh post-wake discovery. Lid-triggered
+S3 and physical lid wake remain open.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
@@ -1915,7 +1938,7 @@ Offline allocation passed for 143 files with zero writes.
 | Audio | Built-in right speaker and stream teardown verified on `024a87e1e8d4bf42`. This unit has a broken left speaker | Qualify audible left-channel output with working hardware |
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
-| Lid and suspend | SrvrOS recorded both physical close/reopen cycles in `080d4028bdb8a4e2` and verified both reports. Ubuntu verified S3 suspend/resume | SrvrOS S3 remains unverified |
+| Lid and suspend | SrvrOS recorded both physical close/reopen cycles in `080d4028bdb8a4e2`. The S3 preflight `f32d2e4f96b80d54` verified both flash reports. Ubuntu verified S3 suspend/resume | The SrvrOS CPU wake path passed in Q35. Native lid-triggered S3 and physical lid wake remain open |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
 | Wi-Fi | Settings Connect, Disconnect, and reconnect passed on BCM4331 against `Demers2.4` in `d6defd5b7a97090b`. The original association resumed gateway traffic after a 15-second driver receive gap in `c809111f83871175`. Both trials saved both reports | Three instrumented warm startups passed WPA2, DHCP and gateway traffic. Two corrected cold starts on `1c813017` admitted the Apple subsystem and passed the same connection checks, with both reports verified each time. Access-point outage and automatic reassociation testing are deferred |
 
