@@ -853,6 +853,14 @@ all four USB files, and the run closed as a diagnostic with a clean offline
 exFAT check. This qualifies one run under the unchanged 10 ms slot limit.
 The full sequence still used the wider diagnostic timing policy.
 
+The native traffic-hold follow-up starts at `4556ffdf` with main
+`117a0294` and independent Air6,1 PR 567 `35e76b8b` reviewed. Scope is
+the no-store Broadwell drain verifier for a driver interval whose exact
+inherited PTE aliases the pinned framebuffer. The same reset-free hold
+must exclude WiDi and competing resets, witness fresh engine and L3
+acknowledgements and preserve the original PTE across release. Native
+execution depends on a provider for the hardware request.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
