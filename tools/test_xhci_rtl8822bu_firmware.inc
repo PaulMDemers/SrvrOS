@@ -2,6 +2,8 @@ enum bu_firmware_fault {
     BU_FW_OK,BU_FW_FLASH,BU_FW_COLD_LATCH,BU_FW_COLD_DMA_BUSY,BU_FW_OTHER_LATCH,BU_FW_OTHER_STATUS,
     BU_FW_IMAGE,BU_FW_WARM,BU_FW_ENTRY_MCU,BU_FW_PLATFORM_MCU,
     BU_FW_SHORT,BU_FW_MISSING,BU_FW_CHECKSUM,BU_FW_NOT_READY,BU_FW_BAD_STOP,BU_FW_BUSY,
+    BU_BOARD_OK,BU_BOARD_BAD_BANK,BU_BOARD_BAD_MODE,BU_BOARD_WRONG_ADDR,
+    BU_BOARD_WRONG_RFE,BU_BOARD_NO_REPLY,BU_BOARD_WRONG_FEATURE,BU_BOARD_NO_ACK,BU_BOARD_BAD_STOP,
 };
 
 static struct {
@@ -9,7 +11,7 @@ static struct {
     uint8_t reg[65536];
     uint64_t ring,cursor,packet;
     uint32_t written;
-    unsigned posted,ddma,configure,stop,echoes,register_writes,latch_clears;
+    unsigned posted,ddma,configure,stop,echoes,register_writes,latch_clears,efuse_reads,feature_acks;
     uint8_t echo;
     bool echo_expected;
     enum bu_firmware_fault fault;
@@ -19,6 +21,9 @@ static uint32_t bu_model_read(unsigned reg,unsigned width) {
     uint32_t value=0;
     for(unsigned i=0;i<width;i++)value|=(uint32_t)bu_model.reg[reg+i]<<(8*i);
     return value;
+}
+static bool bu_model_cold_board(void) {
+    return bu_model.fault==BU_FW_COLD_LATCH || bu_model.fault>=BU_BOARD_OK;
 }
 static void bu_model_store(unsigned reg,unsigned width,uint32_t value) {
     for(unsigned i=0;i<width;i++)bu_model.reg[reg+i]=(uint8_t)(value>>(8*i));
@@ -40,7 +45,7 @@ static void bu_model_command(struct xhci_device *d) {
     } else {
         assert(type==XHCI_TRB_TYPE_STOP_ENDPOINT && ((command->control>>16)&31)==10 && !bu_model.stop++);
         uint64_t cursor=bu_model.cursor;
-        if(bu_model.fault==BU_FW_BAD_STOP)cursor+=32;
+        if(bu_model.fault==BU_FW_BAD_STOP || bu_model.fault==BU_BOARD_BAD_STOP)cursor+=32;
         context_write32(d->output_context,10,0,3);
         context_write32(d->output_context,10,2,(uint32_t)cursor);
         context_write32(d->output_context,10,3,cursor>>32);
@@ -107,23 +112,42 @@ static void bu_model_control(void) {
         if(reg==3 && (value&4) && bu_model.fault==BU_FW_FLASH)
             assert(!(bu_model_read(0x80,4)&(1u<<20)) && !(bu_model_read(0x40,4)&(1u<<19)));
         if(reg==0x80 && width==1 && bu_model_read(0x80,4)==0x80600001 && !value) {
-            assert(bu_model.fault==BU_FW_COLD_LATCH && !bu_model.latch_clears++);
+            assert(bu_model_cold_board() && !bu_model.latch_clears++);
             assert(!(bu_model_read(3,1)&4) && !(bu_model_read(0x1d,1)&1) && !bu_model_read(0x100,1) &&
                 !(bu_model_read(0x1208,4)>>31) && bu_model_read(0xec,4)==0x18000004);
         }
+        assert(reg<BU_EFUSE_LDO || reg>BU_EFUSE_LDO+3);
         bu_model_store(reg,width,value);
+        if(reg==BU_EFUSE_CTRL) {
+            static const uint8_t efuse[]={0x0e,0x29,0x81,0xef,0x2e,0x34,0x28,0x2f,0x3d,3,0xff,0xff};
+            unsigned address=bu_model.efuse_reads++;
+            assert(bu_model.fault>=BU_BOARD_OK && bu_model.ddma==40 && width==4 &&
+                address<BU_EFUSE_BYTES && value==(BU_EFUSE_READ_MODE|(address<<8)));
+            assert(!bu_model_read(BU_CR,1) && !(bu_model_read(2,1)&3) &&
+                !(bu_model_read(0x1f,1)&7) && !(bu_model_read(BU_WLRF1,4)&BU_WLRF1_BBRF));
+            unsigned b=address<sizeof efuse?efuse[address]:0xff;
+            if(address==9 && bu_model.fault==BU_BOARD_WRONG_RFE)b=5;
+            if(bu_model.fault==BU_BOARD_WRONG_ADDR)value^=0x100;
+            bu_model_store(reg,4,value|BU_EFUSE_READY|b);
+        }
+        if(reg==BU_FEATURE_MAILBOX && !value) {
+            assert(bu_model.efuse_reads==BU_EFUSE_BYTES && !bu_model.feature_acks++);
+            if(bu_model.fault==BU_BOARD_NO_ACK)bu_model_store(reg,1,BU_FEATURE_REPLY);
+        }
         if(reg==5 && (value&1)) {
             bu_model_store(reg,1,value&~1u);
             bu_model_store(0x100,1,0);
         }
         if(reg==0x204)bu_model_store(reg,width,0);
         if(reg==0x1103 && bu_model.fault==BU_FW_PLATFORM_MCU)bu_model_store(0x80,2,0xc078);
-        if(reg==0x1103 && (bu_model.fault==BU_FW_COLD_LATCH || bu_model.fault==BU_FW_COLD_DMA_BUSY))
+        if(reg==0x1103 && (bu_model_cold_board() || bu_model.fault==BU_FW_COLD_DMA_BUSY))
             bu_model_store(0x80,4,0x80600001);
         if(reg==0x1700) {
             if(value==0xc00f0038 && bu_model.fault!=BU_FW_NOT_READY) {
                 assert(bu_model.ddma==40 && bu_model.written==161176 && (bu_model_read(3,1)&4));
                 bu_model_store(0x80,2,0xc078);
+                if(bu_model.fault>=BU_BOARD_OK && bu_model.fault!=BU_BOARD_NO_REPLY)
+                    bu_model_store(BU_FEATURE_MAILBOX,1,BU_FEATURE_REPLY);
             }
             bu_model_store(reg,width,value|0x20000000u);
         }
@@ -164,7 +188,7 @@ static void test_rtl8822bu_firmware(const char *path) {
     FILE *file=fopen(path,"rb");
     assert(file && fread(image,1,sizeof image,file)==sizeof image && fgetc(file)==EOF && !fclose(file));
     assert(bu_image_valid(image,sizeof image));
-    for(enum bu_firmware_fault fault=BU_FW_OK;fault<=BU_FW_BUSY;fault++) {
+    for(enum bu_firmware_fault fault=BU_FW_OK;fault<=BU_BOARD_BAD_STOP;fault++) {
         struct xhci_device *rtl=rtl_hub_fixture(),*d=&xhci.devices[3];
         d->device_bcd=0x0210;d->configuration_count=1;d->ep0_max_packet=64;
         uint8_t *command_memory;
@@ -177,7 +201,7 @@ static void test_rtl8822bu_firmware(const char *path) {
         bu_model_store(0x100,1,fault==BU_FW_WARM?0:0xea);
         bu_model_store(0x6,1,3);bu_model_store(0x80,2,0x78);
         bu_model_store(0xec,4,0x1f000004);
-        if(fault>=BU_FW_COLD_LATCH && fault<=BU_FW_OTHER_STATUS) {
+        if((fault>=BU_FW_COLD_LATCH && fault<=BU_FW_OTHER_STATUS) || bu_model_cold_board()) {
             bu_model_store(0xf5,1,fault==BU_FW_OTHER_STATUS?0x11:0x10);
             bu_model_store(0x80,4,fault==BU_FW_OTHER_LATCH?0x00600003:0x00600001);
             bu_model_store(0x1d,1,1);
@@ -191,28 +215,51 @@ static void test_rtl8822bu_firmware(const char *path) {
         bu_model_store(0x3,1,0xd8);bu_model_store(0x550,1,0x14);
         bu_model_store(0x1700,4,0x20000000);
         bu_model_store(0x1708,4,0xdd03);
+        bool board=fault>=BU_BOARD_OK;
+        if(board) {
+            bu_model_store(BU_EFUSE_CTRL,4,fault==BU_BOARD_BAD_MODE?0x906000ff:0xb163f0ff);
+            bu_model_store(BU_EFUSE_LDO,4,fault==BU_BOARD_BAD_BANK?0x98000100:0x18000000);
+            bu_model_store(BU_FEATURE_MAILBOX+6,4,fault==BU_BOARD_WRONG_FEATURE?0xff37ff72:0xff57ff72);
+        }
         rtl_test_clock=true;rtl_test_delay=bu_model_delay;
         if(fault==BU_FW_MISSING)test_time_step=10000;
         native_boundary_mmio_hook=bu_model_mmio;
         if(fault==BU_FW_IMAGE)image[0]^=1;
         bool safe=false;
-        bool success=fault==BU_FW_OK || fault==BU_FW_FLASH || fault==BU_FW_COLD_LATCH;
-        assert(xhci_rtl8822bu_capture_firmware(image,sizeof image,&safe)==success);
+        bool success=fault==BU_FW_OK || fault==BU_FW_FLASH || fault==BU_FW_COLD_LATCH || fault==BU_BOARD_OK;
+        assert((board?xhci_rtl8822bu_capture_board:xhci_rtl8822bu_capture_firmware)
+            (image,sizeof image,&safe)==success);
         if(fault==BU_FW_IMAGE)image[0]^=1;
-        assert(safe==(fault!=BU_FW_BAD_STOP && fault!=BU_FW_BUSY && fault!=BU_FW_PLATFORM_MCU && fault!=BU_FW_COLD_DMA_BUSY));
+        assert(safe==(fault!=BU_FW_BAD_STOP && fault!=BU_BOARD_BAD_STOP && fault!=BU_FW_BUSY &&
+            fault!=BU_FW_PLATFORM_MCU && fault!=BU_FW_COLD_DMA_BUSY));
         assert(!bu_model.echo_expected && !rtl->control_success && !xhci.devices[2].control_success && !network_count);
         if(success)assert(bu_model.posted==40 && bu_model.ddma==40 && !d->bulk_pending && bu_model.stop);
         if(fault==BU_FW_IMAGE)assert(!bu_model.posted && !bu_model.configure && !bu_model.echoes);
         if(fault==BU_FW_WARM || fault==BU_FW_ENTRY_MCU)assert(!bu_model.posted && !bu_model.register_writes);
         if(fault==BU_FW_OTHER_LATCH || fault==BU_FW_OTHER_STATUS)assert(!bu_model.posted && !bu_model.register_writes);
         if(fault==BU_FW_COLD_DMA_BUSY)assert(!bu_model.posted && bu_model_read(0x80,4)==0x80600001);
-        assert(bu_model.latch_clears==(fault==BU_FW_COLD_LATCH));
+        assert(bu_model.latch_clears==bu_model_cold_board());
         if(fault==BU_FW_PLATFORM_MCU)assert(!bu_model.posted && bu_model_read(0x80,2)==0xc078);
         if(fault==BU_FW_SHORT || fault==BU_FW_MISSING)assert(bu_model.posted==1 && !bu_model.ddma && !d->bulk_pending);
+        if(board) {
+            unsigned reads=BU_EFUSE_BYTES;
+            if(fault==BU_BOARD_BAD_BANK || fault==BU_BOARD_BAD_MODE)reads=0;
+            if(fault==BU_BOARD_WRONG_ADDR)reads=1;
+            bool ack=fault==BU_BOARD_OK || fault==BU_BOARD_WRONG_FEATURE ||
+                fault==BU_BOARD_NO_ACK || fault==BU_BOARD_BAD_STOP;
+            assert(bu_model.posted==40 && bu_model.stop==1 && bu_model.efuse_reads==reads && bu_model.feature_acks==ack);
+        }
     }
+    uint8_t logical[BU_EFUSE_LOGICAL_BYTES];
+    assert(!bu_decode_efuse((uint8_t[]){0xef},1,logical));
+    assert(!bu_decode_efuse((uint8_t[]){0x0e,0x29},2,logical));
+    assert(!bu_decode_efuse((uint8_t[]){0x0f,0xce,0,0,0xff},5,logical));
+    assert(bu_decode_efuse((uint8_t[]){0x0e,0x29,0x81,0x0e,0x01,0x02,0xff},7,logical));
+    assert(logical[0]==1 && logical[1]==2 && logical[2]==0xff);
     native_boundary_mmio_hook=NULL;rtl_test_delay=NULL;rtl_test_clock=false;
     puts("rtl8822bu: PASS native firmware upload, forty USB packets, both DDMA sections, MCU ready and endpoint retirement");
     puts("rtl8822bu: PASS cold flash selection, exact WLRF1 bit isolation and active MCU refusal");
     puts("rtl8822bu: PASS captured cold latch, CPU and DDMA ownership checks, and mismatched signature refusals");
     puts("rtl8822bu: PASS image and warm refusal, short/missing OUT, checksum, missing ready, wrong stop and busy DDMA");
+    puts("rtl8822bu: PASS native board eFuse and firmware reply, no RF/program power, stale address and bad board/mailbox refusals");
 }

@@ -46,6 +46,13 @@ class InstallTests(unittest.TestCase):
         firmware = identity.replace("-v1-", "-v2-")
         self.assertEqual(boot.limine_config(release, firmware), boot.limine_config(release, identity).replace(
             "srvros.capture=wifi-rtl8822bu ", "srvros.capture=wifi-rtl8822bu-firmware "))
+        board = identity.replace("-v1-", "-v3-")
+        self.assertEqual(boot.limine_config(release, board), boot.limine_config(release, identity).replace(
+            "srvros.capture=wifi-rtl8822bu ", "srvros.capture=wifi-rtl8822bu-board "))
+        with self.assertRaisesRegex(ValueError, "pinned firmware"):
+            boot.stage(rtl8822bu_board=True)
+        with self.assertRaisesRegex(ValueError, "bound startup journal"):
+            boot.stage(rtl8822bu_board=True, rtl8822bu_firmware=Path("fixture"), laptop_probe_volume="12345678")
         with self.assertRaisesRegex(ValueError, "bound startup journal"):
             boot.stage(rtl8822bu_firmware=Path("fixture"), laptop_probe_volume="12345678")
         with self.assertRaisesRegex(ValueError, "Choose one RTL8822BU profile"):

@@ -331,9 +331,90 @@ static bool bu_park(struct bu_upload *up) {
            bu_read(d,BU_CR,1,&value) && !value && bu_radio_off(d);
 }
 
-bool xhci_rtl8822bu_capture_firmware(const uint8_t *image,uint64_t size,bool *return_safe) {
+enum {
+    BU_EFUSE_CTRL=0x30, BU_EFUSE_LDO=0x34, BU_EFUSE_READY=1u<<31,
+    BU_EFUSE_BANK=3u<<8, BU_EFUSE_PROGRAM_POWER=1u<<31,
+    BU_EFUSE_ADDR=0x3ff00, BU_EFUSE_DATA=0xff, BU_EFUSE_READ_MODE=0x31600000,
+    BU_EFUSE_BYTES=1024-96, BU_EFUSE_LOGICAL_BYTES=768,
+    BU_FEATURE_MAILBOX=0x01a0, BU_FEATURE_REPLY=0x19, BU_FEATURE_BYTES=13,
+};
+
+static bool bu_decode_efuse(const uint8_t *physical,unsigned length,uint8_t *logical) {
+    for(unsigned i=0;i<BU_EFUSE_LOGICAL_BYTES;i++)logical[i]=0xff;
+    for(unsigned offset=0;offset<length;) {
+        unsigned header=physical[offset++];
+        if(header==0xff)return true;
+        unsigned block=header>>4,skip=header&15;
+        if((header&31)==15) {
+            if(offset==length)return false;
+            unsigned extension=physical[offset++];
+            if(extension==0xff)return true;
+            block=((extension&0xf0)>>1)|(header>>5);
+            skip=extension&15;
+        }
+        for(unsigned word=0;word<4;word++) {
+            if(skip&(1u<<word))continue;
+            unsigned index=block*8+word*2;
+            if(length-offset<2 || index+1>=BU_EFUSE_LOGICAL_BYTES)return false;
+            logical[index]=physical[offset++];
+            logical[index+1]=physical[offset++];
+        }
+    }
+    return false;
+}
+
+static const char *bu_capture_board(struct bu_upload *up) {
+    struct xhci_device *d=up->device;
+    uint8_t physical[BU_EFUSE_BYTES],logical[BU_EFUSE_LOGICAL_BYTES],feature[BU_FEATURE_BYTES];
+    uint32_t ldo,control,cr;
+    if(!bu_read(d,BU_CR,1,&cr) || cr || !bu_radio_off(d))return "radio-gate";
+    if(!bu_read(d,BU_EFUSE_LDO,4,&ldo) || !bu_read(d,BU_EFUSE_CTRL,4,&control))return "efuse-entry";
+    console_printf("rtl8822bu-board-entry: ldo=%x efuse=%x\n",(uint64_t)ldo,(uint64_t)control);
+    /* Linux's trace has Wi-Fi bank selected and the programming supply off.
+     * Admit that state and issue only read strobes in the observed mode. */
+    const uint32_t mode_mask=~(BU_EFUSE_READY|BU_EFUSE_ADDR|BU_EFUSE_DATA);
+    if((ldo&(BU_EFUSE_BANK|BU_EFUSE_PROGRAM_POWER)) || (control&mode_mask)!=BU_EFUSE_READ_MODE)
+        return "efuse-mode";
+    uint64_t start=timer_monotonic_us();
+    for(unsigned i=0;i<BU_EFUSE_BYTES;i++) {
+        if(timer_monotonic_us()-start>=2000000u)return "efuse-deadline";
+        if(i%64==0 && !wifi_hub_check_port(d,up->hub))return "efuse-route";
+        uint32_t address=i<<8;
+        if(!bu_write(d,BU_EFUSE_CTRL,4,BU_EFUSE_READ_MODE|address) ||
+           !bu_poll(d,BU_EFUSE_CTRL,4,BU_EFUSE_READY|BU_EFUSE_ADDR,BU_EFUSE_READY|address,40,&control)) {
+            console_printf("rtl8822bu-board-read: address=%u ok=0\n",(uint64_t)i);
+            return "efuse-read";
+        }
+        physical[i]=(uint8_t)control;
+    }
+    if(!bu_read(d,BU_EFUSE_LDO,4,&control) || control!=ldo)return "efuse-exit";
+    if(!bu_decode_efuse(physical,sizeof physical,logical))return "efuse-map";
+    unsigned id=logical[0]|(unsigned)logical[1]<<8;
+    unsigned rfe=logical[0xca],xtal=logical[0xb9],plan=logical[0xb8];
+    console_printf("rtl8822bu-board-efuse: bytes=%u id=%x rfe=%u xtal=%x plan=%x\n",
+        (uint64_t)sizeof physical,(uint64_t)id,(uint64_t)rfe,(uint64_t)xtal,(uint64_t)plan);
+    if(id!=0x8129 || rfe!=3 || xtal!=0x28 || plan!=0x34)return "board-profile";
+
+    if(!bu_poll(d,BU_FEATURE_MAILBOX,1,0xff,BU_FEATURE_REPLY,400,&control))return "feature-id";
+    for(unsigned i=0;i<sizeof feature;i++) {
+        if(!bu_read(d,BU_FEATURE_MAILBOX+2+i,1,&control))return "feature-body";
+        feature[i]=(uint8_t)control;
+    }
+    if(!bu_read(d,BU_FEATURE_MAILBOX,1,&control) || control!=BU_FEATURE_REPLY ||
+       !bu_write(d,BU_FEATURE_MAILBOX,1,0) || !bu_read(d,BU_FEATURE_MAILBOX,1,&control) || control)
+        return "feature-ack";
+    unsigned hci=feature[4]&15,bw=feature[6]&7,nss=(feature[6]>>3)&3;
+    unsigned antennas=feature[6]>>5,protocol=(feature[7]>>2)&3;
+    console_printf("rtl8822bu-board-feature: hci=%u bw=%u nss=%u antennas=%u protocol=%u\n",
+        (uint64_t)hci,(uint64_t)bw,(uint64_t)nss,(uint64_t)antennas,(uint64_t)protocol);
+    if(hci!=2 || bw!=7 || nss!=2 || antennas!=2 || protocol!=3)return "feature-profile";
+    return wifi_hub_check_port(d,up->hub) && bu_radio_off(d)?NULL:"radio-exit";
+}
+
+static bool bu_capture(const uint8_t *image,uint64_t size,bool board,bool *return_safe) {
     struct bu_upload up={0};
     const char *failure="identity";
+    const char *board_failure="not-run";
     uint64_t flags=event_irq_save();
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         if(xhci.devices[i].rtl8822bu_identified){up.device=&xhci.devices[i];break;}
@@ -353,6 +434,10 @@ bool xhci_rtl8822bu_capture_firmware(const uint8_t *image,uint64_t size,bool *re
                 d->rtl8822bu_firmware_active=true;
                 failure="endpoint";
                 if(wifi_hub_check_port(d,up.hub) && bu_configure_out(&up))failure=bu_download(&up,image);
+                if(board && !failure) {
+                    console_write("rtl8822bu-board-progress: reading eFuse and firmware features\n");
+                    board_failure=bu_capture_board(&up);
+                }
                 up.stopped=bu_stop(&up);
                 up.parked=up.stopped && bu_park(&up);
                 *return_safe=up.stopped && !d->ep0_quarantined && !xhci.command_failed &&
@@ -366,5 +451,14 @@ bool xhci_rtl8822bu_capture_firmware(const uint8_t *image,uint64_t size,bool *re
     console_printf("rtl8822bu-firmware: result=%s bytes=%u packets=%u mcu=%x stopped=%u parked=%u safe=%u\n",
         failure?failure:"ready",(uint64_t)up.bytes,(uint64_t)up.packets,(uint64_t)up.mcu,
         (uint64_t)up.stopped,(uint64_t)up.parked,(uint64_t)*return_safe);
-    return !failure;
+    if(board)console_printf("rtl8822bu-board: result=%s\n",board_failure?board_failure:"ready");
+    return !failure && (!board || !board_failure);
+}
+
+bool xhci_rtl8822bu_capture_firmware(const uint8_t *image,uint64_t size,bool *return_safe) {
+    return bu_capture(image,size,false,return_safe);
+}
+
+bool xhci_rtl8822bu_capture_board(const uint8_t *image,uint64_t size,bool *return_safe) {
+    return bu_capture(image,size,true,return_safe);
 }

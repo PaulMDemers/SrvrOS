@@ -966,7 +966,9 @@ void kmain(void) {
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
     const char *netgear_identity_token="srvros.capture=wifi-rtl8822bu";
     const char *netgear_firmware_token="srvros.capture=wifi-rtl8822bu-firmware";
-    bool netgear_firmware=cmdline_has_token(cmdline,netgear_firmware_token);
+    const char *netgear_board_token="srvros.capture=wifi-rtl8822bu-board";
+    bool netgear_board=cmdline_has_token(cmdline,netgear_board_token);
+    bool netgear_firmware=netgear_board || cmdline_has_token(cmdline,netgear_firmware_token);
     bool netgear_capture=netgear_firmware || cmdline_has_token(cmdline,netgear_identity_token);
     const char *realtek_desktop_token="srvros.capture=wifi-rtl8188cu-desktop";
     const char *realtek_ip_token="srvros.capture=wifi-rtl8188cu-ip";
@@ -980,7 +982,8 @@ void kmain(void) {
     bool rtl8188cu_passive=rtl8188cu_wpa2 || cmdline_has_token(cmdline,realtek_passive_token);
     bool rtl8188cu_firmware=rtl8188cu_passive || cmdline_has_token(cmdline,realtek_firmware_token);
     bool rtl8188cu_capture=rtl8188cu_firmware || cmdline_has_token(cmdline,realtek_identity_token);
-    if(netgear_capture && !journaled_usb_radio_recipe(cmdline,netgear_firmware?netgear_firmware_token:netgear_identity_token))halt_forever();
+    if(netgear_capture && !journaled_usb_radio_recipe(cmdline,netgear_board?netgear_board_token:
+        netgear_firmware?netgear_firmware_token:netgear_identity_token))halt_forever();
     if(rtl8188cu_capture && !journaled_usb_radio_recipe(cmdline,rtl8188cu_desktop?realtek_desktop_token:rtl8188cu_ip?realtek_ip_token:rtl8188cu_wpa2?realtek_wpa_token:rtl8188cu_passive?realtek_passive_token:
         rtl8188cu_firmware?realtek_firmware_token:realtek_identity_token))halt_forever();
     bool usb_radio_capture=rtl8188cu_capture || netgear_capture;
@@ -1176,7 +1179,8 @@ void kmain(void) {
     if(netgear_firmware) {
         const struct initramfs_file *image=initramfs_find("/firmware/rtw8822b_fw.bin");
         bool safe;
-        netgear_sampled=xhci_rtl8822bu_capture_firmware(image?image->data:NULL,image?image->size:0,&safe);
+        netgear_sampled=(netgear_board?xhci_rtl8822bu_capture_board:xhci_rtl8822bu_capture_firmware)
+            (image?image->data:NULL,image?image->size:0,&safe);
         startup_checkpoint(2,0);
         if(!safe) {
             if(startup_journal_admitted)
