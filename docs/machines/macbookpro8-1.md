@@ -455,6 +455,25 @@ with zero drops and verified DMA retirement. Ubuntu verified the hashes
 of both reports and preserved the existing workspace files. The offline
 exFAT inspection passed with 174 files and 182 clusters.
 
+### Internal BCM4331 Wi-Fi
+
+This block uses integration baseline `24feebdd`, the working Ubuntu `b43`
+reference, and the verified EHCI report path. The captured PCIe function is
+`03:00.0`, `14e4:4331` revision `02`. Linux reports chip package `09`, BCMA
+ChipCommon revision `25`, D11 revision `1d`, and PCIe core revision `13` in
+hex. Its HT PHY is type 7, revision 1. Firmware `784.2` joined the 2.4 GHz
+test network on channel 10 and returned all four interface-bound gateway
+probes while Ethernet stayed up.
+
+The first SrvrOS checkpoint owns the exact MacBookPro8,1 PCIe and BCMA
+probe, isolated boot recipe, and two release-specific flash reports. It
+reads the chip and core topology and verifies restoration of temporary PCI
+access before returning to Ubuntu. Firmware and board data, passive scan,
+authentication, and DHCP on the wireless interface are subsequent native
+checkpoints. The MediaTek work from PR #19 supplies Wi-Fi service and IP
+stack references. The active Pro11,2 branch at `bf7a0112` covers external
+USB Realtek hardware. It does not share the BCM4331 PCIe transport.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
