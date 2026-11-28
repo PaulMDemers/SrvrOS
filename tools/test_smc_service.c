@@ -11,6 +11,7 @@ static struct acpi_table_info table={.signature="DSDT",.physical_address=0x1000,
 uint64_t timer_ticks(void) { return clock_us/10000; }
 uint64_t timer_monotonic_us(void) { return clock_us; }
 bool timer_reference_ready(void) { return true; }
+bool display_profile_is_pro81(void) { return false; }
 bool timer_delay_us(uint64_t us) { assert(us==8);clock_us+=us;return delay_ok; }
 uint64_t pci_device_count(void) { return chipset?2:0; }
 const struct pci_device *pci_device_at(uint64_t i) { assert(i<2);return &devices[i]; }
@@ -132,5 +133,18 @@ int main(void) {
     assert(!working && transaction_boundary());
     initialized=stopping=false;devices[1].device_id=0x9c43;smc_battery_init();
     assert(!working && battery.value.state==BATTERY_SERVICE_UNAVAILABLE);
+    initialized=false;
+    assert(!smc_lid_probe_start());
+    lid_probe=true;
+    smc_transport_init(&transport,(struct smc_io){&m,model_status,model_read,model_command,model_argument});
+    uint8_t closed;
+    for (uint8_t raw=0;raw<2;raw++) {
+        m=(struct model){.length=1,.reply={raw}};
+        assert(smc_lid_probe_read(&closed) && closed==raw);
+        assert(m.command==0x10 && !memcmp(m.key,"MSLD",4));
+    }
+    m=(struct model){.length=1,.reply={2}};
+    assert(!smc_lid_probe_read(&closed) && !lid_probe);
+    assert(!smc_lid_probe_read(&closed) && m.commands==1);
     puts("smc-service: PASS exact-target gate, worker failure, metadata/count checks, cached fan samples, zero RPM and fault invalidation without control writes");
 }

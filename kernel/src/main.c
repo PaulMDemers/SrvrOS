@@ -1153,6 +1153,81 @@ static void ehci_ethernet_trial(const char *release, const char *volume, bool pa
     halt_forever();
 }
 
+static void ehci_lid_trial(const char *release, const char *volume, bool s3_preflight) {
+    boot_set_framebuffer_quiet(false);
+    console_clear();
+    console_printf("MacBookPro8,1 %s. Release %s.\n", s3_preflight ? "S3 preflight" : "lid trial", release);
+    console_write(s3_preflight ? "Keep the USB flash drive attached. No input needed.\n" :
+        "Keep the USB flash drive and charger attached. Start with the lid open.\n");
+    console_sync();
+
+    xhci_init(); /* Workspace fallback for the foreign-platform VM. */
+    bool mounted = ehci_desktop_workspace_start(volume);
+    bool model = display_profile_is_pro81();
+    uint8_t closed = 0;
+    bool sampled = mounted && model && !s3_preflight && smc_lid_probe_start() && smc_lid_probe_read(&closed);
+    console_printf("ehci-lidstate: release=%s phase=startup workspace=%u model=%u sample=%u raw=%u\n",
+        release, (uint64_t)mounted, (uint64_t)model, (uint64_t)sampled, (uint64_t)closed);
+    bool startup = mounted && ehci_lid_workspace_report(release, true);
+    bool preflight = s3_preflight && startup && s3_pro81_preflight(memmap_request.response);
+    if (s3_preflight && startup) {
+        bool retired = ehci_desktop_workspace_stop();
+        bool mode = retired && preflight && s3_pro81_mode_roundtrip();
+        bool reopened = retired && ehci_desktop_workspace_start(volume);
+        console_printf("s3-workspace: before_retired=%u reopened=%u mode_roundtrip=%u\n",
+            (uint64_t)retired, (uint64_t)reopened, (uint64_t)mode);
+        mounted = reopened || workspace_active();
+    }
+    unsigned transitions = 0;
+    unsigned samples = 0;
+    uint64_t elapsed = 0;
+    if (startup && sampled && !closed) {
+        console_write("Lid capture ready. Close the lid for five seconds and reopen it. Repeat when prompted.\n");
+        console_sync();
+        uint64_t start = timer_monotonic_us();
+        uint64_t next_reminder = 15000000;
+        while (transitions < 4 && elapsed < 90000000) {
+            uint8_t next;
+            if (!timer_delay_us(100000) || !smc_lid_probe_read(&next)) {
+                console_write("ehci-lidstate: sampling failed\n");
+                break;
+            }
+            samples++;
+            elapsed = timer_monotonic_us() - start;
+            if (elapsed >= next_reminder && !closed && next == closed) {
+                console_write("Lid capture is waiting. Close the lid for five seconds, then reopen it.\n");
+                console_sync();
+                next_reminder = elapsed + 15000000;
+            }
+            if (next == closed) continue;
+            closed = next;
+            console_printf("ehci-lidstate: edge=%u raw=%u elapsed_us=%u\n",
+                (uint64_t)++transitions, (uint64_t)closed, elapsed);
+            if (transitions == 2) {
+                console_write("First cycle recorded. Close the lid for five seconds and reopen it again.\n");
+                console_sync();
+            }
+        }
+    }
+    console_printf("ehci-lidstate: samples=%u elapsed_us=%u last_raw=%u\n",
+        (uint64_t)samples, elapsed, (uint64_t)closed);
+    const char *result = !model ? "REFUSED" : preflight ? "CAPTURED" : transitions == 4 ? "PASS" : "INCOMPLETE";
+    console_printf("ehci-lidstate: release=%s phase=final result=%s edges=%u sleep=0\n",
+        release, result, (uint64_t)transitions);
+    bool final = mounted && ehci_lid_workspace_report(release, false);
+    bool retired = ehci_desktop_workspace_stop();
+    console_printf("ehci-lidstate: startup=%s final=%s workspace_retirement=%s\n",
+        startup ? "saved" : "unverified", final ? "saved" : "unverified", retired ? "safe" : "unverified");
+    if (retired) {
+        console_write("Lid trial finished. Returning to Ubuntu.\n");
+        console_sync();
+        arch_reboot_unattended();
+    }
+    console_write("Workspace retirement could not be verified. Restart manually to return to Ubuntu.\n");
+    console_sync();
+    halt_forever();
+}
+
 static void ehci_bcm4331_trial(const char *release, const char *volume, enum bcm4331_probe_mode mode) {
     boot_set_framebuffer_quiet(false);
     console_clear();
@@ -1449,6 +1524,8 @@ void kmain(void) {
     bool ehci_ethernet_probe = cmdline_has_token(cmdline, "srvros.ehci=ethernet-probe");
     bool ehci_ethernet_dhcp = cmdline_has_token(cmdline, "srvros.ehci=ethernet-dhcp");
     bool ehci_ethernet = ehci_ethernet_probe || ehci_ethernet_dhcp;
+    bool ehci_s3_preflight = cmdline_has_token(cmdline, "srvros.ehci=s3-preflight");
+    bool ehci_lid = ehci_s3_preflight || cmdline_has_token(cmdline, "srvros.ehci=lid-probe");
     bool ehci_wifi4331_firmware = cmdline_has_token(cmdline, "srvros.ehci=wifi4331-firmware");
     bool ehci_wifi4331_channel10 = cmdline_has_token(cmdline, "srvros.ehci=wifi4331-channel10");
     bool ehci_wifi4331_station = cmdline_has_token(cmdline, "srvros.ehci=wifi4331-station");
@@ -1506,13 +1583,19 @@ void kmain(void) {
         console_write("ehci-ethernet: invalid boot profile\n");
         halt_forever();
     }
+    if (ehci_lid && (!ehci_trial_release(cmdline, trial_release,
+        ehci_s3_preflight ? "s3-preflight" : "lid-probe", ehci_log_volume) ||
+        !ehci_log_volume[0])) {
+        console_write("ehci-lidstate: invalid boot profile\n");
+        halt_forever();
+    }
     if (ehci_trackpad_desktop_trial && (!ehci_trial_release(cmdline, trial_release,
             ehci_workspace_mode ? ehci_workspace_mode : ehci_desktop_trace ? "topcase-desktop" : "trackpad-desktop", ehci_log_volume) ||
             !ehci_log_volume[0])) {
         console_write("ehci-desktop: invalid boot profile\n");
         halt_forever();
     }
-    if (ehci_trackpad_desktop_trial || ehci_ethernet || ehci_wifi4331) bootlog_extend_capture();
+    if (ehci_trackpad_desktop_trial || ehci_ethernet || ehci_wifi4331 || ehci_lid) bootlog_extend_capture();
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
     bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
     bool startup_journal_requested=startup_diagnostic || reconnect_journal;
@@ -1530,10 +1613,11 @@ void kmain(void) {
     if (framebuffer_request.response != NULL &&
         framebuffer_request.response->framebuffer_count > 0) {
         struct limine_framebuffer *console_fb=framebuffer_request.response->framebuffers[0];
-        bool readable_capture=ehci_trial || startup_journal_requested || cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1") ||
+        bool readable_ehci=ehci_trial || ehci_lid;
+        bool readable_capture=readable_ehci || startup_journal_requested || cmdline_has_token(cmdline,"srvros.wifi-desktop-owner=1") ||
             cmdline_has_token(cmdline,"srvros.desktop=retina-trial");
-        uint64_t readable_width = ehci_trial ? 1280 : 1920;
-        uint64_t readable_height = ehci_trial ? 800 : 960;
+        uint64_t readable_width = readable_ehci ? 1280 : 1920;
+        uint64_t readable_height = readable_ehci ? 800 : 960;
         uint64_t console_scale=readable_capture && console_fb->width>=2880 && console_fb->height>=1440?3:
             readable_capture && console_fb->width>=readable_width && console_fb->height>=readable_height?2:1;
         console_init_scaled(console_fb,console_scale);
@@ -1658,8 +1742,21 @@ void kmain(void) {
 #endif
     }
     pci_init();
+    if (cmdline_has_token(cmdline, "srvros.s3=q35-fixture")) {
+        if (s3_q35_fixture(memmap_request.response) && timer_reference_init()) {
+            xhci_init();
+            bool mounted = workspace_mount("53525733");
+            console_printf("q35-s3-usb: mounted=%u\n", (uint64_t)mounted);
+            bool saved = mounted && bootlog_persist("/work/srvros-work/q35-s3-final.txt") && workspace_flush_committed();
+            bool retired = ehci_desktop_workspace_stop() && xhci_stop();
+            console_printf("q35-s3-usb: saved=%u retired=%u\n", (uint64_t)saved, (uint64_t)retired);
+            if (saved && retired) arch_reboot_unattended();
+        }
+        halt_forever();
+    }
     if (ehci_wifi4331) ehci_bcm4331_trial(trial_release, ehci_log_volume, wifi4331_mode);
     if (ehci_ethernet) ehci_ethernet_trial(trial_release, ehci_log_volume, ehci_ethernet_dhcp);
+    if (ehci_lid) ehci_lid_trial(trial_release, ehci_log_volume, ehci_s3_preflight);
     bool ssd_work = cmdline_has_token(cmdline, "srvros.capture=air61-ssd-work");
     if (ssd_work || cmdline_has_token(cmdline, "srvros.capture=air61-ssd-scratch")) {
         air61_scratch_trial(cmdline, ssd_work);

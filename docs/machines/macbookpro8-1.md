@@ -847,6 +847,123 @@ with clean adapter and DMA retirement. The four corrected-build reports
 matched the flash and archive by SHA-256. Previous files, offline
 allocation, one-shot Ubuntu return and private payload removal verified.
 
+### Lid and suspend bring-up (November 28)
+
+The next work block starts from integrated `b062ba18` on the existing
+MacBookPro8,1 branch. In Ubuntu the ACPI lid device and Apple SMC `MSLD`
+agreed over two physical close/reopen cycles. `MSLD` is a one-byte `ui8`
+key with `0` open and `1` closed. The DSDT implements `_LID` through a
+cached GNVS field. The EC query `_Q20` updates the field and notifies the
+lid device. The first native trial uses the existing model-gated SMC
+transport to record two cycles and saves both EHCI workspace reports.
+Its implementation covers the SMC reader, isolated boot profile and
+report verification. It does not claim ownership of the EC or SCI.
+
+Ubuntu selected `deep`. After the lid closed, `systemctl suspend` drove
+S3 and the kernel logged low-level resume and suspend exit alongside the
+lid-open event. The boot ID and flash mount remained the same. The RTC
+fallback deadline had not elapsed and the temporary alarm was cleared.
+Native S3 still needs a waking vector and processor context restoration,
+firmware sleep and wake handling, and a verified device quiesce and
+resume sequence. The lid trial keeps those dependencies out of startup.
+The captured FADT points both FACS addresses to the same region and
+describes legacy PM1a control at `0x404`. SSDT5 advertises S3 sleep type 5.
+These records identify the platform's firmware path for a later isolated
+resume test.
+
+Release `639707b0cfcad7d4` verified the startup sample as open but recorded
+zero edges and returned `INCOMPLETE`. Both reports, all prior flash files,
+offline allocation and Ubuntu recovery verified. The retry adds a sample
+count, elapsed time, and on-screen reminders during a 90-second capture.
+Release `383069e45f813bbe` reported 897 successful reads in 90.084 seconds
+with the lid value unchanged at `0`. The four expected edges remain
+unverified. The operator confirmed the lid stayed open during this run.
+Both reports matched their archived copies by SHA-256, and the
+workspace passed allocation and prior-file verification on both returns.
+The attended repeat `080d4028bdb8a4e2` used a byte-identical kernel and a
+distinct report release. It passed both close/reopen cycles, with raw
+values `0 → 1 → 0 → 1 → 0` over 15.669 seconds. Both reports matched the
+flash and archive by SHA-256, all previous files survived, the offline
+allocation check passed, and Ubuntu recovery verified. Native sleep was
+disabled during the lid trial. The Ubuntu S3 baseline provides the
+reference for separate firmware wake testing.
+
+#### Native S3 qualification
+
+Work starts on `device/macbookpro8-1/bringup` at `53ad80a1`, over the
+integration baseline `b062ba18`. It depends on the lid sampler from PR
+#570. The first checkpoint exercises firmware wake and processor return in
+an isolated Q35 guest. The MacBook's sleep controls require a verified
+platform path for its `_PSW`, `_PTS` and `_WAK` methods, including EC and
+GPE handling. The native EHCI workspace must flush and retire before
+sleep, then be rediscovered and remounted after wake before saving the
+final report. The normal desktop stays outside the test path.
+
+On `0bf23f73`, Q35 entered S3 and QMP observed the suspended state. A wake
+resumed the original SrvrOS kernel stack through the firmware waking
+vector. The fixture verified the original kernel root, restored the
+zero FACS vector, and retired the low identity mapping and wake frame.
+The fixture runs before device drivers and uses a QMP wake source.
+
+Native preflight `f32d2e4f96b80d54` matched the FADT and SSDT S3 object.
+The FACS was mapped ACPI NVS at `0x8ad3e000` with zero vectors and Global
+Lock bits clear. It found an available identity-map candidate at `0x1000`
+and a sole, below-4-GiB kernel root. PM1a control and the lid GPE `0x23`
+enable and status bytes all read zero. ACPI SCI mode and lid wake need
+explicit setup for a native sleep attempt. The awake preflight saved both
+reports to the flash drive, matched their archived digests, passed offline
+allocation and prior-file checks, and returned to Ubuntu. The known-good
+entry was restored.
+
+Offline ACPICA execution of the captured Apple tables evaluated `_S3`,
+EC `_REG`, lid `_PSW`, `_PTS(3)`, and `_WAK(3)` using simulated operation
+regions. It showed EC, GNVS, GPIO, and chipset MMIO side effects. Native
+execution still needs bounded ownership and rollback for these regions,
+followed by EHCI retirement and fresh post-wake discovery. Lid-triggered
+S3 and physical lid wake remain open.
+
+The follow-up on `76b1299d` targets the native EHCI workspace lifecycle
+and Apple SCI mode entry and rollback. The exact FADT, masked APIC route
+and captured ACPI event enables are dependencies. The isolated trial saves the
+startup report, retires the first USB owner, exercises the Apple firmware
+mode change while awake, and checks a fresh EHCI owner before saving the
+final report. The Ubuntu S3 reference traces firmware and EHCI phases.
+
+The awake run `1cca8f213269593c` flushed and retired the first EHCI
+attachment and rediscovered the same workspace through a second USB
+owner. Its ACPI mode check refused before an SMI command because
+firmware left GPE 6 enabled. Both flash reports and Ubuntu recovery
+verified. The bounded repeat preserves that observed enable bit, keeps
+SCI delivery masked, and requires the original register values on return.
+
+The repeat `6a2b8eeaae69f3ee` entered SCI mode and returned to legacy
+mode with the original GPE enable and masked APIC route. Firmware left
+the fixed power-button enable bit set. The next candidate restores only
+that observed enable halfword after mode exit. The repeat again
+rediscovered the workspace and saved both reports.
+
+Release `0a57d01e10e4b689` verified SCI entry and exact register rollback
+with APIC delivery masked. It restored the captured fixed event enable,
+preserved the firmware's GPE 6 enable and verified clean EHCI retirement
+and a fresh attachment. Both reports from each of the three awake runs
+matched their archived copies. Allocation, prior files and one-shot
+Ubuntu recovery verified.
+
+The Ubuntu reference captured wake-device preparation, ACPI sleep entry,
+leave-sleep phases and both EHCI resume callbacks. The existing flash
+report had the same SHA-256 before and after S3. Wake arrived before the
+RTC alarm and its source was undetermined. The function trace did not
+record individual AML method names.
+
+The Q35 USB extension initially resumed the same kernel with the xHCI
+BAR unassigned. QMP PCI snapshots confirmed the loss across S3. The
+fixture now restores its captured xHCI BAR with memory decode and bus
+mastering fenced. It verified fresh USB discovery, a mounted exFAT
+workspace and a final report written after real Q35 S3 wake. The report
+and original workspace anchor verified after the VM exited. USB starts
+after wake in this fixture. Native Apple sleep/wake AML execution and
+lid wake arming remain open before an end-to-end native sleep trial.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
@@ -1863,6 +1980,7 @@ Offline allocation passed for 143 files with zero writes.
 | Audio | Built-in right speaker and stream teardown verified on `024a87e1e8d4bf42`. This unit has a broken left speaker | Qualify audible left-channel output with working hardware |
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
+| Lid and suspend | SrvrOS recorded both physical close/reopen cycles in `080d4028bdb8a4e2`. Awake release `0a57d01e10e4b689` verified SCI rollback, a fresh EHCI attachment and both flash reports. Ubuntu verified S3 suspend/resume | Q35 verified CPU wake and fresh USB discovery after S3. Native Apple sleep/wake AML execution and lid-triggered S3 remain open |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
 | Wi-Fi | Settings Connect, Disconnect, and reconnect passed on BCM4331 against `Demers2.4` in `d6defd5b7a97090b`. The original association resumed gateway traffic after a 15-second driver receive gap in `c809111f83871175`. Both trials saved both reports | Three instrumented warm startups passed WPA2, DHCP and gateway traffic. Two corrected cold starts on `1c813017` admitted the Apple subsystem and passed the same connection checks, with both reports verified each time. Access-point outage and automatic reassociation testing are deferred |
 

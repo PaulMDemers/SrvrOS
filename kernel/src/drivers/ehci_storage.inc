@@ -19,12 +19,17 @@ static struct ehci_desktop_workspace {
     struct ehci_probe_report report;
     struct ehci_control_path path;
     struct ehci_flash_io flash;
-    struct usb_storage storage;
+    struct usb_storage *storage;
     const struct pci_device *device;
     uint64_t root, page, bulk_page;
     uint16_t memory_command;
     bool unsafe;
 } desktop_workspace;
+
+/* A retired block descriptor still refers to its owner's name. Keep each
+ * attachment distinct across the initial mount and one recovery mount. */
+static struct usb_storage desktop_workspace_storage[2];
+static unsigned desktop_workspace_attachments;
 
 static bool captured_flash_interface(const uint8_t *config, uint16_t length) {
     if (!config || length < 9 || config[4] != 1 || config[5] != 1) return false;
@@ -124,11 +129,13 @@ static bool prepare_flash_io(struct ehci_control_path *path, struct ehci_flash_i
 #define EHCI_TRACKPAD_REPORT "/work/srvros-work/ehci-trackpad-0000000000000000-startup.txt"
 #define EHCI_ETHERNET_REPORT "/work/srvros-work/ehci-ethernet-0000000000000000-startup.txt"
 #define EHCI_BCM4331_REPORT "/work/srvros-work/ehci-wifi4331-0000000000000000-startup.txt"
+#define EHCI_LID_REPORT "/work/srvros-work/ehci-lidstate-0000000000000000-startup.txt"
 
 static bool persist_flash_report(const char *release, bool startup, const char *path) {
     char filename[] = EHCI_TRACKPAD_REPORT;
     _Static_assert(sizeof(EHCI_TRACKPAD_REPORT) == sizeof(EHCI_ETHERNET_REPORT) &&
-        sizeof(EHCI_TRACKPAD_REPORT) == sizeof(EHCI_BCM4331_REPORT), "report path lengths");
+        sizeof(EHCI_TRACKPAD_REPORT) == sizeof(EHCI_BCM4331_REPORT) &&
+        sizeof(EHCI_TRACKPAD_REPORT) == sizeof(EHCI_LID_REPORT), "report path lengths");
     for (unsigned i = 0; i < sizeof filename; i++) filename[i] = path[i];
     const unsigned release_offset = sizeof("/work/srvros-work/ehci-trackpad-") - 1;
     for (unsigned i = 0; i < 16; i++) filename[release_offset + i] = release[i];

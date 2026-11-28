@@ -8,6 +8,7 @@
 #include <srvros/timer.h>
 #include <srvros/scheduler.h>
 #include <srvros/console.h>
+#include <srvros/display_profile.h>
 #include <stddef.h>
 static struct srv_smc_status snapshot={.version=SRV_SMC_VERSION};
 static struct smc_transport transport;
@@ -74,6 +75,38 @@ static bool metadata(const uint8_t *p,unsigned length,const char type[4]) {
     for(unsigned i=0;i<4;i++)if(p[i+1]!=(uint8_t)type[i])return false;
     return true;
 }
+static bool lid_probe;
+static bool lid_transaction(bool info) {
+    if (!smc_transport_begin(&transport, info, "MSLD", info ? 6 : 1, timer_monotonic_us())) return false;
+    int result;
+    do {
+        result = smc_transport_poll(&transport, timer_monotonic_us());
+        if (!result && !timer_delay_us(8)) {
+            smc_transport_cancel(&transport);
+            return false;
+        }
+    } while (!result);
+    return result > 0;
+}
+
+bool smc_lid_probe_start(void) {
+    if (initialized || !display_profile_is_pro81() || !timer_reference_ready() || !target() || !pro81) return false;
+    initialized = true;
+    smc_transport_init(&transport, (struct smc_io){0, status, data, command, argument});
+    lid_probe = lid_transaction(true) && metadata(transport.result, 1, "ui8 ");
+    return lid_probe;
+}
+
+bool smc_lid_probe_read(uint8_t *closed) {
+    if (!lid_probe || !closed) return false;
+    if (!lid_transaction(false) || transport.result[0] > 1) {
+        lid_probe = false;
+        return false;
+    }
+    *closed = transport.result[0];
+    return true;
+}
+
 static bool ready(void *arg) { (void)arg;return working && timer_ticks()>=due; }
 static bool transaction_boundary(void) { return transport.phase==SMC_IDLE || transport.phase==SMC_DONE; }
 static void fault(unsigned error) {

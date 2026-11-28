@@ -1338,6 +1338,33 @@ connection or a bounded wait. Verify `STARTUP_OK`, WPA2, a DHCP ACK,
 14 gateway replies, and clean retirement in the final report. Keep the
 reports from each distinct boot, including any failure.
 
+### MacBookPro8,1 lid state trial
+
+Build the current kernel before staging `--ehci-lid-probe UUID`. Rehearse
+the exact stage with `tools/ehci_trial_smoke.py RELEASE`. The VM verifies
+foreign-platform refusal, both report files and the one-shot return.
+For a repeat using the same kernel, add `--ehci-lid-run ID` with a fresh
+16-digit lowercase hexadecimal ID to give both reports new filenames.
+Use the verified Ubuntu recovery and run-record sequence for native use.
+Start with the lid open and the charger and flash drive attached. The
+guest prompts for two five-second close/reopen cycles within 90 seconds and automatically
+returns to Ubuntu. Verify the release-matched `ehci-lidstate-*` startup
+and final reports, the four ordered edges, and clean flash retirement.
+The probe records lid state while the machine remains awake. Suspend to
+RAM requires separate qualification.
+
+For the S3 prerequisites, build the current kernel and run
+`python3 tools/s3_fixture_smoke.py`. The isolated Q35 guest proves a
+firmware S3 wake into the same kernel boot. Stage the awake MacBook
+preflight with `--ehci-s3-preflight UUID` and rehearse it with the same EHCI
+smoke test. The native preflight records the S3 tables, FACS mapping,
+available low wake page, and lid wake GPE. It flushes and retires the
+first EHCI attachment, checks SCI mode entry and rollback with delivery
+masked, then rediscovers the selected workspace. Collect both
+`ehci-lidstate-*` reports and check `before_retired=1 reopened=1`,
+`mode_roundtrip=1`, and the second EHCI attachment. `CAPTURED` records
+the observations and `sleep=0` identifies an awake test.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal

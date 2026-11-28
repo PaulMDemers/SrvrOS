@@ -1230,10 +1230,13 @@ bool ehci_desktop_trackpad_save(const char *release, const char *volume) {
 
 bool ehci_desktop_workspace_start(const char *volume) {
     uint64_t root = vmm_kernel_address_space();
-    if (!timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root) || workspace_active()) return false;
+    if (!timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root) || workspace_active() ||
+        desktop_workspace.device || desktop_workspace.unsafe) return false;
     for (uint64_t i = 0; i < pci_device_count(); i++) {
         const struct pci_device *device = pci_device_at(i);
         if (!ehci_usb_controller(device) || trial_controller_slot(device) != 1) continue;
+        if (desktop_workspace_attachments >= sizeof desktop_workspace_storage / sizeof desktop_workspace_storage[0])
+            return false;
         struct ehci_probe_report *report = &desktop_workspace.report;
         bool reusable = probe_controller(device, root, EHCI_BOOT_DESKTOP_WORKSPACE, report, 1, NULL);
         if (!desktop_workspace.device) {
@@ -1241,9 +1244,11 @@ bool ehci_desktop_workspace_start(const char *volume) {
             print_scan_stop(report);
             return false;
         }
-        if (!usb_storage_attach(&desktop_workspace.storage, &desktop_workspace.flash, flash_bulk, false) ||
+        desktop_workspace.storage = &desktop_workspace_storage[desktop_workspace_attachments++];
+        if (!usb_storage_attach(desktop_workspace.storage, &desktop_workspace.flash, flash_bulk, false) ||
             !workspace_mount(volume)) return false;
-        console_write("ehci-desktop-workspace: backend=ehci mounted=1\n");
+        console_printf("ehci-desktop-workspace: backend=ehci mounted=1 attachment=%u\n",
+            (uint64_t)desktop_workspace_attachments);
         return true;
     }
     /* A machine without the captured controller can use the existing USB
@@ -1261,27 +1266,36 @@ bool ehci_ethernet_workspace_report(const char *release, bool startup) {
     return workspace_active() && persist_flash_report(release, startup, EHCI_ETHERNET_REPORT) && workspace_flush_committed();
 }
 
+bool ehci_lid_workspace_report(const char *release, bool startup) {
+    return workspace_active() && persist_flash_report(release, startup, EHCI_LID_REPORT) && workspace_flush_committed();
+}
+
 bool ehci_bcm4331_workspace_report(const char *release, bool startup) {
     return workspace_active() && persist_flash_report(release, startup, EHCI_BCM4331_REPORT) && workspace_flush_committed();
 }
 
 bool ehci_desktop_workspace_stop(void) {
     if (!vmm_diagnostic_sole_kernel_root(vmm_kernel_address_space()) || desktop_workspace.unsafe) return false;
-    bool unmounted = !workspace_active() || workspace_unmount();
-    if (!desktop_workspace.device) return unmounted;
+    if (workspace_active() && !workspace_unmount()) return false;
+    if (!desktop_workspace.device) return true;
     struct ehci_control_path *path = &desktop_workspace.path;
-    if (!usb_storage_retire(&desktop_workspace.storage) ||
-        !retire_control_path(desktop_workspace.device, path->op, false)) return false;
-    __asm__ volatile ("mfence" : : : "memory");
-    pmm_free_frame(path->physical);
-    pmm_free_frame(desktop_workspace.bulk_page);
+    if (!usb_storage_retire(desktop_workspace.storage)) return false;
+    desktop_workspace.unsafe = true;
+    if (!retire_control_path(desktop_workspace.device, path->op, false)) return false;
     uint64_t removed;
     bool unmapped = vmm_unmap_page_in_space(desktop_workspace.root, EHCI_LOG_MMIO_WINDOW, &removed) &&
         removed == desktop_workspace.page;
     bool restored = set_command_bits(desktop_workspace.device, PCI_COMMAND_MEMORY, desktop_workspace.memory_command);
-    console_printf("ehci-desktop-workspace: unmounted=%u dma=released mapping=%s memory=%s\n",
-        (uint64_t)unmounted, unmapped ? "released" : "unverified", restored ? "restored" : "unverified");
-    return unmounted && unmapped && restored;
+    bool retired = unmapped && restored;
+    if (retired) {
+        __asm__ volatile ("mfence" : : : "memory");
+        pmm_free_frame(path->physical);
+        pmm_free_frame(desktop_workspace.bulk_page);
+        desktop_workspace = (struct ehci_desktop_workspace){0};
+    }
+    console_printf("ehci-desktop-workspace: unmounted=1 dma=%s mapping=%s memory=%s\n",
+        retired ? "released" : "retained", unmapped ? "released" : "unverified", restored ? "restored" : "unverified");
+    return retired;
 }
 
 static void print_trackpad_arm_timing(const struct ehci_trackpad_capture *capture) {
