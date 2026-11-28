@@ -1115,6 +1115,21 @@ Stage using `--laptop-probe-volume UUID --haswell-backing-capture
 --haswell-tilectl --haswell-linux-fences --haswell-engine-hold`. Decode the
 matching `exit.log` with `tools/hardware_haswell_forcewake.py`.
 
+##### Native blitter hold refusal
+
+Air6,1 release `b1fc397952af8f7a` from source `3efdf3fd` completed in
+session `session-0006615a20659429-00`. Both held-engine samples completed
+in 375 µs with all eight `INSTPM` reads. Admission returned
+`state=refused reason=no-provider` with zero polls and zero ring-stop,
+flush or reopen attempts. Active completion and requester drain remain
+unverified.
+
+Pipe A advanced from frame 921 to 923 on the inherited framebuffer. The
+probe left GGTT slots 4096 and 16385 untouched. Forcewake ACK cleared in
+8 µs after release and all six aliases retired. The installed image, exit
+snapshot, archived replay, recovery and offline USB check verified after
+the one-shot returned to Ubuntu.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

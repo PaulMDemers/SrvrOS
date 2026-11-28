@@ -304,12 +304,14 @@ Forcewake released and all six aliases retired. The exit snapshot, recovery
 and offline USB check verified after Ubuntu returned. Active requester
 drain remains unverified and firmware handoff unavailable.
 
-The next PR567 checkpoint prototypes the reset-free blitter hold and checks
-for a fresh sync-flush completion in the host fixture. Scope starts at
-`fc23967b` and includes the Haswell diagnostic core, staged boot and verifier.
-Native admission requires a provider for the pinned Pipe A surface, firmware
-exclusion and the completion destination. Slots 4096 and 16385 stay protected.
-Main `b062ba18` and the separate Air7,2 PR301 at `78270702` were reviewed.
+The [native blitter hold refusal](../intel-hsw-tearfree.md#native-blitter-hold-refusal)
+verified on `3efdf3fd` / `b1fc397952af8f7a` (PR567). Both held-engine
+samples completed in 375 µs. Admission refused without a verified provider,
+with zero ring-stop, flush or reopen attempts. Pipe A advanced two frames on
+the inherited surface and slots 4096 and 16385 stayed untouched. Forcewake
+released and all six aliases retired. The exit snapshot, recovery and offline
+USB check verified after Ubuntu returned. Native active completion and
+requester drain remain unverified.
 
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
