@@ -789,6 +789,23 @@ Both sibling regressions, 329 boot and trial tests and five
 exact-image rehearsals passed. The run record uses
 `build/bringup/pro112-rtl8822bu-rx-prequeue/`.
 
+Cold release `eb22d584762b48d8` queued all four 32 KiB IN requests
+before firmware DMA. All four remained pending at the same dequeue
+after both firmware checksums and 40 OUTs. The feature report passed.
+The PHY entry check returned `tx-pause` with zero table writes, so
+there was no scan. Both endpoints stopped, but the combined RX gate
+proof failed and boot stopped before the workspace mounted. The EFI
+journal saved phases 1 and 2, including the queue and Stop receipts.
+The later held-record helper returned zero because phase 6 was not yet
+available. Preserve this failure as `evidence-eb22d584762b48d8`.
+
+The retry scope is the passive Netgear path on the current device
+branch. Main `117a0294` adds Pro8,1 wired Ethernet work. Recheck CR
+zero before reapplying TXPAUSE at PHY entry and after gating CR at
+retirement. Log the actual values and keep all four IN owners through
+firmware startup. The failed image sampled the two gates as one
+boolean, so the cold trace does not establish which register differed.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
