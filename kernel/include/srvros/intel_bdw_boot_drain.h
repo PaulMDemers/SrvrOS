@@ -11,7 +11,9 @@ enum bdw_boot_drain_state {
 struct bdw_boot_drain_io {
     void *ctx;
     /* Existing boot owner, root and reset epoch, PCI command 3, sealed engine
-     * ports, excluded firmware/proxy, and maintained L3 bank policy. */
+     * ports, excluded firmware/proxy, and maintained L3 bank policy.
+     * For an inherited alias, original must name the independently pinned
+     * first framebuffer page throughout the request and its release. */
     bool (*parent)(void *, const struct bdw_boot_page_binding *);
     uint64_t (*now)(void *);
     void (*pause)(void *);
@@ -48,6 +50,11 @@ bool intel_bdw_boot_drain_run(struct bdw_boot_drain *, const struct bdw_boot_pag
  * trial leaves both the page and its parent's publication state unchanged. */
 bool intel_bdw_boot_drain_run_driver(struct bdw_boot_drain *, const struct bdw_boot_page_binding *,
                                     const struct scanout_interval *driver_range, const struct bdw_boot_drain_io *);
+/* Test the inherited framebuffer alias under the driver's exact interval loan.
+ * The original slot must stay unchanged. No page writer is available here. */
+bool intel_bdw_boot_drain_run_inherited(struct bdw_boot_drain *, const struct bdw_boot_page_binding *,
+                                       const struct scanout_interval *driver_range, uint64_t framebuffer_first,
+                                       const struct bdw_boot_drain_io *);
 /* Qualify the same occupied-slot loan and drain without providing a writer. */
 bool intel_bdw_boot_drain_run_occupied(struct bdw_boot_drain *, const struct bdw_boot_page_binding *,
                                       const struct scanout_interval *firmware_range, const struct bdw_boot_drain_io *);

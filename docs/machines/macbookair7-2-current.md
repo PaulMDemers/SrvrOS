@@ -861,6 +861,24 @@ must exclude WiDi and competing resets, witness fresh engine and L3
 acknowledgements and preserve the original PTE across release. Native
 execution depends on a provider for the hardware request.
 
+The new no-store entry point passed all 359 host cases and 138 Q35
+guest cases. The inherited-slot cases cover clean release, wrong
+backing, the saved open-GAM baseline, unavailable request, open WiDi,
+missing L3 and two foreign-reset timings. A reset reason observed
+after the fresh engine and L3 acknowledgements still retains the
+ticket and framebuffer pin. All eight cases leave the original PTE
+intact with zero stores.
+
+Replaying the verified v4 Air files again produced `GO_GAM_REQ=0x7fff`,
+`MSG_GO_GAM=0x7f`, WiDi `0x1f` and zero engine and L3 acknowledgements
+in both packets. The Intel reference designates GPM as the request
+originator. Its message fields and EventBus vectors do not specify an
+OS acquire-and-release protocol, and the Air's CPD policy remains
+locked with GO messaging disabled. The no-store hardware trial remains
+unarmed until a native provider can keep the actual request live with
+the panel running and the acknowledgement registers powered.
+[Broadwell register reference, pp. 426–427, 587–592, 606–607 and 859](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

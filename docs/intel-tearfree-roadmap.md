@@ -192,6 +192,16 @@ fresh L3 acknowledgement and a clock observation after the request. The
 no-store trial returns the ticket and leaves the range unseeded. The later
 bind must acquire its own live hold.
 
+For an occupied driver interval that aliases the inherited framebuffer,
+the no-store entry point requires the exact first framebuffer PTE and
+borrows its slot with the original display pinned. It checks the same
+PTE and live plane while the request is held and after traffic reopens.
+A competing reset reason invalidates the reset-free transaction, even
+after all five engine acknowledgements and the L3 edge have been seen.
+Refusal before issuance returns the slot. Uncertainty while the request
+is held prevents its release and retains the slot and framebuffer pin.
+[Boot drain verifier](../kernel/diagnostics/intel_bdw_boot_drain.c)
+
 The held bind fixture exercises that next transaction from a vacant slot.
 After a fresh hold, it seeds scratch, binds the private page, and restores
 scratch through one original range loan and one traffic ticket. Each store

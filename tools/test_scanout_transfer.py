@@ -33,6 +33,9 @@ OWNED_PAGE_MODES += tuple(f"boot-drain-{mode}" for mode in (
     "occupied-no-firmware", "occupied-lost", "occupied-stale", "occupied-drain", "occupied-air", "occupied-no-provider",
     "inherited-roundtrip", "inherited-wrong-backing", "inherited-wrong-proof", "inherited-no-engine",
     "inherited-no-l3", "inherited-no-firmware", "inherited-lost", "inherited-stale", "inherited-air", "inherited-no-provider",
+    "inherited-drain", "inherited-drain-wrong-backing", "inherited-drain-air",
+    "inherited-drain-no-provider", "inherited-drain-widi", "inherited-drain-no-l3",
+    "inherited-drain-reset", "inherited-drain-late-reset",
 ))
 OWNED_PAGE_MODES += tuple(f"boot-range-{mode}" for mode in (
     "roundtrip", "copy", "foreign-driver", "outside", "firmware", "no-scratch", "unmapped",

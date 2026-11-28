@@ -86,14 +86,22 @@ static bool read_register(void *opaque, uint32_t reg, uint32_t *word)
     bool closed = f->active || (f->releases && (is(f, "stuck-return") ||
                                                ((is(f, "delayed-return") || is(f, "separate-windows")) && !f->return_waits)));
     switch (reg) {
-    case 0x40d0: *word = is(f, "air-capture") || is(f, "occupied-air") || is(f,"inherited-air") ? 0x7fff :
-                          (closed ? 0 : BDW_GAM_CLIENTS); break;
+    case 0x40d0:
+        *word = is(f,"air-capture") || is(f,"occupied-air") || is(f,"inherited-air") ||
+            is(f,"inherited-drain-air") ? 0x7fff : (closed ? 0 : BDW_GAM_CLIENTS);
+        if (f->active && (is(f,"inherited-drain-reset") ||
+            (f->drain->l3_ack && is(f,"inherited-drain-late-reset")))) *word |= 1u << 13;
+        break;
     case 0x8028: *word = closed ? 0 : 0x7f; break;
-    case 0x8014: *word = closed && !is(f, "widi-open") && !is(f, "occupied-widi") ? 0 : 0x1f; break;
+    case 0x8014:
+        *word = closed && !is(f,"widi-open") && !is(f,"occupied-widi") &&
+            !is(f,"inherited-drain-widi") ? 0 : 0x1f;
+        break;
     case 0x8038:
         *word = closed && f->active && (is(f,"stale-l3") ||
                 (f->waits == 1 && !is(f,"no-l3") && !is(f,"driver-bind-no-l3") && !is(f,"widi-open") &&
-                 !is(f,"occupied-no-l3") && !is(f,"occupied-widi") && !is(f,"inherited-no-l3")));
+                 !is(f,"occupied-no-l3") && !is(f,"occupied-widi") && !is(f,"inherited-no-l3") &&
+                 !is(f,"inherited-drain-no-l3")));
         break;
     case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010:
         *word = closed ? (reg == 0x8010 && is(f,"inherited-no-engine") ? 0 : 0x20) : 0x10;
@@ -113,7 +121,7 @@ static bool read_pte(void *opaque, uint32_t index, uint64_t *word)
 {
     struct fixture *f = opaque;
     assert(index == f->index);
-    if (f->binding)
+    if (f->binding || f->inherited)
         *word = f->pte;
     else if (f->index == DRIVER_SLOT)
         *word = is(f, "driver-occupied") || (f->active && is(f, "driver-target-drift")) ? original : 0;
@@ -126,7 +134,8 @@ static enum intel_gt_write request(void *opaque, uint64_t *ticket)
 {
     struct fixture *f = opaque;
     assert(!f->active && !f->requests++ && !*ticket);
-    if (is(f, "no-effect") || is(f, "occupied-no-provider") || is(f,"inherited-no-provider")) return GT_WRITE_NONE;
+    if (is(f,"no-effect") || is(f,"occupied-no-provider") ||
+        is(f,"inherited-no-provider") || is(f,"inherited-drain-no-provider")) return GT_WRITE_NONE;
     *ticket = f->active = TICKET;
     return is(f, "ambiguous-request") ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
 }
@@ -202,7 +211,7 @@ int test_bdw_boot_drain(const char *mode)
     f.inherited = !strncmp(f.mode,"inherited-",10);
     bool driver = f.inherited || !strncmp(f.mode,"driver-",7);
     f.occupied = f.inherited || !strncmp(f.mode,"occupied-",9);
-    f.no_store = is(&f,"occupied-drain") || is(&f,"occupied-air");
+    f.no_store = is(&f,"occupied-drain") || is(&f,"occupied-air") || !strncmp(f.mode,"inherited-drain",15);
     f.binding = (f.occupied && !f.no_store) || !strncmp(f.mode,"driver-bind-",12);
     f.drain = f.binding ? &bind.hold : &trial;
     f.index = driver ? DRIVER_SLOT : SLOT;
@@ -231,6 +240,26 @@ int test_bdw_boot_drain(const char *mode)
     const struct bdw_boot_drain_io io = {&f, parent, clock_now, pause_poll, read_register, read_pte,
                                         request, held, release};
     bool ok;
+    if (f.no_store && f.inherited) {
+        bool passed = is(&f,"inherited-drain");
+        bool wrong_backing = is(&f,"inherited-drain-wrong-backing");
+        bool air_capture = is(&f,"inherited-drain-air");
+        bool no_provider = is(&f,"inherited-drain-no-provider");
+        bool retained = !passed && !wrong_backing && !air_capture && !no_provider;
+        uint64_t first = first_framebuffer + (wrong_backing ? 4096 : 0);
+        assert(intel_bdw_boot_drain_run_inherited(&trial,&binding,&f.range,first,&io) == passed);
+        assert(trial.state == (passed ? BDW_DRAIN_RETURNED : wrong_backing ? BDW_DRAIN_NEW :
+                               retained ? BDW_DRAIN_RETAINED : BDW_DRAIN_REFUSED));
+        assert(f.requests == (unsigned)(!wrong_backing && !air_capture) && f.releases == (unsigned)passed);
+        assert(!f.stores && !f.invalidates && f.pte == binding.original && f.translation == binding.original);
+        assert(scanout_interval_held(&trial.interval,mmio,aperture,bytes,fence,f.range.pages) == retained);
+        assert(scanout_interval_held(&f.range,mmio,aperture,bytes,fence,f.range.pages));
+        assert(scanout_interval_held(&inherited,mmio,aperture,bytes,fence,inherited.pages));
+        assert(display_access_release(&token,true) == !retained);
+        if (passed || is(&f,"inherited-drain-late-reset")) assert(trial.engine_acks == 31 && trial.l3_ack);
+        printf("PASS %s\n",mode);
+        return 0;
+    }
     if (f.no_store) {
         bool passed = is(&f,"occupied-drain");
         assert(intel_bdw_boot_drain_run_occupied(&trial,&binding,&f.range,&io) == passed);
