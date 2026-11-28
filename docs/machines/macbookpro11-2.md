@@ -845,6 +845,21 @@ Validate selection, readback and restoration in the native path before
 qualifying the next cold image. Compare both saved logs on return.
 [Realtek RTL8822B MAC counter routine](https://android.googlesource.com/kernel/amlogic-tv-modules/wifi_rtl8822BS/+/6d5c40773c4be0a5166ba438382f03c159fb41b5/hal/hal_com.c#11725).
 
+Release `4b5c976f8122b59b` on `20fc81e1` adds CCK and OFDM good-frame
+and FCS-error reports around the unchanged channel 10 window. It
+checks CR and TXPAUSE, selects counters through the high byte of
+`0x664` without resetting them, and verifies restoration. An
+unavailable sample stays visible in the log and permits the baseline
+scan when the transmit gate remains valid. The Ubuntu spot check
+returned the unavailable `0xea` pattern across the MAC report and
+DMA registers. The before/after MAC deltas still need native evidence.
+The native xHCI tests, sibling hub regressions, 329 boot and trial
+tests and all five exact-image VM cases passed. The decoder covers
+16-bit wrap and rejects incomplete samples. The qualified release is
+installed with verified Ubuntu default and recovery `74da74e0b57afbb8`.
+The unarmed run and automatic workspace and EFI evidence contract are
+under `build/bringup/pro112-rtl8822bu-rx-mac/`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
