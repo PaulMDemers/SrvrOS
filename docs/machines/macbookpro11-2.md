@@ -1066,6 +1066,16 @@ bytes remaining would still need USB bus evidence to distinguish missed
 scheduling from NAKs. The separate Linux zero Average TRB Length hint
 and the report-tag bytes are recorded differences for later comparisons.
 
+Comparison image `aa87147f444c7fae` (`82fb3175`) passed the production
+xHCI fixture, including the pending first-Auth case, with all three
+endpoint contexts in place before firmware. The exact GPT workspace
+boot and four independent journal rehearsals passed. The image and
+Linux reference are in the host's root-only recovery archive. The
+physical journal still contains the prior trace, Ubuntu is the default,
+and recovery `74da74e0b57afbb8` is verified. The new image awaits
+installation and a cold run. Its local stage receipt and collection
+recipe are under `build/bringup/pro112-rtl8822bu-auth-out-compare/`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
