@@ -1,7 +1,9 @@
 /* Receive-only validation for the measured A6150. The trial tunes both
  * synthesizers on 161 and 10, then samples channel 10 through bulk IN. */
 enum {
-    BU_RX_DCI=9, BU_RX_BYTES=32768, BU_RX_TDS=32, BU_RX_CR=0x8a,
+    BU_RX_DCI=9, BU_RX_BYTES=32768, BU_RX_TDS=32,
+    BU_RX_CR=0x9a, BU_RX_DMA_MAP=0xf5a0, BU_RX_ARB=1, BU_RX_LLT=0x0208,
+    BU_RX_FILTER0=0xffffffffu, BU_RX_FILTER2=0xffff, BU_RX_RCR=0xf410400e,
     BU_RF_MASK=0xfffff, BU_RF18_TUNE=0x70fff,
 };
 
@@ -191,20 +193,49 @@ static bool bu_rx_stop(struct bu_rx *rx) {
            (cursor==(next|1u) || (rx->pending && cursor==(rx->trb|1u)));
 }
 
+static const char *bu_rx_admit(struct xhci_device *d) {
+    uint32_t cr,llt;
+    /* Linux programs the USB queue map and transitions CR before loading
+     * the shared page table. Enable the receive and protocol bits only. */
+    if(!bu_phy_tx_inhibited(d) || !bu_write(d,0x10c,2,BU_RX_DMA_MAP) ||
+       !bu_write(d,BU_CR,1,0) || !bu_write(d,BU_CR,1,BU_RX_CR) ||
+       !bu_read(d,BU_CR,1,&cr) || cr!=BU_RX_CR || !bu_update(d,0x10c,1,0,BU_RX_ARB))return "rx-enable";
+    static const uint16_t pages[]={0x40,0x40,0x40,0,0x70b};
+    for(unsigned i=0;i<sizeof pages/sizeof pages[0];i++)
+        if(!bu_write(d,0x230+4*i,2,pages[i]))return "rx-pages";
+    if(!bu_update(d,0x22c,4,0,1u<<31) || !bu_write(d,0x204,2,0x7cc) ||
+       !bu_update(d,0x422,1,0,0x10) || !bu_write(d,0x424,2,0x7cc) ||
+       !bu_write(d,0x206,2,0x7cc) || !bu_write(d,0x456,2,0x7cc) ||
+       !bu_write(d,0x11c,4,0x5eff))return "rx-pages";
+    if(!bu_update(d,BU_RX_LLT,1,0xf0,0x30) || !bu_write(d,BU_RX_LLT+3,1,3) ||
+       !bu_update(d,0x20d,1,0,2) || !bu_update(d,BU_RX_LLT,1,0,1) ||
+       !bu_poll(d,BU_RX_LLT,4,1,0,100,&llt) || !bu_write(d,BU_CR+3,1,0))return "rx-llt";
+
+    /* Use the measured Linux MAC filter with PHY status and FCS appended.
+     * The parser still counts only the selected channel's target beacon. */
+    if(!bu_update(d,BU_BCN,1,0x1c,8) || !bu_write(d,0x6a0,4,BU_RX_FILTER0) ||
+       !bu_write(d,0x6a4,2,BU_RX_FILTER2) || !bu_write(d,0x608,4,BU_RX_RCR) ||
+       !bu_write(d,0x60c,1,0x18) || !bu_write(d,0x60f,1,4) ||
+       !bu_update(d,0x115,1,15,15) || !bu_update(d,0x7d4,4,3u<<8,0) ||
+       !bu_write(d,0x290,1,0x1e) || !bu_update(d,0x20c,2,0,1u<<9))return "rx-filter";
+    uint32_t pause,map,rcr,map0,map2,mode;
+    if(!bu_read(d,BU_CR,1,&cr) || !bu_read(d,BU_TXPAUSE,1,&pause) || !bu_read(d,0x10c,2,&map) ||
+       !bu_read(d,0x608,4,&rcr) || !bu_read(d,0x6a0,4,&map0) || !bu_read(d,0x6a4,2,&map2) ||
+       !bu_read(d,0x290,1,&mode))return "rx-readback";
+    console_printf("rtl8822bu-rx-admission: cr=%x pause=%x map=%x llt=%x rcr=%x map0=%x map2=%x mode=%x\n",
+        (uint64_t)cr,(uint64_t)pause,(uint64_t)map,(uint64_t)llt,(uint64_t)rcr,(uint64_t)map0,(uint64_t)map2,(uint64_t)mode);
+    return cr==BU_RX_CR && pause==0xff && map==(BU_RX_DMA_MAP|BU_RX_ARB) && rcr==BU_RX_RCR &&
+           map0==BU_RX_FILTER0 && map2==BU_RX_FILTER2 && mode==0x1e?NULL:"rx-readback";
+}
+
 static const char *bu_receive(struct bu_upload *up,bool *retired) {
     struct xhci_device *d=up->device;
     struct bu_rx rx={.device=d};
     if(!bu_tune(up,161) || !bu_rx_baseband(d) || !bu_tune(up,10))return "channel";
     if(!bu_phy_tx_inhibited(d) || bu_rx_owner || !bu_rx_configure(&rx))return "endpoint";
     bu_rx_owner=&rx;
-    /* High-speed DMA, no aggregation, and accept only broadcast beacons. */
-    uint32_t cr;
-    const char *failure="rx-setup";
-    bool enabled=bu_write(d,0x290,1,0x1e) && bu_update(d,0x10c,1,4,0) &&
-        bu_write(d,0x11c,4,0x5eff) && bu_update(d,0x115,1,15,15) &&
-        bu_write(d,0x60c,1,0x18) && bu_write(d,0x60f,1,4) &&
-        bu_write(d,0x608,4,0x90000008u) && bu_write(d,0x6a0,4,1u<<8) && bu_write(d,0x6a4,2,0) &&
-        bu_phy_tx_inhibited(d) && bu_write(d,BU_CR,1,BU_RX_CR) && bu_read(d,BU_CR,1,&cr) && cr==BU_RX_CR;
+    const char *failure=bu_rx_admit(d);
+    bool enabled=failure==NULL;
     if(enabled)failure="rx-observe";
     if(enabled && bu_rx_observe(&rx,"before")) {
         console_write("rtl8822bu-rx-progress: sampling channel 10 with MAC transmit disabled\n");
