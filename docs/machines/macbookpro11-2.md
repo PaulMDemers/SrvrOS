@@ -301,6 +301,16 @@ boot and trial tests and all five exact-image VM rehearsals passed.
 Channel tuning and USB receive requests are pending. Run record
 `build/bringup/pro112-rtl8822bu-phy/run.json`.
 
+Physical session `session-0006614cc5d73eca-00` completed all 2,891 PHY
+writes after passing firmware and board checks. Both crystal trims
+read back `0x28` and `RXPSEL` read back `0x3e028233`. The radio parked
+safely with all three adapters on the hub. The final workspace log and
+independent EFI journal agree. The workspace unmounted cleanly, all
+684 prior files matched, and the machine returned automatically to
+Ubuntu. The verified payload and logs are in
+`evidence-b8a1111ac4081f76` in the recovery archive. Channel tuning,
+USB bulk receive and passive discovery remain open.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
