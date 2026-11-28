@@ -245,6 +245,13 @@ and GGTT slots 4096 and 16385 were untouched. The exit snapshot, recovery
 and offline USB check verified. Requester hold remains unverified.
 Air7,2 PR301 at `e69ae6fa` has a separate Broadwell full-GT range scope.
 
+The next PR567 checkpoint samples the four Haswell command rings and
+PCI requester status while the verified kernel forcewake bit is held.
+Scope is the isolated Air6,1 backing adapter, boot recipe and receipt
+verifier on `c765c6ae` against integration head `24feebdd`. Pipe A
+keeps the inherited surface, and GGTT slots 4096 and 16385 stay
+protected. Air7,2 PR301 at `9827235e` owns its Broadwell full-GT work.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
