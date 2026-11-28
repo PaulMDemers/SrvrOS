@@ -428,6 +428,15 @@ files and 178 clusters. The payload and reports are archived outside
 `build`. The desktop cable recipe remains explicit. Ordinary boot
 and sustained multi-cycle networking have separate acceptance.
 
+The next work block enables the exact MacBookPro8,1 BCM57765 on ordinary
+desktop startup from integration baseline `24feebdd`. The local branch
+owns the provider, wired carrier and DHCP lifecycle, and release-specific
+desktop trials in draft PR #568. The open graphics, login, shared memory
+and export work has no Ethernet dependency. First qualify the staged
+desktop in the VM, then boot with carrier present and absent and measure
+gateway traffic through three cable cycles. Verify both flash reports
+and Ubuntu recovery after each boot before recording acceptance.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
