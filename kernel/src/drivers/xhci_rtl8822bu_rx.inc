@@ -2,7 +2,8 @@
  * synthesizers on 161 and 10, then samples channel 10 through bulk IN. */
 enum {
     BU_RX_DCI=9, BU_RX_BYTES=32768, BU_RX_TDS=32,
-    BU_RX_CR=0x9a, BU_RX_DMA_MAP=0xf5a0, BU_RX_ARB=1, BU_RX_LLT=0x0208,
+    BU_RX_CR=0x9a, BU_RX_SCHEDULE=1u<<5, BU_RX_DMA_IDLE=1u<<17,
+    BU_RX_DMA_MAP=0xf5a0, BU_RX_ARB=1, BU_RX_LLT=0x0208,
     BU_RX_FILTER0=0xffffffffu, BU_RX_FILTER2=0xffff, BU_RX_RCR=0xf410400e,
     BU_RF_MASK=0xfffff, BU_RF18_TUNE=0x70fff,
 };
@@ -149,7 +150,7 @@ static void bu_rx_parse(struct bu_rx *rx) {
     }
 }
 
-static bool bu_rx_observe(const struct bu_rx *rx,const char *sample) {
+static bool bu_rx_observe(const struct bu_rx *rx,const char *sample,bool *idle) {
     struct xhci_device *d=rx->device;
     uint32_t cck_cca,ofdm_cca,cck_crc,ofdm_crc,ht_crc,vht_crc;
     uint32_t dma_queue,dma_status,dma_pointer,packet_count;
@@ -167,6 +168,9 @@ static bool bu_rx_observe(const struct bu_rx *rx,const char *sample) {
     unsigned state=context_read32(d->output_context,BU_RX_DCI,0)&7;
     uint64_t cursor=context_read32(d->output_context,BU_RX_DCI,2) |
                     (uint64_t)context_read32(d->output_context,BU_RX_DCI,3)<<32;
+    uint64_t expected=rx->pending?rx->trb:rx->ep.ring_phys;
+    *idle=state==1 && cursor==(expected|1) && dma_queue==BU_RX_DMA_IDLE &&
+          !dma_status && !dma_pointer && !packet_count;
     console_printf("rtl8822bu-rx-phy: sample=%s cca_cck=%u cca_ofdm=%u crc_cck=%x crc_ofdm=%x crc_ht=%x crc_vht=%x\n",
         sample,(uint64_t)(cck_cca&0xffff),(uint64_t)(ofdm_cca>>16),(uint64_t)cck_crc,
         (uint64_t)ofdm_crc,(uint64_t)ht_crc,(uint64_t)vht_crc);
@@ -175,6 +179,56 @@ static bool bu_rx_observe(const struct bu_rx *rx,const char *sample) {
     console_printf("rtl8822bu-rx-xhci: sample=%s state=%u dequeue=%x trb=%x pending=%u completed=%u\n",
         sample,(uint64_t)state,cursor,rx->trb,(uint64_t)rx->pending,(uint64_t)rx->completed);
     return true;
+}
+
+static const char *bu_rx_window(struct bu_rx *rx,bool scheduler,bool *idle_pending) {
+    bool idle_before=false,idle_after=false;
+    *idle_pending=false;
+    if(!bu_rx_observe(rx,scheduler?"scheduler-before":"before",&idle_before))return "rx-observe";
+    if(rx->failed)return "rx-event";
+    unsigned starting_completed=rx->completed;
+    uint64_t start=timer_monotonic_us();
+    /* A transfer completed during the settings change or opening sample
+     * is excluded. Post again only after its original owner completes. */
+    if(!rx->pending)bu_rx_post(rx);
+    for(unsigned spin=0;spin<XHCI_TRANSFER_TIMEOUT && !rx->failed;spin++) {
+        struct xhci_trb event;
+        if(poll_event(&event))dispatch_transfer_event(&event);
+        if(rx->failed)break;
+        if(!rx->pending) {
+            __atomic_thread_fence(__ATOMIC_ACQUIRE);
+            bu_rx_parse(rx);
+            if(rx->target || rx->posted==BU_RX_TDS)break;
+            bu_rx_post(rx);
+        }
+        if((spin&255u)==0 && (timer_monotonic_us()-start>=600000u || device_removed(rx->device)))break;
+        __asm__ volatile("pause");
+    }
+    uint64_t elapsed=timer_monotonic_us()-start;
+    unsigned in_window=rx->completed;
+    bool observed=!device_removed(rx->device) && bu_rx_observe(rx,scheduler?"scheduler-after":"after",&idle_after);
+    *idle_pending=observed && idle_before && idle_after && rx->pending && rx->posted==1 && !rx->completed;
+    if(scheduler) {
+        console_printf("rtl8822bu-rx-scheduler-window: elapsed_us=%u completed=%u closing=%u transition=%u observed=%u\n",
+            elapsed,(uint64_t)(in_window-starting_completed),(uint64_t)(rx->completed-in_window),
+            (uint64_t)starting_completed,(uint64_t)observed);
+    } else {
+        console_printf("rtl8822bu-rx-window: elapsed_us=%u completed=%u closing=%u observed=%u\n",
+            elapsed,(uint64_t)in_window,(uint64_t)(rx->completed-in_window),(uint64_t)observed);
+    }
+    return rx->failed?"rx-event":!observed?"rx-observe":rx->target?NULL:"no-target";
+}
+
+static bool bu_rx_enable_scheduler(struct bu_upload *up,const struct bu_rx *rx) {
+    struct xhci_device *d=up->device;
+    uint32_t before=0,after=0,pause=0;
+    bool changed=wifi_hub_check_port(d,up->hub) && bu_read(d,BU_CR,1,&before) && before==BU_RX_CR &&
+        bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff && rx->pending && !rx->completed && !rx->failed &&
+        bu_write(d,BU_CR,1,BU_RX_CR|BU_RX_SCHEDULE) && bu_read(d,BU_CR,1,&after) && after==(BU_RX_CR|BU_RX_SCHEDULE) &&
+        bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff && !rx->failed;
+    console_printf("rtl8822bu-rx-scheduler: eligible=1 before=%x after=%x pause=%x verified=%u\n",
+        (uint64_t)before,(uint64_t)after,(uint64_t)pause,(uint64_t)changed);
+    return changed;
 }
 
 static bool bu_rx_stop(struct bu_rx *rx) {
@@ -235,31 +289,16 @@ static const char *bu_receive(struct bu_upload *up,bool *retired) {
     if(!bu_phy_tx_inhibited(d) || bu_rx_owner || !bu_rx_configure(&rx))return "endpoint";
     bu_rx_owner=&rx;
     const char *failure=bu_rx_admit(d);
-    bool enabled=failure==NULL;
-    if(enabled)failure="rx-observe";
-    if(enabled && bu_rx_observe(&rx,"before")) {
+    if(!failure) {
         console_write("rtl8822bu-rx-progress: sampling channel 10 with MAC transmit disabled\n");
-        uint64_t start=timer_monotonic_us();
-        bu_rx_post(&rx);
-        for(unsigned spin=0;spin<XHCI_TRANSFER_TIMEOUT && !rx.failed;spin++) {
-            struct xhci_trb event;
-            if(poll_event(&event))dispatch_transfer_event(&event);
-            if(rx.failed)break;
-            if(!rx.pending) {
-                __atomic_thread_fence(__ATOMIC_ACQUIRE);
-                bu_rx_parse(&rx);
-                if(rx.target || rx.posted==BU_RX_TDS)break;
-                bu_rx_post(&rx);
-            }
-            if((spin&255u)==0 && (timer_monotonic_us()-start>=600000u || device_removed(d)))break;
-            __asm__ volatile("pause");
-        }
-        uint64_t elapsed=timer_monotonic_us()-start;
-        unsigned in_window=rx.completed;
-        bool observed=!device_removed(d) && bu_rx_observe(&rx,"after");
-        console_printf("rtl8822bu-rx-window: elapsed_us=%u completed=%u closing=%u observed=%u\n",
-            elapsed,(uint64_t)in_window,(uint64_t)(rx.completed-in_window),(uint64_t)observed);
-        failure=rx.failed?"rx-event":!observed?"rx-observe":rx.target?NULL:"no-target";
+        bool idle_pending;
+        failure=bu_rx_window(&rx,false,&idle_pending);
+        if(failure && !rx.failed && idle_pending) {
+            if(bu_rx_enable_scheduler(up,&rx)) {
+                console_write("rtl8822bu-rx-progress: sampling the same channel with the scheduler enabled\n");
+                failure=bu_rx_window(&rx,true,&idle_pending);
+            } else failure="rx-scheduler";
+        } else console_write("rtl8822bu-rx-scheduler: eligible=0\n");
     }
     bool gated=bu_write(d,BU_CR,1,0) && bu_phy_tx_inhibited(d);
     bool stopped=bu_rx_stop(&rx);
