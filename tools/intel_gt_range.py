@@ -8,6 +8,14 @@ from intel_gt_bootstrap import fields
 
 
 EFI_PROTOCOL_ROLES = ("gop", "child", "pci_driver", "eg2_driver")
+EFI_BCS_OBSERVED = 4
+
+
+def efi_bcs_markers(text):
+    prefix = "intel-efi-bcs-marker:"
+    return [fields(line, prefix, "v branch pte expected first second timeouts status".split(),
+                   ("branch", "pte", "expected", "first", "second"))
+            for line in text.splitlines() if line.startswith(prefix)]
 
 
 def efi_protocol_inventory(text):
@@ -85,22 +93,23 @@ def boot_handoff(text, slots):
     if inventory is not None and (not captured or not h["backing"]
                                   or (inventory["handles"]["pci_driver"] and h["drivers"] != 1)):
         raise ValueError("EFI protocol inventory lacks a verified boot record")
-    markers = rows("intel-efi-bcs-marker:", "v branch pte expected first second timeouts",
-                   ("branch", "pte", "expected", "first", "second"))
+    markers = efi_bcs_markers(text)
     marker = markers[0] if markers else None
     if marker is not None:
         if len(markers) != 1 or inventory is None or marker["branch"] != inventory["branch"]:
             raise ValueError("EFI blitter marker lacks a matching boot record")
-        if marker["pte"]:
+        if (marker["status"] > EFI_BCS_OBSERVED
+                or marker["status"] and (h["drivers"] != 1 or
+                    [r["guid"] for r in ids if r["kind"] == 1] != ["0cb4e51b-a3ca-4afe-b5b6-cb387ed1aee3"])):
+            raise ValueError("EFI blitter marker identity or status")
+        if marker["status"] == EFI_BCS_OBSERVED:
             display = surfaces[0]
             if (marker["pte"] != 0x8feef001 or marker["timeouts"] > 255
                     or any(marker[key] > 0xffffffff for key in ("expected", "first", "second"))
-                    or h["drivers"] != 1
-                    or [r["guid"] for r in ids if r["kind"] == 1] != ["0cb4e51b-a3ca-4afe-b5b6-cb387ed1aee3"]
                     or display["aperture"] != 0xb0000000
                     or display["surface"] + display["bytes"] > 0x03eee000):
                 raise ValueError("EFI blitter marker identity or bounds")
-        elif any(marker[key] for key in ("expected", "first", "second", "timeouts")):
+        elif any(marker[key] for key in ("pte", "expected", "first", "second", "timeouts")):
             raise ValueError("Unbacked EFI blitter marker")
         marker["matches_firmware_blit"] = bool(marker["pte"] and marker["expected"] > 0x1000 and not marker["timeouts"]
                                               and marker["first"] == marker["second"] == marker["expected"])

@@ -741,7 +741,7 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertFalse(proof["efi_handoff"]["bcs_marker"]["matches_firmware_blit"])
         empty_marker = next(line for line in text.splitlines() if line.startswith("intel-efi-bcs-marker:"))
         marker = empty_marker.replace("pte=0 expected=0 first=0 second=0",
-                                      "pte=0x8feef001 expected=0x1007 first=0x1007 second=0x1007")
+                                      "pte=0x8feef001 expected=0x1007 first=0x1007 second=0x1007").replace("status=0", "status=4")
         handoff = next(line for line in text.splitlines() if line.startswith("intel-efi-handoff:"))
         marked = text.replace(handoff,
                               handoff.replace("drivers=0", "drivers=1").replace("files=0", "files=1")
@@ -755,7 +755,12 @@ class FlushAcknowledgements(unittest.TestCase):
                              ["range"]["efi_handoff"]["bcs_marker"]["matches_firmware_blit"])
         seeded = marked.replace(marker, marker.replace("0x1007", "0x1000"))
         self.assertFalse(bootstrap_result(seeded)["range"]["efi_handoff"]["bcs_marker"]["matches_firmware_blit"])
+        mapping = marked.replace(marker, empty_marker.replace("status=0", "status=2"))
+        observed = bootstrap_result(mapping)["range"]["efi_handoff"]["bcs_marker"]
+        self.assertEqual((observed["status"], observed["matches_firmware_blit"]), (2, False))
         for changed in (marked.replace("pte=0x8feef001", "pte=0x8feee001"),
+                        marked.replace(marker, marker.replace("status=4", "status=2")),
+                        marked.replace(marker, marker.replace("status=4", "status=5")),
                         marked.replace("low=0x4afea3ca0cb4e51b", "low=0x4afea3ca0cb4e51c"),
                         marked.replace(marker, marker + "\n" + marker),
                         text.replace(empty_marker, marker)):

@@ -55,7 +55,7 @@ fn vector(bs: *efi.tables.BootServices, r: anytype, clients: *?handoff.Eg2Client
     r.driver_opens = 1;
     r.firmware_files = 1;
     r.driver_file_ids[0] = .{ 0x1b, 0xe5, 0xb4, 0x0c, 0xca, 0xa3, 0xfe, 0x4a, 0xb5, 0xb6, 0xcb, 0x38, 0x7e, 0xd1, 0xae, 0xe3 };
-    r.bcs = .{ .pte = 0x8feef001, .expected = 0x12345678, .first = 0x12345678, .second = 0x12345678, .timeouts = 0 };
+    r.bcs = .{ .pte = 0x8feef001, .expected = 0x12345678, .first = 0x12345678, .second = 0x12345678, .timeouts = 0, .status = 4, .reserved = 0 };
     r.state = 2;
     r.step = 6;
 }

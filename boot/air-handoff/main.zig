@@ -83,16 +83,19 @@ fn captureBcs(bs: *Services, p: *Pci, r: *const Record, agent: Handle) !wire.str
     const timeouts: *volatile const u8 = @ptrFromInt(base + 0xb148);
     const expected = sequence.*;
     const failed = timeouts.*;
-    if (offset.* != wire.AIR_BOOT_BCS_MARKER_VA or try bcsMarkerPte(p) != wire.AIR_BOOT_BCS_MARKER_PTE)
+    if (offset.* != wire.AIR_BOOT_BCS_MARKER_VA)
         return error.ForeignMarker;
+    const before = bcsMarkerPte(p) catch return error.MarkerChanged;
+    if (before != wire.AIR_BOOT_BCS_MARKER_PTE) return error.ForeignMarker;
     var first: u32 = 0;
     var second: u32 = 0;
     // Apple's producer uses the second PCI I/O resource for the aperture.
     if (p.mem_read(p, 2, 1, wire.AIR_BOOT_BCS_MARKER_VA, 1, &first) != .success or
-        p.mem_read(p, 2, 1, wire.AIR_BOOT_BCS_MARKER_VA, 1, &second) != .success or
-        try bcsMarkerPte(p) != wire.AIR_BOOT_BCS_MARKER_PTE or offset.* != wire.AIR_BOOT_BCS_MARKER_VA or
+        p.mem_read(p, 2, 1, wire.AIR_BOOT_BCS_MARKER_VA, 1, &second) != .success) return error.MarkerChanged;
+    const after = bcsMarkerPte(p) catch return error.MarkerChanged;
+    if (after != before or offset.* != wire.AIR_BOOT_BCS_MARKER_VA or
         sequence.* != expected or timeouts.* != failed) return error.MarkerChanged;
-    return .{ .pte = wire.AIR_BOOT_BCS_MARKER_PTE, .expected = expected, .first = first, .second = second, .timeouts = failed };
+    return .{ .pte = before, .expected = expected, .first = first, .second = second, .timeouts = failed, .status = wire.AIR_BOOT_BCS_OBSERVED, .reserved = 0 };
 }
 fn snapshot(p: *Pci, r: *Record) !void {
     const plane = try p.word(0x70180);
@@ -533,7 +536,17 @@ fn capture(bs: *Services, r: *Record, clients: *?Eg2Clients) !void {
         if (clients.*) |c| captureBranchProtocols(bs, r, c, driver_agent);
         if (clients.*) |c| if (c.branch != 0 and r.driver_opens == 1 and r.firmware_files == 1 and
             std.mem.eql(u8, &r.driver_file_ids[0], std.mem.asBytes(&broadwell_eg2))) {
-            if (driver_agent) |agent| r.bcs = captureBcs(bs, p, r, agent) catch std.mem.zeroes(wire.struct_air_boot_bcs);
+            if (driver_agent) |agent| {
+                r.bcs = captureBcs(bs, p, r, agent) catch |err| failure: {
+                    var marker = std.mem.zeroes(wire.struct_air_boot_bcs);
+                    marker.status = switch (err) {
+                        error.ForeignMarker => wire.AIR_BOOT_BCS_MAPPING,
+                        error.MarkerChanged => wire.AIR_BOOT_BCS_SAMPLE,
+                        else => wire.AIR_BOOT_BCS_IMAGE,
+                    };
+                    break :failure marker;
+                };
+            }
         };
         try snapshot(p, r);
         r.step = 5;

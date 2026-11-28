@@ -577,6 +577,9 @@ sequence and timeout checks. The existing plane and seven-command-entry
 checks also bracket this observation. The helper uses only PCI reads
 and never calls firmware blit or teardown methods. The workspace capture
 exports the raw result under `intel-efi-bcs-marker` in a same-boot log.
+The status records an unavailable producer (0), a rejected image (1),
+a mismatched marker address or translation (2), a read error or changing
+sample (3), or the observed words (4).
 A sequence above the image's initial `0x1000` matching both aperture reads
 with zero current timeouts confirms the firmware's last recorded blitter
 marker at that point in UEFI.

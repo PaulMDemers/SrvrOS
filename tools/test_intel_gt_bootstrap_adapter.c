@@ -1311,7 +1311,8 @@ static int test_efi_import(void) {
  assert(air_valid_record(&older));
  struct air_gpu_boot marked=test_boot_record;
  const uint8_t eg2_file[16]={0x1b,0xe5,0xb4,0x0c,0xca,0xa3,0xfe,0x4a,0xb5,0xb6,0xcb,0x38,0x7e,0xd1,0xae,0xe3};
- marked.bcs=(struct air_boot_bcs){.pte=AIR_BOOT_BCS_MARKER_PTE,.expected=0x1007,.first=0x1007,.second=0x1007};
+ marked.bcs=(struct air_boot_bcs){.pte=AIR_BOOT_BCS_MARKER_PTE,.expected=0x1007,.first=0x1007,.second=0x1007,
+                                  .status=AIR_BOOT_BCS_OBSERVED};
  marked.driver_opens=1;
  marked.firmware_files=1;
  memcpy(marked.driver_file_ids[0],eg2_file,sizeof(eg2_file));
@@ -1322,6 +1323,13 @@ static int test_efi_import(void) {
  assert(!air_valid_record(&marked));
  marked.bcs.pte=AIR_BOOT_BCS_MARKER_PTE;
  marked.driver_file_ids[0][0]^=1;
+ test_efi_checksum(&marked);
+ assert(!air_valid_record(&marked));
+ marked.driver_file_ids[0][0]^=1;
+ marked.bcs=(struct air_boot_bcs){.status=AIR_BOOT_BCS_MAPPING};
+ test_efi_checksum(&marked);
+ assert(air_valid_record(&marked));
+ marked.bcs.first=1;
  test_efi_checksum(&marked);
  assert(!air_valid_record(&marked));
  air_boot_import();

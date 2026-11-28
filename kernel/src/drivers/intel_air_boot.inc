@@ -112,11 +112,15 @@ static bool air_valid_record(const struct air_gpu_boot *r)
     if (r->oem_revision==4) {
         const struct air_boot_bcs *b=&r->bcs;
         static const uint8_t driver[16]={0x1b,0xe5,0xb4,0x0c,0xca,0xa3,0xfe,0x4a,0xb5,0xb6,0xcb,0x38,0x7e,0xd1,0xae,0xe3};
-        if (b->pte ? b->pte!=AIR_BOOT_BCS_MARKER_PTE || b->timeouts>255 || r->state!=AIR_BOOT_CAPTURED ||
-            !r->display_branch || r->aperture!=0xb0000000 || r->surface>=AIR_BOOT_BCS_MARKER_VA ||
-            r->framebuffer_bytes>AIR_BOOT_BCS_MARKER_VA-r->surface || r->driver_opens!=1 || r->firmware_files!=1 ||
-            __builtin_memcmp(driver,r->driver_file_ids[0],sizeof(driver)) :
-            b->expected || b->first || b->second || b->timeouts) return false;
+        if (b->reserved || b->status>AIR_BOOT_BCS_OBSERVED) return false;
+        if (b->status!=AIR_BOOT_BCS_OBSERVED && (b->pte || b->expected || b->first || b->second || b->timeouts))
+            return false;
+        if (b->status!=AIR_BOOT_BCS_UNAVAILABLE &&
+            (r->state!=AIR_BOOT_CAPTURED || !r->display_branch || r->driver_opens!=1 || r->firmware_files!=1 ||
+             __builtin_memcmp(driver,r->driver_file_ids[0],sizeof(driver)))) return false;
+        if (b->status==AIR_BOOT_BCS_OBSERVED &&
+            (b->pte!=AIR_BOOT_BCS_MARKER_PTE || b->timeouts>255 || r->aperture!=0xb0000000 ||
+             r->surface>=AIR_BOOT_BCS_MARKER_VA || r->framebuffer_bytes>AIR_BOOT_BCS_MARKER_VA-r->surface)) return false;
     }
     for (unsigned j=0;j<r->length;j++) sum+=((const uint8_t *)r)[j];
     return !sum && !__builtin_memcmp(r->signature,"OEMG",4) &&
@@ -220,8 +224,9 @@ static void air_boot_inventory_report(void)
     }
     if (air_boot.oem_revision==4) {
         const struct air_boot_bcs *b=&air_boot.bcs;
-        console_printf("intel-efi-bcs-marker: v=1 branch=%x pte=%x expected=%x first=%x second=%x timeouts=%u\n",
-            air_boot.display_branch,b->pte,(uint64_t)b->expected,(uint64_t)b->first,(uint64_t)b->second,(uint64_t)b->timeouts);
+        console_printf("intel-efi-bcs-marker: v=1 branch=%x pte=%x expected=%x first=%x second=%x timeouts=%u status=%u\n",
+            air_boot.display_branch,b->pte,(uint64_t)b->expected,(uint64_t)b->first,(uint64_t)b->second,
+            (uint64_t)b->timeouts,(uint64_t)b->status);
     }
 }
 
