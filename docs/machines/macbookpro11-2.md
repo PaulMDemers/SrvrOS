@@ -739,6 +739,17 @@ zero completions. Verify transfer ownership and the stopped dequeue
 before retiring the diagnostic.
 [Linux rtw88 USB receive definitions](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/usb.h).
 
+Release `791018b16f30adab` on `8ccaae92` checks that the configured
+bulk-IN context matches Linux before firmware setup. Its first
+window keeps one 32 KiB TD. The second fills to four on the same
+ring, with independent aligned buffers. The native fixture covered
+ordered back-to-back short completions, buffer reuse after consumption,
+a duplicate event, an opening completion, a context mismatch and
+failed Stop proof. xHCI lifecycle, both sibling adapter regressions,
+329 boot and trial tests, and all five exact-image rehearsals passed.
+The run record and Linux trace summary use
+`build/bringup/pro112-rtl8822bu-rx-depth/`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
