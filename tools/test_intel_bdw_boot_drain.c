@@ -8,12 +8,19 @@ static const uint64_t mmio = 0xc0000000, aperture = 0xb0000000, bytes = 0x100000
 static const uint64_t fence = 0x02200000, original = 0x8f005001;
 enum { SLOT = 12292, DRIVER_SLOT = 16385, TICKET = 127 };
 static struct bdw_boot_drain trial;
+static struct bdw_boot_bind bind;
+enum { SCRATCH = 0x2100000, PRIVATE = 0x2200000 };
+static const uint64_t private_marker[] = {9,10};
 
 struct fixture {
     const char *mode;
     uint64_t now, active;
+    uint64_t pte, translation;
     unsigned index, requests, releases, waits, return_waits;
+    unsigned stores, invalidates;
     struct scanout_interval range;
+    struct bdw_boot_drain *drain;
+    bool binding;
     bool parent_lost;
 };
 
@@ -25,10 +32,10 @@ static bool is(const struct fixture *f, const char *mode)
 static uint64_t clock_now(void *opaque)
 {
     struct fixture *f = opaque;
-    if (f->active && is(f, "driver-frozen")) return trial.requested_at;
+    if (f->active && is(f, "driver-frozen")) return f->drain->requested_at;
     if (f->active && is(f,"driver-range-drift")) f->range.pages.first = DRIVER_SLOT + 1;
     if (f->active && is(f, "expired")) f->now += BDW_TRAFFIC_BLOCK_US;
-    if (f->active && trial.polls == 2 && is(f, "late-parent-loss")) f->parent_lost = true;
+    if (f->active && f->drain->polls == 2 && is(f, "late-parent-loss")) f->parent_lost = true;
     return ++f->now;
 }
 
@@ -41,7 +48,7 @@ static bool parent(void *opaque, const struct bdw_boot_page_binding *b)
     assert(!scanout_interval_claim(&conflict, mmio, aperture, bytes, fence,
                                     page));
     if (f->index == DRIVER_SLOT) {
-        assert(trial.interval.lender == &f->range);
+        assert(f->drain->interval.lender == &f->range);
         scanout_interval_release(&f->range);
         assert(scanout_interval_held(&f->range,mmio,aperture,bytes,fence,f->range.pages));
         assert(!scanout_interval_borrow_driver(&conflict,&f->range,f,page));
@@ -53,7 +60,8 @@ static bool parent(void *opaque, const struct bdw_boot_page_binding *b)
 static uint64_t held(void *opaque)
 {
     struct fixture *f = opaque;
-    return f->active && is(f, "lost-ticket") ? f->active + 1 : f->active;
+    return f->active && (is(f,"lost-ticket") || (is(f,"driver-bind-lost") && f->stores == 2)) ?
+           f->active + 1 : f->active;
 }
 
 static void pause_poll(void *opaque)
@@ -73,7 +81,10 @@ static bool read_register(void *opaque, uint32_t reg, uint32_t *word)
     case 0x40d0: *word = is(f, "air-capture") ? 0x7fff : (closed ? 0 : BDW_GAM_CLIENTS); break;
     case 0x8028: *word = closed ? 0 : 0x7f; break;
     case 0x8014: *word = closed && !is(f, "widi-open") ? 0 : 0x1f; break;
-    case 0x8038: *word = closed && f->active && (is(f, "stale-l3") || (f->waits == 1 && !is(f, "no-l3") && !is(f, "widi-open"))); break;
+    case 0x8038:
+        *word = closed && f->active && (is(f,"stale-l3") ||
+                (f->waits == 1 && !is(f,"no-l3") && !is(f,"driver-bind-no-l3") && !is(f,"widi-open")));
+        break;
     case 0x8000: case 0x8004: case 0x8008: case 0x800c: case 0x8010:
         *word = closed ? 0x20 : 0x10;
         break;
@@ -92,7 +103,9 @@ static bool read_pte(void *opaque, uint32_t index, uint64_t *word)
 {
     struct fixture *f = opaque;
     assert(index == f->index);
-    if (f->index == DRIVER_SLOT)
+    if (f->binding)
+        *word = f->pte;
+    else if (f->index == DRIVER_SLOT)
         *word = is(f, "driver-occupied") || (f->active && is(f, "driver-target-drift")) ? original : 0;
     else
         *word = f->active && is(f, "target-drift") ? original + 4096 : original;
@@ -112,14 +125,60 @@ static enum intel_gt_write release(void *opaque, uint64_t ticket)
 {
     struct fixture *f = opaque;
     assert(ticket == TICKET && ticket == f->active && !f->releases++);
+    if (f->binding) assert(f->stores == 3 && f->invalidates == 3 && f->translation == (SCRATCH | 1));
     f->active = 0;
     return is(f, "ambiguous-return") ? GT_WRITE_UNCERTAIN : GT_WRITE_DONE;
+}
+
+static bool proof(void *opaque, const struct bdw_boot_page_source *source, struct bdw_boot_page_proof *out)
+{
+    struct fixture *f = opaque;
+    assert(f->active == TICKET && f->drain->engine_acks == 31u && f->drain->l3_ack);
+    *out = (struct bdw_boot_page_proof){.source=source,.driver=f,.driver_range=&f->range,.scratch=SCRATCH,
+        .epoch=3,.root=0x4000,.at=f->now,.index=DRIVER_SLOT,.rights=BDW_PAGE_REQUIRED,.plane=0xd8000400};
+    return true;
+}
+
+static bool page_pte(void *opaque, uint32_t offset, uint64_t *word)
+{
+    assert(offset == 0x800000 + DRIVER_SLOT * 8);
+    return read_pte(opaque,DRIVER_SLOT,word);
+}
+
+static enum intel_gt_write exchange(void *opaque, uint32_t offset, uint64_t before, uint64_t after)
+{
+    struct fixture *f = opaque;
+    const uint64_t paths[] = {0,SCRATCH | 1,PRIVATE | 1,SCRATCH | 1};
+    assert(offset == 0x800000 + DRIVER_SLOT * 8 && f->active == TICKET && f->stores < 3 &&
+           before == paths[f->stores] && after == paths[f->stores+1] && f->pte == before);
+    f->pte = after;
+    ++f->stores;
+    return GT_WRITE_DONE;
+}
+
+static bool invalidate(void *opaque)
+{
+    struct fixture *f = opaque;
+    assert(f->active == TICKET && ++f->invalidates == f->stores);
+    if (f->stores != 3 || !is(f,"driver-bind-stale")) f->translation = f->pte;
+    return true;
+}
+
+static bool aperture_read(void *opaque, uint64_t address, uint64_t words[2])
+{
+    struct fixture *f = opaque;
+    assert(f->active == TICKET && address == aperture + 4096ull * DRIVER_SLOT);
+    words[0] = f->translation == (SCRATCH | 1) ? 7 : private_marker[0];
+    words[1] = f->translation == (SCRATCH | 1) ? 8 : private_marker[1];
+    return true;
 }
 
 int test_bdw_boot_drain(const char *mode)
 {
     struct fixture f = {.mode=mode + strlen("boot-drain-"), .now=100};
     bool driver = !strncmp(f.mode,"driver-",7);
+    f.binding = !strncmp(f.mode,"driver-bind-",12);
+    f.drain = f.binding ? &bind.hold : &trial;
     f.index = driver ? DRIVER_SLOT : SLOT;
     struct scanout_interval inherited = {0};
     struct display_access_token token;
@@ -136,13 +195,33 @@ int test_bdw_boot_drain(const char *mode)
     }
     const struct bdw_boot_page_binding binding = {.driver=&f, .epoch=3, .root=0x4000, .mmio=mmio,
         .aperture=aperture, .aperture_bytes=bytes, .fence_end=fence, .display=token, .index=f.index,
-        .plane=0xd8000400, .original=driver ? 0 : original};
+        .plane=0xd8000400, .original=driver ? 0 : original,.backing=SCRATCH,.marker={7,8}};
     const struct bdw_boot_drain_io io = {&f, parent, clock_now, pause_poll, read_register, read_pte,
                                         request, held, release};
-    bool ok = driver ? intel_bdw_boot_drain_run_driver(&trial,&binding,&f.range,&io) :
-        intel_bdw_boot_drain_run(&trial,&binding,&io);
-    assert(!intel_bdw_boot_drain_run_driver(&trial,&binding,&f.range,&io) &&
-           !intel_bdw_boot_drain_run(&trial,&binding,&io));
+    bool ok;
+    if (f.binding) {
+        const struct bdw_boot_page_io page = {&f,proof,clock_now,page_pte,exchange,invalidate,aperture_read};
+        ok = intel_bdw_boot_bind(&bind,&binding,&f.range,PRIVATE,private_marker,&io,&page);
+        assert(!intel_bdw_boot_bind(&bind,&binding,&f.range,PRIVATE,private_marker,&io,&page));
+        bool missing_l3 = is(&f,"driver-bind-no-l3");
+        assert(f.range.sealed == !missing_l3 && f.requests == 1);
+        bool passed = is(&f,"driver-bind-roundtrip");
+        assert(ok == passed && display_access_release(&token,true) == passed);
+        assert(f.releases == (unsigned)passed && bind.hold.state == (passed ? BDW_DRAIN_RETURNED : BDW_DRAIN_RETAINED));
+        assert(scanout_interval_held(&bind.hold.interval,mmio,aperture,bytes,fence,
+                                     (struct scanout_space_range){DRIVER_SLOT,1}) == !passed);
+        if (missing_l3)
+            assert(!bind.page.object && !bind.seed.object && !bind.hold.l3_ack && !f.stores);
+        else {
+            assert(bind.seed.state == BDW_PAGE_SEEDED && bind.page.state == (passed ? BDW_PAGE_RETURNED : BDW_PAGE_RETAINED));
+            assert(f.stores == (is(&f,"driver-bind-lost") ? 2u : 3u));
+        }
+        assert(scanout_interval_held(&inherited,mmio,aperture,bytes,fence,inherited.pages));
+        printf("PASS %s\n",mode);
+        return 0;
+    }
+    ok = driver ? intel_bdw_boot_drain_run_driver(&trial,&binding,&f.range,&io) : intel_bdw_boot_drain_run(&trial,&binding,&io);
+    assert(!intel_bdw_boot_drain_run_driver(&trial,&binding,&f.range,&io) && !intel_bdw_boot_drain_run(&trial,&binding,&io));
     bool pinned = scanout_interval_held(&trial.interval, mmio, aperture, bytes, fence,
                                        (struct scanout_space_range){f.index, 1});
     bool driver_refused = is(&f,"driver-unowned") || is(&f,"driver-firmware") || is(&f,"driver-occupied");

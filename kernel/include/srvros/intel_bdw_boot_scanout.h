@@ -75,6 +75,7 @@ struct bdw_boot_page {
     uint64_t scratch;
     struct bdw_boot_page_io io;
     struct scanout_interval interval;
+    const struct scanout_interval *outer_loan;
     struct scanout_space space;
     struct scanout_space_token range;
     struct scanout_publication publication;
@@ -96,5 +97,9 @@ bool intel_bdw_boot_page_run(struct bdw_boot_page *, struct bdw_boot_page_source
  * write retain the child and display pin as well. */
 bool intel_bdw_boot_page_seed(struct bdw_boot_page *, struct bdw_boot_page_source *,
                               const struct bdw_boot_page_io *);
+/* The composing owner keeps the exact registered driver loan alive and is
+ * responsible for returning it. A retained child prohibits that return. */
+bool intel_bdw_boot_page_in_loan(struct bdw_boot_page *, struct bdw_boot_page_source *,
+                                const struct bdw_boot_page_io *, const struct scanout_interval *, bool seed);
 
 #endif

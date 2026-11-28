@@ -22,8 +22,9 @@ static bool live(const struct bdw_boot_page *p)
 static bool interval_held(const struct bdw_boot_page *p)
 {
     const struct bdw_boot_page_binding *b = &p->binding;
-    return p->interval.lender == p->driver_range &&
-           scanout_interval_held(&p->interval,b->mmio,b->aperture,b->aperture_bytes,
+    const struct scanout_interval *loan = p->outer_loan ? p->outer_loan : &p->interval;
+    return loan->lender == p->driver_range &&
+           scanout_interval_held(loan,b->mmio,b->aperture,b->aperture_bytes,
                                  b->fence_end,(struct scanout_space_range){b->index,1});
 }
 
@@ -115,7 +116,7 @@ static bool retained(struct bdw_boot_page *p)
 }
 
 static bool begin_page(struct bdw_boot_page *p, struct bdw_boot_page_source *source,
-                       const struct bdw_boot_page_io *io, bool seed)
+                       const struct bdw_boot_page_io *io, const struct scanout_interval *loan, bool seed)
 {
     if (!p || p->object || !source || source->object != source || source->consumer || source->consumed || !io ||
         !io->ctx || !io->prove || !io->now || !io->read_pte || !io->exchange || !io->invalidate ||
@@ -133,6 +134,9 @@ static bool begin_page(struct bdw_boot_page *p, struct bdw_boot_page_source *sou
         if (!scratch || (scratch & 4095) || scratch >= 0x100000000ull ||
             !scanout_interval_held(owner,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,owner->pages)) return false;
     } else if (scratch) return false;
+    if (loan && (!owner || loan == &p->interval || loan->lender != owner || loan->driver != b->driver ||
+        !scanout_interval_held(loan,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,
+                               (struct scanout_space_range){b->index,1}))) return false;
     if (seed) {
         if (!owner || b->original || b->backing != scratch) return false;
     } else if (!(b->original & 1) || (owner && b->original != (scratch | 1))) return false;
@@ -148,13 +152,14 @@ static bool begin_page(struct bdw_boot_page *p, struct bdw_boot_page_source *sou
     p->scratch = scratch;
     p->io = *io;
     p->entry = entry;
+    p->outer_loan = loan;
     p->state = BDW_PAGE_RUNNING;
     source->consumed = true;
     source->consumer = p;
     b = &p->binding;
     if ((!owner && !prove(p)) || !display_access_pin(&b->display)) goto refuse;
     struct scanout_space_range managed = {b->index,1};
-    bool claimed = owner ? scanout_interval_borrow_driver(&p->interval,owner,b->driver,managed) :
+    bool claimed = loan ? interval_held(p) : owner ? scanout_interval_borrow_driver(&p->interval,owner,b->driver,managed) :
         scanout_interval_claim(&p->interval,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,managed);
     if (!claimed) {
         if (!display_access_unpin(&b->display)) return retained(p);
@@ -164,7 +169,7 @@ static bool begin_page(struct bdw_boot_page *p, struct bdw_boot_page_source *sou
      * cannot release the parent between admission and reservation. */
     if (owner && !guard(p)) {
         if (!interval_held(p) || !display_access_unpin(&b->display)) return retained(p);
-        scanout_interval_release(&p->interval);
+        if (!loan) scanout_interval_release(&p->interval);
         goto refuse;
     }
     return true;
@@ -178,16 +183,16 @@ refuse:
 static bool return_page(struct bdw_boot_page *p, enum bdw_boot_page_state state)
 {
     if (!display_access_unpin(&p->binding.display)) return retained(p);
-    scanout_interval_release(&p->interval);
+    if (!p->outer_loan) scanout_interval_release(&p->interval);
     p->source->consumer = NULL;
     p->state = state;
     return state != BDW_PAGE_REFUSED;
 }
 
-bool intel_bdw_boot_page_run(struct bdw_boot_page *p, struct bdw_boot_page_source *source,
-                             const struct bdw_boot_page_io *io)
+static bool run_page(struct bdw_boot_page *p, struct bdw_boot_page_source *source,
+                     const struct bdw_boot_page_io *io, const struct scanout_interval *loan)
 {
-    if (!begin_page(p,source,io,false)) return false;
+    if (!begin_page(p,source,io,loan,false)) return false;
     const struct bdw_boot_page_binding *b = &p->binding;
     struct scanout_space_range managed = {b->index,1}, protected = {0,b->fence_end/4096};
 
@@ -207,15 +212,15 @@ bool intel_bdw_boot_page_run(struct bdw_boot_page *p, struct bdw_boot_page_sourc
     return return_page(p,BDW_PAGE_RETURNED);
 }
 
-bool intel_bdw_boot_page_seed(struct bdw_boot_page *p, struct bdw_boot_page_source *source,
-                              const struct bdw_boot_page_io *io)
+static bool seed_page(struct bdw_boot_page *p, struct bdw_boot_page_source *source,
+                      const struct bdw_boot_page_io *io, const struct scanout_interval *loan)
 {
-    if (!begin_page(p,source,io,true)) return false;
+    if (!begin_page(p,source,io,loan,true)) return false;
     const struct bdw_boot_page_binding *b = &p->binding;
     uint64_t pte, words[2];
     if (!read_pte(p,b->index,&pte)) return retained(p);
     if (pte) return return_page(p,BDW_PAGE_REFUSED);
-    if (!scanout_interval_seal_driver(&p->interval,source->driver_range,b->driver)) return retained(p);
+    if (!scanout_interval_seal_driver(loan ? loan : &p->interval,source->driver_range,b->driver)) return retained(p);
 
     p->seed_write = p->io.exchange(p->io.ctx,p->entry.mmio_offset,0,p->entry.replacement);
     if (p->seed_write != GT_WRITE_DONE) return retained(p);
@@ -225,4 +230,22 @@ bool intel_bdw_boot_page_seed(struct bdw_boot_page *p, struct bdw_boot_page_sour
     if (!aperture(p,words) || !pair_equal(words,b->marker) ||
         !read_pte(p,b->index,&pte) || pte != p->entry.replacement) return retained(p);
     return return_page(p,BDW_PAGE_SEEDED);
+}
+
+bool intel_bdw_boot_page_run(struct bdw_boot_page *p, struct bdw_boot_page_source *source,
+                            const struct bdw_boot_page_io *io)
+{
+    return run_page(p,source,io,NULL);
+}
+
+bool intel_bdw_boot_page_seed(struct bdw_boot_page *p, struct bdw_boot_page_source *source,
+                             const struct bdw_boot_page_io *io)
+{
+    return seed_page(p,source,io,NULL);
+}
+
+bool intel_bdw_boot_page_in_loan(struct bdw_boot_page *p, struct bdw_boot_page_source *source,
+                                const struct bdw_boot_page_io *io, const struct scanout_interval *loan, bool seed)
+{
+    return loan && (seed ? seed_page(p,source,io,loan) : run_page(p,source,io,loan));
 }

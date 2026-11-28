@@ -179,6 +179,16 @@ fresh L3 acknowledgement and a clock observation after the request. The
 no-store trial returns the ticket and leaves the range unseeded. The later
 bind must acquire its own live hold.
 
+The held bind fixture exercises that next transaction from a vacant slot.
+After a fresh hold, it seeds scratch, binds the private page, and restores
+scratch through one original range loan and one traffic ticket. Each store
+has a verified translation update. A matching scratch aperture marker and
+readback precede release, and the original panel and scratch PTE must still
+match after traffic reopens. Missing L3, a lost ticket after the private
+store, or stale translation on rollback all retain the loan and recovery
+state. Missing L3 stops before the first PTE store. The native provider
+must still establish exclusive hardware control and pin actual RAM.
+
 The native pre-reopen sampler reads `MISC_CTRL0` through the guarded
 power-register alias before and after the PTE, WiDi and Pipe A packet.
 This checks whether the contemplated CPD route can send GO messages while

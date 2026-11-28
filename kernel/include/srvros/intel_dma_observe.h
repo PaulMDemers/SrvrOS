@@ -7,6 +7,11 @@
 /* Air7,2 segment 0 graphics RMRR from the exact DMAR above. */
 #define INTEL_DMA_RMRR_BEGIN 0x8b800000ull
 #define INTEL_DMA_RMRR_END 0x90000000ull
+static inline bool intel_dma_ordinary_low_page(uint64_t physical)
+{
+    return physical && !(physical & 4095u) && physical < 0x100000000ull &&
+           (physical < INTEL_DMA_RMRR_BEGIN || physical >= INTEL_DMA_RMRR_END);
+}
 enum intel_dma_status {DMA_REFUSED, DMA_TABLE, DMA_ACCESS, DMA_MAP, DMA_READ, DMA_CLOCK, DMA_CHANGED, DMA_RETAINED, DMA_OBSERVED};
 struct intel_dma_topology {uint64_t hash, unit, other_unit, reserved_base, reserved_end;};
 struct intel_dma_sample {

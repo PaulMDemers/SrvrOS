@@ -611,7 +611,12 @@ native request source and matching range grant. Ubuntu stayed at 1% volume.
 The held-bind checkpoint starts at `06c3f58e` with main `24feebdd`
 reviewed. It composes the Broadwell driver-range traffic test with the
 existing scratch and one-page writers under the same ticket and loan.
-The host and Q35 fixtures cover successful rollback and lost ownership.
+The 331-case host matrix and 110-case Q35 matrix passed, as did the 22
+joined eDP Q35 takeover cases. The new fixture covers scratch publication,
+private bind and rollback, missing L3 before any write, ticket loss after
+the private store, and stale translation after rollback. The checkout
+still has no native provider for the maintained hold and range grant.
+[Held bind fixture](../intel-tearfree-roadmap.md#native-rollback-admission-after-the-air-checkpoint)
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

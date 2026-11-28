@@ -7,14 +7,6 @@ struct takeover_attempt {
     struct display_access_token display;
 };
 
-/* The FLR drain admits only this Air's exact DMAR. The RMRR is a physical
- * interval, independent of the GPU address chosen by the range provider. */
-static bool private_frame(uint64_t physical)
-{
-    return physical && !(physical & 4095u) && physical < 0x100000000ull &&
-           (physical < INTEL_DMA_RMRR_BEGIN || physical >= INTEL_DMA_RMRR_END);
-}
-
 static bool reserve_range(struct takeover_attempt *a, const struct bdw_edp_source_image *image,
                           const struct bdw_flr_pci_image *pci, const struct intel_vtd_drain_binding *drain)
 {
@@ -28,8 +20,8 @@ static bool reserve_range(struct takeover_attempt *a, const struct bdw_edp_sourc
     if (b->driver != drain->owner || b->root != drain->root || b->epoch <= drain->epoch ||
         b->mmio != (pci->bar[0] & ~15u) || b->aperture != (pci->bar[2] & ~15u) ||
         b->display.owner != a->display.owner || b->display.epoch != a->display.epoch || b->surface ||
-        b->original || b->backing != grant.scratch || !private_frame(grant.scratch) ||
-        !private_frame(grant.private_backing) || grant.private_backing == grant.scratch ||
+        b->original || b->backing != grant.scratch || !intel_dma_ordinary_low_page(grant.scratch) ||
+        !intel_dma_ordinary_low_page(grant.private_backing) || grant.private_backing == grant.scratch ||
         b->marker[0] == b->marker[1] || grant.private_marker[0] == grant.private_marker[1] ||
         (grant.private_marker[0] == b->marker[0] && grant.private_marker[1] == b->marker[1]) ||
         !parent || !scanout_interval_held(parent,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,parent->pages) ||

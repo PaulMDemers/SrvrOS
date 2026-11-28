@@ -49,4 +49,20 @@ bool intel_bdw_boot_drain_run(struct bdw_boot_drain *, const struct bdw_boot_pag
 bool intel_bdw_boot_drain_run_driver(struct bdw_boot_drain *, const struct bdw_boot_page_binding *,
                                     const struct scanout_interval *driver_range, const struct bdw_boot_drain_io *);
 
+struct bdw_boot_bind {
+    struct bdw_boot_drain hold;
+    struct bdw_boot_page seed, page;
+    struct bdw_boot_page_source scratch_source, private_source;
+    struct bdw_boot_page_io page_io;
+};
+
+/* A single hold covers first scratch publication, private bind, and rollback
+ * to scratch. Both frames stay pinned under the provider. A retained result
+ * keeps both children and the original hold and loan alive. Page proof
+ * timestamps use the traffic provider's clock throughout the bind. */
+bool intel_bdw_boot_bind(struct bdw_boot_bind *, const struct bdw_boot_page_binding *,
+                         struct scanout_interval *driver_range, uint64_t private_frame,
+                         const uint64_t private_marker[2], const struct bdw_boot_drain_io *,
+                         const struct bdw_boot_page_io *);
+
 #endif
