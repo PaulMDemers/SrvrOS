@@ -313,12 +313,14 @@ released and all six aliases retired. The exit snapshot, recovery and offline
 USB check verified after Ubuntu returned. Native active completion and
 requester drain remain unverified.
 
-The next PR567 checkpoint surveys the Haswell blitter's inherited status
-page pointer and sync-status masks. Scope starts at `07d6c9ce` and covers the
-read-only provider audit and receipt verifier. Pipe A stays on its inherited
-surface and slots 4096 and 16385 stay outside the probe. Main `b062ba18` and
-the separate Air7,2 PR301 at `04cf5bd5` were reviewed. Native firmware
-exclusion and completion-page ownership still need independent proof.
+The [native blitter completion routing audit](../intel-hsw-tearfree.md#native-blitter-completion-route-result)
+verified on `c92d62fb` / `251b2757a56b7e32` (PR567). Both samples in 383 µs
+read a zero status-page address register and all-ones `HWSTAM` and `IMR`,
+with Sync Status masked. The probe accessed only the routing registers and
+refused the hold with zero engine commands. Pipe A advanced one frame and
+slots 4096 and 16385 stayed untouched. All seven aliases retired and USB,
+recovery and the final snapshot verified after Ubuntu returned. Completion
+page ownership and firmware exclusion remain unverified.
 
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,

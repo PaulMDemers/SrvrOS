@@ -1166,6 +1166,23 @@ Stage using `--laptop-probe-volume UUID --haswell-backing-capture
 --haswell-tilectl --haswell-linux-fences --haswell-blitter-provider`. Decode
 the matching `exit.log` with `tools/hardware_haswell_forcewake.py`.
 
+##### Native blitter completion route result
+
+Air6,1 release `251b2757a56b7e32` from source `c92d62fb` completed in
+session `session-0006615a8e4ed6d5-00`. Both samples in 383 µs read `PGA=0`
+and `HWSTAM=IMR=0xffffffff`, with blitter Sync Status masked. The zero
+register leaves the status page unqualified. The probe did six routing
+register reads and left all status-page contents and settings untouched.
+The engine hold refused admission with zero ring-stop, flush or reopen
+attempts. Native completion-page ownership and firmware exclusion remain
+unverified.
+
+Pipe A advanced from frame 922 to 923 on the inherited framebuffer.
+Slots 4096 and 16385 stayed untouched. Forcewake ACK cleared in 4 µs
+after release and all seven aliases retired. The installed release, exit
+snapshot, archived replay, recovery and offline USB check verified after
+the one-shot returned to Ubuntu.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two
