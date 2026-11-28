@@ -762,6 +762,16 @@ Access-point disappearance and automatic reassociation testing are
 deferred at the operator's request. The initialization refusal in this
 boot remains open.
 
+Startup investigation starts from `9c59f481` against integration baseline
+`24feebdd` on PR #568. The failed release enumerated the BCM4331 at
+`03:00.0` but the driver refused admission under a combined PCI and
+mapping check. Add separate read-only admission evidence and prove the
+existing desktop connection path through three unattended boots of this
+unit. Scope covers the BCM4331 startup gate, a startup-only boot recipe,
+and the matching flash reports. The existing qualified station profile,
+EHCI workspace, and Ubuntu recovery are dependencies. Access-point
+outage and automatic reassociation remain deferred.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
