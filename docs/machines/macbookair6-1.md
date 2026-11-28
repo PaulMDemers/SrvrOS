@@ -322,6 +322,12 @@ slots 4096 and 16385 stayed untouched. All seven aliases retired and USB,
 recovery and the final snapshot verified after Ubuntu returned. Completion
 page ownership and firmware exclusion remain unverified.
 
+The next PR567 checkpoint prototypes binding and restoring an owned blitter
+completion page after a firmware exclusion gate. Scope starts at `8c76945e`
+and covers the Haswell page transaction, host fixture and native refusal.
+Pipe A keeps its inherited surface. Slots 4096 and 16385 stay protected.
+Main `b062ba18` and the independent Air7,2 PR301 at `046fa04c` were reviewed.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
