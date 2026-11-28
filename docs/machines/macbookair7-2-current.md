@@ -747,6 +747,21 @@ before requesting the hold. The branch leaves Ubuntu at 1% volume with
 recovery `9aa8dbf6fbda8252` and no occupied-slot trial armed. The native
 provider for the on-chip traffic hold is still required for a hardware boot.
 
+The native traffic-hold review uses `c07bd825`, main `24feebdd` and the
+separate Haswell PR 567 at `0220fb23`. The current collector replays the
+RC1e, early RC6 wake, slot 12292 and slot 16385 USB captures. All four raw
+file sets and their timing packets match. Each replay reports zero fresh
+engine and L3 acknowledgements. The pre-reset observations leave the
+clients open, while both pre-reopen slot samples read `GO_GAM_REQ=0x7fff`
+with WiDi open. The latest sample brackets the slot with `MISC_CTRL0`
+`0xc5280000`, confirming the CPD GO control is locked off in the exact
+owner lifetime. The Broadwell register descriptions scope the FIFO ACK to
+register traffic and the soft-reset request to a self-clearing operation.
+The outstanding prerequisite is an OS-accessible or firmware-provided
+request that remains held while the acknowledgement registers are readable
+and the original display runs. The native occupied-slot trial stays unarmed.
+[Broadwell register reference, pp. 469, 587–592, 606–610 and 859](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
