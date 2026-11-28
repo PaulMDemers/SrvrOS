@@ -1,5 +1,49 @@
 # Apple Silicon macOS build host
 
+## Authenticated desktop and portable data
+
+`device/apple-silicon/authenticated-desktop-foundation` starts from main
+`87503968`. The local account verifier now returns the authenticated UID,
+GID, and private home. The account module keeps the password verifier
+private. Console sign-in uses this check and retains its session and retry
+behavior.
+
+The desktop compositor and application launch path still need a scoped
+display and input contract for an unprivileged UID. Keep the sign-in broker
+outside that scope. Before returning to sign-in on logout or crash, retire
+the session and its applications, and release its display and input state.
+The [portable data contract](../portable-profiles.md#using-portable-data-with-a-local-account)
+records how the destination account supplies access and what the first
+integrated migration needs to verify.
+
+Clean source `d6cc9cf8` passed 21 installed console cases on one disposable
+QEMU VM using the stock kernel and a focused image of the console tools.
+The detailed receipt is under `build/review/local-signin/desktop-foundation-fixture-nV7IwV/`
+in `build/review/local-signin/proof-fng0rbh3/receipt.json` (SHA-256
+`41c80c2a4bad453909c290289ee54e9134acbd07bba2b8c1519cd087bc392096`).
+The ordinary image build was blocked by the GNU port typedef conflict
+tracked in [SrvrOS #549](https://github.com/PaulMDemers/SrvrOS/pull/549).
+The native crypto check, 23 streaming-profile checks, and 36 other host
+profile checks passed.
+
+The kernel can now grant the scoped display and input operations to an
+explicitly designated session leader. A synthetic guest probe on `bce693e1`
+verified UID 1001 exit, UID 1002 crash, and UID 1001 reacquisition. Same-scope
+descendants were denied direct device access. The local receipt under
+`build/review/local-signin/desktop-scope-iqFQQx/` has SHA-256
+`b85677581a3ce7f48bfe9614908ea26a2df333d7595d16fa87f02b649744a0e6`.
+The production desktop supervisor still needs credential-safe worker and
+application launch and session-scoped GUI messaging.
+
+On `e8ef22a2`, another disposable installation qualified account-owned v2
+import through the authenticated console. After a diagnostic process exited
+mid-copy, the installed stock session resumed the import after reboot. Both
+accounts reopened the original bytes with distinct owners and mode `0600`.
+Existing files survived, and both users were denied cross-user reads, writes,
+and metadata lookups. The local receipt under
+`build/review/local-signin/account-owned-profile-np9Pw8/` has SHA-256
+`1d3581df9ac0e4c7a9130c396e922c6df343939c0fa0306f3a8cd6b47e26c897`.
+
 ## Installed console authentication
 
 `device/apple-silicon/installed-console-auth` qualified clean source

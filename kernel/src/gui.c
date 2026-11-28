@@ -31,6 +31,7 @@ struct gui_queue {
 static struct gui_queue *queues;
 static uint64_t queue_bytes;
 static uint64_t server_pid;
+static bool scoped_server;
 bool gui_server_is_owner(uint64_t pid) { return pid && server_pid == pid; }
 static uint64_t next_surface_id = 1;
 
@@ -178,22 +179,27 @@ int64_t gui_keyboard_read(struct srv_key_event *event) {
         result=keyboard_read_event(event)?1:0;
     irq_restore(flags); return result;
 }
-int64_t gui_register_server(void) {
+int64_t gui_register_server(bool scoped) {
     struct process *process=process_current();
     if(!process)return -1;
     uint64_t pid=process_pid(process),flags=irq_save(),epoch=gui_retirement_epoch;
     uint64_t original_server=server_pid;
     struct gui_queue *candidate=NULL;
     int64_t result=-1;
-    if(server_pid && server_pid!=pid)goto done;
+    if(server_pid && (server_pid!=pid || scoped_server!=scoped))goto done;
     if(!queue_for_pid(pid)) {
         irq_restore(flags);candidate=queue_prepare(pid);flags=irq_save();
         if(!candidate || epoch!=gui_retirement_epoch || server_pid!=original_server)goto done;
     }
+    if(scoped && !process_scope_display_allowed(process))goto done;
     if(!queue_for_pid(pid)) {
         candidate->next=queues;queues=candidate;candidate=NULL;
     }
-    server_pid=pid;result=0;
+    if(!server_pid && scoped) {
+        keyboard_set_event_mode(true);
+        mouse_discard_pending();
+    }
+    server_pid=pid;scoped_server=scoped;result=0;
 done:
     irq_restore(flags);queue_storage_free(candidate);return result;
 }
@@ -473,8 +479,10 @@ void gui_process_cleanup(uint64_t pid) {
     }
     if (server_pid == pid) {
         keyboard_set_event_mode(false);
+        if(scoped_server) mouse_discard_pending();
         mouse_trackpad_settings(3,0);
         server_pid = 0;
+        scoped_server = false;
         /* The server queue is gone; outstanding owners may reclaim buffers. */
         for(struct gui_surface *s=surfaces;s;s=s->next)s->sealed=false;
     }

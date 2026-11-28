@@ -115,6 +115,16 @@ class StreamTests(unittest.TestCase):
         self.reject(self.raw(obj, b'x'))
         obj['documents'] *= 65; self.reject(self.raw(obj))
 
+    def test_bundle_cannot_supply_destination_account_binding(self):
+        for field, value in [('uid', 1001), ('gid', 1001), ('home', '/fat/home/local-alice')]:
+            with self.subTest(field=field):
+                manifest = self.valid()
+                manifest['profile'][field] = value
+                self.reject(self.raw(manifest))
+        manifest = self.valid()
+        manifest['account'] = {'name': 'alice'}
+        self.reject(self.raw(manifest))
+
     def test_links_existing_and_recovery(self):
         doc = self.doc('a', 10); path = self.base / 'bundle'
         s.export_bundle(self.store, self.ident, [doc], path)

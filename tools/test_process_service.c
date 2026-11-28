@@ -527,8 +527,8 @@ static void session_scope_contract(void) {
     assert(process_scope_control(SRV_SCOPE_REVOKE,token,NULL)==SRV_ERR_INVAL);
     current->killed=false;
     assert(process_scope_create(&other)==SRV_ERR_BUSY);
-    assert(!process_scope_reserve(token));
-    assert(process_scope_reserve(token)==SRV_ERR_BUSY);
+    assert(!process_scope_reserve(token,false));
+    assert(process_scope_reserve(token,false)==SRV_ERR_BUSY);
     assert(!process_scope_control(SRV_SCOPE_REVOKE,token,NULL));
     assert(!process_scope_control(SRV_SCOPE_REVOKE,token,NULL));
     assert(process_scope_control(SRV_SCOPE_RELEASE,token,NULL)==SRV_ERR_BUSY);
@@ -548,12 +548,30 @@ static void session_scope_contract(void) {
     assert(!process_scope_control(SRV_SCOPE_STATUS,token,&st) && !st.members && st.nonzero_exits==1 && st.first_exit_status==7);
     assert(!process_scope_control(SRV_SCOPE_RELEASE,token,NULL));
     assert(process_scope_control(SRV_SCOPE_STATUS,token,&st)==SRV_ERR_INVAL);
-    assert(!process_scope_create(&token) && token==2);
-    assert(!process_scope_reserve(token));process_scope_cancel_reservation(token);
-    assert(process_scope_reserve(token)==SRV_ERR_BUSY); /* failed root burns the attempt */
+    assert(!process_scope_create(&token));
+    current->credentials.uid=99;
+    assert(process_scope_reserve(token,true)==SRV_ERR_PERM);
+    current->credentials.uid=0;
+    assert(!process_scope_reserve(token,true));
+    child=alloc_process_lifetime("display",true,token);assert(child);
+    assert(!process_scope_display_allowed(child));
+    child->credentials=(struct process_credentials){1001,1001};
+    assert(process_scope_display_allowed(child));
+    struct process *owner=current;
+    current=child;
+    struct process *descendant=alloc_process("app",true);assert(descendant && descendant->lifetime==token);
+    assert(!process_scope_display_allowed(descendant));
+    current=owner;
+    assert(!process_scope_control(SRV_SCOPE_REVOKE,token,NULL));
+    assert(!process_scope_display_allowed(child));
+    release_process(descendant);release_process(child);
+    assert(!process_scope_control(SRV_SCOPE_RELEASE,token,NULL));
+    assert(!process_scope_create(&token) && token==3);
+    assert(!process_scope_reserve(token,false));process_scope_cancel_reservation(token);
+    assert(process_scope_reserve(token,false)==SRV_ERR_BUSY); /* failed root burns the attempt */
     assert(!process_scope_control(SRV_SCOPE_REVOKE,token,NULL));
     assert(!process_scope_control(SRV_SCOPE_RELEASE,token,NULL));
-    assert(!process_scope_create(&token));assert(!process_scope_reserve(token));
+    assert(!process_scope_create(&token));assert(!process_scope_reserve(token,false));
     child=alloc_process_lifetime("root",true,token);assert(child);
     user_scope_detach(current);assert(!current->owned_user_scope);
     assert(process_scope_create(&other)==SRV_ERR_BUSY);
@@ -562,13 +580,13 @@ static void session_scope_contract(void) {
     assert(process_try_wait_retired(child->pid,&status,&result));
     assert(!lifetime_find(token));assert(!process_scope_create(&other) && other!=token);
     user_scope_detach(current);
-    assert(!process_scope_create(&token));assert(!process_scope_reserve(token));
+    assert(!process_scope_create(&token));assert(!process_scope_reserve(token,false));
     release_process(current);assert(!lifetime_find(token));
     *current=(struct process){.allocated=true,.active=true,.pid=42};
     process_scope_cancel_reservation(token);assert(!process_scope_create(&other));
     assert(!process_scope_control(SRV_SCOPE_REVOKE,other,NULL));
     assert(!process_scope_control(SRV_SCOPE_RELEASE,other,NULL));
-    assert(!process_scope_create(&token));assert(!process_scope_reserve(token));
+    assert(!process_scope_create(&token));assert(!process_scope_reserve(token,false));
     child=alloc_process_lifetime("root",true,token);assert(child);
     child->parent_pid=77;child->active=false;child->reapable=true;child->exit_status=9;
     memset(child->files,0,sizeof(child->files));
@@ -594,7 +612,7 @@ static void session_scope_contract(void) {
     /* Preserve the loop selector across the simulated process-exit longjmp. */
     for(volatile unsigned worker=0;worker<2;worker++) {
         assert(!process_scope_create(&token));
-        assert(!process_scope_reserve(token));
+        assert(!process_scope_reserve(token,false));
         struct process_lifetime *pending=lifetime_find(token);
         assert(pending && pending->reservation && pending->members==1);
         current_user_thread=worker?&current->user_threads[0]:NULL;

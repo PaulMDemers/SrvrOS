@@ -38,6 +38,7 @@ static uint64_t text_height(void) { return CELL_HEIGHT * text_scale; }
 static bool framebuffer_console_ready;
 static bool framebuffer_console_muted;
 static uint64_t framebuffer_console_mute_owner;
+static bool framebuffer_console_scoped;
 static enum ansi_state ansi_state;
 static uint64_t ansi_params[ANSI_PARAM_MAX];
 static uint64_t ansi_param_count;
@@ -490,6 +491,7 @@ void console_set_framebuffer_muted(bool muted) {
     if (!display_present_can_write(0)) return;
     framebuffer_console_muted = muted;
     framebuffer_console_mute_owner = 0;
+    framebuffer_console_scoped = false;
 }
 
 void console_set_framebuffer_muted_owner(uint64_t owner_pid, bool muted) {
@@ -508,12 +510,26 @@ void console_set_framebuffer_muted_owner(uint64_t owner_pid, bool muted) {
     }
 }
 
+/* The caller serializes claims with the scoped GUI registration check. */
+bool console_claim_scoped_framebuffer(uint64_t pid) {
+    if (!pid || (framebuffer_console_muted && !console_framebuffer_muted_by(pid)) ||
+        !display_present_can_write(pid)) return false;
+    framebuffer_console_muted = true;
+    framebuffer_console_mute_owner = pid;
+    framebuffer_console_scoped = true;
+    return true;
+}
+
 void console_release_framebuffer_mute_owner(uint64_t owner_pid) {
     if (owner_pid != 0 && framebuffer_console_mute_owner == owner_pid) {
         display_present_release(framebuffer_console_mute_owner);
         if (!display_present_can_write(0)) return;
         framebuffer_console_muted = false;
         framebuffer_console_mute_owner = 0;
+        if (framebuffer_console_scoped) {
+            framebuffer_console_scoped = false;
+            console_clear();
+        }
     }
 }
 

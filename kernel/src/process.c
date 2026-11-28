@@ -255,6 +255,7 @@ struct process {
     char cwd_storage[PROCESS_PATH_MAX];
     uint64_t process_group;
     uint64_t lifetime; /* Immutable across exec, job control and orphaning. */
+    bool display_scope_root;
     uint64_t owned_user_scope;
     bool private_retiring,private_build,private_prepared;
     uint64_t session_id;
@@ -382,7 +383,7 @@ struct process_pipe_handoff_record {
 };
 struct process_lifetime {
     uint64_t token, members, peak;
-    bool revoked, root_reserved, user, reservation;
+    bool revoked, root_reserved, user, reservation, display_reservation;
     struct process *owner;
     uint64_t nonzero_exits, first_exit_status;
     struct process_pipe_handoff_record handoff;
@@ -1423,15 +1424,32 @@ int64_t process_scope_create(uint64_t *out) {
     }
 done: process_irq_restore(flags);return result;
 }
-int64_t process_scope_reserve(uint64_t token) {
+int64_t process_scope_reserve(uint64_t token,bool display) {
     uint64_t flags=process_irq_save();struct process_lifetime *life=user_scope_owned(token);
     int64_t result=!life?SRV_ERR_INVAL:(life->revoked || life->root_reserved?SRV_ERR_BUSY:0);
-    if(!result) {life->root_reserved=true;life->reservation=true;life->members++;life->peak=life->members;}
+    if(!result && display && life->owner->credentials.uid)result=SRV_ERR_PERM;
+    if(!result) {
+        life->root_reserved=true;life->reservation=true;life->display_reservation=display;
+        life->members++;life->peak=life->members;
+    }
     process_irq_restore(flags);return result;
+}
+bool process_scope_display_allowed(const struct process *p) {
+    if(!p || !p->display_scope_root || !p->credentials.uid) return false;
+    uint64_t flags=process_irq_save();
+    const struct process_lifetime *life=lifetime_find(p->lifetime);
+    const struct process *owner=life?life->owner:NULL;
+    bool allowed=p->allocated && p->active && !p->exiting && !p->killed &&
+        life && life->user && !life->revoked && owner && owner->allocated && owner->active &&
+        !owner->exiting && !owner->killed && !owner->credentials.uid &&
+        owner->owned_user_scope==life->token && p->parent_pid==owner->pid;
+    process_irq_restore(flags);return allowed;
 }
 void process_scope_cancel_reservation(uint64_t token) {
     uint64_t flags=process_irq_save();struct process_lifetime *life=lifetime_find(token);
-    if(life && life->user && life->reservation) {life->reservation=false;user_scope_member_done(life,0,false);}
+    if(life && life->user && life->reservation) {
+        life->reservation=false;life->display_reservation=false;user_scope_member_done(life,0,false);
+    }
     process_irq_restore(flags);
 }
 int64_t process_scope_control(unsigned op,uint64_t token,struct srv_scope_status *out) {
@@ -1521,12 +1539,16 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
     if (token && (!life || (life->revoked && !(root_token && life->reservation)) || (root_token && life->root_reserved && !life->reservation))) {
         process_irq_restore(flags);return NULL;
     }
+    bool display_root=false;
     for(uint64_t i=0;i<PROCESS_MAX_PROCESSES;i++) {
         if(!processes[i].allocated && !process_slots_busy[i]) {
             slot=i;process_slots_busy[i]=true;pid=next_pid++;
             if(!next_pid) next_pid=1;
             if(life) {
-                if(root_token && life->reservation) life->reservation=false;
+                if(root_token && life->reservation) {
+                    display_root=life->display_reservation;
+                    life->reservation=false;life->display_reservation=false;
+                }
                 else {life->members++;if(life->members>life->peak)life->peak=life->members;}
                 if(root_token)life->root_reserved=true;
             }
@@ -1538,7 +1560,7 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
     struct process *process=&processes[slot];
     clear_process(process);
     process->active=true;process->detached=detached;process->pid=pid;
-    process->lifetime=token;
+    process->lifetime=token;process->display_scope_root=display_root;
     process->parent_pid=process_pid(parent);
     if(parent) { process->credentials=parent->credentials;process->creation_mask=parent->creation_mask;process->fsize_limit=parent->fsize_limit;process->signal_ignore_mask=parent->signal_ignore_mask;
         copy_process_path(process->cwd,sizeof(process->cwd),parent->cwd);

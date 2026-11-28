@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <srvros/process_credentials.h>
 #include <srvros/sys.h>
@@ -112,6 +113,47 @@ static void command_stat(const char *path) {
     printf("Owner: %" PRIu64 ":%" PRIu64 " mode=%04o size=%" PRIu64 "\n",
         (uint64_t)st.st_uid,(uint64_t)st.st_gid,(unsigned)(st.st_mode&07777),(uint64_t)st.st_size);
 }
+static void command_profile(char *line, const char *home) {
+    static char path[]="/fat/bin/profile";
+    char *arguments[5]={path,NULL,NULL,NULL,NULL};
+    unsigned count=0;
+#ifdef LOCAL_AUTH_VM_TEST
+    bool interrupt_copy=false;
+#endif
+    while(*line) {
+        if(*line==' ') {line++;continue;}
+        if(count==3) {count=0;break;}
+        arguments[++count]=line;
+        while(*line && *line!=' ') line++;
+        if(*line) *line++=0;
+    }
+    if(count==2 && !strcmp(arguments[1],"preview")) arguments[1]="preview-account-import";
+    else if(count==3 && !strcmp(arguments[1],"import")) arguments[1]="account-import-reviewed";
+    else if(count==1 && !strcmp(arguments[1],"recover")) arguments[1]="account-recover";
+    else if(count==1 && !strcmp(arguments[1],"check-recovery")) arguments[1]="check-account-recover";
+#ifdef LOCAL_AUTH_VM_TEST
+    else if(count==3 && !strcmp(arguments[1],"test-interrupt")) {
+        arguments[1]="account-import-reviewed";
+        interrupt_copy=true;
+    }
+#endif
+    else {puts("Usage: profile preview BUNDLE | import BUNDLE SHA256 | recover | check-recovery");return;}
+
+    char home_env[sizeof("HOME=/fat/home/local-")+31];
+    int n=snprintf(home_env,sizeof(home_env),"HOME=%s",home);
+    if(n<0 || (size_t)n>=sizeof(home_env)) {puts("Error: invalid profile home.");return;}
+    char *environment[]={home_env,NULL,NULL};
+#ifdef LOCAL_AUTH_VM_TEST
+    if(interrupt_copy)environment[1]="SRVROS_PROFILE_STOP_AFTER=copy-partial";
+#endif
+    pid_t child=fork();
+    if(child<0) {command_error("profile",errno);return;}
+    if(!child) {execve(path,arguments,environment);_exit(127);}
+    int status=0;
+    pid_t waited;
+    do {waited=waitpid(child,&status,0);} while(waited<0 && errno==EINTR);
+    if(waited!=child || !WIFEXITED(status) || WEXITSTATUS(status))puts("Error: profile command failed.");
+}
 int main(int argc,char **argv) {
     const char *home=getenv("HOME");
     if(getuid()==0) return enter_session(argc,argv,home);
@@ -138,11 +180,12 @@ int main(int argc,char **argv) {
         if(n==-1) {puts("Error: console read failed.");return 1;}
         if(n==-2) {puts("Error: invalid or too-long command.");continue;}
         if(!strcmp(line,"logout")) {puts("Signed out.");return 0;}
-        if(!strcmp(line,"help")) {puts("Commands: help, pwd, write PATH TEXT, read PATH, stat PATH, logout");continue;}
+        if(!strcmp(line,"help")) {puts("Commands: help, pwd, write PATH TEXT, read PATH, stat PATH, profile, logout");continue;}
         if(!strcmp(line,"pwd")) {if(getcwd(cwd,sizeof(cwd))) puts(cwd);else command_error("pwd",errno);continue;}
         if(!strncmp(line,"write ",6)) {command_write(line+6);continue;}
         if(!strncmp(line,"read ",5)) {command_read(line+5);continue;}
         if(!strncmp(line,"stat ",5)) {command_stat(line+5);continue;}
+        if(!strcmp(line,"profile") || !strncmp(line,"profile ",8)) {command_profile(line+7,home);continue;}
 #ifdef LOCAL_AUTH_VM_TEST
         if(!strcmp(line,"hold")) {
             if(worker) {puts("Error: worker already running.");continue;}

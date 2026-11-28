@@ -13,6 +13,28 @@ The CLI commands are `preview-export`, `export-reviewed`, and `export`. Use
 bytes, or `import` for a direct transfer. The default bundle extension is
 `.srvrprofile`. The reader checks the contents, and refuses old v1 JSON bundles.
 
+## Using portable data with a local account
+
+The authenticated desktop work starts with an existing destination account.
+The destination account store supplies the UID, GID, and private home after
+sign-in. A portable profile's UUID and display name identify the transferred
+data. The v2 manifest also allows portable preferences and selected documents.
+The desktop treats `profile-local.json` as profile bookkeeping.
+
+From an authenticated console session, review a bundle and confirm its
+SHA-256 with `profile preview BUNDLE` and `profile import BUNDLE SHA256`.
+The first import uses `portable-profile` inside the account's private home.
+The destination account owns the new files. Import requires an empty slot.
+
+After interruption, `profile check-recovery` checks the signed-in account's
+pending transaction. `profile recover` resumes it from the same bundle bytes.
+The account's existing files remain usable through import and recovery.
+The two-account console VM proof reopened exact document bytes after reboot
+and verified that each account was denied access to the other's files.
+The graphical Profiles app still needs to call this account-owned path.
+
+## Existing transfer tools
+
 [Offline export](disk-installation.md#recoverable-offline-export-publication)
 also produces v2. Give it a new output path and a publication directory; use
 `inspect-export` and `reconcile-export` after interruption. The

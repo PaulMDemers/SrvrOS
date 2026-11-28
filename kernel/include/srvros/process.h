@@ -133,7 +133,8 @@ int64_t process_spawn_background_elf_args_fds(const char *path,
  * orphan; release requires revocation and zero members. */
 struct srv_scope_status;
 int64_t process_scope_create(uint64_t *out);
-int64_t process_scope_reserve(uint64_t token);
+int64_t process_scope_reserve(uint64_t token,bool display);
+bool process_scope_display_allowed(const struct process *process);
 void process_scope_cancel_reservation(uint64_t token);
 int64_t process_scope_control(unsigned op,uint64_t token,struct srv_scope_status *out);
 int64_t process_scope_terminate(uint64_t token);

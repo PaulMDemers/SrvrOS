@@ -30,10 +30,11 @@ class Stream(unittest.TestCase):
     def write_bundle(self):
         meta=json.dumps(self.manifest,separators=(',',':')).encode()
         self.source.write_bytes(MAGIC+struct.pack('<II',len(meta),0)+meta+self.data)
-    def run_cli(self,*args,code=0,stop=None,io=None,nofile=None):
+    def run_cli(self,*args,code=0,stop=None,io=None,nofile=None,home=None):
         env=dict(os.environ);env.pop('SRVROS_PROFILE_STOP_AFTER',None);env.pop('SRVROS_PROFILE_TEST_IO',None)
         if stop: env['SRVROS_PROFILE_STOP_AFTER']=stop
         if io: env['SRVROS_PROFILE_TEST_IO']=io
+        if home is not None: env['HOME']=str(home)
         def limit(): resource.setrlimit(resource.RLIMIT_NOFILE,(nofile,nofile))
         r=subprocess.run([BIN,*map(str,args)],env=env,capture_output=True,preexec_fn=limit if nofile else None)
         self.assertEqual(r.returncode,code,r.stderr.decode(errors='replace'));return r
@@ -98,6 +99,53 @@ int main(void){char b[5];struct profile_stream_info i;profile_stream_handle h;
         self.assertEqual(json.loads(self.run_cli('inspect',out).stdout)['bytes'],len(self.data))
         self.run_cli('import',out,self.root/'b'/'bob','bob',2001,2001)
         self.assertEqual((self.root/'b'/'bob'/'Documents/data.bin').read_bytes(),self.data)
+
+    def test_import_rejects_bundle_supplied_account_binding(self):
+        destination = self.root / 'a' / 'alice'
+        locations = [(self.manifest, 'account', {'name': 'alice'}),
+                     (self.manifest['profile'], 'uid', 1001),
+                     (self.manifest['profile'], 'gid', 1001),
+                     (self.manifest['profile'], 'home', str(destination)),
+                     (self.manifest['documents'][0], 'mode', 0o777)]
+        for entry, key, value in locations:
+            with self.subTest(field=key):
+                entry[key] = value
+                self.write_bundle()
+                self.run_cli('preview-import', self.source, destination, 'alice', code=1)
+                self.run_cli('import', self.source, destination, 'alice', 2001, 2001, code=1)
+                self.assertEqual(list(destination.parent.iterdir()), [])
+                del entry[key]
+
+    @unittest.skipIf(os.getuid() == 0, 'requires ordinary host credentials')
+    def test_account_import_and_recovery(self):
+        root = Path(self.enterContext(tempfile.TemporaryDirectory(prefix='account-profile-', dir='/tmp'))).resolve()
+        home = root / 'local-alice'
+        home.mkdir(0o700)
+        os.chown(home, -1, os.getgid())
+        retained = home / 'keep.txt'
+        retained.write_bytes(b'existing account file')
+        destination = home / 'portable-profile'
+        self.run_cli('preview-account-import', self.source, code=1, home=root)
+        review = json.loads(self.run_cli('preview-account-import', self.source, home=home).stdout)
+        self.assertEqual(review['destination'], {
+            'home': str(destination), 'alias': 'alice', 'uid': os.getuid(), 'gid': os.getgid()})
+        self.run_cli('account-import-reviewed', self.source, '0' * 64, code=1, home=home)
+        self.assertEqual(list(home.iterdir()), [retained])
+        self.run_cli('account-import-reviewed', self.source, review['sha256'],
+                     code=86, stop='copy-partial', home=home)
+        other = root / 'local-bob'
+        other.mkdir(0o700)
+        os.chown(other, -1, os.getgid())
+        self.run_cli('check-account-recover', code=1, home=other)
+        self.assertEqual(list(other.iterdir()), [])
+        self.run_cli('check-account-recover', home=home)
+        self.run_cli('account-recover', home=home)
+        self.assertEqual((destination / 'Documents/data.bin').read_bytes(), self.data)
+        self.assertEqual((destination / 'Documents/data.bin').stat().st_mode & 0o777, 0o600)
+        self.assertEqual(retained.read_bytes(), b'existing account file')
+        self.assertFalse((home / 'portable-profile.profile-import.json').exists())
+        self.run_cli('account-import-reviewed', self.source, review['sha256'], code=1, home=home)
+
     def test_all_recovery_checkpoints(self):
         for i,phase in enumerate(('journal','directories','document','identity','commit-ready','published')):
             self.manifest['profile']['id']=f'12345678-1234-4234-8234-{i:012x}';self.write_bundle()
