@@ -557,6 +557,13 @@ posts a finite batch of receive buffers, and verifies the engine, PCI
 fence and ring are retired before releasing memory. The exact-profile
 trial leaves transmit queues disabled.
 
+Release `7a49dd4251a58927` initialized the radio and saved both reports.
+The DMA preflight stopped at channel 1 before granting bus mastering.
+Readback with Ubuntu confirmed the BCM4331 has six TX register banks
+and only one RX bank. RX control and status read all ones in channels
+1 through 5. The revised preflight requires that exact topology while
+checking the real RX and all six TX engines are disabled.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

@@ -190,9 +190,14 @@ static unsigned receive_beacons(const struct pci_device *p, volatile uint32_t *r
     if (command == UINT16_MAX || (command & (PCI_MEMORY | PCI_BUS_MASTER)) != PCI_MEMORY) return 0;
     for (unsigned channel = 0; channel < 6; channel++) {
         volatile uint32_t *engine = regs + channel * DMA_CHANNEL_STRIDE / 4;
-        if ((engine[TX_DMA_CONTROL / 4] & DMA_ENABLE) || (engine[TX_DMA_STATUS / 4] & DMA_STATE) ||
-            (engine[RX_DMA_CONTROL / 4] & (DMA_ENABLE | RX_DIRECT_FIFO)) || (engine[RX_DMA_STATUS / 4] & DMA_STATE)) {
-            console_printf("bcm4331-radio: refused active DMA channel %u\n", (uint64_t)channel);
+        uint32_t tx = engine[TX_DMA_CONTROL / 4], tx_status = engine[TX_DMA_STATUS / 4];
+        uint32_t rx = engine[RX_DMA_CONTROL / 4], rx_status = engine[RX_DMA_STATUS / 4];
+        /* On this D11 stepping only channel 0 exposes receive registers. */
+        bool rx_idle = channel == 0 ? !(rx & (DMA_ENABLE | RX_DIRECT_FIFO)) && !(rx_status & DMA_STATE) :
+            rx == UINT32_MAX && rx_status == UINT32_MAX;
+        if ((tx & DMA_ENABLE) || (tx_status & DMA_STATE) || !rx_idle) {
+            console_printf("bcm4331-radio: refused DMA channel %u tx=%x tx_status=%x rx=%x rx_status=%x\n",
+                (uint64_t)channel, (uint64_t)tx, (uint64_t)tx_status, (uint64_t)rx, (uint64_t)rx_status);
             return 0;
         }
     }
