@@ -675,6 +675,25 @@ All three adapters enumerated, all 702 workspace files matched and
 all seven EFI journal phases verified. The payload and logs are
 preserved under `evidence-b176140dd88a0dab`.
 
+#### RTL8822BU RX FIFO and USB aggregation
+
+Device scope from `ca6a7c26` against main `24feebdd`. Keep the bound
+Netgear on hub port 4 with the two sibling dongles, the same passive
+channel and the fixed 32 KiB IN. Changes are limited to the Netgear RX
+diagnostic and native xHCI fixture. A fresh Linux scan on this unit
+received both Demers networks with FIFO boundary `0x5eff`, RXDMA
+burst mode `0x1e`, offset control `0x8200`, queue map `0xf5a1`
+and the aggregation threshold register `0x00002003`. The queue map
+has aggregation disabled in those scan samples.
+
+Use the measured Linux tuple for the first window. If the same IN is
+still pending with zero completions, try rtw88's short-timeout settings
+(`0xf5a5`, `0x0100` and USB threshold bit 31 clear). Verify FIFO and
+burst mode across both windows. Hold MAC TX disabled with `CR` low
+byte `0xbf` and `TXPAUSE=0xff`. Gate and stop IN before verifying
+restoration of the original aggregation and security settings.
+[Linux USB aggregation routine](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/usb.c).
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
