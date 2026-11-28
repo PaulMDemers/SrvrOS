@@ -5,15 +5,23 @@ enum {
     BU_STA_GENERATION=1,
 };
 
+static bool bu_station_out_average(const struct xhci_device *d,const char *phase) {
+    uint32_t average=context_read32(d->output_context,BU_OUT_DCI,4)&0xffffu;
+    bool verified=average==BU_STATION_OUT_AVERAGE;
+    console_printf("rtl8822bu-station-avg: phase=%s dci=%u average=%u verified=%u\n",
+        phase,(uint64_t)BU_OUT_DCI,(uint64_t)average,(uint64_t)verified);
+    return verified;
+}
+
 static bool bu_station_configure(struct bu_upload *up) {
     struct xhci_device *d=up->device;
     /* Linux has both OUT pipes before its first transfer. Keep the slot's
      * endpoint set stable from firmware upload through the first Auth. */
-    up->eapol_ready=bu_configure_out_pipe(d,&up->eapol,BU_EAPOL_DCI);
+    up->eapol_ready=bu_configure_out_pipe(d,&up->eapol,BU_EAPOL_DCI,BU_BLOCK_BYTES+BU_DESC_BYTES);
     console_printf("rtl8822bu-station-pipes: phase=pre-firmware mgmt=%u eapol=%u configured=%u entries=%u\n",
         (uint64_t)up->out.dci,(uint64_t)BU_EAPOL_DCI,(uint64_t)up->eapol_ready,
         (uint64_t)(context_read32(d->output_context,0,0)>>27));
-    return up->eapol_ready;
+    return up->eapol_ready && bu_station_out_average(d,"pre-firmware");
 }
 
 static bool bu_station_prepare(struct bu_upload *up,struct bu_rx *rx) {
@@ -43,7 +51,7 @@ static bool bu_station_address(struct xhci_device *d,unsigned reg,const uint8_t 
 static bool bu_station_radio(struct bu_upload *up,struct bu_rx *rx) {
     struct xhci_device *d=up->device;
     uint32_t grant,pause;
-    if(!wifi_hub_check_port(d,up->hub) || !bu_rx_scan_guard(d) ||
+    if(!wifi_hub_check_port(d,up->hub) || !bu_rx_scan_guard(d) || !bu_station_out_average(d,"pre-auth") ||
        !bu_station_address(d,BU_STA_MAC,rx->station->peer.station) ||
        !bu_station_address(d,BU_STA_BSSID,rx->station->peer.bssid) ||
        !bu_rx_rf_grant_read(d,&grant))return false;

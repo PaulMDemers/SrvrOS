@@ -19,7 +19,7 @@ enum bu_firmware_fault {
     BU_RX_GRANT_ADMIT_DRIFT,BU_RX_GRANT_LOST,BU_RX_GRANT_RESTORE_DRIFT,
     BU_H2C_BAD_LIMIT,BU_H2C_INIT_STUCK,BU_H2C_BAD_ENTRY,BU_H2C_OUT_SHORT,BU_H2C_OUT_MISSING,
     BU_H2C_OUT_WRONG_TRB,BU_H2C_UNDRAINED,BU_H2C_RESTORE_DRIFT,
-    BU_STA_OK,BU_STA_BAD_MIC,BU_STA_WRONG_OUT,BU_STA_AUTH_PENDING,
+    BU_STA_OK,BU_STA_BAD_MIC,BU_STA_WRONG_OUT,BU_STA_AUTH_PENDING,BU_STA_OUT_AVG_DRIFT,
 };
 
 static struct {
@@ -92,11 +92,14 @@ static void bu_model_command(struct xhci_device *d) {
                 assert(station && !bu_model.rx_posts && !bu_model.channel_writes && !bu_model_read(BU_CR,1));
                 bu_model.eapol_cursor=ring;
             } else bu_model.ring=bu_model.cursor=ring;
+            unsigned average=station && dci==BU_OUT_DCI?0:BU_BLOCK_BYTES+BU_DESC_BYTES;
+            assert(context_read32(d->input_context,dci+1,4)==average);
             context_write32(d->output_context,0,0,dci<<27);
             context_write32(d->output_context,dci,0,1);
             context_write32(d->output_context,dci,1,0x02000016);
             context_write32(d->output_context,dci,2,(uint32_t)ring);
             context_write32(d->output_context,dci,3,ring>>32);
+            context_write32(d->output_context,dci,4,average);
         }
     } else {
         unsigned dci=(command->control>>16)&31;
@@ -200,6 +203,8 @@ static void bu_model_h2c(struct xhci_device *d) {
     if(cc==1 && ptr==d->bulk_trb) {
         bu_model_store(BU_H2C_WP,4,BU_H2C_START+32*(seq+1));
         if(bu_model.fault!=BU_H2C_UNDRAINED)bu_model_store(BU_H2C_RP,4,BU_H2C_START+32*(seq+1));
+        if(seq==1 && bu_model.fault==BU_STA_OUT_AVG_DRIFT)
+            context_write32(d->output_context,BU_OUT_DCI,4,BU_BLOCK_BYTES+BU_DESC_BYTES);
     }
 }
 
@@ -465,11 +470,12 @@ static void bu_model_control(void) {
                 unsigned i=bu_model.rf_grant_writes++;
                 unsigned cr=bu_model_read(BU_CR,1);
                 uint32_t grant=bu_model_read(BU_RX_COEX_WRITE,4);
-                assert(i<(bu_model.fault>=BU_STA_OK?3u:2u) && bu_model_read(BU_TXPAUSE,1)==0xff);
+                bool station_tx=bu_model.fault>=BU_STA_OK && bu_model.fault!=BU_STA_OUT_AVG_DRIFT;
+                assert(i<(station_tx?3u:2u) && bu_model_read(BU_TXPAUSE,1)==0xff);
                 if(!i) {
                     assert(cr==0xbf && grant==0xdd03 && !bu_model.rf_scan_enables && !bu_model.rx_samples);
                     if(bu_model.fault!=BU_RX_GRANT_ADMIT_DRIFT)bu_model.rf_grant=grant;
-                } else if(i==1 && bu_model.fault>=BU_STA_OK) {
+                } else if(i==1 && station_tx) {
                     assert(cr==0xff && grant==0x7703 && bu_model.rx_stops==0);
                     bu_model.rf_grant=grant;
                 } else {
@@ -625,6 +631,12 @@ static void bu_model_station_out(struct xhci_device *d,unsigned dci) {
     for(unsigned i=0;i<32;i+=2)checksum^=data[i]|(uint16_t)data[i+1]<<8;
     assert(!checksum);
     if(dci==BU_OUT_DCI) {
+        assert(context_read32(d->output_context,dci,4)==0);
+        if(post==0) {
+            static const uint8_t auth[48]={[0]=0x1e,[2]=0x30,[3]=0x84,[5]=0x12,[6]=8,[13]=5,
+                [28]=0x26,[29]=0x93,[33]=0x80};
+            assert(!memcmp(data,auth,sizeof auth));
+        }
         assert(data[3]==0x84 && data[5]==0x12 && data[6]==8 && data[13]==5 && data[33]==0x80);
         assert(frame[0]==(post==0?0xb0:post==1?0:0xc0));
     } else {
@@ -719,7 +731,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
         assert(file && fread(phy,1,sizeof phy,file)==sizeof phy && fgetc(file)==EOF && !fclose(file));
         assert(bu_phy_profile_valid(phy,sizeof phy));
     }
-    for(enum bu_firmware_fault fault=BU_FW_OK;fault<=(passive?BU_STA_AUTH_PENDING:phy_path?BU_PHY_STUCK_RF:BU_BOARD_BAD_STOP);fault++) {
+    for(enum bu_firmware_fault fault=BU_FW_OK;fault<=(passive?BU_STA_OUT_AVG_DRIFT:phy_path?BU_PHY_STUCK_RF:BU_BOARD_BAD_STOP);fault++) {
         struct xhci_device *rtl=rtl_hub_fixture(),*d=&xhci.devices[3];
         d->device_bcd=0x0210;d->configuration_count=1;d->ep0_max_packet=64;
         uint8_t *command_memory;
@@ -772,10 +784,13 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
                 (fault==BU_STA_OK));
             assert(safe && !bu_rx_owner && !d->bulk_pending && bu_model.configure==3);
             assert(bu_model.eapol_stop==1 && bu_model.stop==1 && bu_model.rx_stops==1 &&
-                bu_model.rf_grant_writes==3 && bu_model.rf_grant==0xdf03 && !bu_model_read(BU_CR,1));
+                bu_model.rf_grant_writes==(fault==BU_STA_OUT_AVG_DRIFT?2u:3u) &&
+                bu_model.rf_grant==0xdf03 && !bu_model_read(BU_CR,1));
             test_console_printf_hook=NULL;
             if(fault==BU_STA_AUTH_PENDING) {
                 assert(bu_model.station_posts==1 && bu_model.cursor==(d->bulk_trb|1));
+            } else if(fault==BU_STA_OUT_AVG_DRIFT) {
+                assert(!bu_model.station_posts);
             } else {
                 assert(bu_model.station_posts==(fault==BU_STA_OK?5u:fault==BU_STA_BAD_MIC?4u:3u));
             }
@@ -908,4 +923,5 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
     if(passive)puts("rtl8822bu: PASS Netgear OUT ring and completion tracing, stale running context, and wrong-TRB refusal");
     if(passive)puts("rtl8822bu: PASS Netgear queue setup order, unavailable status, boundary drift and stuck initialization");
     if(passive)puts("rtl8822bu: PASS native association and WPA2, shared RX completion, bad MIC, stale EAPOL OUT and endpoint retirement");
+    if(passive)puts("rtl8822bu: PASS Linux DCI 10 Average TRB Length, exact Auth descriptor, and context drift refusal");
 }

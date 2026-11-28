@@ -1099,6 +1099,14 @@ verified workspace exit log and all seven independent journal checkpoints
 survived the automatic return to Ubuntu. All 718 previous workspace
 files matched. The private archive is `evidence-aa87147f444c7fae`.
 
+The next Netgear comparison starts from `ccda9882` with main inspected
+at `b062ba18`. Its scope is the station DCI 10 endpoint context, the
+native xHCI fixture, and the cold return decoder. Set Average TRB Length
+to zero, matching the Linux context read on the same hub and port.
+Keep the Auth descriptor, early endpoint setup, DCI 12 context, and four
+32 KiB receive requests as in `aa87147f444c7fae`. Verify the field before
+firmware upload and again before enabling the station's transmit path.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port

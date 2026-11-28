@@ -3,6 +3,7 @@
  * port-4 descriptor. The staging queue never enables MAC TX or baseband/RF. */
 enum {
     BU_OUT_DCI=10, BU_EAPOL_DCI=12, BU_DESC_BYTES=48, BU_BLOCK_BYTES=4096,
+    BU_STATION_OUT_AVERAGE=0,
     BU_FW_BYTES=161240, BU_FW_HEADER=64, BU_DMEM_BYTES=11216, BU_IMEM_BYTES=149960,
     BU_MCU=0x0080, BU_CR=0x0100, BU_BCN_HEAD=0x0204, BU_BCN=0x0550,
     BU_DDMA_SRC=0x1200, BU_DDMA_DST=0x1204, BU_DDMA=0x1208,
@@ -175,7 +176,7 @@ static const char *bu_power_on(struct bu_upload *up) {
     return bu_radio_off(d)?NULL:"radio-gate";
 }
 
-static bool bu_configure_out_pipe(struct xhci_device *d,struct xhci_bulk_endpoint *ep,unsigned dci) {
+static bool bu_configure_out_pipe(struct xhci_device *d,struct xhci_bulk_endpoint *ep,unsigned dci,unsigned average) {
     void *page;
     if(!alloc_frame_zero(&ep->ring_phys,&page))return false;
     ep->ring=page;ep->dci=dci;ep->cycle=true;ep->packet=512;
@@ -186,7 +187,7 @@ static bool bu_configure_out_pipe(struct xhci_device *d,struct xhci_bulk_endpoin
     uint32_t entries=slot0>>27;
     context_write32(d->input_context,1,0,(slot0&~(31u<<27))|((dci>entries?dci:entries)<<27));
     for(unsigned i=1;i<3;i++)context_write32(d->input_context,1,i,context_read32(d->output_context,0,i));
-    rtl_cu_bulk_context(d,ep,2,BU_BLOCK_BYTES+BU_DESC_BYTES);
+    rtl_cu_bulk_context(d,ep,2,average);
     const struct xhci_trb command={.parameter_low=(uint32_t)d->input_context_phys,
         .parameter_high=d->input_context_phys>>32,
         .control=(XHCI_TRB_TYPE_CONFIGURE_ENDPOINT<<10)|((uint32_t)d->slot_id<<24)};
@@ -196,14 +197,16 @@ static bool bu_configure_out_pipe(struct xhci_device *d,struct xhci_bulk_endpoin
     return configured;
 }
 
-static bool bu_configure_out(struct bu_upload *up) {
+static bool bu_configure_out(struct bu_upload *up,bool station) {
     uint64_t phys=pmm_alloc_frames_tagged(3,PMM_FRAME_DMA);
     if(!phys)return false;
     /* One Normal TRB may not span a 64 KiB boundary. Keep its two pages
      * inside the same window even if the first allocation ends at 64 KiB. */
     if((phys&0xffffu)+BU_BLOCK_BYTES+BU_DESC_BYTES+1>0x10000u)phys+=PMM_FRAME_SIZE;
     up->packet_phys=phys;up->packet=pmm_phys_to_virt(phys);
-    up->endpoint_ready=up->packet && bu_configure_out_pipe(up->device,&up->out,BU_OUT_DCI);
+    /* The Linux management OUT endpoint for the same adapter uses zero. */
+    unsigned average=station?BU_STATION_OUT_AVERAGE:BU_BLOCK_BYTES+BU_DESC_BYTES;
+    up->endpoint_ready=up->packet && bu_configure_out_pipe(up->device,&up->out,BU_OUT_DCI,average);
     return up->endpoint_ready;
 }
 
@@ -526,7 +529,7 @@ static bool bu_capture(const uint8_t *image,uint64_t size,enum bu_mode mode,
             if(bu_image_valid(image,size)) {
                 d->rtl8822bu_firmware_active=true;
                 failure="endpoint";
-                if(wifi_hub_check_port(d,up.hub) && bu_configure_out(&up)) {
+                if(wifi_hub_check_port(d,up.hub) && bu_configure_out(&up,station!=NULL)) {
                     const char *power=bu_power_on(&up);
                     failure=NULL;
                     if(power) {
