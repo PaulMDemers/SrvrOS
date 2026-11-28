@@ -22,7 +22,14 @@ static const uint8_t station[6]={2,0,0,0,0,1},router[6]={2,0,0,0,0,2};
 static struct net_bounded_probe boot;
 static struct net_bounded_probe_io io;
 uint64_t scheduler_current_thread_id(void){return thread_id;}
-bool scheduler_spawn(const char *name,scheduler_thread_fn fn,void *arg){assert(!strcmp(name,"net-probe"));spawns++;captured=fn;captured_arg=arg;return true;}
+bool scheduler_spawn(const char *name,scheduler_thread_fn fn,void *arg){
+ if(!strcmp(name,"net-poll")){assert(fn==net_worker && !arg);spawns++;return true;}
+ assert(!strcmp(name,"net-probe"));spawns++;captured=fn;captured_arg=arg;return true;
+}
+bool scheduler_spawn_io_service(const char *name,scheduler_thread_fn fn,void *arg,scheduler_wait_condition_fn eligible){
+ (void)name;(void)fn;(void)arg;(void)eligible;
+ assert(!"this fixture does not schedule I/O services");return false;
+}
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn ready,void *arg){assert((q==&probe_worker_slots[0].parked_queue || q==&probe_worker_slots[1].parked_queue) && !ready(arg));q->waiters=1;longjmp(parked,1);}
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn ready,void *arg,uint64_t end){assert(q==&rx_wait_queue && end==ticks+1);(void)ready;(void)arg;assert(!"turn driver must not sleep");return false;}
 void scheduler_yield(void){assert(!"unexpected yield");}
@@ -66,6 +73,7 @@ static void reset(void){
  memset(tcp_connections,0,sizeof tcp_connections);memset(listeners,0,sizeof listeners);memset(pending_requests,0,sizeof pending_requests);memset(udp_sockets,0,sizeof udp_sockets);memset(arp_cache,0,sizeof arp_cache);
  const uint8_t default_ip[4]={10,0,2,15};memcpy(local_ip_bytes,default_ip,4);
  initialized=worker_started=net_probe_quiet=dhcp_in_progress=dhcp_retry_active=dns_query_active=dns_waiting=icmp_ping_waiting=false;
+ normal_worker_allocated=normal_worker_connection=false;normal_worker_io_safe=NULL;normal_worker_wait=(struct scheduler_wait_queue){0};
  bounded_poll_owner=icmp_bounded_owner=NULL;local_mac=NULL;thread_id=1;ticks=100;us=1000000;spawns=polls=sends=allocs=frees=wakes=guards=acks=0;queued_tcp=nested_poll=false;owner=link_up=true;freeze=drop_arp=recurse=mutate=fail_inside_finish=false;queued_arp=0;captured=NULL;
 }
 static void park_entry(void){thread_id=1+spawns;if(!setjmp(parked))captured(captured_arg);thread_id=1;assert(probe_worker.parked && probe_worker.parked_queue.waiters==1);}
@@ -87,6 +95,25 @@ static void connection_finish(struct net_bounded_probe *b){
  assert(!net_probe_worker_disconnect(b));
 }
 static bool provider_send(void *c,const uint8_t *p,uint16_t n){assert(c==&provider);return net_device_send(p,n);}
+static void resident_cable_tests(void) {
+ reset();
+ provider=(struct net_device_ops){.context=&provider,.send=provider_send};
+ memcpy(provider.mac,station,6);
+ struct net_bounded_probe scopes[2]={0};
+ struct net_bounded_probe_io descriptor={&owner,current,retry};
+ const uint8_t address[4]={192,0,2,20};
+ for(unsigned i=0;i<2;i++){
+  owner_epoch=42+i;link_up=true;
+  assert(net_bounded_probe_init_connection(&scopes[i],&descriptor,&provider,owner_epoch,us+5000000));
+  set_local_ip_bytes(address);dhcp_configured=true;
+  assert(net_bounded_connection_start_worker(&scopes[i],NULL));
+  assert(scopes[i].closed && worker_started && spawns==1);
+  link_up=false;
+  assert(net_bounded_connection_stop_worker(&scopes[i]));
+  assert(scopes[i].disconnected && !worker_started && !local_ip && !dhcp_configured);
+ }
+ puts("net-cable-worker: PASS two connected leases use one resident worker and clear configuration on loss");
+}
 static void connection_tests(void){
  static struct net_bounded_probe b[2];static struct net_bounded_probe_io descriptors[2];
  reset();memset(b,0,sizeof b);memset(descriptors,0,sizeof descriptors);
@@ -133,6 +160,7 @@ static void connection_tests(void){
  puts("net-connection-workers: PASS two actual stack handoffs/deconfigurations,80tickTIMEWAIT,fresh retained threads,old continuation and nine next-admission refusals;HOST scheduling only");
 }
 int main(void){
+ resident_cable_tests();
  connection_tests();
  reset();initialized=true;assert(!net_prepare_probe_worker() && !spawns);reset();thread_id=0;assert(!net_prepare_probe_worker() && !spawns);
  prepared();assert(net_probe_worker_stop() && probe_worker.handoff_started && !probe_worker.ever_active);assert(net_probe_worker_finish() && probe_worker.finished);assert(!net_probe_worker_prepared());assert(!net_start_worker());struct net_bounded_probe unused={0};struct net_bounded_probe_io unused_io={&owner,current,retry};assert(!net_bounded_probe_init(&unused,&unused_io,42,us+1000000));
