@@ -319,6 +319,17 @@ Use the Linux reference for 20 MHz tuning and receive descriptor layout.
 Keep MAC transmit disabled, verify both synthesizer readbacks, bound all
 receive waits and require endpoint retirement before returning to Ubuntu.
 
+Release `4c85dbab8fbdf291` on `f056c4d6` checks RF18 on both paths
+at channel 161, then at channel 10. It posts the Linux-observed 32 KiB
+bulk IN request and samples channel 10 with MAC TX disabled. The result
+records tuning, USB completions and a valid Demers2.4 beacon separately.
+The native fixture refuses a wrong RF readback, stale transfer event,
+and invalid stop cursor. It also exercises timeout, CRC-error and
+truncated receive data. Both sibling desktop regressions, 329 boot and
+trial tests and five exact-image VM rehearsals passed. Channel 161 is a
+synthesizer check only.
+Run record `build/bringup/pro112-rtl8822bu-passive/run.json`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
