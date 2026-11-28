@@ -4,6 +4,7 @@
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
 #include <srvros/x86_cache.h>
 #define AIR61_SAMPLE_ADMISSIONS 13u
+#define AIR61_DRAIN_STATE_LIMIT_US 110000u
 struct air61_sample_admission {
  bool attempted;unsigned msr_reads,efer_reads;uint64_t efer;
  struct x86_cache_snapshot cache;
@@ -38,9 +39,17 @@ enum air61_read_step {
  AIR61_STEP_GATE1,AIR61_STEP_FINAL_VERIFY,AIR61_STEP_LINK,AIR61_STEP_SLOTS,
  AIR61_STEP_FINAL_CACHE,AIR61_STEP_RETIRE,AIR61_STEP_CLEANUP,AIR61_STEP_COUNT,
 };
+enum air61_retire_step {
+ AIR61_RETIRE_NONE,AIR61_RETIRE_VERIFY_LINKED,AIR61_RETIRE_UNLINK,
+ AIR61_RETIRE_READBACK,AIR61_RETIRE_INVALIDATE,AIR61_RETIRE_VERIFY_UNLINKED,
+ AIR61_RETIRE_FREE_PT,AIR61_RETIRE_FREE_PD,AIR61_RETIRE_FINAL_GUARD,AIR61_RETIRE_COUNT,
+};
 struct air61_read_timing {
  enum air61_read_step active,failed;
+ enum air61_retire_step retire_active;
+ unsigned budget_us;
  uint64_t start[AIR61_STEP_COUNT],fault_at,rejected_clock;
+ uint64_t retire_start[AIR61_RETIRE_COUNT];
 };
 struct air61_read_pass_result {
  struct air61_window_result window;

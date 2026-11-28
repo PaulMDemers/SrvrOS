@@ -147,6 +147,13 @@ frames. The second pass and slot 4096 probe remain pending. The halt
 photo was archived locally. Ubuntu returned, and recovery and the
 offline USB filesystem check verified.
 
+The PR567 retry adds retirement checkpoints to the guarded read window and
+uses a 110 ms lifetime only for the explicit v10 drain-state profile.
+The separate census and inter-batch bounds stay at 100 ms. The native
+objective is two complete retirements followed by the read-only slot 4096
+sample with Pipe A still active. Broadwell PR301 at `4ca02154` remains
+independent.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

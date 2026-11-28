@@ -29,7 +29,7 @@ def decode_drain_state(rows):
                 context_command_pending=bool(ccmd>>63),iotlb_command_pending=bool(iotlb>>63),
                 fault_status_clear=fsts==0,hardware_authority=False,requester_drain_proven=False)
 
-def _read_gate(r, root, hhdm, begin, end):
+def _read_gate(r, root, hhdm, begin, end, lifetime_us):
     phases, fw_bytes, config, selectors, efer_reads, reads0, reads1 = r.take('7I')
     if (phases, fw_bytes, config, selectors, efer_reads) != (2, 3996, 20, 40, 2): raise ValueError('fresh gate accounting')
     efer = r.take('2Q'); mcfg_pa = r.take('2Q'); mcfg = [r.raw(60), r.raw(60)]
@@ -49,7 +49,7 @@ def _read_gate(r, root, hhdm, begin, end):
         if c[12] != 1 or c[4] & 0x11028 != 0x11028 or c[6] & 0x80010001 != 0x80010001:
             raise ValueError('MSR snapshot status/features/protected paging')
         expanded = list(c[:12])+[root, policy[phase][9], hhdm, begin, end]+[c[13], c[14], c[15], 0]+list(c[16:])
-        cpus.append(cpu_record(expanded, msr_only=True))
+        cpus.append(cpu_record(expanded, msr_only=True, outer_limit_us=lifetime_us))
     if any(cache_raw[0][i] != cache_raw[1][i] for i in range(len(cache_raw[0])) if i not in (10, 11)) or (reads0, reads1) != tuple(c['msr_reads'] for c in cpus): raise ValueError('changed cache or read counts')
     fw = [firmware(r), firmware(r)]
     if r.at != len(r.data): raise ValueError('trailing wire data')
@@ -68,13 +68,14 @@ def _read_gate(r, root, hhdm, begin, end):
     return dict(policy=policy,efer=efer,cpus=cpus,firmware=fw,catalog=catalog,mcfg_pa=mcfg_pa,cache_raw=cache_raw)
 
 
-def _pass(data, sampled=False):
+def _pass(data, sampled=False, drain_state=False):
     r=Reader(data)
     if r.raw(8)!=(b'R2PASS61' if sampled else b'R1PASS61'):raise ValueError('window version')
     state,=r.take('I')
     owner,epoch,root,pdpt,pd,pt,hhdm,begin,end=r.take('9Q')
     words,writes,parents,unlinks,invalidations,frees=r.take('6I')
-    if state!=4 or owner!=(0x61697273616d70 if sampled else 0x61697272656164) or not 0<epoch<=begin<end or end-begin>=100000 or not 0<words<=65536 or (writes,parents,unlinks,invalidations,frees)!=(1026,1,1,2,2) or r.take('3B')!=(1,1,0):raise ValueError('retired lifetime')
+    lifetime_us=110000 if sampled and drain_state else 100000
+    if state!=4 or owner!=(0x61697273616d70 if sampled else 0x61697272656164) or not 0<epoch<=begin<end or end-begin>=lifetime_us or not 0<words<=65536 or (writes,parents,unlinks,invalidations,frees)!=(1026,1,1,2,2) or r.take('3B')!=(1,1,0):raise ValueError('retired lifetime')
     if len({root,pdpt,pd,pt})!=4 or any(not p or p&4095 or p>=1<<39 or p in (PA,PA+4096) for p in (root,pdpt,pd,pt)):raise ValueError('frames')
     if not hhdm or hhdm&4095 or hhdm>>47!=0x1ffff or hhdm+((1<<39)-1)>=1<<64:raise ValueError('HHDM')
     root0,pdpt0=r.words(512),r.words(512)
@@ -91,7 +92,7 @@ def _pass(data, sampled=False):
     raw0,raw1=r.raw(b0),r.raw(b1)
     if raw0!=raw1:raise ValueError('raw census changed')
     graph=decode_pages(raw0,pages)
-    g=_read_gate(r,root,hhdm,begin,end);catalog=g['catalog']
+    g=_read_gate(r,root,hhdm,begin,end,lifetime_us);catalog=g['catalog']
     def ram(page,owned=False):
         rows=[x for x in catalog if x[0]<page+4096 and page<x[0]+x[1]]
         if len(rows)!=1 or not rows[0][0]<=page<page+4096<=sum(rows[0][:2]) or rows[0][2] not in ((0,) if owned else (0,2,3,5,6)):raise ValueError('RAM provenance')
@@ -172,7 +173,7 @@ def _decode(blob,session,sampled,drain_state=False):
     for index in range(2):
         size,=r.take('I')
         if not 0<size<=33000:raise ValueError('pass extent')
-        p=_pass(r.raw(size),sampled)
+        p=_pass(r.raw(size),sampled,drain_state)
         if p['root']!=root or p['epoch']!=epoch+index:raise ValueError('pass binding')
         slots,coalescings,first,last=r.take('IIQQ')
         costs=r.take('7I');times=r.take('3Q');ram_steps,=r.take('Q')

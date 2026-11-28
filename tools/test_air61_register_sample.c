@@ -24,13 +24,22 @@ bool air61_sample_test_load(unsigned pass,unsigned slot,uint32_t offset,uint32_t
  if(!strcmp(sample_mode,"torn") && slot==4)*out^=1;
  if(!strcmp(sample_mode,"changed") && pass)*out^=1;
  if(!strcmp(sample_mode,"deadline") && slot==3)clock_ticks+=1600000;
+ if(pass==1 && slot==11){
+  unsigned elapsed=0;
+  if(!strcmp(sample_mode,"drain-late") || !strcmp(sample_mode,"old-limit"))elapsed=100000;
+  if(!strcmp(sample_mode,"drain-limit"))elapsed=AIR61_DRAIN_STATE_LIMIT_US;
+  if(elapsed)clock_ticks=(rw.pass[pass].view.window.begin+elapsed-1000)*16-1;
+ }
  if(!strcmp(sample_mode,"root") && slot==3)cr3+=4096;
  if(!strcmp(sample_mode,"dirty") && slot==3)pages[7][80]|=64;
  return true;
 }
+static bool at_limit(void){
+ return !strcmp(sample_mode,"old-limit") || !strcmp(sample_mode,"drain-limit");
+}
 int main(int argc,char **argv){
  sample_mode=argc>1?argv[1]:"normal";
- bool failure=!strcmp(sample_mode,"partial") || !strcmp(sample_mode,"unavailable") || !strcmp(sample_mode,"zero-ver") || !strcmp(sample_mode,"torn") || !strcmp(sample_mode,"changed") || !strcmp(sample_mode,"deadline") || !strcmp(sample_mode,"root") || !strcmp(sample_mode,"dirty") || !strcmp(sample_mode,"drain-pin") || !strcmp(sample_mode,"drain-torn");
+ bool failure=at_limit() || !strcmp(sample_mode,"partial") || !strcmp(sample_mode,"unavailable") || !strcmp(sample_mode,"zero-ver") || !strcmp(sample_mode,"torn") || !strcmp(sample_mode,"changed") || !strcmp(sample_mode,"deadline") || !strcmp(sample_mode,"root") || !strcmp(sample_mode,"dirty") || !strcmp(sample_mode,"drain-pin") || !strcmp(sample_mode,"drain-torn");
  if(failure){
   if(!setjmp(sample_halt)){sample_producer_main(argc,argv);assert(false);}
   assert(rw.result.state==AIR61_READ_POISONED && !(irq_flags&512));
@@ -38,6 +47,12 @@ int main(int argc,char **argv){
   assert(!rw.result.retired || rw.result.retired==1);
   if(!strcmp(sample_mode,"drain-pin"))assert(calls==3 && !strcmp(rw.result.fault,"target-drain-identity"));
   if(!strcmp(sample_mode,"drain-torn"))assert(calls==10 && !strcmp(rw.result.fault,"target-torn-bracket"));
+  if(at_limit()){
+   const struct air61_read_pass_result *p=&rw.pass[1].view;
+   assert(calls==24 && rw.result.retired==1 && !strcmp(rw.result.fault,"clock/deadline"));
+   assert(p->timing.rejected_clock-p->window.begin==p->timing.budget_us);
+   assert(p->window.claimed && !p->window.unlink_attempts && !p->window.frees);
+  }
   printf("sample-fixture: expected terminal poison calls=%u fault=%s\n",calls,rw.result.fault);return 0;
  }
  int result=sample_producer_main(argc,argv);assert(calls==24);return result;

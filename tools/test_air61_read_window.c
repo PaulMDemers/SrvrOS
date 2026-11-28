@@ -207,6 +207,10 @@ int main(void){
   for(unsigned stage=AIR61_STEP_GATE0;stage<AIR61_STEP_COUNT;stage++)if(t->start[stage]){
    assert(t->start[stage]>=last && t->start[stage]<=v->window.end);last=t->start[stage];
   }
+  assert(t->budget_us==AIR61_WINDOW_LIMIT_US && t->retire_active==AIR61_RETIRE_FINAL_GUARD);
+  for(unsigned step=AIR61_RETIRE_VERIFY_LINKED;step<AIR61_RETIRE_COUNT;step++){
+   assert(t->retire_start[step]>=last && t->retire_start[step]<=v->window.end);last=t->retire_start[step];
+  }
   assert(v->evidence.pt[80]==AIR61_READ_LEAF && v->evidence.pd[409]==(v->window.frames[1]|AIR61_READ_PARENT_FLAGS));
   for(unsigned i=0;i<12;i++)assert(v->offsets[i]==rw_offsets[i] && !memcmp(v->before[i],v->after[i],sizeof(v->before[i])));
   printf("read-pass=%u words=%u fw=%u slots=%u elapsed=%llu\n",pass,v->window.words,g->firmware_bytes,v->slots,(unsigned long long)(v->window.end-v->window.begin));
@@ -265,6 +269,9 @@ int main(void){
  rreset();delay_at_publish=true;assert(!run_series() && rw.result.state==AIR61_READ_POISONED);
  rreset();corrupt_parent=true;assert(!run_series() && rw.result.state==AIR61_READ_POISONED);
  rreset();corrupt_after_clear=true;assert(!run_series() && rw.result.state==AIR61_READ_POISONED);
+ assert(!frees && !pages[1][7] && rw.pass[0].view.window.claimed);
+ assert(rw.pass[0].view.timing.retire_active==AIR61_RETIRE_VERIFY_UNLINKED);
+ assert(!rw.pass[0].view.timing.retire_start[AIR61_RETIRE_FREE_PT]);
  rreset();assert(open_window());assert(!run_series());
  rreset();assert(!vmm_air61_read_window_qualify(&rio,0,1000));
  assert(!vmm_air61_read_window_qualify(&rio,1,UINT64_MAX));

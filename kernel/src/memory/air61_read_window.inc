@@ -35,7 +35,7 @@ static AIR61_SAMPLE_CODE bool rw_tick(void){
  if(!rw_guard())return false;
  rc.view.window.clock_samples++;uint64_t t=rw.io.now(rw.io.ctx);
  if(rc.view.window.state==AIR61_WINDOW_POISONED)return false;
- if(!t || t<rc.last || t<rc.view.window.begin || t-rc.view.window.begin>=AIR61_WINDOW_LIMIT_US){
+ if(!t || t<rc.last || t<rc.view.window.begin || t-rc.view.window.begin>=rc.view.timing.budget_us){
   if(!rc.view.window.fault)rc.view.timing.rejected_clock=t;
   return rw_fault("clock/deadline");
  }
@@ -49,7 +49,7 @@ static AIR61_SAMPLE_CODE bool rw_check(unsigned phase){
  * translation path is then verified before every source word/store. Only
  * redundant internal clock samples are coalesced by bounded access scopes. Census
  * entry counts keep their original meaning; mapper path words have a separate
- * fixed budget and all phases share this operation's100ms lifetime. */
+ * fixed budget and all phases share the selected lifetime. */
 static AIR61_SAMPLE_CODE bool rw_ram_address(uint64_t pa){return pa && pa<=RW_ADDR && !(pa&4095) && pa!=AIR61_WINDOW_PA && pa!=AIR61_WINDOW_PA+4096;}
 static AIR61_SAMPLE_CODE bool rw_ram(uint64_t pa){rc.view.window.ram_checks++;return rw.io.ram(rw.io.ctx,rw.current,pa);}
 static AIR61_SAMPLE_CODE bool rw_raw(uint64_t pa,unsigned i,uint64_t *out){
@@ -297,6 +297,10 @@ static AIR61_SAMPLE_CODE bool rw_prepare(void){
  struct air61_window_result *r=&rc.view.window;
  r->state=AIR61_WINDOW_CLAIMED;r->claimed=true;
  r->token=(struct air61_window_token){rw.result.owner,rw.result.epoch+rw.current,rw.result.root};
+ rc.view.timing.budget_us=AIR61_WINDOW_LIMIT_US;
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ if(rw.io.drain_state)rc.view.timing.budget_us=AIR61_DRAIN_STATE_LIMIT_US;
+#endif
  rc.hhdm=pmm_hhdm_offset();r->hhdm=rc.hhdm;r->clock_samples++;
  r->begin=rc.last=rw.io.now(rw.io.ctx);
  if(!rw.current)rw.result.begin=r->begin;
@@ -433,14 +437,30 @@ static AIR61_SAMPLE_CODE bool rw_slots(void){
  }
  return true;
 }
+static inline void rw_retire_step(enum air61_retire_step step){
+ rc.view.timing.retire_active=step;rc.view.timing.retire_start[step]=rc.last;
+}
 static AIR61_SAMPLE_CODE bool rw_retire(void){
  struct air61_window_result *r=&rc.view.window;uint64_t begin=rc.last;
+ rw_retire_step(AIR61_RETIRE_VERIFY_LINKED);
  if(!rw_verify(true,true,false))return rw_poison();
  if(rc.last<=begin){rw_fault("clock-stalled");return rw_poison();}
  uint64_t clear_begin=rc.last;r->unlink_attempts++;
- if(!rw_store(r->pdpt,7,r->frames[0]|AIR61_READ_PARENT_FLAGS,0,false) || !rw_parent_value(0) || !rw_invalidate() || !rw_verify(false,true,false))return rw_poison();
+ rw_retire_step(AIR61_RETIRE_UNLINK);
+ if(!rw_store(r->pdpt,7,r->frames[0]|AIR61_READ_PARENT_FLAGS,0,false))return rw_poison();
+ rw_retire_step(AIR61_RETIRE_READBACK);
+ if(!rw_parent_value(0))return rw_poison();
+ rw_retire_step(AIR61_RETIRE_INVALIDATE);
+ if(!rw_invalidate())return rw_poison();
+ rw_retire_step(AIR61_RETIRE_VERIFY_UNLINKED);
+ if(!rw_verify(false,true,false))return rw_poison();
  if(rc.last<=clear_begin){rw_fault("clock-stalled");return rw_poison();}
- if(!rw_free(1) || !rw_free(0) || !rw_tick())return rw_poison();
+ rw_retire_step(AIR61_RETIRE_FREE_PT);
+ if(!rw_free(1))return rw_poison();
+ rw_retire_step(AIR61_RETIRE_FREE_PD);
+ if(!rw_free(0))return rw_poison();
+ rw_retire_step(AIR61_RETIRE_FINAL_GUARD);
+ if(!rw_tick())return rw_poison();
  r->claimed=false;r->state=AIR61_WINDOW_RETIRED;return true;
 }
 AIR61_SAMPLE_CODE const struct air61_read_series_result *vmm_air61_read_window_result(void){return &rw.result;}

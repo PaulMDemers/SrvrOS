@@ -14,14 +14,15 @@ DRAIN_OPTIONS=OPTIONS.rstrip()+' srvros.hsw-live-vtd=read-only '+sample.DRAIN_TO
 def joint(mode=None):
     text=subprocess.check_output([str(EXE),*([mode] if mode else [])],text=True)
     blob=b''.join(base64.b64decode(s.split('data=')[1]) for s in text.splitlines() if s.startswith('hsw-sample-data:'))
-    with patch('hardware_haswell_firmware.PIN',PIN):p=q._decode(blob,SESSION,True,drain_state=mode=='drain')
+    drain=mode in ('drain','drain-late')
+    with patch('hardware_haswell_firmware.PIN',PIN):p=q._decode(blob,SESSION,True,drain_state=drain)
     early='\n'.join(s for s in text.splitlines() if s.startswith('hsw-ecam'))+'\n'
     graph=copy.deepcopy(p['passes'][0]['_graph'])
     for i in range(16):graph[0x2004000]['raw'][256+i]&=~32
     if mode=='ad-transition':graph[0x2004000]['raw'][2]&=~32
     a,b=fixture(early=early,graph=graph)
     ref=next(s for s in text.splitlines() if s.startswith('hsw-sample-ref:'))+'\n'
-    return text,a,b+ref+(DRAIN_OPTIONS if mode=='drain' else OPTIONS),blob
+    return text,a,b+ref+(DRAIN_OPTIONS if drain else OPTIONS),blob
 
 class SampleProfile(unittest.TestCase):
     @classmethod
@@ -41,7 +42,7 @@ class SampleProfile(unittest.TestCase):
                 self.assertTrue(all(x['words']<=65536 and x['end']-x['begin']<100000 and len(x['load_times'])==12 for x in p['passes']))
                 self.assertLessEqual(len('\n'.join(s for s in t.splitlines() if s.startswith('hsw-sample')))+1024,65536)
     def test_terminal_no_retry_on_read_uncertainty(self):
-        for mode in ('partial','unavailable','zero-ver','torn','changed','deadline','root','dirty','drain-pin','drain-torn'):
+        for mode in ('partial','unavailable','zero-ver','torn','changed','deadline','root','dirty','drain-pin','drain-torn','old-limit','drain-limit'):
             with self.subTest(mode=mode):
                 t=subprocess.check_output([str(EXE),mode],text=True)
                 self.assertIn('expected terminal poison',t)
@@ -66,6 +67,25 @@ class SampleProfile(unittest.TestCase):
         self.assertFalse(state['requester_drain_proven'])
         rows=list(proof['raw_samples'][0]);rows[7]=rows[9]=(0x10c,0x80000000)
         self.assertTrue(q.decode_drain_state(rows)['iotlb_command_pending'])
+    def test_drain_lifetime_extension_preserves_receipt_bounds(self):
+        t,a,b,blob=joint('drain-late')
+        with patch('hardware_haswell_firmware.PIN',PIN):
+            proof=sample.sample_result(t,a,b,SESSION,drain_state=True)
+            self.assertTrue(proof['retirement_verified'])
+            second=proof['passes'][1]
+            self.assertGreaterEqual(second['end']-second['begin'],100000)
+            self.assertLess(second['end']-second['begin'],110000)
+            reader=Reader(q.unpack(blob,True))
+            reader.raw(95)
+            size,=reader.take('I')
+            reader.raw(size+96+13*449+12*88)
+            size,=reader.take('I')
+            record=bytearray(reader.raw(size))
+            with self.assertRaisesRegex(ValueError,'retired lifetime'):
+                q._pass(record,sampled=True)
+            struct.pack_into('<Q',record,76,second['begin']+110000)
+            with self.assertRaisesRegex(ValueError,'retired lifetime'):
+                q._pass(record,sampled=True,drain_state=True)
     def test_distinct_closed_formats(self):
         from test_hardware_air61_read_profile import joint as old_joint
         t,a,b,blob=self.base

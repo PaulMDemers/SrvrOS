@@ -52,6 +52,12 @@ static void read_halt_timing(unsigned pass,const struct air61_read_pass_result *
   [AIR61_STEP_FINAL_VERIFY]="final-verify",[AIR61_STEP_LINK]="link",[AIR61_STEP_SLOTS]="slots",
   [AIR61_STEP_FINAL_CACHE]="final-cache",[AIR61_STEP_RETIRE]="retire",[AIR61_STEP_CLEANUP]="cleanup",
  };
+ static const char *const retire_names[AIR61_RETIRE_COUNT]={
+  [AIR61_RETIRE_VERIFY_LINKED]="verify-linked",[AIR61_RETIRE_UNLINK]="unlink",
+  [AIR61_RETIRE_READBACK]="readback",[AIR61_RETIRE_INVALIDATE]="invalidate",
+  [AIR61_RETIRE_VERIFY_UNLINKED]="verify-unlinked",[AIR61_RETIRE_FREE_PT]="free-pt",
+  [AIR61_RETIRE_FREE_PD]="free-pd",[AIR61_RETIRE_FINAL_GUARD]="final-guard",
+ };
  const struct air61_read_timing *timing=&result->timing;
  const uint64_t *s=timing->start;
  console_printf("read-time: pass=%u failed=%s fault_at_us=%u rejected_us=%u last_step=%s clocks=%u\n",
@@ -63,6 +69,14 @@ static void read_halt_timing(unsigned pass,const struct air61_read_pass_result *
   s[AIR61_STEP_PRIVATE_VERIFY],s[AIR61_STEP_GAP],s[AIR61_STEP_GATE1],s[AIR61_STEP_FINAL_VERIFY],s[AIR61_STEP_LINK]);
  console_printf("read-start-us: slots=%u final_cache=%u retire=%u cleanup=%u\n",
   s[AIR61_STEP_SLOTS],s[AIR61_STEP_FINAL_CACHE],s[AIR61_STEP_RETIRE],s[AIR61_STEP_CLEANUP]);
+ if(timing->retire_active){
+  const uint64_t *t=timing->retire_start;
+  console_printf("read-retire: pass=%u last=%s budget_us=%u linked/unlink/readback/invalidate=%u,%u,%u,%u\n",
+   (uint64_t)pass,retire_names[timing->retire_active],(uint64_t)timing->budget_us,
+   t[AIR61_RETIRE_VERIFY_LINKED],t[AIR61_RETIRE_UNLINK],t[AIR61_RETIRE_READBACK],t[AIR61_RETIRE_INVALIDATE]);
+  console_printf("read-retire-us: unlinked/free_pt/free_pd/final_guard=%u,%u,%u,%u\n",
+   t[AIR61_RETIRE_VERIFY_UNLINKED],t[AIR61_RETIRE_FREE_PT],t[AIR61_RETIRE_FREE_PD],t[AIR61_RETIRE_FINAL_GUARD]);
+ }
  console_printf("read-census: end_us=%u status=%u pages=%u prepare=%u reads=%u,%u bytes=%u,%u\n",
   result->window.census_end,(uint64_t)result->census.status,(uint64_t)result->census.pages,
   (uint64_t)result->census.prepare_reads,(uint64_t)result->census.reads[0],(uint64_t)result->census.reads[1],

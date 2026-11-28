@@ -18,7 +18,7 @@ def unpack(text, fmt):
     return list(struct.unpack(fmt, raw))
 
 
-def cpu_record(v, *, msr_only=False):
+def cpu_record(v, *, msr_only=False, outer_limit_us=100000):
     if v[:4] != [0x756e6547, 0x49656e69, 0x6c65746e, 0x40651] or v[4] & 0x11020 != 0x11020 or v[5] != 39 or v[6] & (3 << 29):
         raise ValueError('exact Haswell CPU/features/cache mode')
     cr0, pat, cap, default, begin, end, root, cr4, hhdm, outer0, outer1 = v[6:17]
@@ -28,7 +28,7 @@ def cpu_record(v, *, msr_only=False):
         raise ValueError('read/array bounds')
     if default & ~0xcff or default & 255 not in LEGAL or (default & 255 == 1 and not cap & 1024) or (default & 0x400 and not cap & 256):
         raise ValueError('MTRR default')
-    if not 0 < outer0 <= begin < end <= outer1 or outer1-outer0 > 100000 or not root or root & 4095 or root >= 1 << 39 or cr4 & (1 << 12) or not hhdm or hhdm + UNIT >= 1 << 64:
+    if not 0 < outer0 <= begin < end <= outer1 or outer1-outer0 > outer_limit_us or not root or root & 4095 or root >= 1 << 39 or cr4 & (1 << 12) or not hhdm or hhdm + UNIT >= 1 << 64:
         raise ValueError('context clock/root/mode')
     types = [(pat >> (8*i)) & 255 for i in range(8)]
     if any(t not in LEGAL + (7,) for t in types):

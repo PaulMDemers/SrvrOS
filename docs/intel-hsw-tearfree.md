@@ -346,7 +346,9 @@ within the batch. The second pass must match the first and both mappings
 must retire. The receipt uses the existing wire layout with a distinct boot
 token and register allowlist. [Intel VT-d register descriptions](https://cdrdv2-public.intel.com/774206/vt-directed-io-spec%20.pdf)
 
-Each pass retains its 100 ms limit and twelve DWORDs. The joined decoder
+Each pass reads twelve DWORDs. The first release bounded each lifetime to
+100 ms. The retry allows 110 ms for v10 only, with the same 100 ms census
+cap and 20–100 ms between read batches. The joined decoder
 reports raw command and fault status and distinguishes a pending command
 from a clear bit. It binds that sample to the later inherited-surface
 observation. Slot 4096 stays protected. The profile issues no invalidation,
@@ -366,6 +368,14 @@ completion and full retirement remain unverified. Pass two and the slot
 4096 audit were skipped. The halt preceded USB logging, so
 this is a photographed first-pass observation. Ubuntu returned with the
 one-shot consumed, and recovery and the offline USB check verified.
+
+The retry records the last retirement step and guarded timestamps for the
+linked verification, parent unlink, readback, CPU invalidation, unlinked
+verification, frame release and final guard. The first census already needs
+most of the lifetime. The extra 10 ms keeps the full graph rechecks and
+guarded retirement in place. Acceptance requires both retirements, the
+existing identical-read and graph checks, and a subsequent read-only
+slot 4096 observation with Pipe A active.
 
 ### Private bind prerequisites
 
