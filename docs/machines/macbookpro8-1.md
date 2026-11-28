@@ -536,6 +536,13 @@ SrvrOS trial checks the pinned local HT profile and firmware tables,
 requires fresh radio calibration status, and compares complete beacon
 frames from the PIO FIFO without enabling PCI bus mastering.
 
+Release `bfa0d0c0f1f159de` completed the pinned init writes, radio
+calibration, HT programming and channel 10 sequence. The receive gate
+expected the entire DMA control register to be zero and never started
+PIO. Firmware retirement, both flash reports and Ubuntu return verified.
+The retry measures the initial control and status, checks disabled DMA
+separately, and changes only the direct-FIFO control bits.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

@@ -1,6 +1,7 @@
 /* BCM4331 package 9, HT PHY rev 1, D11 rev 29, 2.4 GHz channel 10 only. */
 enum {
-    PIO_RX_DIRECT = 0x220, PIO_DIRECT_FIFO = 0x100,
+    PIO_RX_DIRECT = 0x220, PIO_DIRECT_FIFO = 0x100, RX_DMA_ENABLE = 1,
+    RX_DMA_STATUS = 0x230,
     PIO_RX_CONTROL = 0x238, PIO_RX_DATA = 0x23c, PIO_FRAME_READY = 1, PIO_DATA_READY = 2,
     RADIO_SELECTOR = 0x3d8, RADIO_DATA = 0x3da, PHY_SELECTOR = 0x3fc, PHY_DATA = 0x3fe,
     PHY_RF_COMMAND = 0x810, PHY_RF_POWER = 2,
@@ -171,15 +172,28 @@ static bool passive_radio_trial(volatile uint32_t *regs, const struct radio_asse
     console_printf("bcm4331-radio: initvals=%u radio=%u phy=%u channel10=%u\n",
         (uint64_t)initial, (uint64_t)powered, (uint64_t)phy_ready, (uint64_t)tuned);
     uint32_t mac = regs[D11_MAC_CONTROL / 4];
+    uint32_t rx_control = regs[PIO_RX_DIRECT / 4];
+    console_printf("bcm4331-radio: receive_preflight mac=%x rxctl=%x rxstatus=%x\n",
+        (uint64_t)mac, (uint64_t)rx_control, (uint64_t)regs[RX_DMA_STATUS / 4]);
     unsigned matches = 0;
-    if (tuned && mac != UINT32_MAX && !(mac & D11_MAC_ENABLED) && regs[PIO_RX_DIRECT / 4] == 0) {
+    if (tuned && mac != UINT32_MAX && !(mac & D11_MAC_ENABLED) && rx_control != UINT32_MAX) {
         volatile uint16_t *half = (volatile uint16_t *)regs;
+        regs[D11_SHM_CONTROL / 4] = (D11_SHM_SHARED << 16) | (0x16 / 4);
+        half[D11_SHM_DATA_ODD / 2] = 29;
         regs[D11_SHM_CONTROL / 4] = (D11_SHM_SHARED << 16) | (0xa0 / 4);
         half[D11_SHM_DATA / 2] = BEACON_CHANNEL;
         regs[D11_SHM_CONTROL / 4] = (D11_SHM_SHARED << 16) | (0x34 / 4);
         half[D11_SHM_DATA / 2] = 0;
-        regs[PIO_RX_DIRECT / 4] = PIO_DIRECT_FIFO;
-        if (regs[PIO_RX_DIRECT / 4] == PIO_DIRECT_FIFO) {
+        /* A fresh D11 reset can still expose default receive-control bits.
+         * Change only the RX DMA and direct-mode bits with the MAC disabled. */
+        uint32_t idle = rx_control & ~(RX_DMA_ENABLE | PIO_DIRECT_FIFO);
+        regs[PIO_RX_DIRECT / 4] = idle;
+        bool dma_disabled = !(regs[PIO_RX_DIRECT / 4] & RX_DMA_ENABLE) &&
+            wait_d11_register(regs, RX_DMA_STATUS, 0xf0000000, 0);
+        if (dma_disabled) regs[PIO_RX_DIRECT / 4] = idle | PIO_DIRECT_FIFO;
+        bool direct = dma_disabled && (regs[PIO_RX_DIRECT / 4] & (RX_DMA_ENABLE | PIO_DIRECT_FIFO)) == PIO_DIRECT_FIFO;
+        console_printf("bcm4331-radio: rx_dma_disabled=%u direct_fifo=%u\n", (uint64_t)dma_disabled, (uint64_t)direct);
+        if (direct) {
             regs[D11_IRQ_REASON / 4] = UINT32_MAX;
             regs[D11_MAC_CONTROL / 4] = mac | MAC_BEACON_PROMISCUOUS | MAC_PROMISCUOUS |
                 MAC_AWAKE | MAC_DISCARD_PMQ | D11_MAC_ENABLED;
@@ -188,8 +202,8 @@ static bool passive_radio_trial(volatile uint32_t *regs, const struct radio_asse
         regs[D11_MAC_CONTROL / 4] = mac;
         bool mac_stopped = !(regs[D11_MAC_CONTROL / 4] & D11_MAC_ENABLED);
         bool suspended = mac_stopped && wait_d11_register(regs, D11_IRQ_REASON, D11_MAC_SUSPENDED, D11_MAC_SUSPENDED);
-        regs[PIO_RX_DIRECT / 4] = 0;
-        *retired = mac_stopped && !regs[PIO_RX_DIRECT / 4];
+        regs[PIO_RX_DIRECT / 4] = idle;
+        *retired = mac_stopped && !(regs[PIO_RX_DIRECT / 4] & (RX_DMA_ENABLE | PIO_DIRECT_FIFO));
         console_printf("bcm4331-radio: mac_suspended_event=%u\n", (uint64_t)suspended);
     }
     if (initial) {
