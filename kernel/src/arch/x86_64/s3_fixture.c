@@ -44,6 +44,32 @@ static bool q35_tcg(void) {
         pch_is(0x2918);
 }
 
+static const struct pci_device *q35_xhci(void) {
+    for (uint64_t i = 0; i < pci_device_count(); i++) {
+        const struct pci_device *device = pci_device_at(i);
+        if (!device->bus && device->device == 2 && !device->function &&
+            device->vendor_id == 0x1b36 && device->device_id == 0x000d &&
+            device->class_code == 0x0c && device->subclass == 3 && device->prog_if == 0x30)
+            return device;
+    }
+    return NULL;
+}
+
+static bool restore_q35_xhci_bar(const struct pci_device *device) {
+    if (pci_read_config32(device, 0) != 0x000d1b36) return false;
+    uint16_t command = pci_read_config16(device, 4);
+    if (command == UINT16_MAX) return false;
+    /* Firmware wake leaves this endpoint's BAR unassigned. Restore the
+     * enumerated window with memory decode and bus mastering fenced. */
+    uint16_t fenced = command & ~6u;
+    pci_write_config16(device, 4, fenced);
+    if (pci_read_config16(device, 4) != fenced) return false;
+    pci_write_config32(device, 0x10, device->bar[0]);
+    pci_write_config32(device, 0x14, device->bar[1]);
+    return pci_read_config32(device, 0x10) == device->bar[0] &&
+        pci_read_config32(device, 0x14) == device->bar[1];
+}
+
 static bool contains_nvs(const struct limine_memmap_response *map, uint64_t address) {
     for (uint64_t i = 0; map && i < map->entry_count; i++) {
         const struct limine_memmap_entry *entry = map->entries[i];
@@ -201,6 +227,12 @@ bool s3_q35_fixture(const struct limine_memmap_response *map) {
         console_write("s3-fixture: refused platform or processor context\n");
         return false;
     }
+    const struct pci_device *xhci = q35_xhci();
+    if (!xhci || (xhci->bar[0] & 15u) != 4 || (!xhci->bar[1] && xhci->bar[0] == 4) ||
+        pci_read_config32(xhci, 0x10) != xhci->bar[0] || pci_read_config32(xhci, 0x14) != xhci->bar[1]) {
+        console_write("s3-fixture: refused xHCI PCI resource\n");
+        return false;
+    }
     uint32_t fadt_length = 0;
     const uint8_t *fadt = find_fadt(&fadt_length);
     uint64_t facs = fadt_facs(fadt, fadt_length, 0x205348434f42ull, 0x604); /* BOCHS */
@@ -254,5 +286,8 @@ bool s3_q35_fixture(const struct limine_memmap_response *map) {
     bool pass = returned && *vector == 0 && retired && vmm_diagnostic_sole_kernel_root(root);
     console_printf("s3-fixture: resumed=%u vector_restored=%u page_retired=%u result=%s\n",
         (uint64_t)returned, (uint64_t)(*vector == 0), (uint64_t)retired, pass ? "PASS" : "INCOMPLETE");
-    return pass;
+    if (!pass) return false;
+    bool bar_restored = restore_q35_xhci_bar(xhci);
+    console_printf("q35-s3-usb: bar_restored=%u\n", (uint64_t)bar_restored);
+    return bar_restored;
 }

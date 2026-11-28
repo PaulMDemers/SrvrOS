@@ -1807,7 +1807,7 @@ def main():
     ethernet.add_argument("--ehci-lid-probe", type=compact_volume_uuid, metavar="UUID",
                           help="stage the MacBookPro8,1 lid state trial with two USB reports")
     ethernet.add_argument("--ehci-s3-preflight", type=compact_volume_uuid, metavar="UUID",
-                          help="stage the MacBookPro8,1 read-only S3 firmware preflight")
+                          help="stage the MacBookPro8,1 awake S3 firmware and USB preflight")
     parser.add_argument("--ehci-lid-run", metavar="ID",
                         help="generate a distinct release for a repeated EHCI lid trial")
     ethernet.add_argument("--ehci-ethernet-dhcp", type=compact_volume_uuid, metavar="UUID",

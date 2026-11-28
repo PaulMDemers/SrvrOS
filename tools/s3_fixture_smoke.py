@@ -72,9 +72,13 @@ def main():
                     else:
                         raise RuntimeError("QEMU did not enter suspended state")
                     print("s3-fixture: QMP observed suspended; triggering wake", flush=True)
+                    (logs / "pci-suspended.json").write_text(json.dumps(monitor.call("query-pci"), indent=2) + "\n")
                     monitor.call("system_wakeup")
-                    final = wait_for(serial, lambda log: "q35-s3-usb: saved=" in log, vm, 30)
+                    final = wait_for(serial, lambda log: "q35-s3-usb: saved=" in log or
+                                     "q35-s3-usb: bar_restored=0" in log, vm, 30)
                     assert "s3-fixture: resumed=1 vector_restored=1 page_retired=1 result=PASS" in final
+                    if "q35-s3-usb: saved=1 retired=1" not in final and vm.poll() is None:
+                        (logs / "pci-woken.json").write_text(json.dumps(monitor.call("query-pci"), indent=2) + "\n")
                     assert "q35-s3-usb: saved=1 retired=1" in final
                     assert final.count("srvros: entering kernel") == 1 and not has_fatal_exception(final)
                     assert vm.wait(timeout=10) == 0
@@ -88,7 +92,8 @@ def main():
         image = read_workspace(stick, volume)
         assert image.read("srvros-work/anchor.txt") == b"workspace anchor\n"
         report = image.read("srvros-work/q35-s3-final.txt")
-        assert b"s3-fixture: resumed=1" in report and b"q35-s3-usb: mounted=1" in report
+        assert b"s3-fixture: resumed=1" in report and b"q35-s3-usb: bar_restored=1" in report
+        assert b"q35-s3-usb: mounted=1" in report
         (logs / "q35-s3-final.txt").write_bytes(report)
     receipt = {"result": "PASS", "kernel_sha256": digest, "firmware": str(args.ovmf),
                "suspend_observed": True, "resume_same_boot": True, "wake_page_retired": True,

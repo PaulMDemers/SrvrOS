@@ -942,6 +942,28 @@ the fixed power-button enable bit set. The next candidate restores only
 that observed enable halfword after mode exit. The repeat again
 rediscovered the workspace and saved both reports.
 
+Release `0a57d01e10e4b689` verified SCI entry and exact register rollback
+with APIC delivery masked. It restored the captured fixed event enable,
+preserved the firmware's GPE 6 enable and verified clean EHCI retirement
+and a fresh attachment. Both reports from each of the three awake runs
+matched their archived copies. Allocation, prior files and one-shot
+Ubuntu recovery verified.
+
+The Ubuntu reference captured wake-device preparation, ACPI sleep entry,
+leave-sleep phases and both EHCI resume callbacks. The existing flash
+report had the same SHA-256 before and after S3. Wake arrived before the
+RTC alarm and its source was undetermined. The function trace did not
+record individual AML method names.
+
+The Q35 USB extension initially resumed the same kernel with the xHCI
+BAR unassigned. QMP PCI snapshots confirmed the loss across S3. The
+fixture now restores its captured xHCI BAR with memory decode and bus
+mastering fenced. It verified fresh USB discovery, a mounted exFAT
+workspace and a final report written after real Q35 S3 wake. The report
+and original workspace anchor verified after the VM exited. USB starts
+after wake in this fixture. Native Apple sleep/wake AML execution and
+lid wake arming remain open before an end-to-end native sleep trial.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
@@ -1958,7 +1980,7 @@ Offline allocation passed for 143 files with zero writes.
 | Audio | Built-in right speaker and stream teardown verified on `024a87e1e8d4bf42`. This unit has a broken left speaker | Qualify audible left-channel output with working hardware |
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
-| Lid and suspend | SrvrOS recorded both physical close/reopen cycles in `080d4028bdb8a4e2`. The S3 preflight `f32d2e4f96b80d54` verified both flash reports. Ubuntu verified S3 suspend/resume | The SrvrOS CPU wake path passed in Q35. Native lid-triggered S3 and physical lid wake remain open |
+| Lid and suspend | SrvrOS recorded both physical close/reopen cycles in `080d4028bdb8a4e2`. Awake release `0a57d01e10e4b689` verified SCI rollback, a fresh EHCI attachment and both flash reports. Ubuntu verified S3 suspend/resume | Q35 verified CPU wake and fresh USB discovery after S3. Native Apple sleep/wake AML execution and lid-triggered S3 remain open |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
 | Wi-Fi | Settings Connect, Disconnect, and reconnect passed on BCM4331 against `Demers2.4` in `d6defd5b7a97090b`. The original association resumed gateway traffic after a 15-second driver receive gap in `c809111f83871175`. Both trials saved both reports | Three instrumented warm startups passed WPA2, DHCP and gateway traffic. Two corrected cold starts on `1c813017` admitted the Apple subsystem and passed the same connection checks, with both reports verified each time. Access-point outage and automatic reassociation testing are deferred |
 

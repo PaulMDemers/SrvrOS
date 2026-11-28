@@ -1355,12 +1355,15 @@ RAM requires separate qualification.
 
 For the S3 prerequisites, build the current kernel and run
 `python3 tools/s3_fixture_smoke.py`. The isolated Q35 guest proves a
-firmware S3 wake into the same kernel boot. Stage the read-only MacBook
+firmware S3 wake into the same kernel boot. Stage the awake MacBook
 preflight with `--ehci-s3-preflight UUID` and rehearse it with the same EHCI
 smoke test. The native preflight records the S3 tables, FACS mapping,
-available low wake page, and lid wake GPE. Collect both `ehci-lidstate-*`
-reports. `CAPTURED` verifies the observations and `sleep=0` records that
-the test ran while awake.
+available low wake page, and lid wake GPE. It flushes and retires the
+first EHCI attachment, checks SCI mode entry and rollback with delivery
+masked, then rediscovers the selected workspace. Collect both
+`ehci-lidstate-*` reports and check `before_retired=1 reopened=1`,
+`mode_roundtrip=1`, and the second EHCI attachment. `CAPTURED` records
+the observations and `sleep=0` identifies an awake test.
 
 ### Prompted Ethernet cable checks
 
