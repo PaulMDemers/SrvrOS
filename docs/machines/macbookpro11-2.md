@@ -998,6 +998,32 @@ Trace scope from `f1c70898` with main at `b062ba18` covers the first Netgear
 station OUT, its cleanup, and the xHCI host fixture. Use the archived
 station return and the Linux authentication capture from the same adapter.
 
+The station exit log contains the full phase-2 journal tail. DCI 10
+completed firmware commands at TRBs `0x6c4280` and `0x6c4290`, and the
+adapter drained both. The next TRB, `0x6c42a0`, held the 78-byte
+authentication transfer. The poll counted zero events for this slot and
+endpoint before dispatch. At Stop the dequeue was `0x6c42a1` (that TRB,
+cycle one), one TRB behind the producer. The running-context dequeue
+stayed at its initial value even during the successful firmware commands.
+The receipt cannot distinguish host scheduling from endpoint backpressure.
+
+Ubuntu completed a 78-byte authentication transfer on EP5 OUT on the same
+adapter. Comparing its captured 48-byte descriptor with the SrvrOS builder
+shows differences in the firmware TX report request at byte 10,
+the report sequence tag at byte 24, and the resulting checksum at byte 28.
+The effect of those differences on this timeout is unverified.
+[Linux rtw88 transmit descriptor and report handling](https://github.com/torvalds/linux/blob/v6.17/drivers/net/wireless/realtek/rtw88/tx.c).
+
+Image `5fafa9293311c5df` (source `369e16c5`) records the published TRB
+and wait duration, reads adapter TXDMA, queue, CR and pause state on
+authentication timeout, and captures the final completion code and cursor
+across Stop. The xHCI host fixture withholds the first authentication
+completion and checks single submission and cleanup. The lifecycle fixture
+and all five exact-image VM rehearsals passed. The private candidate and
+qualification receipt are archived. The physical journal still contains the
+previous return and the candidate awaits its first cold run. Local results
+are under `build/bringup/pro112-rtl8822bu-auth-trace/`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
