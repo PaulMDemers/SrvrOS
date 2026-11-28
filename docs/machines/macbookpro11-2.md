@@ -694,6 +694,18 @@ byte `0xbf` and `TXPAUSE=0xff`. Gate and stop IN before verifying
 restoration of the original aggregation and security settings.
 [Linux USB aggregation routine](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/usb.c).
 
+Release `0b7b3bacada36cb3` on `476226fa` verifies the captured FIFO
+boundary, 512-byte USB burst mode and offset control before posting.
+Both windows hold MAC security, DMA and scheduler setup fixed. The
+second changes only the aggregation fields and preserves the original
+IN owner. Cleanup restores the saved aggregation values after a
+verified RX gate and Stop. The native fixture covered the two windows,
+boundary and readback refusal, an opening completion excluded from
+the second window, and cleanup failures. Both sibling adapter
+regressions, 329 boot and trial tests, and all five exact-image VM
+rehearsals passed. The run and Linux proof use
+`build/bringup/pro112-rtl8822bu-rx-fifo/`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
