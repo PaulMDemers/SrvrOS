@@ -683,6 +683,16 @@ adapter and receipt collector. The original framebuffer and the normal
 panel recovery path stay pinned. The census makes no PTE writes and
 grants no ownership.
 
+Release `96bc0d488b190eac` saved `session-0006614d9cec73fb-00` and
+returned automatically. The original framebuffer verified across dark
+recovery, both CRC checks matched, slot 12292 stayed unchanged, and the
+offline filesystem and allocation checks passed. The census itself stopped
+before its first map. Its guard still required one completed pixel sample
+after the dark framebuffer comparison had recorded the second sample.
+The retry starts from `b189f81a`, binds the census to that verified second
+sample, and records the precise admission or survey failure without changing
+the PCI, SMI or time guards. Main `24feebdd` and PR 567 were reviewed again.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
