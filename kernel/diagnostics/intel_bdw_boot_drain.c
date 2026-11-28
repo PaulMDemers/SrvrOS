@@ -144,7 +144,8 @@ static bool bind_pages(struct bdw_boot_bind *b)
 {
     const struct bdw_boot_page_io io = {b,page_proof,page_now,page_pte,page_exchange,page_invalidate,page_aperture};
     const struct scanout_interval *loan = &b->hold.interval;
-    return (!b->hold.driver_range || intel_bdw_boot_page_in_loan(&b->seed,&b->scratch_source,&io,loan,true)) &&
+    bool needs_seed = b->hold.driver_range && !b->private_source.inherited_backing;
+    return (!needs_seed || intel_bdw_boot_page_in_loan(&b->seed,&b->scratch_source,&io,loan,true)) &&
            intel_bdw_boot_page_in_loan(&b->page,&b->private_source,&io,loan,false);
 }
 
@@ -152,9 +153,10 @@ static bool run(struct bdw_boot_drain *d, const struct bdw_boot_page_binding *b,
                 const struct scanout_interval *driver_range, const struct bdw_boot_drain_io *io,
                 struct bdw_boot_bind *bind, const struct scanout_interval *firmware_range)
 {
+    bool needs_empty = driver_range && (!bind || !bind->private_source.inherited_backing);
     if (!d || d->object || !b || !b->driver || !b->epoch || !b->root || (b->root & 4095u) ||
         !(b->plane & (1u << 31)) || (b->plane & (1u << 9)) || (b->surface & 4095u) || b->surface >= b->fence_end ||
-        (driver_range ? b->original != 0 : !(b->original & 1u) || b->original == UINT64_MAX) ||
+        (needs_empty ? b->original != 0 : !(b->original & 1u) || b->original == UINT64_MAX) ||
         !io || !io->ctx || !io->parent || !io->now ||
         !io->pause || !io->read || !io->read_pte || !io->request || !io->held || !io->release ||
         !scanout_interval_boot_framebuffer_matches(b->mmio, b->aperture, b->aperture_bytes, b->fence_end)) return false;
@@ -189,7 +191,7 @@ static bool run(struct bdw_boot_drain *d, const struct bdw_boot_page_binding *b,
     if (!wait_for_drain(d)) return finish(d, BDW_DRAIN_RETAINED);
     if (bind) {
         if (!bind_pages(bind)) return finish(d, BDW_DRAIN_RETAINED);
-        if (driver_range) expected = bind->seed.entry.replacement;
+        if (bind->seed.state == BDW_PAGE_SEEDED) expected = bind->seed.entry.replacement;
         if (!originals_live(d,expected) || !held_for_page(bind)) return finish(d, BDW_DRAIN_RETAINED);
     }
     d->release_begin = d->last;
@@ -239,19 +241,36 @@ bool intel_bdw_boot_bind(struct bdw_boot_bind *t, const struct bdw_boot_page_bin
     return run(&t->hold,b,range,io,t,NULL);
 }
 
-bool intel_bdw_boot_bind_occupied(struct bdw_boot_bind *t, const struct bdw_boot_page_binding *b,
-                                  const struct scanout_interval *firmware_range,
-                                  const struct bdw_boot_drain_io *io, const struct bdw_boot_page_io *page_io)
+static bool bind_occupied(struct bdw_boot_bind *t, const struct bdw_boot_page_binding *b,
+                          struct scanout_interval *driver_range, uint64_t framebuffer_first,
+                          const struct scanout_interval *firmware_range,
+                          const struct bdw_boot_drain_io *io, const struct bdw_boot_page_io *page_io)
 {
-    if (!t || t->hold.object || t->seed.object || t->page.object || !b || !firmware_range ||
+    if (!t || t->hold.object || t->seed.object || t->page.object || !b || (!driver_range && !firmware_range) ||
         !intel_dma_ordinary_low_page(b->backing) || !(b->original & 1u) ||
         b->original < 4096 || b->original >= 0x100000000ull ||
         b->backing == (b->original & ~4095ull) ||
+        (driver_range && (!framebuffer_first || (framebuffer_first & 4095u) ||
+                          b->original != (framebuffer_first | 1u))) ||
         b->marker[0] == b->marker[1] || !page_io || !page_io->ctx || !page_io->prove ||
         !page_io->read_pte || !page_io->exchange || !page_io->invalidate || !page_io->read_aperture)
         return false;
     t->page_io = *page_io;
     t->private_source = (struct bdw_boot_page_source){.object=&t->private_source,.binding=*b,
-        .firmware_range=firmware_range};
-    return run(&t->hold,b,NULL,io,t,firmware_range);
+        .driver_range=driver_range,.firmware_range=firmware_range,.inherited_backing=framebuffer_first};
+    return run(&t->hold,b,driver_range,io,t,firmware_range);
+}
+
+bool intel_bdw_boot_bind_inherited(struct bdw_boot_bind *t, const struct bdw_boot_page_binding *b,
+                                   struct scanout_interval *driver_range, uint64_t framebuffer_first,
+                                   const struct bdw_boot_drain_io *io, const struct bdw_boot_page_io *page_io)
+{
+    return bind_occupied(t,b,driver_range,framebuffer_first,NULL,io,page_io);
+}
+
+bool intel_bdw_boot_bind_occupied(struct bdw_boot_bind *t, const struct bdw_boot_page_binding *b,
+                                  const struct scanout_interval *firmware_range,
+                                  const struct bdw_boot_drain_io *io, const struct bdw_boot_page_io *page_io)
+{
+    return bind_occupied(t,b,NULL,0,firmware_range,io,page_io);
 }

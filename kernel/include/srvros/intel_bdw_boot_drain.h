@@ -68,6 +68,14 @@ bool intel_bdw_boot_bind(struct bdw_boot_bind *, const struct bdw_boot_page_bind
                          const uint64_t private_marker[2], const struct bdw_boot_drain_io *,
                          const struct bdw_boot_page_io *);
 
+/* Temporarily replace an inherited alias in a driver-owned, display-disjoint
+ * interval. The provider independently proves the exact first framebuffer
+ * page and keeps it pinned. Restore the inherited word before reopening any
+ * reader. A clean return leaves the boot driver's reservation registered. */
+bool intel_bdw_boot_bind_inherited(struct bdw_boot_bind *, const struct bdw_boot_page_binding *,
+                                   struct scanout_interval *driver_range, uint64_t framebuffer_first,
+                                   const struct bdw_boot_drain_io *, const struct bdw_boot_page_io *);
+
 /* Borrow one occupied slot from its registered firmware interval. The native
  * provider must own the handoff, pin the original and replacement backing and
  * retain the traffic ticket through both invalidations and marker checks. The

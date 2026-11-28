@@ -33,11 +33,11 @@ struct bdw_boot_page_binding {
 struct bdw_boot_page_source {
     const struct bdw_boot_page_source *object;
     struct bdw_boot_page_binding binding;
-    /* Optional boot driver loan. The original entry must map the driver's
-     * pinned, low-RAM scratch page. An inherited or empty entry is no grant. */
+    /* Optional boot driver loan. An inherited alias can be tested only when
+     * the provider proves it aliases the pinned first framebuffer page. */
     struct scanout_interval *driver_range;
     const struct scanout_interval *firmware_range;
-    uint64_t scratch;
+    uint64_t scratch, inherited_backing;
     struct bdw_boot_page *consumer;
     bool consumed;
 };
@@ -47,7 +47,7 @@ struct bdw_boot_page_proof {
     const void *driver;
     const struct scanout_interval *driver_range;
     const struct scanout_interval *firmware_range;
-    uint64_t scratch;
+    uint64_t scratch, inherited_backing;
     uint64_t epoch, root, at;
     uint32_t index, rights, plane, programmed, live;
 };
@@ -75,7 +75,7 @@ struct bdw_boot_page {
     struct bdw_boot_page_binding binding;
     const struct scanout_interval *driver_range;
     const struct scanout_interval *firmware_range;
-    uint64_t scratch;
+    uint64_t scratch, inherited_backing;
     struct bdw_boot_page_io io;
     struct scanout_interval interval;
     const struct scanout_interval *outer_loan;

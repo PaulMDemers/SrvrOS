@@ -16,7 +16,7 @@ static bool live(const struct bdw_boot_page *p)
     return p->object == p && p->state == BDW_PAGE_RUNNING && p->source->object == p->source &&
            p->source->consumer == p && p->source->consumed && same_binding(&p->binding,&p->source->binding) &&
            p->source->driver_range == p->driver_range && p->source->firmware_range == p->firmware_range &&
-           p->source->scratch == p->scratch &&
+           p->source->scratch == p->scratch && p->source->inherited_backing == p->inherited_backing &&
            display_access_held(&p->binding.display);
 }
 
@@ -55,7 +55,7 @@ static bool prove(struct bdw_boot_page *p)
     return after && proof.at >= before && proof.at <= after && proof.source == p->source &&
            proof.driver == b->driver && proof.epoch == b->epoch && proof.root == b->root &&
            proof.driver_range == p->driver_range && proof.firmware_range == p->firmware_range &&
-           proof.scratch == p->scratch &&
+           proof.scratch == p->scratch && proof.inherited_backing == p->inherited_backing &&
            proof.index == b->index && proof.rights == BDW_PAGE_REQUIRED && proof.plane == b->plane &&
            (proof.programmed & ~8u) == b->surface && proof.live == b->surface;
 }
@@ -136,19 +136,21 @@ static bool begin_page(struct bdw_boot_page *p, struct bdw_boot_page_source *sou
         !scanout_interval_boot_framebuffer_matches(b->mmio,b->aperture,b->aperture_bytes,b->fence_end)) return false;
     const struct scanout_interval *owner = source->driver_range;
     const struct scanout_interval *firmware = source->firmware_range;
-    uint64_t scratch = source->scratch;
+    uint64_t scratch = source->scratch, inherited = source->inherited_backing;
+    uint64_t original_frame = scratch ? scratch : inherited;
     if (firmware && (owner || !loan || seed)) return false;
     if (owner) {
-        if (!scratch || (scratch & 4095) || scratch >= 0x100000000ull ||
+        if (!original_frame || (scratch && inherited) || (original_frame & 4095) ||
+            original_frame >= 0x100000000ull || (inherited && (!loan || seed)) ||
             !scanout_interval_held(owner,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,owner->pages)) return false;
-    } else if (scratch) return false;
+    } else if (scratch || inherited) return false;
     if (loan && ((!owner && !firmware) || loan == &p->interval || loan->lender != (owner ? owner : firmware) ||
         loan->firmware || loan->driver != (owner ? b->driver : NULL) ||
         !scanout_interval_held(loan,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,
                                (struct scanout_space_range){b->index,1}))) return false;
     if (seed) {
         if (!owner || b->original || b->backing != scratch) return false;
-    } else if (!(b->original & 1) || (owner && b->original != (scratch | 1))) return false;
+    } else if (!(b->original & 1) || (owner && b->original != (original_frame | 1))) return false;
     struct scanout_transfer_manifest m = {.first=b->index,.pages=1,.original=&b->original,
         .aperture_bytes=b->aperture_bytes,.fence_end=b->fence_end};
     struct intel_bdw_ggtt_page entry;
@@ -160,6 +162,7 @@ static bool begin_page(struct bdw_boot_page *p, struct bdw_boot_page_source *sou
     p->driver_range = owner;
     p->firmware_range = firmware;
     p->scratch = scratch;
+    p->inherited_backing = inherited;
     p->io = *io;
     p->entry = entry;
     p->outer_loan = loan;
