@@ -138,6 +138,10 @@ static uint64_t station_net_poll_locked(void *context, uint64_t budget, bool ver
         unsigned n = station_rx(s, air, sizeof s->security->air);
         if (!n && s->rx_next == previous) break;
         if (n < 4) continue;
+        if (s->rx_muted) {
+            s->muted_frames++;
+            continue;
+        }
         if (s->signal_trial && n >= 40 && air[0] == 0x80 &&
             radio_equal(air + 16, s->bssid, 6) && target_beacon(air, n)) {
             s->signal_beacon_at = timer_monotonic_us();

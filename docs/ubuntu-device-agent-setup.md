@@ -1311,6 +1311,16 @@ alone during the outage and restoration so the report measures the original
 connection. Both reports use the release-matched Wi-Fi filenames and the
 same private-payload cleanup.
 
+Use `--ehci-desktop-wifi-gap` in place of that flag when the access point
+must stay online. This automatic trial connects after saving the startup
+report, drops received frames at the BCM4331 driver boundary for 15 seconds,
+and resumes traffic on the original association. The report checks that a
+gateway request was transmitted and acknowledged during the gap with no
+delivered reply, followed by five gateway replies after reception resumes.
+Keep the flash drive attached through the on-screen countdown and Ubuntu
+return. This exercise does not qualify association recovery after an access
+point goes offline.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal

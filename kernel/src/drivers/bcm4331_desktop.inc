@@ -23,6 +23,40 @@ struct bcm4331_signal_trial {
     unsigned issued, replies;
 };
 
+struct bcm4331_local_gap {
+    uint64_t started, duration;
+    bool probed, echo_blocked;
+};
+
+static void desktop_wifi_local_gap(struct bcm4331_station *s, const struct bcm4331_signal_trial *signal,
+        struct bcm4331_local_gap *gap) {
+    enum { GAP_US = 15000000 };
+    uint64_t now = timer_monotonic_us();
+    if (!gap->started && signal->before && !signal->lost && now >= signal->before + 2000000 &&
+        now >= s->signal_beacon_at && now - s->signal_beacon_at < 500000) {
+        gap->started = now;
+        s->rx_muted = true;
+        console_printf("bcm4331-local-gap: event=muted epoch=%u at_us=%u\n", s->epoch, now);
+    }
+    if (!s->rx_muted) return;
+    if (now - gap->started >= GAP_US) {
+        s->rx_muted = false;
+        gap->duration = now - gap->started;
+        console_printf("bcm4331-local-gap: event=unmuted epoch=%u duration_us=%u dropped_frames=%u\n",
+            s->epoch, gap->duration, s->muted_frames);
+    } else if (signal->lost && !gap->probed) {
+        gap->probed = true;
+        struct srv_net_status_info status;
+        bool worker = !net_status_info(&status) && status.worker_started && status.dhcp_configured && status.router_ip;
+        unsigned sent = s->sent, acked = s->acked;
+        bool reply = worker && !net_ping(status.router_ip, 0x4601, 50, NULL);
+        unsigned posted = s->sent - sent, acknowledged = s->acked - acked;
+        gap->echo_blocked = worker && !reply && posted == 1 && acknowledged == 1;
+        console_printf("bcm4331-local-gap: epoch=%u during_muted=1 worker=%u posted=%u acknowledged=%u reply=%u\n",
+            s->epoch, (uint64_t)worker, (uint64_t)posted, (uint64_t)acknowledged, (uint64_t)reply);
+    }
+}
+
 static void desktop_wifi_observe_signal(struct bcm4331_station *s, struct bcm4331_signal_trial *trial) {
     enum { QUIET_US = 4000000, SETTLE_US = 2000000, ECHO_INTERVAL_US = 1500000, ECHOES = 5 };
     uint64_t now = timer_monotonic_us();
@@ -142,7 +176,7 @@ static bool desktop_wifi_disconnect(struct bcm4331_station *s, struct bcm4331_de
     s->provider_live = false;
     bool erased = station_key_retire(s);
     uint64_t now = timer_monotonic_us();
-    bool absent = s->signal_trial && s->signal_beacon_at && now >= s->signal_beacon_at &&
+    bool absent = bcm_desktop.trial == BCM4331_DESKTOP_SIGNAL_LOSS && s->signal_beacon_at && now >= s->signal_beacon_at &&
         now - s->signal_beacon_at >= 4000000;
     bool ack = !s->associated || (!absent && station_disconnect(s));
     if (absent) station_addresses(s, true);
@@ -160,7 +194,9 @@ static bool desktop_wifi_disconnect(struct bcm4331_station *s, struct bcm4331_de
 static bool station_desktop(struct bcm4331_station *s, const uint8_t *key) {
     struct net_device_ops provider = station_provider(s);
     struct bcm4331_signal_trial signal = {0};
-    s->signal_trial = bcm_desktop.trial == BCM4331_DESKTOP_SIGNAL_LOSS;
+    struct bcm4331_local_gap gap = {0};
+    bool local_gap = bcm_desktop.trial == BCM4331_DESKTOP_LOCAL_GAP;
+    s->signal_trial = local_gap || bcm_desktop.trial == BCM4331_DESKTOP_SIGNAL_LOSS;
     uint8_t beacon[RX_BUFFER_BYTES];
     s->epoch = 1;
     s->deadline = timer_monotonic_us() + 3000000;
@@ -180,8 +216,10 @@ static bool station_desktop(struct bcm4331_station *s, const uint8_t *key) {
     while (healthy && !bcm_desktop.stop && !s->fault) {
         struct wifi_service_command command;
         if (!desktop_wifi_take(s, &command)) {
-            if (s->signal_trial && link && s->epoch == 1)
+            if (s->signal_trial && link && s->epoch == 1) {
                 desktop_wifi_observe_signal(s, &signal);
+                if (local_gap) desktop_wifi_local_gap(s, &signal, &gap);
+            }
             if (!link) for (unsigned i = 0; i < STATION_RX_SLOTS; i++) {
                 unsigned previous = s->rx_next;
                 station_rx(s, beacon, sizeof beacon);
@@ -206,6 +244,7 @@ static bool station_desktop(struct bcm4331_station *s, const uint8_t *key) {
         console_printf("bcm4331-desktop-command: serial=%u epoch=%u operation=%u success=%u published=%u\n",
             command.serial, s->epoch, (uint64_t)command.operation, (uint64_t)success, (uint64_t)published);
     }
+    s->rx_muted = false;
     if (link) {
         healthy = desktop_wifi_disconnect(s, link) && healthy;
         s->provider_pinned = s->security != NULL;
@@ -224,6 +263,7 @@ static bool station_desktop(struct bcm4331_station *s, const uint8_t *key) {
     bool goal = s->signal_trial ? bcm_desktop.connects == 1 && !bcm_desktop.disconnects &&
         signal.issued == 5 && signal.replies == signal.issued :
         bcm_desktop.connects == 2 && bcm_desktop.disconnects == 1;
+    if (local_gap) goal = goal && gap.duration && s->muted_frames && gap.echo_blocked;
     bcm_desktop.passed = healthy && !s->fault && !s->provider_pinned && goal;
     return healthy && !s->fault && !s->provider_pinned;
 }
@@ -261,6 +301,18 @@ bool bcm4331_desktop_start(enum bcm4331_desktop_trial trial) {
     if (!scheduler_wait_timeout(&bcm_desktop.wait, desktop_wifi_ready, NULL, timer_ticks() + 600) ||
         !desktop_wifi_ready(NULL)) bcm_desktop.stop = true;
     return bcm_desktop.published && !bcm_desktop.done && !bcm_desktop.stop;
+}
+
+void bcm4331_desktop_begin_gap(void) {
+    uint64_t flags = station_irq_save();
+    struct srv_wifi_select request = {
+        .version = SRV_WIFI_VERSION, .size = sizeof request, .owner = bcm_desktop.owner,
+        .generation = 1, .index = 0,
+    };
+    bool queued = bcm_desktop.trial == BCM4331_DESKTOP_LOCAL_GAP && bcm_desktop.published && !bcm_desktop.stop &&
+        wifi_service_request(SRV_WIFI_CONNECT, &request) == SRV_WIFI_OK;
+    station_irq_restore(flags);
+    console_printf("bcm4331-local-gap: connect_queued=%u\n", (uint64_t)queued);
 }
 
 bool bcm4331_desktop_finish(bool *retired) {

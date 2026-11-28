@@ -129,7 +129,7 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
     audio = mode == "desktop-audio"
     telemetry = mode == "desktop-telemetry"
     battery = mode == "desktop-battery"
-    wifi = mode in ("desktop-wifi", "desktop-wifi-loss")
+    wifi = mode in ("desktop-wifi", "desktop-wifi-loss", "desktop-wifi-gap")
     ethernet = mode.startswith("desktop-ethernet")
     wired_start = mode.removeprefix("desktop-ethernet-") if mode != "desktop-ethernet" and ethernet else None
     live_workspace = saved_file or brightness or audio or telemetry or battery or ethernet or wifi
@@ -156,6 +156,19 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                                    f"ehci-desktop-startup: USB checkpoint={saved}"):
                         assert first.index(marker) < first.index("ehci-desktop: opening desktop"), marker
                 ui = QMP(qmp)
+                if mode == "desktop-wifi-gap":
+                    size = len(boot.EHCI_DESKTOP_WIFI_GAP_CHECKLIST)
+                    wait_for(serial, lambda s: f"file-result role=text op=1 status=0 bytes={size}" in s, vm, 15)
+                    assert "bcm4331-desktop: ready=0" in first
+                    assert "bcm4331-local-gap: connect_queued=0" in first
+                    ui.call("screendump", {"filename": str(logs / "vm-screen.ppm")})
+                    final = wait_for(serial, lambda s: "USB report saved. Restarting into Ubuntu." in s, vm, 100)
+                    assert "ehci-desktop-wifi-gap-ui: result=PASS planned-exit=1" in final
+                    assert "ehci-desktop-wifi: report=saved flash-retirement=safe" in final
+                    assert not has_fatal_exception(final)
+                    ui.sock.close()
+                    assert vm.wait(timeout=20) == 0
+                    return
                 if wifi:
                     checklist = boot.EHCI_DESKTOP_WIFI_LOSS_CHECKLIST if mode == "desktop-wifi-loss" else boot.EHCI_DESKTOP_WIFI_CHECKLIST
                     size = len(checklist)
@@ -351,7 +364,7 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
     if file_checklist is not None:
         expected = file_checklist + (b"" if keyboard_exit else b"Ehci-42")
         assert image.read(f"srvros-work/ehci-desktop-{release}.txt") == expected
-    wifi = mode in ("desktop-wifi", "desktop-wifi-loss")
+    wifi = mode in ("desktop-wifi", "desktop-wifi-loss", "desktop-wifi-gap")
     report = "ehci-wifi4331" if wifi else "ehci-ethernet" if mode.startswith("desktop-ethernet") else "ehci-trackpad"
     startup = image.read(f"srvros-work/{report}-{release}-startup.txt")
     final = image.read(f"srvros-work/{report}-{release}.txt")
@@ -360,7 +373,11 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
     if wifi:
         assert f"ehci-wifi4331: release={release} phase=startup workspace=1".encode() in startup
         assert b"bcm4331-desktop: ready=0" in startup
-        assert b"desktools: settings-page=wifi" in final
+        if mode == "desktop-wifi-gap":
+            assert b"bcm4331-local-gap: connect_queued=0" in final
+            assert b"ehci-desktop-wifi-gap-ui: result=PASS planned-exit=1" in final
+        else:
+            assert b"desktools: settings-page=wifi" in final
         assert f"ehci-wifi4331: release={release} phase=final result=INCOMPLETE".encode() in final
     elif mode == "desktop-ethernet":
         assert b"ehci-desktop-ethernet: network init deferred until after USB checkpoint" in startup
@@ -449,6 +466,7 @@ def main():
     telemetry = version.startswith(boot.EHCI_DESKTOP_TELEMETRY_VERSION)
     battery = version.startswith(boot.EHCI_DESKTOP_BATTERY_VERSION)
     wired_start = boot.ehci_desktop_wired_start(version)
+    wifi_gap = version.startswith(boot.EHCI_DESKTOP_WIFI_GAP_VERSION)
     wifi_loss = version.startswith(boot.EHCI_DESKTOP_WIFI_LOSS_VERSION)
     desktop_wifi = version.startswith(boot.EHCI_DESKTOP_WIFI_VERSIONS)
     desktop_ethernet = wired_start or version.startswith(boot.EHCI_DESKTOP_ETHERNET_VERSION)
@@ -468,7 +486,7 @@ def main():
     if (keyboard_monitor or trackpad_trial or desktop_match or ethernet_match or wifi4331) and args.stall_hub_status:
         parser.error("the emulated hub is for the split and typing trials")
     mode = ("wifi4331-probe" if wifi4331 else "ethernet-probe" if ethernet_match else f"desktop-ethernet-{wired_start}" if wired_start else
-            "desktop-wifi-loss" if wifi_loss else "desktop-wifi" if desktop_wifi else "desktop-ethernet" if desktop_ethernet else "desktop-battery" if battery else
+            "desktop-wifi-gap" if wifi_gap else "desktop-wifi-loss" if wifi_loss else "desktop-wifi" if desktop_wifi else "desktop-ethernet" if desktop_ethernet else "desktop-battery" if battery else
             "desktop-telemetry" if telemetry else "desktop-audio" if audio else
             "desktop-brightness" if brightness else "desktop-file" if desktop_file
             else "topcase-desktop" if desktop_trace else "trackpad-desktop" if desktop_match else
@@ -595,7 +613,11 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
                           battery_provider="refused", desktop_ui="INCOMPLETE")
         if desktop_wifi:
             result.update(startup_checkpoint="verified", final_report="verified", wifi4331_controller="refused",
-                          wifi4331_mode="desktop-loss" if wifi_loss else "desktop", desktop_ui="PASS", settings_wifi="opened", vm_mouse="PS/2", vm_keyboard="PS/2")
+                          wifi4331_mode="desktop-gap" if wifi_gap else "desktop-loss" if wifi_loss else "desktop", desktop_ui="PASS")
+            if wifi_gap:
+                result.update(planned_exit=True)
+            else:
+                result.update(settings_wifi="opened", vm_mouse="PS/2", vm_keyboard="PS/2")
         if desktop_ethernet:
             result.update(startup_checkpoint="verified", final_report="verified", vm_mouse="unused",
                           ethernet_provider="refused", desktop_ui="INCOMPLETE")

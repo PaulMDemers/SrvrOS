@@ -2427,7 +2427,8 @@ int main(int argc,char **argv) {
     int ehci_ethernet_trial=wired_trial || (argc==2 && !strcmp(argv[1],"--ehci-ethernet-trial"));
     int ehci_telemetry_trial=argc==2 && !strcmp(argv[1],"--ehci-telemetry-trial");
     int ehci_settings_trial=argc==2 && (!strcmp(argv[1],"--ehci-brightness-trial") || !strcmp(argv[1],"--ehci-audio-trial"));
-    int ehci_wifi_trial=argc==2 && !strcmp(argv[1],"--ehci-wifi-trial");
+    int ehci_wifi_gap=argc==2 && !strcmp(argv[1],"--ehci-wifi-gap-trial");
+    int ehci_wifi_trial=ehci_wifi_gap || (argc==2 && !strcmp(argv[1],"--ehci-wifi-trial"));
     int ehci_topcase_trial=ehci_wifi_trial || ehci_file_trial || ehci_settings_trial || ehci_telemetry_trial || ehci_battery_trial || ehci_ethernet_trial ||
         (argc==2 && !strcmp(argv[1],"--ehci-topcase-trial"));
     int ehci_trial=ehci_topcase_trial || (argc==2 && !strcmp(argv[1],"--ehci-trackpad-trial"));
@@ -2605,8 +2606,9 @@ int main(int argc,char **argv) {
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     uint64_t ehci_deadline=ehci_trial?(uint64_t)srv_monotonic_us()+
-        (wired_disconnected?240000000u:ehci_wifi_trial?180000000u:ehci_telemetry_trial?25000000u:ehci_settings_trial?150000000u:90000000u):0;
-    unsigned telemetry_seconds=0;
+        (wired_disconnected?240000000u:ehci_wifi_gap?75000000u:ehci_wifi_trial?180000000u:
+         ehci_telemetry_trial?25000000u:ehci_settings_trial?150000000u:90000000u):0;
+    unsigned remaining_seconds=0;
     unsigned ehci_axes=0,ehci_zoom_clicks=0,ehci_pointer_exit=0,ehci_timeout=0;
     const char ehci_expected[]="Ehci-42";
     unsigned ehci_typed=0,ehci_find_open=0,ehci_keyboard=0;
@@ -2625,20 +2627,24 @@ int main(int argc,char **argv) {
     if(!failed) ui_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
         uint64_t loop_now=(uint64_t)srv_monotonic_us();
-        if(ehci_telemetry_trial && !s.exiting && loop_now<ehci_deadline) {
+        if((ehci_telemetry_trial || ehci_wifi_gap) && !s.exiting && loop_now<ehci_deadline) {
             unsigned remaining=(unsigned)((ehci_deadline-loop_now+999999)/1000000);
-            if(remaining!=telemetry_seconds) {
-                telemetry_seconds=remaining;
-                snprintf(s.scene.notice,sizeof(s.scene.notice),"Sampling CPU and fan for %u more seconds. Leave USB connected.",remaining);
+            if(remaining!=remaining_seconds) {
+                remaining_seconds=remaining;
+                snprintf(s.scene.notice,sizeof(s.scene.notice),ehci_wifi_gap?
+                    "Testing Wi-Fi for %u more seconds. Leave USB connected.":
+                    "Sampling CPU and fan for %u more seconds. Leave USB connected.",remaining);
                 desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
             }
         }
-        if(ehci_trial && !ehci_battery_trial && (!s.exiting || (ehci_topcase_trial && !ehci_telemetry_trial)) && loop_now>=ehci_deadline) {
+        if(ehci_trial && !ehci_battery_trial && (!s.exiting ||
+            (ehci_topcase_trial && !ehci_telemetry_trial && !ehci_wifi_gap)) && loop_now>=ehci_deadline) {
             ehci_timeout=1;
             /* Only this RAM trial may force cleanup of an unresponsive checklist. */
-            if(ehci_topcase_trial && !ehci_telemetry_trial) { quit=1;break; }
+            if(ehci_topcase_trial && !ehci_telemetry_trial && !ehci_wifi_gap) { quit=1;break; }
             global_menu_action(&s,GLOBAL_EXIT);
         }
+        if(ehci_wifi_gap && s.exiting && loop_now>=ehci_deadline+5000000u) { failed=1;break; }
         if(audio_io && (audio_io_pid || audio_io_finished)) {
             uint64_t gap=loop_sample(&loop_last,&loop_max,loop_now);
             loop_trace_end(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
@@ -3848,6 +3854,9 @@ int main(int argc,char **argv) {
     } else if(ehci_telemetry_trial) {
         if(!ehci_timeout || s.child_errors)failed=1;
         desk_log("ehci-desktop-telemetry-ui: result=%s planned-exit=%u\n",failed?"INCOMPLETE":"PASS",ehci_timeout);
+    } else if(ehci_wifi_gap) {
+        if(!ehci_timeout || s.child_errors)failed=1;
+        desk_log("ehci-desktop-wifi-gap-ui: result=%s planned-exit=%u\n",failed?"INCOMPLETE":"PASS",ehci_timeout);
     } else if(ehci_wifi_trial) {
         if(!ehci_wifi_exit || ehci_timeout || s.child_errors)failed=1;
         desk_log("ehci-desktop-wifi-ui: result=%s checklist-exit=%u\n",failed?"INCOMPLETE":"PASS",ehci_wifi_exit);
