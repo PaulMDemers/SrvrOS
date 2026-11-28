@@ -27,6 +27,9 @@ int wifi_service_select(const struct srv_wifi_select *);
 struct mt76_peer5;
 struct wifi_service_command { uint64_t serial; unsigned operation; };
 uint64_t wifi_service_publish_connection(const struct wifi_service_provider *,const struct mt76_peer5 *);
+/* Fixed-channel WPA2 network discovered and validated by a native owner. */
+uint64_t wifi_service_publish_fixed(const struct wifi_service_provider *,uint64_t generation,
+    unsigned channel,const uint8_t *ssid,unsigned size,unsigned observations);
 int wifi_service_request(unsigned operation,const struct srv_wifi_select *);
 bool wifi_service_take(uint64_t,void *,struct wifi_service_command *);
 bool wifi_service_finish(uint64_t,void *,const struct wifi_service_command *,bool success);

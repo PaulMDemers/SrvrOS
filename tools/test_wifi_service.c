@@ -83,6 +83,26 @@ int main(void){
     live[0]=false;assert(wifi_service_snapshot(empty_owner,&out)==SRV_WIFI_STALE);
     assert(!wifi_service_trial_ready(SRV_WIFI_STALE,&out,true));live[0]=true;
     assert(wifi_service_snapshot(empty_owner,&out)==SRV_WIFI_STALE);
+    const struct wifi_service_provider fixed={&live[0],"BCM4331",present};
+    const uint8_t ssid[]="Demers2.4";
+    assert(!wifi_service_publish_fixed(&fixed,1,0,ssid,sizeof ssid-1,1));
+    uint64_t station=wifi_service_publish_fixed(&fixed,1,10,ssid,sizeof ssid-1,1);
+    assert(station && wifi_service_snapshot(station,&out)==SRV_WIFI_OK &&
+        (out.flags&SRV_WIFI_CONTROL) && out.row[0].channel==10 && !strcmp(out.row[0].name,(const char *)ssid));
+    q=request(station,1);
+    struct wifi_service_command wifi;
+    assert(wifi_service_request(SRV_WIFI_CONNECT,&q)==SRV_WIFI_OK);
+    assert(wifi_service_take(station,&live[0],&wifi) && wifi.operation==SRV_WIFI_CONNECT);
+    assert(wifi_service_finish(station,&live[0],&wifi,true));
+    q.index=SRV_WIFI_NONE;
+    assert(wifi_service_request(SRV_WIFI_DISCONNECT,&q)==SRV_WIFI_OK);
+    assert(wifi_service_take(station,&live[0],&wifi) && wifi.operation==SRV_WIFI_DISCONNECT);
+    assert(wifi_service_rearm_connection(station,&live[0],&wifi,2));
+    q.index=0;
+    assert(wifi_service_request(SRV_WIFI_CONNECT,&q)==SRV_WIFI_STALE);
+    q.generation=2;
+    assert(wifi_service_request(SRV_WIFI_CONNECT,&q)==SRV_WIFI_OK);
+    wifi_service_remove(station);
     counts.selected=UINT64_MAX;increment(&counts.selected);assert(counts.selected==UINT64_MAX);
     serial=UINT64_MAX;assert(!publish(0,&b));
     puts("wifi-service: PASS four adapters,exact owner/generation selection,disconnected identity retirement,refresh proof failures,hidden/conflict/ABI refusals and owner exhaustion");

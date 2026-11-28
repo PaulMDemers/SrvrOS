@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Boot the exact attended EHCI release once, then verify the GRUB default."""
+"""Boot the exact EHCI trial release once, then verify the GRUB default."""
 import argparse
 import json
 from pathlib import Path
@@ -129,7 +129,10 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
     audio = mode == "desktop-audio"
     telemetry = mode == "desktop-telemetry"
     battery = mode == "desktop-battery"
-    live_workspace = saved_file or brightness or audio or telemetry or battery
+    wifi = mode in ("desktop-wifi", "desktop-wifi-loss", "desktop-wifi-gap", "desktop-wifi-range", "desktop-wifi-startup")
+    ethernet = mode.startswith("desktop-ethernet")
+    wired_start = mode.removeprefix("desktop-ethernet-") if mode != "desktop-ethernet" and ethernet else None
+    live_workspace = saved_file or brightness or audio or telemetry or battery or ethernet or wifi
     serial = logs / "trial-serial.log"
     serial.unlink(missing_ok=True)
     qmp = temp / "qmp.sock"
@@ -153,6 +156,80 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                                    f"ehci-desktop-startup: USB checkpoint={saved}"):
                         assert first.index(marker) < first.index("ehci-desktop: opening desktop"), marker
                 ui = QMP(qmp)
+                if mode in ("desktop-wifi-range", "desktop-wifi-startup"):
+                    startup = mode == "desktop-wifi-startup"
+                    trial_name = "startup" if startup else "range"
+                    checklist = boot.EHCI_DESKTOP_WIFI_STARTUP_CHECKLIST if startup else boot.EHCI_DESKTOP_WIFI_RANGE_CHECKLIST
+                    size = len(checklist)
+                    wait_for(serial, lambda s: f"file-result role=text op=1 status=0 bytes={size}" in s, vm, 15)
+                    assert "bcm4331-desktop: ready=0" in first
+                    assert f"bcm4331-{trial_name}: armed=0" in first
+                    ui.call("screendump", {"filename": str(logs / "vm-screen.ppm")})
+                    ui.call("human-monitor-command", {"command-line": "sendkey ctrl-alt-esc"})
+                    final = wait_for(serial, lambda s: "USB report saved. Restarting into Ubuntu." in s, vm, 35)
+                    assert (f"ehci-desktop-wifi-{trial_name}-ui: result=INCOMPLETE "
+                            f"{'connected' if startup else 'phase'}=0 timeout=0") in final
+                    assert "ehci-desktop-wifi: report=saved flash-retirement=safe" in final
+                    assert not has_fatal_exception(final)
+                    ui.sock.close()
+                    assert vm.wait(timeout=20) == 0
+                    return
+                if mode == "desktop-wifi-gap":
+                    size = len(boot.EHCI_DESKTOP_WIFI_GAP_CHECKLIST)
+                    wait_for(serial, lambda s: f"file-result role=text op=1 status=0 bytes={size}" in s, vm, 15)
+                    assert "bcm4331-desktop: ready=0" in first
+                    assert "bcm4331-local-gap: armed=0" in first
+                    ui.call("screendump", {"filename": str(logs / "vm-screen.ppm")})
+                    final = wait_for(serial, lambda s: "USB report saved. Restarting into Ubuntu." in s, vm, 120)
+                    assert "ehci-desktop-wifi-gap-ui: result=PASS planned-exit=1" in final
+                    assert "ehci-desktop-wifi: report=saved flash-retirement=safe" in final
+                    assert not has_fatal_exception(final)
+                    ui.sock.close()
+                    assert vm.wait(timeout=20) == 0
+                    return
+                if wifi:
+                    checklist = boot.EHCI_DESKTOP_WIFI_LOSS_CHECKLIST if mode == "desktop-wifi-loss" else boot.EHCI_DESKTOP_WIFI_CHECKLIST
+                    size = len(checklist)
+                    wait_for(serial, lambda s: f"file-result role=text op=1 status=0 bytes={size}" in s, vm, 15)
+                    assert "bcm4331-desktop: ready=0" in first
+                    time.sleep(1)
+
+                    def click(x, y, previous=(24, 56)):
+                        ui.mouse(x - previous[0], y - previous[1])
+                        ui.mouse(0, 0, 1)
+                        ui.mouse(0, 0, 0)
+
+                    click(790, 750)
+                    settings = wait_for(serial, lambda s: len(re.findall(geometry, s)) >= 2, vm, 15)
+                    x, y, width, _ = map(int, re.findall(geometry, settings)[1])
+                    time.sleep(.5)
+                    click(x + width - 62, y + 74, (790, 750))
+                    wait_for(serial, lambda s: "desktools: settings-page=wifi" in s, vm, 15)
+                    ui.call("screendump", {"filename": str(logs / "vm-screen.ppm")})
+                    ui.call("human-monitor-command", {"command-line": "sendkey ctrl-alt-esc"})
+                    final = wait_for(serial, lambda s: "USB report saved. Restarting into Ubuntu." in s, vm, 35)
+                    assert "ehci-desktop-wifi-ui: result=PASS checklist-exit=1" in final
+                    assert "ehci-desktop-wifi: report=saved flash-retirement=safe" in final
+                    assert not has_fatal_exception(final)
+                    ui.sock.close()
+                    assert vm.wait(timeout=20) == 0
+                    return
+                if ethernet:
+                    checklist = boot.EHCI_DESKTOP_WIRED_CHECKLISTS[wired_start] if wired_start else boot.EHCI_DESKTOP_ETHERNET_CHECKLIST
+                    size = len(checklist)
+                    wait_for(serial, lambda s: f"file-result role=text op=1 status=0 bytes={size}" in s, vm, 15)
+                    ui.call("screendump", {"filename": str(logs / "vm-screen.ppm")})
+                    final = wait_for(serial, lambda s: "USB report saved. Restarting into Ubuntu." in s, vm, 35)
+                    refused = "bcm57765-wired: provider unavailable" if wired_start else "ehci-desktop-ethernet: network_started=0"
+                    for marker in ("bcm57765: refused platform identity", refused,
+                                   "ehci-desktop-ethernet-ui: provider unavailable",
+                                   "ehci-desktop-ethernet-ui: result=INCOMPLETE phases=0",
+                                   "ehci-desktop-ethernet: report=saved flash-retirement=safe"):
+                        assert marker in final, marker
+                    assert not has_fatal_exception(final)
+                    ui.sock.close()
+                    assert vm.wait(timeout=20) == 0
+                    return
                 if telemetry or battery:
                     wait_for(serial, lambda s: "desktools: system-page=sensors" in s, vm, 15)
                     time.sleep(1)
@@ -289,7 +366,7 @@ def desktop_workspace_image(temp, serial):
     return stick, volume
 
 
-def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checklist, mode):
+def read_workspace(stick, volume):
     with stick.open("rb") as stream:
         stream.seek(2048 * 512)
         saved = stream.read()
@@ -297,14 +374,43 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
     check_clean_image(volume)
     image = ExfatFixture(saved)
     assert image.read("srvros-work/anchor.txt") == b"workspace anchor\n"
+    return image
+
+
+def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checklist, mode):
+    image = read_workspace(stick, volume)
     if file_checklist is not None:
         expected = file_checklist + (b"" if keyboard_exit else b"Ehci-42")
         assert image.read(f"srvros-work/ehci-desktop-{release}.txt") == expected
-    startup = image.read(f"srvros-work/ehci-trackpad-{release}-startup.txt")
-    final = image.read(f"srvros-work/ehci-trackpad-{release}.txt")
+    wifi = mode in ("desktop-wifi", "desktop-wifi-loss", "desktop-wifi-gap", "desktop-wifi-range", "desktop-wifi-startup")
+    report = "ehci-wifi4331" if wifi else "ehci-ethernet" if mode.startswith("desktop-ethernet") else "ehci-trackpad"
+    startup = image.read(f"srvros-work/{report}-{release}-startup.txt")
+    final = image.read(f"srvros-work/{report}-{release}.txt")
     assert f"ehci-desktop-startup: release={release} phase=startup".encode() in startup
     assert f"ehci-desktop: release={release} result=INCOMPLETE".encode() in final
-    if mode == "desktop-telemetry":
+    if wifi:
+        assert f"ehci-wifi4331: release={release} phase=startup workspace=1".encode() in startup
+        assert b"bcm4331-desktop: ready=0" in startup
+        if mode == "desktop-wifi-gap":
+            assert b"bcm4331-local-gap: armed=0" in final
+            assert b"ehci-desktop-wifi-gap-ui: result=PASS planned-exit=1" in final
+        elif mode == "desktop-wifi-startup":
+            assert b"bcm4331-startup: armed=0" in final
+            assert b"ehci-desktop-wifi-startup-ui: result=INCOMPLETE connected=0 timeout=0" in final
+        elif mode == "desktop-wifi-range":
+            assert b"bcm4331-range: armed=0" in final
+            assert b"ehci-desktop-wifi-range-ui: result=INCOMPLETE phase=0 timeout=0" in final
+        else:
+            assert b"desktools: settings-page=wifi" in final
+        assert f"ehci-wifi4331: release={release} phase=final result=INCOMPLETE".encode() in final
+    elif mode == "desktop-ethernet":
+        assert b"ehci-desktop-ethernet: network init deferred until after USB checkpoint" in startup
+        assert b"bcm57765-desktop: provider unavailable" in final
+        assert b"ehci-desktop-ethernet-ui: result=INCOMPLETE phases=0" in final
+    elif mode.startswith("desktop-ethernet-"):
+        assert b"bcm57765-wired: provider unavailable" in startup
+        assert b"ehci-desktop-ethernet-ui: result=INCOMPLETE phases=0" in final
+    elif mode == "desktop-telemetry":
         assert b"pro81-telemetry: phase=startup cpu_state=1 cpu_fresh=0" in startup
         assert b"pro81-telemetry: phase=startup fan_state=1 fan_fresh=0" in startup
         assert b"pro81-telemetry: result=INCOMPLETE smc_quiesced=1" in final
@@ -319,6 +425,40 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
     if mode == "desktop-audio":
         assert b"pro81-audio: phase=startup provider=unavailable" in startup
         assert b"pro81-audio: phase=final result=INCOMPLETE started=0 completed=0" in final
+
+
+def exercise_network_probe(command, temp, logs, release, log_volume, packets, wifi4331_mode):
+    stick, volume = desktop_workspace_image(temp, log_volume)
+    command += ["-device", "qemu-xhci,id=xhci", "-drive", f"if=none,id=stick,format=raw,file={stick}",
+                "-device", "usb-storage,drive=stick,bus=xhci.0"]
+    serial = logs / "trial-serial.log"
+    wifi4331 = wifi4331_mode is not None
+    finished = {"station-reconnect": "Wi-Fi gateway and reconnect trial finished",
+                "station-dhcp": "Wi-Fi WPA2 and DHCP trial finished", "station": "Wi-Fi station trial finished",
+                "channel10": "Wi-Fi channel 10 trial finished", "firmware": "Wi-Fi firmware trial finished",
+                "topology": "Wi-Fi topology probe finished", None: "Ethernet probe finished"}[wifi4331_mode]
+    report = "ehci-wifi4331" if wifi4331 else "ehci-ethernet"
+    serial.unlink(missing_ok=True)
+    with (logs / "trial-qemu.log").open("wb") as errors:
+        with subprocess.Popen(command + ["-serial", f"file:{serial}"], stdout=errors, stderr=errors) as vm:
+            try:
+                text = wait_for(serial, lambda s: f"{finished}. Returning to Ubuntu." in s, vm, 90)
+                assert vm.wait(timeout=20) == 0
+            finally:
+                if vm.poll() is None:
+                    vm.kill()
+                    vm.wait()
+    assert "SRVROS_VM_NEXT_ENTRY_CONSUMED" in text and not has_fatal_exception(text)
+    assert f"{report}: startup=saved final=saved workspace_retirement=safe" in text
+    image = read_workspace(stick, volume)
+    startup = image.read(f"srvros-work/{report}-{release}-startup.txt").decode()
+    final = image.read(f"srvros-work/{report}-{release}.txt").decode()
+    assert f"{report}: release={release} phase=startup workspace=1" in startup
+    suffix = "" if wifi4331 else f" packet_io={int(packets)}"
+    assert f"{report}: release={release} phase=final result=REFUSED{suffix}\n" in final
+    driver = "bcm4331" if wifi4331 else "bcm57765"
+    assert f"{driver}: refused platform identity" in final
+    assert all(marker not in final for marker in (f"{driver}: pci=", f"{driver}: core=", "bcm57765-packet:", "net: worker"))
 
 
 def main():
@@ -337,25 +477,43 @@ def main():
     version = manifest["config_version"]
     log_match = boot.EHCI_TRACKPAD_LOG_RE.fullmatch(version)
     desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
+    ethernet_match = boot.EHCI_ETHERNET_RE.fullmatch(version)
+    wifi4331 = boot.EHCI_BCM4331_RE.fullmatch(version)
+    wifi4331_mode = ("station-reconnect" if version.startswith(boot.EHCI_BCM4331_RECONNECT) else
+                     "station-dhcp" if version.startswith(boot.EHCI_BCM4331_DHCP) else
+                     "station" if version.startswith(boot.EHCI_BCM4331_STATION) else
+                     "channel10" if version.startswith(boot.EHCI_BCM4331_CHANNEL10) else
+                     "firmware" if version.startswith(boot.EHCI_BCM4331_FIRMWARE) else "topology" if wifi4331 else None)
     desktop_file = version.startswith((boot.EHCI_DESKTOP_FILE_VERSION, boot.EHCI_DESKTOP_FILE_V4_VERSION))
     brightness = version.startswith(boot.EHCI_DESKTOP_BRIGHTNESS_VERSION)
     audio = version.startswith((boot.EHCI_DESKTOP_AUDIO_VERSION, boot.EHCI_DESKTOP_AUDIO_V7_VERSION))
     telemetry = version.startswith(boot.EHCI_DESKTOP_TELEMETRY_VERSION)
     battery = version.startswith(boot.EHCI_DESKTOP_BATTERY_VERSION)
+    wired_start = boot.ehci_desktop_wired_start(version)
+    wifi_startup = version.startswith(boot.EHCI_DESKTOP_WIFI_STARTUP_VERSION)
+    wifi_range = version.startswith(boot.EHCI_DESKTOP_WIFI_RANGE_VERSION)
+    wifi_gap = version.startswith(boot.EHCI_DESKTOP_WIFI_GAP_VERSION)
+    wifi_loss = version.startswith(boot.EHCI_DESKTOP_WIFI_LOSS_VERSION)
+    desktop_wifi = version.startswith(boot.EHCI_DESKTOP_WIFI_VERSIONS)
+    desktop_ethernet = wired_start or version.startswith(boot.EHCI_DESKTOP_ETHERNET_VERSION)
     file_checklist = boot.EHCI_DESKTOP_FILE_V4_CHECKLIST if version.startswith(boot.EHCI_DESKTOP_FILE_V4_VERSION) else boot.EHCI_DESKTOP_FILE_CHECKLIST
     desktop_trace = version.startswith(boot.EHCI_DESKTOP_VERSION)
     keyboard_checklist = desktop_trace or brightness or audio or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
     if args.keyboard_exit and not (desktop_trace or desktop_file or brightness or audio):
         parser.error("keyboard exit needs a v3 or later desktop stage")
-    log_volume = (log_match or desktop_match)[1] if log_match or desktop_match else None
+    volume_match = log_match or desktop_match or wifi4331
+    log_volume = ethernet_match[2] if ethernet_match else volume_match[1] if volume_match else None
+    ethernet_packets = bool(ethernet_match and ethernet_match[1] == "2")
     if version not in boot.EHCI_TRIAL_VERSIONS and not log_volume:
         parser.error("expected an attended EHCI trial stage")
     keyboard_trial = version == boot.EHCI_KEYBOARD_VERSION
     keyboard_monitor = version == boot.EHCI_MONITOR_VERSION
     trackpad_trial = version == boot.EHCI_TRACKPAD_VERSION or bool(log_match)
-    if (keyboard_monitor or trackpad_trial or desktop_match) and args.stall_hub_status:
+    if (keyboard_monitor or trackpad_trial or desktop_match or ethernet_match or wifi4331) and args.stall_hub_status:
         parser.error("the emulated hub is for the split and typing trials")
-    mode = ("desktop-battery" if battery else "desktop-telemetry" if telemetry else "desktop-audio" if audio else
+    mode = ("wifi4331-probe" if wifi4331 else "ethernet-probe" if ethernet_match else f"desktop-ethernet-{wired_start}" if wired_start else
+            "desktop-wifi-startup" if wifi_startup else "desktop-wifi-range" if wifi_range else "desktop-wifi-gap" if wifi_gap else "desktop-wifi-loss" if wifi_loss else "desktop-wifi" if desktop_wifi else "desktop-ethernet" if desktop_ethernet else "desktop-battery" if battery else
+            "desktop-telemetry" if telemetry else "desktop-audio" if audio else
             "desktop-brightness" if brightness else "desktop-file" if desktop_file
             else "topcase-desktop" if desktop_trace else "trackpad-desktop" if desktop_match else
             "trackpad-trial" if log_match else boot.EHCI_TRIAL_MODES[version])
@@ -416,18 +574,20 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
                    "-drive", f"format=raw,file={esp}", "-drive", f"format=raw,file={root_disk}",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
 
-        if keyboard_monitor:
+        if ethernet_match or wifi4331:
+            exercise_network_probe(command.copy(), temp, logs, release, log_volume, ethernet_packets, wifi4331_mode)
+        elif keyboard_monitor:
             exercise_monitor(command.copy(), temp, logs, release)
         elif desktop_match:
             trial_command = command.copy()
-            if desktop_file or brightness or audio or telemetry or battery:
+            if desktop_file or brightness or audio or telemetry or battery or desktop_ethernet or desktop_wifi:
                 stick, volume = desktop_workspace_image(temp, log_volume)
                 trial_command += ["-device", "qemu-xhci,id=xhci", "-drive", f"if=none,id=stick,format=raw,file={stick}",
                                   "-device", "usb-storage,drive=stick,bus=xhci.0"]
             if audio:
                 trial_command += ["-device", "ich9-intel-hda"]
             exercise_desktop(trial_command, temp, logs, release, log_volume, mode, keyboard_checklist, args.keyboard_exit, file_checklist)
-            if desktop_file or brightness or audio or telemetry or battery:
+            if desktop_file or brightness or audio or telemetry or battery or desktop_ethernet or desktop_wifi:
                 verify_desktop_workspace(stick, volume, release, args.keyboard_exit,
                                          file_checklist if desktop_file else None, mode)
         elif trackpad_trial:
@@ -445,7 +605,15 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
     result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source / "manifest.json"),
                   exact_payload=True, topcase="absent in VM",
                   on_screen_checklist="vm-screen.ppm", grub_next_entry="", ubuntu_default_fixture=True)
-    if keyboard_monitor:
+    if wifi4331:
+        result.pop("on_screen_checklist")
+        result.update(wifi4331_controller="refused", wifi4331_firmware=wifi4331_mode == "firmware", wifi4331_mode=wifi4331_mode,
+                      startup_checkpoint="verified", final_report="verified")
+    elif ethernet_match:
+        result.pop("on_screen_checklist")
+        result.update(ethernet_controller="refused", ethernet_packets=ethernet_packets,
+                      startup_checkpoint="verified", final_report="verified")
+    elif keyboard_monitor:
         result.update(monitor_input="serial", case_echo=True, history_edit=True, monitor_reboot=True)
     elif desktop_match:
         result.update(guest_trial_result="INCOMPLETE", desktop_ui="INCOMPLETE" if args.keyboard_exit else "PASS",
@@ -469,6 +637,19 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
         if battery:
             result.update(startup_checkpoint="verified", final_report="verified", vm_mouse="unused",
                           battery_provider="refused", desktop_ui="INCOMPLETE")
+        if desktop_wifi:
+            result.update(startup_checkpoint="verified", final_report="verified", wifi4331_controller="refused",
+                          wifi4331_mode="desktop-startup" if wifi_startup else "desktop-range" if wifi_range else "desktop-gap" if wifi_gap else "desktop-loss" if wifi_loss else "desktop",
+                          desktop_ui="INCOMPLETE" if wifi_range or wifi_startup else "PASS")
+            if wifi_gap:
+                result.update(planned_exit=True)
+            elif wifi_range or wifi_startup:
+                result.update(keyboard_exit=True, vm_keyboard="PS/2")
+            else:
+                result.update(settings_wifi="opened", vm_mouse="PS/2", vm_keyboard="PS/2")
+        if desktop_ethernet:
+            result.update(startup_checkpoint="verified", final_report="verified", vm_mouse="unused",
+                          ethernet_provider="refused", desktop_ui="INCOMPLETE")
     elif trackpad_trial:
         result.update(guest_trial_result="INCOMPLETE", unrelated_controller_skipped=True, trackpad_reports=0)
     else:

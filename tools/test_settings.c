@@ -13,6 +13,10 @@ int desk_app_preferences(struct desk_app *app,const struct desk_preferences *p,u
 }
 void tool_status(struct tool *t,const char *text) { snprintf(t->status,sizeof(t->status),"%s",text);t->window.dirty=1; }
 void tool_layout(struct tool *t) { tool_settings_layout(t);desk_ui_layout_changed(&t->ui);t->window.dirty=1; }
+static unsigned launches;
+void tool_launch(struct tool *t,int application,const char *path) {
+    (void)t;assert(application==DESK_APP_SETTINGS && !strcmp(path,"--wifi"));launches++;
+}
 static struct tool t;
 int main(void) {
     /* Large document text must not make a 28px toolbar label disappear. */
@@ -30,7 +34,9 @@ int main(void) {
     t.window.width=560;t.window.height=480;t.body_size=16;
     desk_ui_init(&t.ui);assert(!desk_text_buffer_init(&t.name_text,t.name_store[0],t.name_store[1],128));
     desk_edit_init(&t.name,&t.name_text,0);tool_settings_init(&t);tool_layout(&t);
-    assert(t.ui.count==35);
+    assert(t.ui.count==36);
+    tool_settings_action(&t,(struct desk_action){SETTINGS_WIFI,DESK_WIDGET_ACTIVATED});
+    assert(launches==1);
     for(unsigned id=SETTINGS_DISPLAY_MODE;id<=SETTINGS_DISPLAY_REVERT;id++) {
         int found=0;for(unsigned i=0;i<t.ui.count;i++) if(t.ui.controls[i].id==id) found++;
         assert(found==1);

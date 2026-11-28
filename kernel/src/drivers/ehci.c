@@ -1254,7 +1254,15 @@ bool ehci_desktop_workspace_start(const char *volume) {
 }
 
 bool ehci_desktop_workspace_report(const char *release, bool startup) {
-    return workspace_active() && persist_flash_report(release, startup) && workspace_flush_committed();
+    return workspace_active() && persist_flash_report(release, startup, EHCI_TRACKPAD_REPORT) && workspace_flush_committed();
+}
+
+bool ehci_ethernet_workspace_report(const char *release, bool startup) {
+    return workspace_active() && persist_flash_report(release, startup, EHCI_ETHERNET_REPORT) && workspace_flush_committed();
+}
+
+bool ehci_bcm4331_workspace_report(const char *release, bool startup) {
+    return workspace_active() && persist_flash_report(release, startup, EHCI_BCM4331_REPORT) && workspace_flush_committed();
 }
 
 bool ehci_desktop_workspace_stop(void) {

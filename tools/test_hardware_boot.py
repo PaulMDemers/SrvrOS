@@ -961,6 +961,104 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             boot.stage(ehci_keyboard_monitor=True, ehci_trackpad_trial=True)
 
+    def test_ehci_ethernet_probe_binds_release_and_workspace(self):
+        for name in ("limine-binary/BOOTX64.EFI", "kernel/srvros.elf"):
+            path = self.root / "build" / name
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"fixture")
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                side_effect=["test-revision\n", ""]):
+            release = boot.stage(ehci_ethernet_volume="0d9b53a0")
+        payload = self.stage / release
+        self.assertEqual(boot.verify(payload, release)["config_version"],
+                         "ram-usb-v1-macbookpro8-1-ehci-ethernet-log-0d9b53a0")
+        self.assertEqual((payload / "initramfs.tar").read_bytes(), bytes(1024))
+        self.assertIn(
+            f"cmdline: srvros.storage=ram srvros.ehci=ethernet-probe srvros.ehci-release={release} "
+            "srvros.ehci-log-volume=0d9b53a0\n", (payload / "limine.conf").read_text())
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_ethernet_volume="invalid")
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_ethernet_volume="0d9b53a0", ehci_split_trial=True)
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_ethernet_dhcp=True)
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                side_effect=["test-revision\n", ""]):
+            packets = boot.stage(ehci_ethernet_volume="0d9b53a0", ehci_ethernet_dhcp=True)
+        self.assertNotEqual(packets, release)
+        self.assertEqual(boot.verify(self.stage / packets, packets)["config_version"],
+                         "ram-usb-v2-macbookpro8-1-ehci-ethernet-log-0d9b53a0")
+        self.assertIn(f"srvros.ehci=ethernet-dhcp srvros.ehci-release={packets}",
+                      (self.stage / packets / "limine.conf").read_text())
+
+    def test_ehci_bcm4331_probe_binds_release_and_workspace(self):
+        for name in ("limine-binary/BOOTX64.EFI", "kernel/srvros.elf"):
+            path = self.root / "build" / name
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"fixture")
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                side_effect=["test-revision\n", ""]):
+            release = boot.stage(ehci_bcm4331_volume="0d9b53a0")
+        payload = self.stage / release
+        self.assertEqual(boot.verify(payload, release)["config_version"],
+                         "ram-usb-v1-macbookpro8-1-ehci-wifi4331-log-0d9b53a0")
+        self.assertEqual((payload / "initramfs.tar").read_bytes(), bytes(1024))
+        self.assertIn(f"srvros.ehci=wifi4331-probe srvros.ehci-release={release} srvros.ehci-log-volume=0d9b53a0",
+                      (payload / "limine.conf").read_text())
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_bcm4331_volume="0d9b53a0", ehci_ethernet_volume="0d9b53a0")
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_bcm4331_firmware=True)
+        firmware = self.root / "microcode.fw"
+        firmware.write_bytes(bytes(43224))
+        with patch.object(boot, "BCM4331_UCODE_SOURCE", firmware), self.assertRaisesRegex(ValueError, "microcode differs"):
+            boot.stage(ehci_bcm4331_volume="0d9b53a0", ehci_bcm4331_firmware=True)
+        with patch.object(boot, "BCM4331_UCODE_SOURCE", firmware), patch.object(boot, "BCM4331_UCODE_SHA256", boot.digest(firmware)), \
+                patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output", side_effect=["test-revision\n", ""]):
+            candidate = boot.stage(ehci_bcm4331_volume="0d9b53a0", ehci_bcm4331_firmware=True)
+            self.assertNotEqual(candidate, release)
+            self.assertIn(f"srvros.ehci=wifi4331-firmware srvros.ehci-release={candidate}",
+                          (self.stage / candidate / "limine.conf").read_text())
+            boot.verify(self.stage / candidate, candidate)
+
+    def test_bcm4331_dhcp_private_archive(self):
+        import tarfile
+
+        from bcm4331_station_key import ARCHIVE_NAME
+        from wifi_wpa5_credentials import MAGIC
+
+        for name in ("limine-binary/BOOTX64.EFI", "kernel/srvros.elf"):
+            path = self.root / "build" / name
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"fixture")
+        firmware = self.root / "ucode29.fw"
+        firmware.write_bytes(bytes(43224))
+        profile = self.root / "station.bin"
+        profile.write_bytes(b"station fixture")
+        key = self.root / "station.key"
+        key.write_bytes(MAGIC + b"\x09" + b"Demers2.4".ljust(32, b"\0") + bytes(range(64)))
+        key.chmod(0o600)
+        assets = {"firmware/bcm4331-station.bin": (profile.stat().st_size, boot.digest(profile), None)}
+        with patch.object(boot, "ROOT", self.root), patch.object(boot, "BCM4331_UCODE_SOURCE", firmware), \
+                patch.object(boot, "BCM4331_UCODE_SHA256", boot.digest(firmware)), patch.object(boot, "BCM4331_STATION_ASSETS", assets), \
+                patch.object(boot.subprocess, "check_output", side_effect=["fixture-revision\n", ""] * 2):
+            release = boot.stage(ehci_bcm4331_volume="0d9b53a0", ehci_bcm4331_firmware=True,
+                                 ehci_bcm4331_profile=profile, ehci_bcm4331_station=True, ehci_bcm4331_station_key=key)
+            payload = self.stage / release
+            self.assertIn("srvros.ehci=wifi4331-dhcp", (payload / "limine.conf").read_text())
+            boot.verify(payload, release)
+            with tarfile.open(payload / "initramfs.tar") as archive:
+                self.assertEqual(archive.getmember(ARCHIVE_NAME).mode, 0o600)
+            self.assertEqual((payload / "initramfs.tar").stat().st_mode & 0o777, 0o600)
+            reconnect = boot.stage(ehci_bcm4331_volume="0d9b53a0", ehci_bcm4331_firmware=True,
+                                   ehci_bcm4331_profile=profile, ehci_bcm4331_station=True,
+                                   ehci_bcm4331_station_key=key, ehci_bcm4331_reconnect=True)
+            self.assertNotEqual(reconnect, release)
+            self.assertIn("srvros.ehci=wifi4331-reconnect", (self.stage / reconnect / "limine.conf").read_text())
+            self.assertTrue(boot.verify(self.stage / reconnect, reconnect)["config_version"].startswith(boot.EHCI_BCM4331_RECONNECT))
+        with self.assertRaisesRegex(ValueError, "station key requires the station trial"):
+            boot.stage(ehci_bcm4331_station_key=key)
+
     def test_wifi_channel_state_profile(self):
         v="ram-usb-wifi-fw-v75-laptop-probe-0e535900-auto-return"
         config=boot.limine_config("0123456789abcdef",v)

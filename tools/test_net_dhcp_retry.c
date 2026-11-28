@@ -13,7 +13,7 @@ enum scenario { NORMAL,DROP_FIRST,LATE_OFFER,ABSENT,ACK_ABSENT,FIRST_REFUSED,
  TX_UNCERTAIN,ROLL_TICK,ROLL_US,FROZEN,FROZEN_TICK,FROZEN_US,
  READY_ROLLBACK,LINK_ROLLBACK,READY_LOST,MUTATE_GUARD,LATE_ACK,UNSOLICITED_ACK,
  LINK_OWNER_LOST,LINK_OWNER_LOST_ACK,LINK_OWNER_LOST_RETRY,EXIT_ROLLBACK,
- EXIT_ROLLBACK_ACK,FINAL_CURRENT_ROLLBACK };
+ EXIT_ROLLBACK_ACK,FINAL_CURRENT_ROLLBACK,DROP_FIRST_ACK };
 static enum scenario scenario;
 static uint64_t test_ticks,test_us,first_tick,first_us;
 static unsigned discovers,requests,polls,waits,ready_calls,guard_calls,nested_calls;
@@ -83,7 +83,11 @@ static bool provider_send(void *context,const uint8_t *p,uint16_t n){
    assert(p16(p+18)==(p16(sent[0]+18)+1u)%65536u);}
   if(scenario==FIRST_REFUSED || (scenario==RETRY_REFUSED && discovers==2))return false;
   current_tx_completed=scenario!=TX_UNCERTAIN;
- }else {assert(type==3 && p32(dhcp+4)==peer_xid && ++requests==1 && offer_delivered);
+ }else {assert(type==3 && p32(dhcp+4)==peer_xid && offer_delivered);
+  if(++requests>1) {
+   assert(scenario==DROP_FIRST_ACK && requests==2 && discovers==1 && !memcmp(dhcp,sent[1]+42,300));
+   assert(test_ticks-first_tick>=100 && test_us-first_us>=1000000 && test_us-first_us<2000000);
+  }
   if(scenario==REQUEST_REFUSED)return false;}
  if(scenario==DOWN_AFTER_SEND)up=false;
  return true;
@@ -119,6 +123,7 @@ static uint64_t provider_poll(void *context,uint64_t budget,bool verbose){
   offer_delivered=true;peer_reply(2);return 1;
  }
  if(requests && !ack_delivered && scenario!=ACK_ABSENT && scenario!=REQUEST_REFUSED){
+  if(scenario==DROP_FIRST_ACK && requests<2)return 0;
   if(scenario==LATE_ACK){test_ticks=first_tick+200;test_us=first_us+2000000;}
   ack_delivered=true;peer_reply(5);return 1;
  }
@@ -158,6 +163,48 @@ static void reset(enum scenario mode){
  guard=(struct net_dhcp_retry_guard){&caller_token,owned,ready};
 }
 static int64_t run(enum scenario mode){reset(mode);int64_t result=net_dhcp_request_discover_retry(&guard);assert(!dhcp_retry_active && !dhcp_in_progress);return result;}
+
+#ifndef SRVROS_DHCP_RETRY_EMBEDDED
+bool scheduler_spawn(const char *name, scheduler_thread_fn fn, void *arg) {
+    assert(!strcmp(name, "net-poll") && fn == net_worker && !arg);
+    return true;
+}
+
+bool scheduler_spawn_io_service(const char *name, scheduler_thread_fn fn, void *arg,
+                                scheduler_wait_condition_fn eligible) {
+    (void)name; (void)fn; (void)arg; (void)eligible;
+    assert(0);
+    return false;
+}
+
+static void managed_wired(const struct net_device_ops *ops) {
+    initialized = false;
+    reset(DOWN_INITIAL);
+    assert(net_start_managed_worker(ops) && worker_started && !local_ip);
+    assert(net_dhcp_request() == SRV_ERR_AGAIN);
+    assert(net_dhcp_request_discover_retry(&guard) < 0 && !discovers);
+    for (unsigned lease = 0; lease < 4; lease++) {
+        uint32_t previous_xid = dhcp_xid;
+        reset(lease == 2 ? DROP_FIRST : NORMAL);
+        dhcp_xid = previous_xid;
+        set_local_ip_bytes((const uint8_t[4]){0});
+        assert(net_dhcp_request_discover_retry(&guard) == 0x0a00020f && dhcp_xid != previous_xid);
+        assert(net_dhcp_request() == 0x0a00020f && worker_started);
+        listeners[0].used = true;
+        udp_sockets[0].used = true;
+        tcp_connections[0] = (struct tcp_connection){.state = TCP_STATE_ESTABLISHED, .id = 1, .refs = 1};
+        up = false;
+        struct net_device_ops wrong = *ops;
+        wrong.context = NULL;
+        assert(!net_managed_link_down(&wrong, false) && local_ip);
+        assert(net_managed_link_down(ops, false));
+        assert(worker_started && !dhcp_configured && !local_ip && !read_be32(dhcp_router_ip_bytes));
+        assert(tcp_connections[0].reset && tcp_connections[0].refs == 1 && listeners[0].used && udp_sockets[0].used);
+    }
+    assert(net_managed_link_down(ops, true) && !worker_started);
+    puts("net-managed-wired: PASS no-carrier startup, four fresh leases, link cleanup and resident worker");
+}
+#endif
 struct configuration {
  uint32_t address,source,relay;uint8_t bytes[20];
  bool configured,in_progress,offered,requested;
@@ -297,6 +344,9 @@ int main(void){
  reset(NORMAL);assert(net_dhcp_request_discover_retry(NULL)<0 && !discovers);
  guard.current=NULL;assert(net_dhcp_request_discover_retry(&guard)<0 && !discovers);
  admission();
+#ifndef SRVROS_DHCP_RETRY_EMBEDDED
+ managed_wired(&ops);
+#endif
  reset(NORMAL);assert(net_device_retire(&ops));
  assert(net_dhcp_request_discover_retry(&guard)<0 && !discovers);
  puts("net-dhcp-retry: PASS actual production stack/registry,independent DHCP peer;one explicit same-XID Discover retry,late Offer,absence,ACK/refused/uncertain/down/owner/clock/poll/callback refusals,legacy packet/API compatibility;no native USB/CCMP acceptance");

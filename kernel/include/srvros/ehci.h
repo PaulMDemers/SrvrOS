@@ -27,6 +27,8 @@ void ehci_desktop_trackpad_print_trace(const char *phase);
 bool ehci_desktop_trackpad_checkpoint(const char *release, const char *volume);
 bool ehci_desktop_workspace_start(const char *volume);
 bool ehci_desktop_workspace_report(const char *release, bool startup);
+bool ehci_ethernet_workspace_report(const char *release, bool startup);
+bool ehci_bcm4331_workspace_report(const char *release, bool startup);
 bool ehci_desktop_workspace_stop(void);
 void ehci_monitor_start(void);
 bool ehci_monitor_stop(void);

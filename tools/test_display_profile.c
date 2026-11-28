@@ -75,10 +75,14 @@ int main(void) {
     entry32(write_table("Apple Inc.", "MacBookPro11,3"));
     display_profile_init(&smbios, &map, hhdm);
     assert(display_profile_scale(2880, 1800) == 1);
+    assert(!display_profile_is_pro81());
+    entry32(write_table("Apple Inc.", "MacBookPro8,1"));
+    display_profile_init(&smbios, &map, hhdm);
+    assert(display_profile_is_pro81() && display_profile_scale(1280, 800) == 1);
     entry32(write_table("Apple Inc.", "MacBookAir7,2"));
     display_profile_init(&smbios, &map, hhdm);
     assert(display_profile_scale(2880, 1800) == 1);
-    assert(!display_profile_is_air61());
+    assert(!display_profile_is_air61() && !display_profile_is_pro81());
     entry32(write_table("Apple Inc.", "MacBookAir6,1"));
     display_profile_init(&smbios, &map, hhdm);
     assert(display_profile_is_air61() && display_profile_scale(2880, 1800) == 1);

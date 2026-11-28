@@ -1187,6 +1187,157 @@ decoder and feature mode switch, separate from the Air0291 Type3 profile.
 Synthetic protocol/transport tests do not accept physical gestures. Keep the
 last accepted keyboard payload and collect the native session before proceeding.
 
+### MacBookPro8,1 Ethernet trials
+
+The MacBookPro8,1 onboard BCM57765 has a separate unattended
+`tools/hardware_boot.py stage --ehci-ethernet-probe UUID` recipe. Run
+`tools/ehci_trial_smoke.py RELEASE` to verify foreign-platform refusal,
+both reports, and one-shot return before installing. Leave the cable and
+the selected EHCI flash workspace connected during the native trial.
+The probe reports controller and PHY identity, carrier, speed and
+duplex, and saves `ehci-ethernet-RELEASE-startup.txt` and
+`ehci-ethernet-RELEASE.txt` under `srvros-work` before returning to
+Ubuntu.
+
+Use `tools/hardware_boot.py stage --ehci-ethernet-dhcp UUID` for the
+unattended packet trial. The same exact-stage smoke command checks
+foreign-platform refusal, both reports and one-shot return. On the
+MacBook the packet trial verifies an exact MAC loopback frame, disables
+loopback, and runs DHCP on the connected cable. Check TX and RX
+completions, the accepted DHCP Offer and ACK, the configured address
+and router, and verified DMA retirement in the final report. Both
+reports use the same release-specific filenames as the link probe.
+
+For the attended MacBookPro8,1 desktop cable trial, stage
+`hardware_boot.py stage --ehci-desktop-trial UUID --ehci-desktop-ethernet`,
+then run `ehci_trial_smoke.py RELEASE`. Text opens the complete
+checklist. Start with Ethernet and USB connected, unplug only Ethernet
+at the Connected prompt, and reconnect at the Link down prompt. The
+trial verifies a fresh lease and gateway reply at both connected
+checkpoints and confirms deconfiguration when the cable is out.
+Ctrl-Alt-Esc ends the trial early. The startup and final Ethernet
+reports are saved under `srvros-work` before returning to Ubuntu.
+
+To qualify the ordinary wired startup path, add `--ehci-desktop-wired connected`
+for the first boot. Leave Ethernet connected while the desktop acquires a DHCP
+lease and sends sustained gateway echo traffic. Stage a second release with
+`--ehci-desktop-wired disconnected` and start it with Ethernet unplugged, then
+connect at the first prompt and follow the three unplug and reconnect prompts.
+Each connected phase runs for about 20 seconds. Leave Ethernet connected for
+the return to Ubuntu and leave the flash drive attached throughout. Run the
+exact-stage smoke check for each release. On return, verify both flash reports,
+the initial carrier state, gateway replies for each lease, deconfiguration on
+each loss, and safe DMA retirement.
+
+### MacBookPro8,1 internal Wi-Fi topology probe
+
+Use `tools/hardware_boot.py stage --ehci-bcm4331-probe UUID` and run
+`tools/ehci_trial_smoke.py RELEASE` before installing. The exact-stage VM
+checks that other machines refuse PCI access, save both reports, and return
+through GRUB. On the MacBook, keep the Ethernet cable and selected flash
+drive attached. The one-shot probe reads BCM4331 ChipCommon and enumeration
+ROM with temporary PCI access. It fences inherited bus mastering before
+changing the selector and verifies PCI access restoration before rebooting.
+It also samples the clocked PHY and attempts board ROM validation with
+temporary pin selection and verified restoration.
+Check `ehci-wifi4331-RELEASE-startup.txt` and
+`ehci-wifi4331-RELEASE.txt` under `srvros-work`. The topology probe precedes
+firmware startup and requires no network credentials or operator input.
+
+Use `--ehci-bcm4331-firmware UUID` for the isolated D11 bootstrap. It uses
+the matching Ubuntu `ucode29_mimo.fw` and verifies the microcode revision
+and halt with the transmit MAC disabled. The same two reports capture
+firmware startup and retirement. Use the topology recipe for read-only
+MAC register access.
+
+For the receive trial, stage with `--ehci-bcm4331-channel10 UUID` and
+`--bcm4331-radio-profile PATH`. Use the pinned local profile extracted by
+`tools/bcm4331_radio_profile.py` from the MacBook's Ubuntu trace. The stage
+also verifies the Ubuntu HT register tables. Run the exact-stage smoke
+check before installing. The native trial initializes the HT radio and
+uses a bounded DMA64 receive ring. It qualifies `Demers2.4` on channel 10
+by checking the hardware channel, beacon information and frame checksum.
+The final report should show `BEACON_OK`, `receive_retired=1`,
+`bus_master_off=1`, and `dma_pages=0`. Leave Ethernet and the flash drive
+attached. Verify both release-specific Wi-Fi reports on return to Ubuntu.
+
+For Open System authentication and association, extract the local
+radio profile with `tools/bcm4331_radio_profile.py TRACE PROFILE --station`
+and stage with `--ehci-bcm4331-station UUID --bcm4331-radio-profile PROFILE`.
+The final report should show `ASSOCIATED`, status 0 for both exchanges,
+and an acknowledged disassociation. The station profile includes the
+captured transmit gain calibration.
+
+Use `--ehci-bcm4331-dhcp UUID --bcm4331-radio-profile PROFILE
+--bcm4331-station-key PATH` for the WPA2-PSK/CCMP and DHCP trial. The
+private key record contains a derived PMK and fresh entropy. Generate a
+new record for each one-shot with `tools/bcm4331_station_key.py`. Rehearse
+the exact payload in the network-disabled VM, then verify `DHCP_OK`, the
+four-way handshake, the DHCP offer and ACK, and key, provider, RX and TX
+retirement in the final flash report. After Ubuntu returns, archive the
+reports and manifest, restore a credential-free boot entry, and remove
+the private stage and installed payload. Keep credentials off the flash
+workspace and out of evidence archives.
+
+Use `--ehci-bcm4331-reconnect UUID` with the same station radio profile
+and a fresh private key record to qualify two connections in one
+unattended boot. Verify `RECONNECT_OK` and both epochs in the final
+report. Each must show WPA2, a DHCP offer and ACK, five matched probes
+of the Wi-Fi gateway, acknowledged disassociation, cleared IPv4 and
+route state, and key retirement. The second epoch must show a fresh
+authenticator nonce. Verify provider and DMA retirement, collect both
+flash reports, and use the same private-payload cleanup on return.
+
+For the attended Settings trial, stage with
+`--ehci-desktop-trial UUID --ehci-desktop-wifi --bcm4331-radio-profile PROFILE
+--bcm4331-station-key PATH`. Use the qualified station profile and a fresh
+private key record. The boot selects the BCM4331 for the single-adapter
+network stack. Text opens the checklist. In Settings, open Wi-Fi, select
+Demers2.4, connect, disconnect, then select the network and connect again.
+Use Ctrl-Alt-Esc to finish and return to Ubuntu.
+
+Verify the two release-matched `ehci-wifi4331-*` reports on the flash
+drive. The final report must show the three requests from Settings,
+two WPA2 and DHCP lifetimes, gateway replies on both, and safe adapter
+retirement. Archive the reports and manifest, restore the credential-free
+boot entry, and remove the private stage and installed payload.
+
+Add `--ehci-desktop-wifi-loss` to qualify signal restoration. Connect once
+from Settings, let the link settle, turn the selected radio off for about
+15 seconds, then restore it. Keep the same channel and settings during the
+test. The driver records a gap in valid beacons from the associated BSSID
+and checks the gateway five times after that BSSID returns. Leave Settings
+alone during the outage and restoration so the report measures the original
+connection. Both reports use the release-matched Wi-Fi filenames and the
+same private-payload cleanup.
+
+Use `--ehci-desktop-wifi-gap` in place of that flag when the access point
+must stay online. This automatic trial connects after saving the startup
+report, drops received frames at the BCM4331 driver boundary for 15 seconds,
+and resumes traffic on the original association. The report checks that a
+gateway request was transmitted and acknowledged during the gap with no
+delivered reply, followed by five gateway replies after reception resumes.
+Keep the flash drive attached through the on-screen countdown and Ubuntu
+return. This exercise does not qualify association recovery after an access
+point goes offline.
+
+For an attended RF outage without access to the router, use
+`--ehci-desktop-wifi-range`. Start in reliable coverage and wait for the
+desktop to prompt the operator to move. Keep the lid open and the flash
+drive attached. Stay out of range until the return prompt, then go back to
+the starting spot and reconnect Ethernet if unplugged. The final report
+records the associated AP's beacon gap, the WPA2 and DHCP epochs, and
+gateway replies after return. Recovery on the original association and
+recovery through a new association provide different evidence.
+
+Use `--ehci-desktop-wifi-startup` for repeated unattended startup checks.
+The startup report records separate PCI identity, reference clock, kernel
+root, and MMIO window results. After saving it, the desktop automatically
+connects and tests the gateway. It returns to Ubuntu after a successful
+connection or a bounded wait. Verify `STARTUP_OK`, WPA2, a DHCP ACK,
+14 gateway replies, and clean retirement in the final report. Keep the
+reports from each distinct boot, including any failure.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal

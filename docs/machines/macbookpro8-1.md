@@ -1,6 +1,6 @@
 # MacBookPro8,1 bring-up record
 
-Updated November 27, 2026. State **Native console output, EHCI enumeration
+Updated November 28, 2026. State **Native console output, EHCI enumeration
 of the built-in topcase and workspace flash drive, and return to Ubuntu
 verified. Both controllers completed their scans and released DMA in the
 enumeration trial. The operator verified built-in keyboard input, command
@@ -9,7 +9,11 @@ trackpad trial verified Wellspring mode recovery, one-finger motion, two
 contacts, and click press and release. Ubuntu verified the release-matched
 USB report. The native desktop verified pointer movement, physical clicks,
 Ubuntu return, and the USB report. The instrumented retry passed with zero
-malformed frames. The earlier malformed frame remains unexplained.**
+malformed frames. The earlier malformed frame remains unexplained. The
+BCM4331 native trials verified channel 10 radio initialization, beacons,
+association, WPA2-PSK/CCMP, DHCP, and same-boot disconnect and reconnect
+with gateway traffic on `Demers2.4`. The native desktop then verified
+Connect, Disconnect, and reconnect from Settings with both USB reports.**
 
 ## Identity and baseline
 
@@ -316,6 +320,478 @@ and both reports are archived outside `build`. The exact-stage VM passed
 the desktop and keyboard-only exit paths. The integrated branch also
 passed the EHCI hub and xHCI console smokes and the Air6,1 SSD probe's
 foreign-platform refusal.
+
+The wired Ethernet block starts from merged baseline `24feebdd`. The
+open Air6,1 and Air7,2 graphics PRs and the Apple Silicon runtime PRs
+have no Ethernet dependency. This checkout owns the exact BCM57765
+`14e4:16b4` revision `10` at `02:00.0`, its standalone RAM boot
+recipe, and the EHCI USB reports. Ubuntu's `tg3` reports firmware
+`57765-v1.37`, PHY address 1 with ID `0362:5e44`, and a negotiated
+1 Gb/s full-duplex link. BAR0 and BAR2 are each 64 KiB.
+
+The first native checkpoint is PCI and ASIC identity, bounded PHY
+register reads, carrier and link mode, verified MMIO retirement, and
+two release-matched reports after Ubuntu returns. It precedes reset
+ownership, descriptor and DMA setup, and packet exchange. The standard
+network provider selection stays outside this probe.
+
+Release `d6053aaf8786343a` enumerated the controller natively and
+saved both reports. The first ASIC gate compared a truncated value
+against the full register. The native probe refused before MMIO and
+returned to Ubuntu. The privileged Ubuntu PCI read confirms raw ASIC
+revision `0x57785100`. The retry uses that exact value.
+
+Source `a23334fc` and release `c12c6db3391e7bc4` passed the native
+link checkpoint. PCI memory decoding and bus mastering were already
+enabled in D0. The probe used the existing decode, issued read commands
+to PHY address 1, and observed ID `0362:5e44`, BMSR `0x796d`, and
+auxiliary status `0x871c`. These decoded to carrier at 1,000 Mb/s
+full duplex and matched Ubuntu. The temporary BAR mapping retired with
+MDIO idle and the captured PCI state intact. Both startup and final
+reports verified after the automatic Ubuntu return. The read-only
+allocation check passed with 160 files and 168 clusters. The exact
+payload and both native attempts are archived outside `build`.
+
+The link checkpoint used no packet rings or DMA and registered no
+network provider. The next acceptance step is a BCM57765 packet test
+with bounded DMA ownership and retirement, followed by the normal
+network stack's DHCP and local gateway checks. The Linux
+[tg3 register definitions](https://github.com/torvalds/linux/blob/master/drivers/net/ethernet/broadcom/tg3.h)
+provide the PHY status reference.
+
+The packet block continues PR #568 from device source `6606f6e7` and
+integration base `24feebdd`. This unit owns the BCM57765 polling path,
+its early-boot recipe and EHCI reports. The open graphics, desktop login,
+shared memory and installation export PRs have no Ethernet overlap.
+The trial will verify an exact frame through the internal MAC loopback,
+switch to the physical link for DHCP through the existing IPv4 stack,
+then retire the provider and DMA before returning to Ubuntu. It uses a
+single standard receive ring, receive return ring and send ring. The
+startup report is saved before packet DMA is admitted.
+
+Native releases `94abe4b864708a88` and `68a8a7c71f096dcc` refused
+before enabling packet DMA. The second run isolated the refusal to the
+firmware's SRAM window selector, which was left at `0x0c04` with the
+packet engines idle. Both reports from each run verified after Ubuntu
+returned. The retry accepts that exact selector and restores it after
+each indirect SRAM access.
+
+Source `3db072e0`, release `4236ecafdcb7e339`, passed the native
+packet and DHCP trial. The MAC loopback returned the exact 60-byte frame
+with one TX and one RX completion. After loopback was disabled, the
+existing stack completed one Discover, Offer, Request and ACK on the
+wired link and configured IPv4 and a default router. DHCP took 1,846 µs
+in the bounded poll. Across both phases, all three TX and three RX
+descriptors completed, with zero drops and zero reported read/write
+DMA errors. The trial retired the provider, stopped bus mastering and
+released the DMA allocation. The exact-stage VM confirmed refusal on
+foreign hardware, both USB reports and one-shot return.
+
+Ubuntu verified both native reports and the retained recovery payloads.
+The read-only exFAT check passed with 166 files and 174 clusters. Earlier
+workspace files were preserved. All trial payloads and reports are
+archived outside `build`. This is an opt-in polled boot trial. Ordinary
+desktop networking and link loss/reconnect remain separate acceptance
+work.
+
+The desktop cable block continues PR #568 from `35c8456e` on
+`24feebdd`. It extends the BCM57765 lifetime across the existing EHCI
+desktop and adds an attended checklist to the compositor. The open
+graphics, login, shared-memory and export PRs do not touch this provider
+or the cable state machine. The checkpoint is connected DHCP and
+gateway traffic, observed cable loss and address retirement, renewed
+DHCP and gateway traffic after reconnect, and both USB reports with
+clean topcase, network and flash retirement.
+
+Release `7dd94caf8a4f6945` passed connected DHCP and gateway echo on
+the desktop. Unplugging cleared carrier, IPv4 and the resident worker.
+Reconnect restored 1 Gb/s carrier and completed the Discover transmit.
+The second DHCP round exhausted its poll count after 48,395 µs before
+the time-based retry. Text startup also cleared the first cable prompt
+after the compositor had logged it. Both native reports were verified,
+and DMA retirement and Ubuntu return succeeded. The next candidate
+keeps the prompt visible across app launches and paces DHCP polling so
+the existing elapsed-time retry can run.
+
+Source `4a60c26d`, release `fd24bb312a64131f`, passed the attended
+desktop cable cycle. Text opened the checklist and the compositor
+recorded all three phases. The initial connection and reconnect each
+accepted a DHCP Offer and ACK, received a gateway echo and started
+the same resident polling worker. Unplugging cleared IPv4 and the
+default router and parked the worker. The paced DHCP rounds took
+15,311 µs and 19,492 µs and needed one Discover each. The host fixture
+separately proved the elapsed-time retry when the first Discover
+was lost. The VM exercised the checklist, foreign-platform refusal,
+both reports and one-shot return.
+
+The native controller completed ten TX and fourteen RX descriptors
+with zero drops, then stopped bus mastering and released DMA. Topcase
+and flash retirement succeeded. Ubuntu verified both reports and all
+previous workspace files. The offline exFAT check passed with 170
+files and 178 clusters. The payload and reports are archived outside
+`build`. The desktop cable recipe remains explicit. Ordinary boot
+and sustained multi-cycle networking have separate acceptance.
+
+The next work block enables the exact MacBookPro8,1 BCM57765 on ordinary
+desktop startup from integration baseline `24feebdd`. The local branch
+owns the provider, wired carrier and DHCP lifecycle, and release-specific
+desktop trials in draft PR #568. The open graphics, login, shared memory
+and export work has no Ethernet dependency. First qualify the staged
+desktop in the VM, then boot with carrier present and absent and measure
+gateway traffic through three cable cycles. Verify both flash reports
+and Ubuntu recovery after each boot before recording acceptance.
+
+Source `8d5af090`, connected-start release `657931e51d2152c8`, booted
+the production wired provider with carrier present and acquired DHCP.
+The desktop measured 35 gateway replies from 35 requests over 18.7
+seconds. The controller completed 51 TX and 51 RX descriptors with zero
+drops, then released DMA and stopped bus mastering. Ubuntu verified both
+flash reports and preserved the existing workspace files. The offline
+exFAT inspection passed with 172 files and 180 clusters. The same source
+passed disconnected startup and three cable cycles on release
+`e0c0bff8e7ef17ae`. The desktop opened without carrier or an IPv4 lease.
+The first cable connection and all three reconnects negotiated 1 Gb/s
+full duplex and acquired DHCP. Each unplug cleared IPv4 and the default
+route while leaving the resident receive worker running. Each connected
+phase returned all 35 gateway echoes over 17.4 seconds, for 140 of 140
+across four phases. The controller completed 230 TX and 312 RX descriptors
+with zero drops and verified DMA retirement. Ubuntu verified the hashes
+of both reports and preserved the existing workspace files. The offline
+exFAT inspection passed with 174 files and 182 clusters.
+
+### Internal BCM4331 Wi-Fi
+
+This block uses integration baseline `24feebdd`, the working Ubuntu `b43`
+reference, and the verified EHCI report path. The captured PCIe function is
+`03:00.0`, `14e4:4331` revision `02`. Linux reports chip package `09`, BCMA
+ChipCommon revision `25`, D11 revision `1d`, and PCIe core revision `13` in
+hex. Its HT PHY is type 7, revision 1. Firmware `784.2` joined the 2.4 GHz
+test network on channel 10 and returned all four interface-bound gateway
+probes while Ethernet stayed up.
+
+The first SrvrOS checkpoint owns the exact MacBookPro8,1 PCIe and BCMA
+probe, isolated boot recipe, and two release-specific flash reports. It
+reads the chip and core topology and verifies restoration of temporary PCI
+access before returning to Ubuntu. Firmware and board data, passive scan,
+authentication, and DHCP on the wireless interface are subsequent native
+checkpoints. The MediaTek work from PR #19 supplies Wi-Fi service and IP
+stack references. The active Pro11,2 branch at `bf7a0112` covers external
+USB Realtek hardware. It does not share the BCM4331 PCIe transport.
+
+The first native release `867b4df92cd39cdc` read the expected ChipCommon
+ID `13924331`, capabilities `58500000` and EROM pointer `18107000`.
+Ubuntu left PCI bus mastering enabled across the warm reboot, so the
+probe skipped the movable BAR window. Both reports and Ubuntu return
+verified. The retry clears BME and checks PCIe transaction drain before
+switching the BAR window. It restores the original selector and memory
+decode, with DMA fenced through the return to Ubuntu.
+
+The retry `dbe360115542ce8e` fenced DMA and read the EROM. Its parser
+stopped at the PCIe core's 64-bit bridge aperture. Release
+`a562b8bab2297e39` consumes those descriptors while admitting only the
+captured 4 KiB core windows. It verified ChipCommon, D11 and PCIe at
+`18000000`, `18001000` and `18002000` and the D11 wrapper at `18101000`.
+The wrapper reported the inherited D11 clock enabled and reset clear.
+All six reports from these three boots saved and Ubuntu verified each
+return. The board-data follow-up samples the clocked PHY and temporarily
+selects the board ROM pins with verified restoration before firmware work.
+
+Release `81792b9f74d35454` identified HT PHY type 7 revision 1 and analog
+revision 9, matching Ubuntu. It read revision 9 of the 220-word board ROM
+with a valid CRC after selecting its pins, then restored the selector,
+pin mux and mappings. Both flash reports verified and both Ubuntu links
+came back. The next isolated recipe pins Ubuntu's D11 microcode bytes and
+checks for a fresh `784.2` firmware response with the MAC disabled and DMA
+fenced. PHY initialization and the channel 10 network trial follow.
+
+Release `57f79380ace8e3fd` wrote all 10,804 microcode words. The warm
+D11 state immediately reasserted its DMA interrupt after the interrupt
+clear, so the probe stopped before it started the PSM. Both flash reports
+and Ubuntu return verified. The retry uses a bounded D11 reset to clear
+the inherited device state and verifies the HT and PLL clocks before
+loading the same microcode.
+
+Release `6a13ab07775b6428` passed the D11 reset and clock checks and
+bootstrapped the complete pinned microcode. The PSM raised a fresh MAC
+suspend event and returned firmware revision `784.2`. It halted with the
+MAC disabled and PCI bus mastering fenced. Both USB reports verified,
+the workspace allocation check passed with 186 files, and Ubuntu resumed
+with both links up. The next native checkpoint is HT PHY and radio
+initialization and passive receive on channel 10. Association, WPA2 and
+interface-bound DHCP and gateway traffic remain to be verified in SrvrOS.
+
+The channel 10 block starts from `fc1cb4f2` and fetched integration
+baseline `24feebdd`. It owns the BCM4331 HT PHY and radio initialization,
+passive receive, beacon matching, and release-specific EHCI receipts.
+Use Ubuntu's working channel 10 session to measure the radio sequence
+and check timing and receive format against the Linux driver. The first
+native acceptance is a bounded receive window with a verified target
+beacon and safe retirement. The Pro11,2 USB work at `4226e6f2` and the
+open graphics and runtime PRs have separate hardware and paths.
+
+Ubuntu's driver trace recorded the radio power-up, HT table programming
+and channel 10 switch. The passive profile keeps the receive setup through
+the last HT table and omits the driver's later TX sample calibration.
+The associated AP advertises `Demers2.4` at 2457 MHz. The SrvrOS trial
+checks the pinned local HT profile and firmware tables, requires fresh
+radio calibration status, and validates complete beacon frames.
+
+Release `bfa0d0c0f1f159de` completed the pinned init writes, radio
+calibration, HT programming and channel 10 sequence. The receive gate
+expected the entire DMA control register to be zero and never started
+PIO. Firmware retirement, both flash reports and Ubuntu return verified.
+The retry measures the initial control and status, checks disabled DMA
+separately, and changes only the direct-FIFO control bits.
+
+Release `c062a4edf12fc2ab` verified the control register's reset default
+`0x40`, inactive RX DMA and PIO admission. It delivered one frame with
+channel word `0x57`, which identifies channel 10 and HT PHY. It did not
+match the target beacon. Both reports and safe return verified. Release
+`f3e4d76b26c3d17f` acknowledged 31 receive events and read one frame whose
+data repeated the channel word at the expected frame control offset.
+Both reports and safe retirement verified again.
+
+An Ubuntu monitor comparison on 2457 MHz reported zero target beacons
+with forced PIO and 58 with DMA over identical eight-second captures.
+The first PIO comparison had counted tcpdump's empty shutdown line as
+a frame. Ubuntu's default DMA driver and both connections were restored.
+The next trial uses a bounded DMA64 receive ring on the verified D11
+engine. It checks all DMA channels are idle before enabling bus mastering,
+posts a finite batch of receive buffers, and verifies the engine, PCI
+fence and ring are retired before releasing memory. The exact-profile
+trial leaves transmit queues disabled.
+
+Release `7a49dd4251a58927` initialized the radio and saved both reports.
+The DMA preflight stopped at channel 1 before granting bus mastering.
+Readback with Ubuntu confirmed the BCM4331 has six TX register banks
+and only one RX bank. RX control and status read all ones in channels
+1 through 5. The revised preflight requires that exact topology while
+checking the real RX and all six TX engines are disabled.
+
+Release `116b5ca72139453e` initialized the radio and armed the RX ring.
+The hardware pointer stayed at zero and no beacons were captured. The
+MAC suspended and PCI bus mastering was fenced, but the RX engine did
+not confirm disable. The trial withheld its DMA pages and saved both
+reports before Ubuntu returned. The next retry verifies the ring base
+before granting bus mastering, enables RX before posting descriptors,
+and can hold D11 in reset after fencing PCI if RX retirement stalls.
+
+Release `84541853f67eb293` verified normal RX shutdown, PCI fencing, and
+ring clearing with zero DMA pages retained. The active descriptor moved
+to `0x10`, but no frame completed. Both flash reports, workspace integrity
+and Ubuntu return verified. The next retry supplies the Linux driver's
+post-PHY MAC timing, capability and PHY information to the firmware.
+
+Release `77845b0ad46fd3cb` (`6c7ef299`) passed the exact-stage VM check
+and returned `BEACON_OK` on the MacBook. D11 firmware `784.2` reached
+active state after HT calibration and channel 10 tuning. Five DMA frames
+completed with no timeout. Three were checksum-valid `Demers2.4` beacons
+with channel 10 in the hardware receive header and beacon information.
+The MAC suspended, the RX ring stopped and cleared, PCI bus mastering
+was fenced, and all DMA pages were released. Both flash reports verified.
+The workspace allocation check passed with 200 files and zero leaks or
+mismatches. Ubuntu returned with Ethernet and Wi-Fi connected. The exact
+payload and reports are archived in the local recovery directory under
+`77845b0ad46fd3cb`. Association and wireless IP remain subsequent tests.
+
+The station trial starts from `f50c74bf` with fetched integration baseline
+`24feebdd`. It owns BCM4331 D11 transmit and station lifecycle, a bounded
+Demers2.4 connection recipe, and the two existing EHCI receipts. The
+first checkpoint is Open System authentication and association with
+verified wireless transmit status. Then use the existing WPA2 handshake
+and software CCMP code, and qualify an interface-bound DHCP exchange.
+The USB MediaTek driver from merged PR #19 and the Pro11,2 USB trials
+are independent transports. PR #568 tracks this device branch. The open
+graphics and runtime PRs have no overlapping D11 work. Keep the accepted
+passive release and Ubuntu recovery available throughout.
+
+Release `cbd2537e8ca4d612` (`691a58c9`) passed the exact VM rehearsal and
+native station test. The AP acknowledged the Open System authentication
+and association frames and returned status 0 for both. The station sent
+an acknowledged disassociation. RX and TX stopped and PCI bus mastering
+was fenced. Both flash reports verified, and Ubuntu returned with both
+links up. The station radio profile includes the TX gain calibration from
+this unit's Linux trace. Ubuntu's sanitized b43 capture confirmed the
+1 Mb/s management header and the D11 transmit queue.
+
+Release `5ae54bef0deab874` from `00355005` passed the exact-stage VM
+rehearsal and the native association, WPA2 and DHCP trial. The AP
+acknowledged authentication and association. The four-way handshake
+verified M3 and the GTK, and the AP acknowledged M4. The bounded IPv4
+probe selected only `bcm4331` and observed one Discover, Offer, Request
+and ACK over CCMP. Linux supplied fresh per-trial entropy and the PMK
+from the active profile. The receipt verified software key retirement,
+acknowledged disassociation, stopped RX and TX, fenced PCI bus mastering,
+and zero retained DMA pages. Both flash reports and the offline allocation
+check passed with 204 files. Ubuntu returned with Ethernet and Wi-Fi up.
+The collector archived the reports and manifest, removed the temporary
+credential payload, and restored the credential-free association entry
+alongside the known-good recovery.
+
+The gateway and reconnect trial starts from `76d2ee02` with integration
+baseline `24feebdd`. It extends the BCM4331 station trial and its existing
+flash receipts. It uses the shared bounded network connection scopes to
+verify gateway echo replies before and after an acknowledged disconnect,
+fresh association, WPA2 handshake and DHCP exchange in the same boot.
+The other Pro's external USB transport remains independent. PR #568
+carries the device branch. There is no overlap with the current graphics
+and runtime work. Keep the accepted passive and association payloads and
+Ubuntu recovery available.
+
+Release `c0aab7606708081f` (`b75e7929`) passed the exact-stage VM
+rehearsal and returned `RECONNECT_OK` on the MacBook. The first
+connection completed WPA2 and DHCP and received five of five matched
+gateway echoes. The disconnect was acknowledged, cleared IPv4 and the
+default route, and retired the software keys. After a 500 ms interval
+with the network link down, the station rejoined the same AP. It verified
+a distinct authenticator nonce, completed a fresh DHCP exchange, and
+received five of five gateway replies again. The final disconnect and
+provider retirement completed, all 26 transmissions had acknowledgments,
+and both DMA queues stopped with no retained pages. Both flash reports
+verified and the offline allocation check passed with 206 files and zero
+leaks. Ubuntu returned with both links up. The collector restored the
+credential-free association entry and removed the temporary payload.
+
+The desktop Wi-Fi work starts from `1a24c9c1` with integration baseline
+`24feebdd`. The BCM4331 will publish the validated `Demers2.4` network
+through the existing Settings service and use the normal network worker
+after DHCP. Scope covers the BCM4331 desktop owner, fixed-channel Wi-Fi
+publication, and the EHCI desktop checklist and reports. The existing
+network stack selects a single adapter per boot. Use a provisioned Wi-Fi
+desktop boot for this trial while retaining the wired desktop profile and
+Ubuntu recovery. PR #568 carries the device branch. The Pro11,2 USB Wi-Fi
+owner and the graphics and runtime PRs have separate hardware and scope.
+
+Desktop release `d6defd5b7a97090b` uses SrvrOS `24738e27` and SrvrApps
+`6818e00`. The exact-release VM verified navigation from Settings to Wi-Fi,
+report saving, platform refusal, and the Ubuntu boot fixture. The MacBook
+returned `DESKTOP_OK`. Settings issued Connect, Disconnect, and Connect
+again to `Demers2.4` on channel 10. Both connections completed WPA2 and fresh
+DHCP, then received 14 of 14 gateway replies. Disconnect cleared the lease,
+route, and keys. The TX ring wrapped with 45 acknowledged transmissions,
+and the driver released the RX and TX DMA allocations. Both flash reports
+matched their recorded hashes. The offline exFAT check found 208 files,
+216 allocated clusters, and no leaks or bitmap mismatches. Ubuntu returned
+with its default intact, and the collector restored the credential-free
+entry and removed the temporary private payload. The native run record is
+`build/review/macbookpro8-1-ehci-trial-d6defd5b7a97090b/run.json`.
+
+The signal-loss qualification starts from device commit `4f044783` with
+integration baseline `24feebdd`. PR #568 carries the work. The scope is
+passive observation of the associated BCM4331 access point and a bounded
+gateway check when the signal returns. The instrumented desktop trial
+retains the behavior of the previously accepted connection owner so it
+can establish whether recovery already works. The trial depends on an
+attended interruption of `Demers2.4`, the existing private station profile
+and matching EHCI workspace. Next checkpoint is the exact-stage VM boot,
+followed by the native signal-loss and restoration capture. The Pro11,2
+USB Wi-Fi transport has a separate acceptance record.
+
+Signal-loss candidate `6c3a127638e660eb` (`ef27c918`) passed the
+exact-stage VM and brought up the native BCM4331 and both input queues.
+Text opened the checklist. The desktop reached its 180-second deadline
+with no recorded pointer or keyboard activity and no Connect request.
+The run is incomplete before the outage step. Both flash reports were
+verified, the offline allocation check passed with 210 files and no leaks,
+and Ubuntu return and private-payload cleanup were confirmed.
+
+The retry `575c07efdf1118a4` (`a13b854d`) recorded the Settings
+connection, WPA2, DHCP, baseline beacon tracking and 14 gateway replies.
+It then recorded a manual disconnect and reconnect from System, and all
+14 gateway echoes succeeded again in the new epoch. No beacon outage was
+measured during the original connection, so RF recovery remains open.
+Both flash reports and Ubuntu return were verified, and the exFAT check
+passed with 212 files and no leaks. The checklist now identifies the
+router or access point as the control for the outage.
+
+The local receive-gap trial starts from `551901ee` against integration
+baseline `24feebdd` on PR #568. The owner cannot interrupt the access point.
+The replacement trial keeps the normal desktop, station and gateway in
+use, and temporarily drops received frames at the BCM4331 driver boundary.
+It measures the original connection before, during and after that gap.
+Scope covers the BCM4331 probe, the automatic desktop trial and release
+reports. It depends on the existing station profile and EHCI workspace.
+The previously staged attended router trial has not been armed.
+
+The unused router candidate `08447922b7838c8b` was superseded without
+arming a native boot, and its temporary private payload was retired.
+The first automatic local trial `634b61584f369b05` (`83c2fc03`) associated
+and completed WPA2. DHCP failed before the injection began, so the
+trial returned incomplete. Both flash reports, 214 intact files, and
+Ubuntu recovery verified. The retry delays automatic Connect until
+after desktop startup and records DHCP Discover, Offer, Request, and ACK
+counts in the final report.
+
+The delayed retry `8cf559613c3b0b22` (`e982b06b`) completed WPA2
+and recorded one Discover, one accepted Offer, one queued Request and
+zero accepted ACKs before the two-second DHCP bound. Both reports
+verified and Ubuntu acquired its lease after reboot. The next bounded
+candidate adds one Request retransmission for the local BCM4331 trial
+within the existing paced DHCP scope and deadline. Shared DHCP parsing,
+lease checks and the policies of other callers are preserved.
+
+Release `c809111f83871175` (`f4725bbe`) passed the automatic local
+receive-gap test. The MacBook completed WPA2 and DHCP on the first
+Request and received 14 of 14 baseline gateway replies. The driver
+dropped 278 received frames over 15.009 seconds. During the gap the AP
+acknowledged the radio transmission of a gateway probe, and SrvrOS
+received no IP reply. Reception then resumed and all five gateway
+probes replied on the original association and lease. All 29 radio
+transmissions were acknowledged, and the provider and DMA retired.
+Both flash reports matched their checksums. The offline allocation check
+passed with 218 files and no leaks. Ubuntu returned and the collector
+removed the temporary private payload. The access point stayed online,
+so reacquisition after an access-point shutdown remains open.
+
+The attended out-of-range trial starts from `94360dfd` and integration
+baseline `24feebdd` on PR #568. The MacBook will leave and return to the
+coverage of the associated Demers2.4 AP with the same flash workspace.
+The BCM4331 trial records a measured beacon gap, post-return gateway
+traffic and the connection epoch. The existing station recovery behavior
+is the subject of the test. Scope covers the trial boot recipe, status
+and reports. The Pro11,2 USB provider has separate hardware and scope.
+
+The out-of-range boot `6a40ad67a02ce1a9` (`c090766c`) returned
+`INCOMPLETE`. The BCM4331 refused PCI identity or mapping context before
+Connect was queued, and the desktop exited at phase zero. No RF gap or
+reassociation was observed. The operator reported that walking out of
+coverage was impractical. Both flash reports matched their checksums.
+The offline allocation check passed with 220 files and the prior files
+intact. Ubuntu returned and the collector retired the private payload.
+Access-point disappearance and automatic reassociation testing are
+deferred at the operator's request. The initialization refusal in this
+boot remains open.
+
+Startup investigation starts from `9c59f481` against integration baseline
+`24feebdd` on PR #568. The failed release enumerated the BCM4331 at
+`03:00.0` but the driver refused admission under a combined PCI and
+mapping check. Add separate read-only admission evidence and prove the
+existing desktop connection path through three unattended boots of this
+unit. Scope covers the BCM4331 startup gate, a startup-only boot recipe,
+and the matching flash reports. The existing qualified station profile,
+EHCI workspace, and Ubuntu recovery are dependencies. Access-point
+outage and automatic reassociation remain deferred.
+
+On source `5e739194`, release `62e9f5ea86fe37c4` passed all admission
+checks, WPA2, DHCP and 14 gateway probes. Release `d543cc55e339a0e0`
+passed the same early admission and initialized firmware, the PHY,
+channel 10, and the receive ring. The first beacon window expired before
+the provider became ready. Both releases saved their flash reports and
+confirmed hardware retirement and Ubuntu return. The earlier combined
+PCI or mapping refusal did not recur in those two boots. The next
+candidate records receive descriptors and validated beacons and allows
+one more initialization after verified retirement of the first attempt.
+
+Updated source `13e3c22a` passed three consecutive warm starts in
+`a320a74962ddf056`, `9d3710a6d47b032c`, and `d7d63504a27a5668`.
+Every start passed the PCI identity, clock, sole-root, and free-MMIO
+checks, found the first qualified beacon in 39.674–205.708 ms, completed
+WPA2 and DHCP, and received 14 of 14 gateway replies. All three boots
+connected on the first attempt. The new retry remains unexercised on
+hardware. The original combined refusal did not recur in five diagnostic
+starts, so its specific cause remains undetermined. All ten reports
+from the investigation matched their recorded flash checksums. Each boot
+returned to Ubuntu with hardware retirement and allocation checks verified.
 
 ## Bring-up sequence
 
@@ -1333,7 +1809,8 @@ Offline allocation passed for 143 files with zero writes.
 | Audio | Built-in right speaker and stream teardown verified on `024a87e1e8d4bf42`. This unit has a broken left speaker | Qualify audible left-channel output with working hardware |
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
-| Networking | Linux inventory captured | Qualify the native wired and wireless providers |
+| Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
+| Wi-Fi | Settings Connect, Disconnect, and reconnect passed on BCM4331 against `Demers2.4` in `d6defd5b7a97090b`. The original association resumed gateway traffic after a 15-second driver receive gap in `c809111f83871175`. Both trials saved both reports | Three consecutive instrumented warm startups passed WPA2, DHCP and gateway traffic. Original admission refusal remains unexplained. Access-point outage and automatic reassociation testing are deferred |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native

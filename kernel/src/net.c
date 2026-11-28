@@ -186,6 +186,7 @@ static uint8_t dhcp_router_ip_bytes[4];
 static uint8_t dhcp_dns_ip_bytes[4];
 static uint8_t dhcp_offered_ip_bytes[4];
 static bool icmp_ping_waiting;
+static bool icmp_ping_busy;
 static bool icmp_ping_reply;
 static uint32_t icmp_ping_ip;
 static uint16_t icmp_ping_sequence;
@@ -235,6 +236,8 @@ static const uint8_t *local_mac;
 static bool initialized;
 static bool worker_started;
 static bool normal_worker_allocated,normal_worker_connection;
+static bool managed_worker;
+static uint64_t managed_generation;
 static bool (*normal_worker_io_safe)(void);
 static struct scheduler_wait_queue normal_worker_wait;
 /* Explicit one-shot probe worker: thread/stack are prepared before a live key.
@@ -471,7 +474,9 @@ static bool send_ethernet(uint8_t *frame, uint16_t length) {
     if (!probe_worker_packet_allowed()) return false;
     struct net_bounded_probe *scope=bounded_poll_owner;
     if (scope && !bounded_probe_check(scope)) return false;
+    uint64_t flags = managed_worker ? bounded_connection_lock() : 0;
     bool sent=net_device_send(frame,length);
+    if (managed_worker) bounded_connection_unlock(flags);
     if (scope && (bounded_poll_owner!=scope || !sent || !bounded_probe_check(scope)))
         return bounded_probe_fail(scope);
     if (probe_worker.handoff_started && !probe_worker_guard()) return false;
@@ -663,13 +668,14 @@ static bool send_icmp_echo_request(uint32_t remote_ip, uint16_t sequence) {
 }
 
 static bool resolve_ipv4_mac(uint32_t ip, uint8_t *mac_out) {
-    if (mac_out == 0 || !initialized || local_mac == 0) {
+    if (mac_out == 0 || !initialized || local_mac == 0 || (managed_worker && !local_ip)) {
         return false;
     }
     if (arp_cache_lookup(ip, mac_out)) {
         return true;
     }
 
+    uint64_t generation = managed_generation;
     if (!send_arp_request(ip)) {
         return false;
     }
@@ -678,7 +684,7 @@ static bool resolve_ipv4_mac(uint32_t ip, uint8_t *mac_out) {
     while (timer_ticks() - start < 100) {
         /* Another caller may resolve a different target while this one waits.
          * Only this caller's address can satisfy its lookup. */
-        if (process_should_exit_current()) {
+        if (process_should_exit_current() || generation != managed_generation) {
             return false;
         }
         if (arp_cache_lookup(ip, mac_out)) {
@@ -1012,7 +1018,7 @@ static void handle_dhcp_packet(const uint8_t *payload, uint16_t length,uint32_t 
 }
 
 static void handle_arp(const uint8_t *frame, uint16_t length) {
-    if (length < 42) {
+    if (length < 42 || (managed_worker && !local_ip)) {
         return;
     }
 
@@ -2667,7 +2673,8 @@ static void net_init_mode(bool quiet) {
 
     initialized = true;
     if (!quiet) console_printf("net: provider=%s\n",net_device_name());
-    if (!quiet) console_printf("net: static ipv4=%u.%u.%u.%u tcp=:80 icmp=on dhcp=available\n",
+    if (!quiet && managed_worker) console_write("net: IPv4 managed by the wired link service\n");
+    else if (!quiet) console_printf("net: static ipv4=%u.%u.%u.%u tcp=:80 icmp=on dhcp=available\n",
         local_ip_bytes[0],
         local_ip_bytes[1],
         local_ip_bytes[2],
@@ -2713,7 +2720,18 @@ bool net_start_worker(void) {
     return true;
 }
 
+bool net_start_managed_worker(const struct net_device_ops *provider) {
+    if (initialized || managed_worker || !net_device_select() || !net_device_selected_is(provider)) return false;
+    clear_bytes(local_ip_bytes, sizeof local_ip_bytes);
+    managed_worker = true;
+    net_init();
+    if (net_start_worker()) return true;
+    managed_worker = false;
+    return false;
+}
+
 int64_t net_dhcp_request(void) {
+    if (managed_worker) return dhcp_configured ? (int64_t)local_ip : SRV_ERR_AGAIN;
     if (dhcp_retry_active) {
         return SRV_ERR_AGAIN;
     }
@@ -3109,7 +3127,7 @@ bool net_bounded_probe_finish(struct net_bounded_probe *p) {
     return ok;
 }
 
-static void bounded_connection_deconfigure(void) {
+static void deconfigure_ipv4(void) {
     clear_bytes(local_ip_bytes,sizeof local_ip_bytes);local_ip=0;
     clear_bytes(dhcp_server_ip_bytes,sizeof dhcp_server_ip_bytes);
     clear_bytes(dhcp_router_ip_bytes,sizeof dhcp_router_ip_bytes);
@@ -3121,6 +3139,33 @@ static void bounded_connection_deconfigure(void) {
     dns_server_ip=dns_answer_ip=0;dns_answer_ready=dns_response_done=false;
     clear_bytes((uint8_t *)dns_question_name,sizeof dns_question_name);
     icmp_ping_reply=false;icmp_ping_ip=0;icmp_ping_sequence=0;icmp_ping_start_tick=0;
+}
+
+bool net_managed_link_down(const struct net_device_ops *provider, bool stop_worker) {
+    uint64_t flags = bounded_connection_lock();
+    bool owned = managed_worker && net_device_selected_is(provider) && !dhcp_retry_active;
+    if (owned) {
+        managed_generation++;
+        deconfigure_ipv4();
+        dns_response_done = true;
+        dns_waiting = icmp_ping_waiting = false;
+        uint64_t now = timer_ticks();
+        for (unsigned i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+            struct tcp_connection *connection = &tcp_connections[i];
+            if (connection->state != TCP_STATE_EMPTY && connection->state != TCP_STATE_CLOSED && !connection->reset) {
+                if (connection->pending && !connection->accepted) close_connection(connection);
+                else tcp_fail_connection(connection, SRV_NETERR_RESET, now);
+            }
+        }
+        if (stop_worker) worker_started = false;
+        net_notify_rx();
+    }
+    bounded_connection_unlock(flags);
+    return owned;
+}
+
+static void bounded_connection_deconfigure(void) {
+    deconfigure_ipv4();
     bounded_connection.active=false;bounded_connection.scope_identity=0;bounded_connection.resident=false;
 }
 
@@ -3253,6 +3298,12 @@ done:
     probe_worker_unlock(f);return ok;
 }
 static uint64_t probe_worker_device_poll(uint64_t budget,bool verbose) {
+    if (managed_worker) {
+        uint64_t flags = bounded_connection_lock();
+        uint64_t count = worker_started ? net_device_poll(budget,verbose) : 0;
+        bounded_connection_unlock(flags);
+        return count;
+    }
     if(!probe_worker.handoff_started)return net_device_poll(budget,verbose);
     uint64_t f=probe_worker_lock();
     if(probe_worker.poll_busy || !probe_worker_guard()) {
@@ -3558,7 +3609,8 @@ int64_t net_prepare_route_bounded(struct net_bounded_probe *p,uint32_t remote_ip
     bounded_probe_scrub(mac,sizeof mac);if(result<0)bounded_probe_fail(p);p->busy=false;return result;
 }
 
-int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) {
+static int64_t net_dhcp_request_bounded_mode(struct net_bounded_probe *p, bool paced, bool retry_request) {
+    if (paced && (!p || !p->connection_scope)) return -1;
     if (!bounded_probe_enter(p)) return -1;
     int64_t result=-1;bool started=false,retried=false;unsigned polls=0;
     struct net_dhcp_observation *o=&p->dhcp_observation;
@@ -3587,16 +3639,27 @@ int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) {
         if (p->last_tick-tick>=200 || p->last_us-us>=2000000u) {o->end_reason=NET_DHCP_TIME_LIMIT;goto done;}
         if (dhcp_configured) {if (dhcp_have_offer && dhcp_request_sent) result=(int64_t)local_ip;goto done;}
         if (dhcp_have_offer && !dhcp_request_sent) {o->end_reason=NET_DHCP_REQUEST_FAILED;goto done;}
-        if (!retried && !dhcp_have_offer && !dhcp_request_sent &&
+        bool awaiting_offer = !dhcp_have_offer && !dhcp_request_sent;
+        bool awaiting_ack = retry_request && dhcp_have_offer && dhcp_request_sent;
+        if (!retried && (awaiting_offer || awaiting_ack) &&
             p->last_tick-tick>=100 && p->last_us-us>=1000000u) {
             if (!bounded_probe_table(p) || !p->io.retry_ready(p->io.context,p->epoch) || !bounded_probe_check(p)) {o->end_reason=NET_DHCP_RETRY_FAILED;goto done;}
-            if (dhcp_have_offer || dhcp_request_sent || dhcp_configured) continue;
-            retried=true;o->discovers++;
-            queued=send_dhcp_message(DHCP_DISCOVER,0,0);o->discover_queued+=queued;
+            if (dhcp_configured || dhcp_have_offer != awaiting_ack || dhcp_request_sent != awaiting_ack) continue;
+            retried=true;
+            if (awaiting_ack) {
+                o->requests++;
+                queued=send_dhcp_message(DHCP_REQUEST,dhcp_offered_ip_bytes,dhcp_server_ip_bytes);
+                o->request_queued+=queued;
+            } else {
+                o->discovers++;
+                queued=send_dhcp_message(DHCP_DISCOVER,0,0);
+                o->discover_queued+=queued;
+            }
             if (!queued) {o->end_reason=NET_DHCP_SEND_FAILED;goto done;}
             if (!bounded_probe_check(p)) goto done;
             p->dhcp_retries++;
         }
+        if (paced) net_wait_tick();
     }
     o->end_reason=NET_DHCP_POLL_LIMIT;
 done:
@@ -3608,6 +3671,18 @@ done:
     if(started){o->have_offer=dhcp_have_offer;o->request_sent=dhcp_request_sent;o->configured=dhcp_configured;}
     o->polls=polls;o->elapsed_us=p->last_us-us;o->elapsed_ticks=p->last_tick-tick;
     p->busy=false;return result;
+}
+
+int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) {
+    return net_dhcp_request_bounded_mode(p, false, false);
+}
+
+int64_t net_dhcp_request_bounded_paced(struct net_bounded_probe *p) {
+    return net_dhcp_request_bounded_mode(p, true, false);
+}
+
+int64_t net_dhcp_request_bounded_paced_retry_request(struct net_bounded_probe *p) {
+    return net_dhcp_request_bounded_mode(p, true, true);
 }
 
 int64_t net_dns_resolve_bounded(struct net_bounded_probe *p,const char *name,uint32_t *ip_out) {
@@ -4010,7 +4085,7 @@ int64_t net_arp_list(uint64_t index, struct srv_arp_info *info) {
 }
 
 int64_t net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, uint64_t *elapsed_ticks_out) {
-    if (icmp_bounded_owner) return SRV_ERR_AGAIN;
+    if (icmp_bounded_owner || icmp_ping_busy) return SRV_ERR_AGAIN;
     if (!initialized || remote_ip == 0) {
         return -1;
     }
@@ -4018,6 +4093,8 @@ int64_t net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, 
         timeout_ticks = 100;
     }
 
+    uint64_t generation = managed_generation;
+    icmp_ping_busy = true;
     icmp_ping_ip = remote_ip;
     icmp_ping_sequence = sequence;
     icmp_ping_start_tick = timer_ticks();
@@ -4025,14 +4102,16 @@ int64_t net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, 
     icmp_ping_waiting = true;
     if (!send_icmp_echo_request(remote_ip, sequence)) {
         icmp_ping_waiting = false;
+        icmp_ping_busy = false;
         return -1;
     }
 
-    while (timer_ticks() - icmp_ping_start_tick < timeout_ticks) {
+    while (generation == managed_generation && timer_ticks() - icmp_ping_start_tick < timeout_ticks) {
         if (icmp_ping_reply) {
             if (elapsed_ticks_out != 0) {
                 *elapsed_ticks_out = timer_ticks() - icmp_ping_start_tick;
             }
+            icmp_ping_busy = false;
             return 0;
         }
         (void)probe_worker_device_poll(32, false);
@@ -4040,6 +4119,7 @@ int64_t net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, 
     }
 
     icmp_ping_waiting = false;
+    icmp_ping_busy = false;
     return -1;
 }
 
