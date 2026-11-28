@@ -651,6 +651,16 @@ verified and the offline allocation check passed with 206 files and zero
 leaks. Ubuntu returned with both links up. The collector restored the
 credential-free association entry and removed the temporary payload.
 
+The desktop Wi-Fi work starts from `1a24c9c1` with integration baseline
+`24feebdd`. The BCM4331 will publish the validated `Demers2.4` network
+through the existing Settings service and use the normal network worker
+after DHCP. Scope covers the BCM4331 desktop owner, fixed-channel Wi-Fi
+publication, and the EHCI desktop checklist and reports. The existing
+network stack selects a single adapter per boot. Use a provisioned Wi-Fi
+desktop boot for this trial while retaining the wired desktop profile and
+Ubuntu recovery. PR #568 carries the device branch. The Pro11,2 USB Wi-Fi
+owner and the graphics and runtime PRs have separate hardware and scope.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
