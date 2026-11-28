@@ -247,6 +247,9 @@ int64_t net_dhcp_request_bounded(struct net_bounded_probe *probe);
 /* Connection-scope DHCP for a schedulable supervisor. Wait up to one tick
  * between polls so the existing elapsed-time retry can run on a fast NIC. */
 int64_t net_dhcp_request_bounded_paced(struct net_bounded_probe *probe);
+/* Also allow the single timed retry to retransmit the original Request once.
+ * The guard must confirm every submitted TX, including the first Request. */
+int64_t net_dhcp_request_bounded_paced_retry_request(struct net_bounded_probe *probe);
 int64_t net_dns_resolve_bounded(struct net_bounded_probe *probe,const char *name,uint32_t *ip_out);
 int64_t net_ping_bounded(struct net_bounded_probe *probe,uint32_t remote_ip,
     uint16_t sequence,uint64_t *elapsed_ticks_out);

@@ -13,7 +13,7 @@ enum scenario { NORMAL,DROP_FIRST,LATE_OFFER,ABSENT,ACK_ABSENT,FIRST_REFUSED,
  TX_UNCERTAIN,ROLL_TICK,ROLL_US,FROZEN,FROZEN_TICK,FROZEN_US,
  READY_ROLLBACK,LINK_ROLLBACK,READY_LOST,MUTATE_GUARD,LATE_ACK,UNSOLICITED_ACK,
  LINK_OWNER_LOST,LINK_OWNER_LOST_ACK,LINK_OWNER_LOST_RETRY,EXIT_ROLLBACK,
- EXIT_ROLLBACK_ACK,FINAL_CURRENT_ROLLBACK };
+ EXIT_ROLLBACK_ACK,FINAL_CURRENT_ROLLBACK,DROP_FIRST_ACK };
 static enum scenario scenario;
 static uint64_t test_ticks,test_us,first_tick,first_us;
 static unsigned discovers,requests,polls,waits,ready_calls,guard_calls,nested_calls;
@@ -83,7 +83,11 @@ static bool provider_send(void *context,const uint8_t *p,uint16_t n){
    assert(p16(p+18)==(p16(sent[0]+18)+1u)%65536u);}
   if(scenario==FIRST_REFUSED || (scenario==RETRY_REFUSED && discovers==2))return false;
   current_tx_completed=scenario!=TX_UNCERTAIN;
- }else {assert(type==3 && p32(dhcp+4)==peer_xid && ++requests==1 && offer_delivered);
+ }else {assert(type==3 && p32(dhcp+4)==peer_xid && offer_delivered);
+  if(++requests>1) {
+   assert(scenario==DROP_FIRST_ACK && requests==2 && discovers==1 && !memcmp(dhcp,sent[1]+42,300));
+   assert(test_ticks-first_tick>=100 && test_us-first_us>=1000000 && test_us-first_us<2000000);
+  }
   if(scenario==REQUEST_REFUSED)return false;}
  if(scenario==DOWN_AFTER_SEND)up=false;
  return true;
@@ -119,6 +123,7 @@ static uint64_t provider_poll(void *context,uint64_t budget,bool verbose){
   offer_delivered=true;peer_reply(2);return 1;
  }
  if(requests && !ack_delivered && scenario!=ACK_ABSENT && scenario!=REQUEST_REFUSED){
+  if(scenario==DROP_FIRST_ACK && requests<2)return 0;
   if(scenario==LATE_ACK){test_ticks=first_tick+200;test_us=first_us+2000000;}
   ack_delivered=true;peer_reply(5);return 1;
  }

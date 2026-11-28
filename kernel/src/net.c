@@ -3609,7 +3609,7 @@ int64_t net_prepare_route_bounded(struct net_bounded_probe *p,uint32_t remote_ip
     bounded_probe_scrub(mac,sizeof mac);if(result<0)bounded_probe_fail(p);p->busy=false;return result;
 }
 
-static int64_t net_dhcp_request_bounded_mode(struct net_bounded_probe *p, bool paced) {
+static int64_t net_dhcp_request_bounded_mode(struct net_bounded_probe *p, bool paced, bool retry_request) {
     if (paced && (!p || !p->connection_scope)) return -1;
     if (!bounded_probe_enter(p)) return -1;
     int64_t result=-1;bool started=false,retried=false;unsigned polls=0;
@@ -3639,12 +3639,22 @@ static int64_t net_dhcp_request_bounded_mode(struct net_bounded_probe *p, bool p
         if (p->last_tick-tick>=200 || p->last_us-us>=2000000u) {o->end_reason=NET_DHCP_TIME_LIMIT;goto done;}
         if (dhcp_configured) {if (dhcp_have_offer && dhcp_request_sent) result=(int64_t)local_ip;goto done;}
         if (dhcp_have_offer && !dhcp_request_sent) {o->end_reason=NET_DHCP_REQUEST_FAILED;goto done;}
-        if (!retried && !dhcp_have_offer && !dhcp_request_sent &&
+        bool awaiting_offer = !dhcp_have_offer && !dhcp_request_sent;
+        bool awaiting_ack = retry_request && dhcp_have_offer && dhcp_request_sent;
+        if (!retried && (awaiting_offer || awaiting_ack) &&
             p->last_tick-tick>=100 && p->last_us-us>=1000000u) {
             if (!bounded_probe_table(p) || !p->io.retry_ready(p->io.context,p->epoch) || !bounded_probe_check(p)) {o->end_reason=NET_DHCP_RETRY_FAILED;goto done;}
-            if (dhcp_have_offer || dhcp_request_sent || dhcp_configured) continue;
-            retried=true;o->discovers++;
-            queued=send_dhcp_message(DHCP_DISCOVER,0,0);o->discover_queued+=queued;
+            if (dhcp_configured || dhcp_have_offer != awaiting_ack || dhcp_request_sent != awaiting_ack) continue;
+            retried=true;
+            if (awaiting_ack) {
+                o->requests++;
+                queued=send_dhcp_message(DHCP_REQUEST,dhcp_offered_ip_bytes,dhcp_server_ip_bytes);
+                o->request_queued+=queued;
+            } else {
+                o->discovers++;
+                queued=send_dhcp_message(DHCP_DISCOVER,0,0);
+                o->discover_queued+=queued;
+            }
             if (!queued) {o->end_reason=NET_DHCP_SEND_FAILED;goto done;}
             if (!bounded_probe_check(p)) goto done;
             p->dhcp_retries++;
@@ -3664,11 +3674,15 @@ done:
 }
 
 int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) {
-    return net_dhcp_request_bounded_mode(p, false);
+    return net_dhcp_request_bounded_mode(p, false, false);
 }
 
 int64_t net_dhcp_request_bounded_paced(struct net_bounded_probe *p) {
-    return net_dhcp_request_bounded_mode(p, true);
+    return net_dhcp_request_bounded_mode(p, true, false);
+}
+
+int64_t net_dhcp_request_bounded_paced_retry_request(struct net_bounded_probe *p) {
+    return net_dhcp_request_bounded_mode(p, true, true);
 }
 
 int64_t net_dns_resolve_bounded(struct net_bounded_probe *p,const char *name,uint32_t *ip_out) {

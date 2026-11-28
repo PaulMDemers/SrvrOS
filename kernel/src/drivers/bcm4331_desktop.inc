@@ -164,13 +164,15 @@ static bool desktop_wifi_connect(struct bcm4331_station *s, struct bcm4331_deskt
         link->io = (struct net_bounded_probe_io){s, station_dhcp_current, station_dhcp_retry};
         bool admitted = net_bounded_probe_init_connection(&link->scope, &link->io, provider, s->epoch,
             timer_monotonic_us() + 10000000);
-        lease = admitted && net_dhcp_request_bounded_paced(&link->scope) > 0;
+        bool local_gap = bcm_desktop.trial == BCM4331_DESKTOP_LOCAL_GAP;
+        lease = admitted && (local_gap ? net_dhcp_request_bounded_paced_retry_request(&link->scope) :
+            net_dhcp_request_bounded_paced(&link->scope)) > 0;
         link->worker = lease && net_bounded_connection_start_worker(&link->scope, NULL);
-        if (bcm_desktop.trial == BCM4331_DESKTOP_LOCAL_GAP) {
+        if (local_gap) {
             const struct net_dhcp_observation *dhcp = &link->scope.dhcp_observation;
-            console_printf("bcm4331-local-gap-dhcp: admitted=%u discovers=%u offers=%u requests=%u acks=%u end=%u\n",
+            console_printf("bcm4331-local-gap-dhcp: admitted=%u discovers=%u offers=%u requests=%u acks=%u observed_acks=%u naks=%u last_reject=%u end=%u\n",
                 (uint64_t)admitted, dhcp->discover_queued, dhcp->accepted_offer, dhcp->request_queued,
-                dhcp->accepted_ack, dhcp->end_reason);
+                dhcp->accepted_ack, dhcp->acks, dhcp->naks, dhcp->last_reject, dhcp->end_reason);
         }
     }
     console_printf("bcm4331-desktop-connect: epoch=%u associated=%u wpa2=%u dhcp=%u worker=%u\n",

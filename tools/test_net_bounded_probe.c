@@ -170,6 +170,20 @@ static void connection_tests(const struct net_device_ops *ops){
   _exit(0);
  }
  int paced_status;assert(waitpid(paced,&paced_status,0)==paced && WIFEXITED(paced_status) && WEXITSTATUS(paced_status)==0);
+ pid_t lost_ack=fork();assert(lost_ack>=0);
+ if(!lost_ack){
+  connection_peer_next();
+  bounded=&connection_objects[2];owner_epoch=102;
+  connection_ios[2]=(struct net_bounded_probe_io){&caller_token,bounded_owned,bounded_ready};
+  assert(net_bounded_probe_init_connection(bounded,&connection_ios[2],ops,owner_epoch,test_us+5000000));
+  scenario=DROP_FIRST_ACK;freeze_ticks=freeze_mono=true;
+  assert(net_dhcp_request_bounded_paced_retry_request(bounded)==0x0a00020f);
+  assert(discovers==1 && requests==2 && ready_calls==1 && bounded->dhcp_retries==1);
+  assert(bounded->dhcp_observation.accepted_ack==1 && waits>=100);
+  assert(net_bounded_probe_disconnect(bounded) && !dhcp_configured && !local_ip);
+  _exit(0);
+ }
+ assert(waitpid(lost_ack,&paced_status,0)==lost_ack && WIFEXITED(paced_status) && WEXITSTATUS(paced_status)==0);
  /* Each negative child inherits the completed two-generation adapter, then
   * starts one new scope and injects one uncertain boundary. No active scope is
   * reset to obtain a pass; failed admission remains fused in that child. */
