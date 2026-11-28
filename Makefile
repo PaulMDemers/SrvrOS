@@ -1937,6 +1937,15 @@ hardware-smoke: hardware-stage test-core
 
 .PHONY: test-ehci
 test-core: test-ehci
+.PHONY: test-bcm4331-probe
+test-core: test-bcm4331-probe
+test-bcm4331-probe: build/tests/bcm4331-probe-host$(HOST_EXE)
+	$<
+
+build/tests/bcm4331-probe-host$(HOST_EXE): tools/test_bcm4331_probe.c kernel/src/drivers/bcm4331_probe.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
 .PHONY: test-bcm57765-packet
 test-core: test-bcm57765-packet
 test-bcm57765-packet: build/tests/bcm57765-packet-host$(HOST_EXE)

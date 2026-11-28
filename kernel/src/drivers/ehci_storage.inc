@@ -123,14 +123,13 @@ static bool prepare_flash_io(struct ehci_control_path *path, struct ehci_flash_i
 
 #define EHCI_TRACKPAD_REPORT "/work/srvros-work/ehci-trackpad-0000000000000000-startup.txt"
 #define EHCI_ETHERNET_REPORT "/work/srvros-work/ehci-ethernet-0000000000000000-startup.txt"
+#define EHCI_BCM4331_REPORT "/work/srvros-work/ehci-wifi4331-0000000000000000-startup.txt"
 
-static bool persist_flash_report(const char *release, bool startup, bool ethernet) {
+static bool persist_flash_report(const char *release, bool startup, const char *path) {
     char filename[] = EHCI_TRACKPAD_REPORT;
-    _Static_assert(sizeof(EHCI_TRACKPAD_REPORT) == sizeof(EHCI_ETHERNET_REPORT), "report path lengths");
-    if (ethernet) {
-        const char path[] = EHCI_ETHERNET_REPORT;
-        for (unsigned i = 0; i < sizeof(path); i++) filename[i] = path[i];
-    }
+    _Static_assert(sizeof(EHCI_TRACKPAD_REPORT) == sizeof(EHCI_ETHERNET_REPORT) &&
+        sizeof(EHCI_TRACKPAD_REPORT) == sizeof(EHCI_BCM4331_REPORT), "report path lengths");
+    for (unsigned i = 0; i < sizeof filename; i++) filename[i] = path[i];
     const unsigned release_offset = sizeof("/work/srvros-work/ehci-trackpad-") - 1;
     for (unsigned i = 0; i < 16; i++) filename[release_offset + i] = release[i];
     if (!startup) {
@@ -147,7 +146,7 @@ static void run_flash_log(struct ehci_control_path *path, uint64_t *bulk_page) {
     static struct usb_storage startup_storage, final_storage;
     struct usb_storage *storage = report->log_startup ? &startup_storage : &final_storage;
     if (usb_storage_attach(storage, &flash, flash_bulk, false) && workspace_mount(report->log_volume)) {
-        bool written = persist_flash_report(report->log_release, report->log_startup, false);
+        bool written = persist_flash_report(report->log_release, report->log_startup, EHCI_TRACKPAD_REPORT);
         bool unmounted = workspace_unmount();
         report->log_saved = written && unmounted;
         if (report->log_saved) console_printf("ehci-log: saved /work/srvros-work/ehci-trackpad-%s%s.txt\n",

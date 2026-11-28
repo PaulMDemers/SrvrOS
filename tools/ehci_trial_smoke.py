@@ -352,30 +352,34 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
         assert b"pro81-audio: phase=final result=INCOMPLETE started=0 completed=0" in final
 
 
-def exercise_ethernet_probe(command, temp, logs, release, log_volume, packets):
+def exercise_network_probe(command, temp, logs, release, log_volume, packets, wifi4331):
     stick, volume = desktop_workspace_image(temp, log_volume)
     command += ["-device", "qemu-xhci,id=xhci", "-drive", f"if=none,id=stick,format=raw,file={stick}",
                 "-device", "usb-storage,drive=stick,bus=xhci.0"]
     serial = logs / "trial-serial.log"
+    finished = "Wi-Fi topology probe finished" if wifi4331 else "Ethernet probe finished"
+    report = "ehci-wifi4331" if wifi4331 else "ehci-ethernet"
     serial.unlink(missing_ok=True)
     with (logs / "trial-qemu.log").open("wb") as errors:
         with subprocess.Popen(command + ["-serial", f"file:{serial}"], stdout=errors, stderr=errors) as vm:
             try:
-                text = wait_for(serial, lambda s: "Ethernet probe finished. Returning to Ubuntu." in s, vm, 90)
+                text = wait_for(serial, lambda s: f"{finished}. Returning to Ubuntu." in s, vm, 90)
                 assert vm.wait(timeout=20) == 0
             finally:
                 if vm.poll() is None:
                     vm.kill()
                     vm.wait()
     assert "SRVROS_VM_NEXT_ENTRY_CONSUMED" in text and not has_fatal_exception(text)
-    assert "ehci-ethernet: startup=saved final=saved workspace_retirement=safe" in text
+    assert f"{report}: startup=saved final=saved workspace_retirement=safe" in text
     image = read_workspace(stick, volume)
-    startup = image.read(f"srvros-work/ehci-ethernet-{release}-startup.txt").decode()
-    final = image.read(f"srvros-work/ehci-ethernet-{release}.txt").decode()
-    assert f"ehci-ethernet: release={release} phase=startup workspace=1" in startup
-    assert f"ehci-ethernet: release={release} phase=final result=REFUSED packet_io={int(packets)}" in final
-    assert "bcm57765: refused platform identity" in final
-    assert all(marker not in final for marker in ("bcm57765: pci=", "bcm57765: phy_addr=", "bcm57765-packet:", "net: worker"))
+    startup = image.read(f"srvros-work/{report}-{release}-startup.txt").decode()
+    final = image.read(f"srvros-work/{report}-{release}.txt").decode()
+    assert f"{report}: release={release} phase=startup workspace=1" in startup
+    suffix = "" if wifi4331 else f" packet_io={int(packets)}"
+    assert f"{report}: release={release} phase=final result=REFUSED{suffix}\n" in final
+    driver = "bcm4331" if wifi4331 else "bcm57765"
+    assert f"{driver}: refused platform identity" in final
+    assert all(marker not in final for marker in (f"{driver}: pci=", f"{driver}: core=", "bcm57765-packet:", "net: worker"))
 
 
 def main():
@@ -395,6 +399,7 @@ def main():
     log_match = boot.EHCI_TRACKPAD_LOG_RE.fullmatch(version)
     desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
     ethernet_match = boot.EHCI_ETHERNET_RE.fullmatch(version)
+    wifi4331 = boot.EHCI_BCM4331_RE.fullmatch(version)
     desktop_file = version.startswith((boot.EHCI_DESKTOP_FILE_VERSION, boot.EHCI_DESKTOP_FILE_V4_VERSION))
     brightness = version.startswith(boot.EHCI_DESKTOP_BRIGHTNESS_VERSION)
     audio = version.startswith((boot.EHCI_DESKTOP_AUDIO_VERSION, boot.EHCI_DESKTOP_AUDIO_V7_VERSION))
@@ -407,7 +412,7 @@ def main():
     keyboard_checklist = desktop_trace or brightness or audio or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
     if args.keyboard_exit and not (desktop_trace or desktop_file or brightness or audio):
         parser.error("keyboard exit needs a v3 or later desktop stage")
-    volume_match = log_match or desktop_match
+    volume_match = log_match or desktop_match or wifi4331
     log_volume = ethernet_match[2] if ethernet_match else volume_match[1] if volume_match else None
     ethernet_packets = bool(ethernet_match and ethernet_match[1] == "2")
     if version not in boot.EHCI_TRIAL_VERSIONS and not log_volume:
@@ -415,9 +420,9 @@ def main():
     keyboard_trial = version == boot.EHCI_KEYBOARD_VERSION
     keyboard_monitor = version == boot.EHCI_MONITOR_VERSION
     trackpad_trial = version == boot.EHCI_TRACKPAD_VERSION or bool(log_match)
-    if (keyboard_monitor or trackpad_trial or desktop_match or ethernet_match) and args.stall_hub_status:
+    if (keyboard_monitor or trackpad_trial or desktop_match or ethernet_match or wifi4331) and args.stall_hub_status:
         parser.error("the emulated hub is for the split and typing trials")
-    mode = ("ethernet-probe" if ethernet_match else f"desktop-ethernet-{wired_start}" if wired_start else
+    mode = ("wifi4331-probe" if wifi4331 else "ethernet-probe" if ethernet_match else f"desktop-ethernet-{wired_start}" if wired_start else
             "desktop-ethernet" if desktop_ethernet else "desktop-battery" if battery else
             "desktop-telemetry" if telemetry else "desktop-audio" if audio else
             "desktop-brightness" if brightness else "desktop-file" if desktop_file
@@ -480,8 +485,8 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
                    "-drive", f"format=raw,file={esp}", "-drive", f"format=raw,file={root_disk}",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
 
-        if ethernet_match:
-            exercise_ethernet_probe(command.copy(), temp, logs, release, log_volume, ethernet_packets)
+        if ethernet_match or wifi4331:
+            exercise_network_probe(command.copy(), temp, logs, release, log_volume, ethernet_packets, bool(wifi4331))
         elif keyboard_monitor:
             exercise_monitor(command.copy(), temp, logs, release)
         elif desktop_match:
@@ -511,7 +516,10 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
     result = dict(status="PASS", release=release, manifest_sha256=boot.digest(source / "manifest.json"),
                   exact_payload=True, topcase="absent in VM",
                   on_screen_checklist="vm-screen.ppm", grub_next_entry="", ubuntu_default_fixture=True)
-    if ethernet_match:
+    if wifi4331:
+        result.pop("on_screen_checklist")
+        result.update(wifi4331_controller="refused", startup_checkpoint="verified", final_report="verified")
+    elif ethernet_match:
         result.pop("on_screen_checklist")
         result.update(ethernet_controller="refused", ethernet_packets=ethernet_packets,
                       startup_checkpoint="verified", final_report="verified")

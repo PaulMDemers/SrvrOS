@@ -1229,6 +1229,18 @@ exact-stage smoke check for each release. On return, verify both flash reports,
 the initial carrier state, gateway replies for each lease, deconfiguration on
 each loss, and safe DMA retirement.
 
+### MacBookPro8,1 internal Wi-Fi topology probe
+
+Use `tools/hardware_boot.py stage --ehci-bcm4331-probe UUID` and run
+`tools/ehci_trial_smoke.py RELEASE` before installing. The exact-stage VM
+checks that other machines refuse PCI access, save both reports, and return
+through GRUB. On the MacBook, keep the Ethernet cable and selected flash
+drive attached. The one-shot probe reads BCM4331 ChipCommon and enumeration
+ROM with temporary PCI access. It records the D11 core and verifies PCI
+restoration before rebooting. Check `ehci-wifi4331-RELEASE-startup.txt` and
+`ehci-wifi4331-RELEASE.txt` under `srvros-work`. The topology probe precedes
+firmware startup and requires no network credentials or operator input.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal
