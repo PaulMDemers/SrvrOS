@@ -12,7 +12,8 @@ Ubuntu return, and the USB report. The instrumented retry passed with zero
 malformed frames. The earlier malformed frame remains unexplained. The
 BCM4331 native trials verified channel 10 radio initialization, beacons,
 association, WPA2-PSK/CCMP, DHCP, and same-boot disconnect and reconnect
-with gateway traffic on `Demers2.4`.**
+with gateway traffic on `Demers2.4`. The native desktop then verified
+Connect, Disconnect, and reconnect from Settings with both USB reports.**
 
 ## Identity and baseline
 
@@ -661,12 +662,18 @@ desktop boot for this trial while retaining the wired desktop profile and
 Ubuntu recovery. PR #568 carries the device branch. The Pro11,2 USB Wi-Fi
 owner and the graphics and runtime PRs have separate hardware and scope.
 
-Desktop candidate `d6defd5b7a97090b` uses SrvrOS `24738e27` and SrvrApps
-`6818e00`. The exact-release VM opened the Wi-Fi pane from Settings,
-saved both reports, and verified the Ubuntu boot fixture. The VM confirmed
-that the driver refuses a mismatched platform. The MacBook checklist
-opens in Text and covers Connect, Disconnect, and Connect again, followed
-by Ctrl-Alt-Esc. The native run record is
+Desktop release `d6defd5b7a97090b` uses SrvrOS `24738e27` and SrvrApps
+`6818e00`. The exact-release VM verified navigation from Settings to Wi-Fi,
+report saving, platform refusal, and the Ubuntu boot fixture. The MacBook
+returned `DESKTOP_OK`. Settings issued Connect, Disconnect, and Connect
+again to `Demers2.4` on channel 10. Both connections completed WPA2 and fresh
+DHCP, then received 14 of 14 gateway replies. Disconnect cleared the lease,
+route, and keys. The TX ring wrapped with 45 acknowledged transmissions,
+and the driver released the RX and TX DMA allocations. Both flash reports
+matched their recorded hashes. The offline exFAT check found 208 files,
+216 allocated clusters, and no leaks or bitmap mismatches. Ubuntu returned
+with its default intact, and the collector restored the credential-free
+entry and removed the temporary private payload. The native run record is
 `build/review/macbookpro8-1-ehci-trial-d6defd5b7a97090b/run.json`.
 
 ## Bring-up sequence
@@ -1686,7 +1693,7 @@ Offline allocation passed for 143 files with zero writes.
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
-| Wi-Fi | Native `Demers2.4` association, WPA2-PSK/CCMP and DHCP on BCM4331 passed in `5ae54bef0deab874`. Same-boot disconnect and reconnect with five gateway replies per connection passed in `c0aab7606708081f` | Qualify desktop Connect and Disconnect controls and recovery after link loss |
+| Wi-Fi | Settings Connect, Disconnect, and reconnect passed on BCM4331 against `Demers2.4` in `d6defd5b7a97090b`. Both sessions completed WPA2 and DHCP, received 14 gateway replies, and saved both reports | Qualify recovery after link loss |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native
