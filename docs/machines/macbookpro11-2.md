@@ -278,6 +278,16 @@ are in `evidence-cb159e6b83f08752` in the recovery archive. Radio
 initialization using the RFE type 3 settings and passive discovery
 remain open.
 
+#### Netgear A6150 PHY initialization
+
+Continue from the native board acceptance at `2e965d2d` with main
+`24feebdd`. Use the Linux RTL8822BU trace from this routed adapter to
+select the MAC, baseband, AGC and two RF tables for RFE type 3. Keep the
+MAC transmit and receive engines disabled and pause transmit queues while
+loading the tables. Verify the crystal trim, baseband readback, shutdown
+and journaled return before starting channel tuning or USB receive.
+Scope is the Netgear-only xHCI continuation and its pinned PHY recipe.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
