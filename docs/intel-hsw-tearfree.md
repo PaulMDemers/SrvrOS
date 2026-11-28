@@ -1270,3 +1270,21 @@ post-exit SMM access for the entire ownership interval.
 [UEFI handle database and protocol services](https://github.com/tianocore-docs/edk2-UefiDriverWritersGuide/blob/main/5_uefi_services/51_services_that_uefi_drivers_commonly_use/513_handle_database_and_protocol_services.md) ·
 [UEFI PI MM protocols](https://uefi.org/specs/PI/1.8/V4_MM_Protocols.html) ·
 [Air7,2 PR301](https://github.com/PaulMDemers/SrvrOS/pull/301)
+
+##### Native EFI inventory return
+
+Release `56533ca280a0e284` from `c251321d` saved its 4 KiB EFI receipt.
+The recorded release, nonce and CRC32 matched. The body was exactly
+`unavailable ` followed by a newline. The strict decoder refused the empty
+reason. The EFI executable reached its failure receipt writer, and the
+failed inventory phase and firmware provider remain unknown. Before the
+next probe, persist a stable phase and error code from the EFI producer
+and exercise the unavailable path in the exact boot image.
+
+SrvrOS completed session `session-0006615c8c67a7c1-00`. Pipe A advanced
+from frame 924 to 925 with the inherited framebuffer. The kernel reported
+zero protected-slot reads, zero engine-hold attempts and a firmware
+exclusion refusal with zero CPU-page initialization, GGTT PTE or status-page
+address writes. Forcewake ACK cleared in 4 µs and all seven aliases retired.
+Ubuntu returned with its GRUB one-shot consumed. Recovery, offline exFAT
+and replayed kernel snapshots verified. Firmware exclusion is still open.

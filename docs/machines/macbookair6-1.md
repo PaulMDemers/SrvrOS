@@ -12,6 +12,15 @@ for a possible handoff provider. The audit will leave Pipe A and slots 4096 and
 on the existing Haswell kernel diagnostic and compares with the separate Air7,2
 GRUB/EFI inventory in PR301 at `24346ad0`.
 
+The [native v20 EFI audit](../intel-hsw-tearfree.md#native-efi-inventory-return)
+ran on `c251321d` / `56533ca280a0e284` (PR567). The EFI receipt matched the
+release and nonce and passed its checksum, but contained `unavailable` with
+an empty reason. Provider discovery remains incomplete. The same boot's
+kernel capture reproduced the zero-write completion-page refusal. Pipe A
+advanced by one frame, both protected slots stayed untouched and all seven
+diagnostic aliases retired. Ubuntu returned with the one-shot consumed. The
+recovery release, archived kernel receipt and offline USB check verified.
+
 Branch `device/macbookair6-1/tearfree` starts at main `dc4a48d3`.
 The live Ubuntu inventory reports Haswell `8086:0a26` revision 09,
 Apple subsystem `106b:011a`, and one connected 1366×768 eDP panel under
