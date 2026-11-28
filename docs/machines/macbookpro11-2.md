@@ -566,6 +566,19 @@ with MAC TX still disabled, then verify the H2C boundary, mode and
 offset registers before issuing General Info.
 [Linux RTL8822B USB MAC initialization](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/mac.c).
 
+Release `5238fa6500794559` on `444d1d13` enables host DMA under
+`CR=0x9f` while holding `TXPAUSE=0xff`, then issues the fixed
+`0x1330` write before RX arbitration, FIFO pages and LLT. It checks
+the queue addresses, offset and completed mode transition after LLT
+and before RX filters and General Info. It reports the raw status
+readback separately from pointer movement and endpoint completion.
+After H2C it restores `CR=0x9a` before sampling. The native fixture
+passed the reordered initialization, unavailable status, boundary
+drift and stuck initialization cases. The xHCI lifecycle and both
+sibling adapters, 329 boot and trial tests, and all five exact-image
+VM rehearsals passed. The run record and collector are under
+`build/bringup/pro112-rtl8822bu-h2c-queue/`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
