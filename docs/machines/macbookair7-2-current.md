@@ -887,6 +887,26 @@ bound PCI and CoreEG2 driver handles. This keeps the original panel
 active and records what firmware exposes without opening new interfaces
 or changing the controller binding.
 
+Release `5afb11538a09de41` at `d91ef758` recorded the inventory on the Air
+in USB session `session-000661542acbb81c-00`. The kernel and ESP agreed on
+the selected display branch `0xf85dfc5100000201`. The active GOP exposed
+eight GUIDs, including GOP, EDID, Device Path and the text console. Its
+matched child exposed Device Path and two unidentified GUIDs. The bound
+PCI driver exposed Driver Binding, Component Name and Loaded Image. The
+CoreEG2 driver handle exposed Driver Binding alone. Two GUIDs on the GOP
+also remain unidentified. The inventory provides no verified firmware
+interface for requesting and holding the GPU traffic block.
+[EDK II UEFI protocol definitions](https://github.com/tianocore/edk2/blob/master/MdePkg/MdePkg.dec)
+
+The original framebuffer remained pinned at `0x8c001000`. The two reads
+of slot 16385 both returned `0x8c001001`. All 24 closing checks passed in
+6.747 ms within the 10 ms slot limit, and SrvrOS issued zero GPU PTE
+writes. Both powered samples still showed WiDi GO and zero engine and L3
+flush acknowledgements. No GPU drain or ownership grant was established.
+The machine returned to Ubuntu automatically. Collection verified all
+four USB files and a clean offline exFAT check. The run closed as a
+diagnostic under the wider policy.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
