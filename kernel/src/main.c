@@ -1153,10 +1153,10 @@ static void ehci_ethernet_trial(const char *release, const char *volume, bool pa
     halt_forever();
 }
 
-static void ehci_bcm4331_trial(const char *release, const char *volume) {
+static void ehci_bcm4331_trial(const char *release, const char *volume, bool firmware) {
     boot_set_framebuffer_quiet(false);
     console_clear();
-    console_printf("MacBookPro8,1 internal Wi-Fi topology probe. Release %s.\n", release);
+    console_printf("MacBookPro8,1 internal Wi-Fi %s. Release %s.\n", firmware ? "firmware trial" : "topology probe", release);
     console_write("Leave Ethernet and the flash drive connected. No input needed.\n");
     console_sync();
     xhci_init(); /* Provides the USB workspace in the Q35 refusal rehearsal. */
@@ -1166,8 +1166,9 @@ static void ehci_bcm4331_trial(const char *release, const char *volume) {
     console_printf("ehci-wifi4331: startup_report=%s; reading PCIe and BCMA topology\n", startup ? "saved" : "unverified");
     console_sync();
 
-    enum bcm4331_probe_result result = bcm4331_probe();
-    const char *state = result == BCM4331_TOPOLOGY_OK ? "TOPOLOGY_OK" : result == BCM4331_REFUSED ? "REFUSED" :
+    enum bcm4331_probe_result result = bcm4331_probe(firmware);
+    const char *state = result == BCM4331_FIRMWARE_OK ? "FIRMWARE_OK" :
+        result == BCM4331_TOPOLOGY_OK ? "TOPOLOGY_OK" : result == BCM4331_REFUSED ? "REFUSED" :
         result == BCM4331_UNSAFE ? "UNSAFE" : "INCOMPLETE";
     console_printf("ehci-wifi4331: release=%s phase=final result=%s\n", release, state);
     bool final = mounted && ehci_bcm4331_workspace_report(release, false);
@@ -1175,7 +1176,8 @@ static void ehci_bcm4331_trial(const char *release, const char *volume) {
     console_printf("ehci-wifi4331: startup=%s final=%s workspace_retirement=%s\n",
         startup ? "saved" : "unverified", final ? "saved" : "unverified", retired ? "safe" : "unverified");
     if (retired && result != BCM4331_UNSAFE) {
-        console_write("Wi-Fi topology probe finished. Returning to Ubuntu.\n");
+        console_write(firmware ? "Wi-Fi firmware trial finished. Returning to Ubuntu.\n" :
+            "Wi-Fi topology probe finished. Returning to Ubuntu.\n");
         console_sync();
         arch_reboot_unattended();
     }
@@ -1425,7 +1427,8 @@ void kmain(void) {
     bool ehci_ethernet_probe = cmdline_has_token(cmdline, "srvros.ehci=ethernet-probe");
     bool ehci_ethernet_dhcp = cmdline_has_token(cmdline, "srvros.ehci=ethernet-dhcp");
     bool ehci_ethernet = ehci_ethernet_probe || ehci_ethernet_dhcp;
-    bool ehci_wifi4331 = cmdline_has_token(cmdline, "srvros.ehci=wifi4331-probe");
+    bool ehci_wifi4331_firmware = cmdline_has_token(cmdline, "srvros.ehci=wifi4331-firmware");
+    bool ehci_wifi4331 = ehci_wifi4331_firmware || cmdline_has_token(cmdline, "srvros.ehci=wifi4331-probe");
     bool ehci_file_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-file");
     bool ehci_brightness_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-brightness");
     bool ehci_audio_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-audio");
@@ -1450,7 +1453,8 @@ void kmain(void) {
     bool ehci_trial = ehci_trial_mode != NULL;
     char trial_release[17];
     char ehci_log_volume[9] = {0};
-    if (ehci_wifi4331 && (!ehci_trial_release(cmdline, trial_release, "wifi4331-probe", ehci_log_volume) ||
+    if (ehci_wifi4331 && (!ehci_trial_release(cmdline, trial_release,
+            ehci_wifi4331_firmware ? "wifi4331-firmware" : "wifi4331-probe", ehci_log_volume) ||
             !ehci_log_volume[0])) {
         console_write("ehci-wifi4331: invalid boot profile\n");
         halt_forever();
@@ -1613,7 +1617,7 @@ void kmain(void) {
 #endif
     }
     pci_init();
-    if (ehci_wifi4331) ehci_bcm4331_trial(trial_release, ehci_log_volume);
+    if (ehci_wifi4331) ehci_bcm4331_trial(trial_release, ehci_log_volume, ehci_wifi4331_firmware);
     if (ehci_ethernet) ehci_ethernet_trial(trial_release, ehci_log_volume, ehci_ethernet_dhcp);
     bool ssd_work = cmdline_has_token(cmdline, "srvros.capture=air61-ssd-work");
     if (ssd_work || cmdline_has_token(cmdline, "srvros.capture=air61-ssd-scratch")) {

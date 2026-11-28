@@ -1244,6 +1244,12 @@ Check `ehci-wifi4331-RELEASE-startup.txt` and
 `ehci-wifi4331-RELEASE.txt` under `srvros-work`. The topology probe precedes
 firmware startup and requires no network credentials or operator input.
 
+Use `--ehci-bcm4331-firmware UUID` for the isolated D11 bootstrap. It uses
+the matching Ubuntu `ucode29_mimo.fw` and verifies the microcode revision
+and halt with the transmit MAC disabled. The same two reports capture
+firmware startup and retirement. Use the topology recipe for read-only
+MAC register access.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal

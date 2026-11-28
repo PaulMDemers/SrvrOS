@@ -1,7 +1,9 @@
 #include <srvros/bcm4331_probe.h>
 #include <srvros/console.h>
 #include <srvros/display_profile.h>
+#include <srvros/initramfs.h>
 #include <srvros/pci.h>
+#include <srvros/sha256.h>
 #include <srvros/timer.h>
 #include <srvros/vmm.h>
 
@@ -18,6 +20,13 @@ enum {
     CORE_IO_CONTROL = 0x408, CORE_IO_STATUS = 0x500, CORE_RESET_CONTROL = 0x800, CORE_RESET_STATUS = 0x804,
     CORE_CLOCK = 1, CORE_FORCE_CLOCK = 2, D11_PHY_CLOCK = 4, CORE_RESET = 1,
     D11_MAC_CONTROL = 0x120, D11_PHY_VERSION = 0x3e0,
+    D11_IRQ_REASON = 0x128, D11_IRQ_MASK = 0x12c, D11_MAC_SUSPENDED = 1,
+    D11_SHM_CONTROL = 0x160, D11_SHM_DATA = 0x164, D11_SHM_DATA_ODD = 0x166,
+    D11_MAC_ENABLED = 1, D11_PSM_RUN = 2, D11_PSM_JUMP_ZERO = 4,
+    D11_SHM_ENABLED = 0x100, D11_IHR_ENABLED = 0x400, D11_INFRA = 0x20000,
+    D11_GMODE = 0x80000000u,
+    D11_SHM_FIRMWARE = 0, D11_SHM_SHARED = 1, D11_SHM_SCRATCH = 2, D11_SHM_AUTO_WRITE = 0x100,
+    UCODE_HEADER_BYTES = 8, UCODE_BYTES = 43224,
     EROM_VALID = 1, EROM_ADDR_TAG = 0x06, EROM_END = 0x0f,
     EROM_MASTER_PORT = 3, EROM_ADDRESS = 5, EROM_ADDR_SIZE = 0x30,
     EROM_SIZE_DESCRIPTOR = 0x30, EROM_ADDR_64 = 8,
@@ -180,9 +189,79 @@ static bool inspect_d11(const struct pci_device *p, const struct bcma_core *core
     return mac_control != UINT32_MAX && phy == 0x9701;
 }
 
-enum bcm4331_probe_result bcm4331_probe(void) {
+static const uint8_t *firmware_image(void) {
+    static const uint8_t expected[] = {
+        0xdf, 0x16, 0x91, 0x1e, 0x9e, 0xc2, 0xae, 0x21, 0x73, 0xbc, 0xde, 0xa0, 0x6e, 0x49, 0x97, 0x7b,
+        0x54, 0x4b, 0xa6, 0x66, 0x22, 0x2c, 0x5e, 0x5f, 0xab, 0x5b, 0xe0, 0xcc, 0xa4, 0x7b, 0xce, 0x03,
+    };
+    const struct initramfs_file *file = initramfs_find("/firmware/bcm4331-ucode29.fw");
+    if (!file || file->size != UCODE_BYTES) return 0;
+    uint8_t digest[sizeof expected];
+    sha256_digest(file->data, UCODE_BYTES, digest);
+    for (unsigned i = 0; i < sizeof expected; i++) if (digest[i] != expected[i]) return 0;
+    return file->data + UCODE_HEADER_BYTES;
+}
+
+/* Run only the D11 PSM bootstrap. Keep the MAC disabled, mask device IRQs,
+ * and leave PCI bus mastering fenced. No rings or PHY tables are installed. */
+static bool firmware_trial(volatile uint32_t *regs, const uint8_t *ucode, bool *retired) {
+    const uint32_t quiet = D11_GMODE | D11_SHM_ENABLED | D11_IHR_ENABLED | D11_INFRA;
+    regs[D11_IRQ_MASK / 4] = 0;
+    regs[D11_MAC_CONTROL / 4] = quiet | D11_PSM_JUMP_ZERO;
+    bool admitted = regs[D11_MAC_CONTROL / 4] == (quiet | D11_PSM_JUMP_ZERO) && regs[D11_IRQ_MASK / 4] == 0;
+    unsigned uploaded = 0;
+    uint32_t reason = 0;
+    uint16_t revision = 0, patch = 0;
+    if (admitted) {
+        volatile uint16_t *halves = (volatile uint16_t *)regs;
+        for (unsigned i = 0; i < 64; i++) {
+            regs[D11_SHM_CONTROL / 4] = (D11_SHM_SCRATCH << 16) | i;
+            halves[D11_SHM_DATA / 2] = 0;
+        }
+        for (unsigned offset = 0; offset < PAGE_BYTES; offset += 2) {
+            regs[D11_SHM_CONTROL / 4] = (D11_SHM_SHARED << 16) | (offset / 4);
+            halves[((offset & 2) ? D11_SHM_DATA_ODD : D11_SHM_DATA) / 2] = 0;
+        }
+        regs[D11_SHM_CONTROL / 4] = (D11_SHM_FIRMWARE | D11_SHM_AUTO_WRITE) << 16;
+        for (unsigned i = 0; i < UCODE_BYTES - UCODE_HEADER_BYTES; i += 4) {
+            regs[D11_SHM_DATA / 4] = (uint32_t)ucode[i] << 24 | (uint32_t)ucode[i + 1] << 16 |
+                (uint32_t)ucode[i + 2] << 8 | ucode[i + 3];
+            if (!timer_delay_us(10)) break;
+            uploaded++;
+        }
+        if (uploaded == (UCODE_BYTES - UCODE_HEADER_BYTES) / 4) {
+            regs[D11_IRQ_REASON / 4] = UINT32_MAX;
+            reason = regs[D11_IRQ_REASON / 4];
+            if (!reason) {
+                regs[D11_MAC_CONTROL / 4] = quiet | D11_PSM_RUN;
+                for (unsigned attempt = 0; attempt < 200; attempt++) {
+                    reason = regs[D11_IRQ_REASON / 4];
+                    if (reason == D11_MAC_SUSPENDED || reason == UINT32_MAX || !timer_delay_us(5000)) break;
+                }
+                if (reason == D11_MAC_SUSPENDED) {
+                    regs[D11_SHM_CONTROL / 4] = D11_SHM_SHARED << 16;
+                    revision = halves[D11_SHM_DATA / 2];
+                    patch = halves[D11_SHM_DATA_ODD / 2];
+                }
+            }
+        }
+    }
+    regs[D11_MAC_CONTROL / 4] = quiet;
+    uint32_t control = regs[D11_MAC_CONTROL / 4];
+    *retired = control != UINT32_MAX && !(control & (D11_MAC_ENABLED | D11_PSM_RUN)) && !regs[D11_IRQ_MASK / 4];
+    console_printf("bcm4331: firmware words=%u irq=%x revision=%u patch=%u psm_retired=%u\n",
+        (uint64_t)uploaded, (uint64_t)reason, (uint64_t)revision, (uint64_t)patch, (uint64_t)*retired);
+    return *retired && revision == 784 && patch == 2;
+}
+
+enum bcm4331_probe_result bcm4331_probe(bool start_firmware) {
     if (!display_profile_is_pro81()) {
         console_write("bcm4331: refused platform identity\n");
+        return BCM4331_REFUSED;
+    }
+    const uint8_t *ucode = start_firmware ? firmware_image() : 0;
+    if (start_firmware && !ucode) {
+        console_write("bcm4331: refused missing or mismatched firmware image\n");
         return BCM4331_REFUSED;
     }
     const struct pci_device *p = bcm4331_controller();
@@ -222,6 +301,7 @@ enum bcm4331_probe_result bcm4331_probe(void) {
     uint16_t enabled = fenced | PCI_MEMORY;
     if (enabled != fenced) pci_write_config16(p, PCI_COMMAND, enabled);
     bool mapped = false, switched = false, matched = false, pins_restored = true, srom_ready = false, phy_ready = false;
+    bool firmware_attempted = false, firmware_ready = false, psm_retired = true;
     if (pci_read_config16(p, PCI_COMMAND) == enabled) {
         volatile uint32_t *cc = (volatile uint32_t *)fixed;
         uint32_t id = cc[CHIP_ID / 4], cap = cc[CHIP_CAP / 4], erom = cc[CHIP_EROM / 4];
@@ -229,7 +309,7 @@ enum bcm4331_probe_result bcm4331_probe(void) {
         console_printf("bcm4331: chip=%x capabilities=%x erom=%x srom_control=%x\n",
             (uint64_t)id, (uint64_t)cap, (uint64_t)erom, (uint64_t)srom);
         if (id == 0x13924331 && erom == 0x18107000) {
-            mapped = vmm_map_page_in_space(root, bcm4331_window, bar, flags);
+            mapped = vmm_map_page_in_space(root, bcm4331_window, bar, flags | (start_firmware ? VMM_PAGE_WRITABLE : 0));
             if (mapped) {
                 pci_write_config32(p, PCI_BAR0_WINDOW, erom);
                 switched = true;
@@ -246,6 +326,10 @@ enum bcm4331_probe_result bcm4331_probe(void) {
                     if ((cap & CHIP_CAP_SROM) && (cc[CHIP_STATUS / 4] & CHIP_STATUS_SPROM) &&
                         (srom & 1) && !(srom & (1u << 31)))
                         srom_ready = inspect_board_rom(cc, &pins_restored);
+                    firmware_attempted = start_firmware && phy_ready && srom_ready && pins_restored &&
+                        pci_read_config32(p, PCI_BAR0_WINDOW) == cores[1].address;
+                    if (firmware_attempted)
+                        firmware_ready = firmware_trial((volatile uint32_t *)bcm4331_window, ucode, &psm_retired);
                 } else if (selected) {
                     console_write("bcm4331: enumeration ROM did not match the captured topology\n");
                     for (unsigned i = 0; i < 48; i++)
@@ -263,9 +347,11 @@ enum bcm4331_probe_result bcm4331_probe(void) {
     uint64_t physical;
     bool unmapped = vmm_unmap_page_in_space(root, fixed, &physical) && physical == bar + CHIPCOMMON_PAGE;
     if (mapped) unmapped = (vmm_unmap_page_in_space(root, bcm4331_window, &physical) && physical == bar) && unmapped;
-    console_printf("bcm4331: mapping=%s pci_windows_restored=%u bus_master_off=%u pins_restored=%u dma_pages=0 mac_writes=0\n",
-        unmapped ? "released" : "unverified", (uint64_t)restored, (uint64_t)bus_master_off, (uint64_t)pins_restored);
-    if (!restored || !unmapped || !pins_restored) return BCM4331_UNSAFE;
+    console_printf("bcm4331: mapping=%s pci_windows_restored=%u bus_master_off=%u pins_restored=%u dma_pages=0 mac_writes=%u\n",
+        unmapped ? "released" : "unverified", (uint64_t)restored, (uint64_t)bus_master_off, (uint64_t)pins_restored,
+        (uint64_t)firmware_attempted);
+    if (!restored || !unmapped || !pins_restored || !psm_retired) return BCM4331_UNSAFE;
     if (matched) console_printf("bcm4331: board_data=%u phy_identified=%u\n", (uint64_t)srom_ready, (uint64_t)phy_ready);
+    if (start_firmware) return firmware_ready ? BCM4331_FIRMWARE_OK : BCM4331_INCOMPLETE;
     return matched ? BCM4331_TOPOLOGY_OK : BCM4331_INCOMPLETE;
 }

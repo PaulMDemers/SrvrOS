@@ -492,6 +492,14 @@ All six reports from these three boots saved and Ubuntu verified each
 return. The board-data follow-up samples the clocked PHY and temporarily
 selects the board ROM pins with verified restoration before firmware work.
 
+Release `81792b9f74d35454` identified HT PHY type 7 revision 1 and analog
+revision 9, matching Ubuntu. It read revision 9 of the 220-word board ROM
+with a valid CRC after selecting its pins, then restored the selector,
+pin mux and mappings. Both flash reports verified and both Ubuntu links
+came back. The next isolated recipe pins Ubuntu's D11 microcode bytes and
+checks for a fresh `784.2` firmware response with the MAC disabled and DMA
+fenced. PHY initialization and the channel 10 network trial follow.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
@@ -1509,7 +1517,7 @@ Offline allocation passed for 143 files with zero writes.
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
-| Wi-Fi | Ubuntu `b43` joined the 2.4 GHz test network and passed interface-bound traffic. SrvrOS verified BCM4331 PCIe and BCMA topology and fenced inherited DMA on `a562b8bab2297e39` | Qualify board ROM and PHY, firmware startup, then wireless scan and connection |
+| Wi-Fi | Ubuntu `b43` joined the 2.4 GHz test network and passed interface-bound traffic. SrvrOS verified BCM4331 PCIe, BCMA, HT PHY and board ROM on `81792b9f74d35454` | Qualify firmware startup, then wireless scan and connection |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native

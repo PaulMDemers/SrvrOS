@@ -1007,6 +1007,19 @@ class InstallTests(unittest.TestCase):
                       (payload / "limine.conf").read_text())
         with self.assertRaises(ValueError):
             boot.stage(ehci_bcm4331_volume="0d9b53a0", ehci_ethernet_volume="0d9b53a0")
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_bcm4331_firmware=True)
+        firmware = self.root / "microcode.fw"
+        firmware.write_bytes(bytes(43224))
+        with patch.object(boot, "BCM4331_UCODE_SOURCE", firmware), self.assertRaisesRegex(ValueError, "microcode differs"):
+            boot.stage(ehci_bcm4331_volume="0d9b53a0", ehci_bcm4331_firmware=True)
+        with patch.object(boot, "BCM4331_UCODE_SOURCE", firmware), patch.object(boot, "BCM4331_UCODE_SHA256", boot.digest(firmware)), \
+                patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output", side_effect=["test-revision\n", ""]):
+            candidate = boot.stage(ehci_bcm4331_volume="0d9b53a0", ehci_bcm4331_firmware=True)
+            self.assertNotEqual(candidate, release)
+            self.assertIn(f"srvros.ehci=wifi4331-firmware srvros.ehci-release={candidate}",
+                          (self.stage / candidate / "limine.conf").read_text())
+            boot.verify(self.stage / candidate, candidate)
 
     def test_wifi_channel_state_profile(self):
         v="ram-usb-wifi-fw-v75-laptop-probe-0e535900-auto-return"
