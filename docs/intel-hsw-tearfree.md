@@ -802,6 +802,28 @@ retired, and the receipt recorded zero reads of protected slots 4096
 and 16385. The exit snapshot, installed recovery and offline USB check
 verified after Ubuntu returned with the one-shot consumed.
 
+#### Held-engine timing retry
+
+The first pass took 46 µs. The failure landed in the wait between
+passes, where the loop only polls the ACPI PM clock. The 10.688 ms
+gap is consistent with the native 100 Hz LAPIC tick dispatching
+other work. The original receipt has no interrupt or SMI bracket
+across the gap, so its cause remains unconfirmed.
+
+The retry saves CPU0's interrupt flag and masks local maskable
+interrupts for the two samples and inter-pass wait. It restores
+the prior flag before forcewake release, alias retirement and log
+writes, including after a sampling fault. The 250 µs minimum gap,
+4 ms sampling budget, 20 ms hold bound and 100 ms full window still
+use the ACPI PM clock. The timing receipt records timer ticks,
+scheduler preemptions, CPU0 SMI counts, the longest clock gap and
+the stage and reason the sampler stopped.
+
+The host fixture delivers a pending timer interruption as soon as
+the prior interrupt flag is restored. Both passes finish before
+delivery. A separate injected 10.688 ms elapsed gap while interrupts
+are masked still stops before pass two and runs verified release.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

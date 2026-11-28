@@ -330,6 +330,11 @@ static void drain_setup(void) {
  pci_config[0x68/4]=0;
  drain_late=drain_drop_ack=drain_unmap_fail=false;
  drain_reads=drain_map_fail=drain_mapped=0;
+ drain_irq_enabled=true;
+ drain_irq_pending=drain_gap_stall=false;
+ drain_irq_saves=drain_irq_restores=0;
+ drain_irq_ticks=63;
+ drain_preemptions=31;
 }
 
 static void drain_tests(void) {
@@ -352,6 +357,18 @@ static void drain_tests(void) {
  drain_setup();drain_unmap_fail=true;
  assert(!hsw_forcewake_run(true) && forcewake_stores==2 && drain_reads==40 && drain_mapped==2);
  assert(hsw_survey.status==HSW_SURVEY_RETAINED && hsw_forcewake.released && hsw_engine_drain.retired==3);
+ drain_setup();drain_irq_pending=true;
+ assert(hsw_forcewake_run(true) && drain_reads==40 && !drain_irq_pending && drain_irq_enabled);
+ assert(drain_irq_saves==1 && drain_irq_restores==1 && drain_irq_ticks==64 && drain_preemptions==32);
+ assert(hsw_engine_drain.timing.ticks[0]==63 && hsw_engine_drain.timing.ticks[1]==63);
+ assert(hsw_engine_drain.timing.preemptions[0]==31 && hsw_engine_drain.timing.preemptions[1]==31);
+ drain_setup();drain_irq_enabled=false;
+ assert(hsw_forcewake_run(true) && drain_reads==40 && !drain_irq_enabled && drain_irq_restores==1);
+ drain_setup();drain_gap_stall=true;
+ assert(!hsw_forcewake_run(true) && drain_reads==20 && drain_irq_enabled && drain_irq_restores==1);
+ assert(hsw_forcewake.released && hsw_engine_drain.retired==4 && hsw_engine_drain.samples==1);
+ assert(!strcmp(hsw_engine_drain.timing.stop,"sample-deadline") &&
+        !strcmp(hsw_engine_drain.timing.gap_stage,"gap") && hsw_engine_drain.timing.max_gap==10688);
 }
 
 int main(int argc,char **argv) {

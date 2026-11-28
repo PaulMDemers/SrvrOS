@@ -24,6 +24,12 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
         self.assertEqual(set(drain["engines"].values()), {"idle-at-samples"})
         self.assertEqual(drain["requesters"], {"igd": "clear-at-samples", "display-hda": "unavailable"})
         self.assertEqual(drain["requester_drain"], "unverified")
+        timing = drain["timing"]
+        self.assertTrue(timing["entered"])
+        self.assertTrue(timing["irq_enabled_before"])
+        self.assertEqual(timing["timer_ticks"], [63, 63])
+        self.assertEqual(timing["preemptions"], [31, 31])
+        self.assertEqual(timing["stop"], "complete")
 
     def test_busy_changed_and_unavailable_are_preserved(self):
         for value, state in ((0, "idle-unconfirmed"), (4294967295, "unavailable")):
@@ -48,6 +54,8 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
             ("ring_reads=40", "ring_reads=39"),
             ("phase=1 engine=3", "phase=1 engine=2"),
             ("authority=none", "authority=owned"),
+            ("ticks=63,63", "ticks=63,64"),
+            ("stop=complete", "stop=sample-deadline"),
             (ENGINE_DRAIN_TOKEN, "srvros.hsw-forcewake=acquire-release"),
         ):
             with self.subTest(new=new):

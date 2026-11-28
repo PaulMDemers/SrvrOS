@@ -19,6 +19,12 @@ static struct {
     unsigned maps, retired, reads, samples;
     bool poisoned;
     uint64_t begin, end;
+    struct {
+        bool entered, irq_before, smi_valid;
+        uint64_t ticks[2], preemptions[2], max_gap;
+        uint32_t smi[2];
+        const char *stage, *gap_stage, *stop;
+    } timing;
     const struct pci_device *hda;
     struct hsw_drain_sample sample[2];
 } hsw_engine_drain;
@@ -59,9 +65,26 @@ static bool hsw_drain_retire(void) {
 }
 
 static bool hsw_drain_tick(void) {
-    return hsw_forcewake_clock(hsw_forcewake.request_us, HSW_WAKE_HOLD_US, &hsw_engine_drain.end) &&
-           hsw_engine_drain.end >= hsw_engine_drain.begin &&
-           hsw_engine_drain.end - hsw_engine_drain.begin <= HSW_DRAIN_LIMIT_US;
+    uint64_t now = timer_monotonic_us(), previous = hsw_engine_drain.end;
+    if (!now || !hsw_forcewake.request_us || now < previous || now < hsw_forcewake.request_us) {
+        hsw_engine_drain.timing.stop = "clock";
+        return false;
+    }
+    uint64_t gap = now - previous;
+    if (gap > hsw_engine_drain.timing.max_gap) {
+        hsw_engine_drain.timing.max_gap = gap;
+        hsw_engine_drain.timing.gap_stage = hsw_engine_drain.timing.stage;
+    }
+    hsw_engine_drain.end = now;
+    if (now - hsw_forcewake.request_us > HSW_WAKE_HOLD_US) {
+        hsw_engine_drain.timing.stop = "hold-deadline";
+        return false;
+    }
+    if (hsw_engine_drain.begin && now - hsw_engine_drain.begin > HSW_DRAIN_LIMIT_US) {
+        hsw_engine_drain.timing.stop = "sample-deadline";
+        return false;
+    }
+    return true;
 }
 
 static bool hsw_drain_wake(uint32_t *ack, uint32_t *thread) {
@@ -104,25 +127,77 @@ static bool hsw_drain_sample(unsigned phase) {
     return true;
 }
 
-static bool hsw_drain_run(void) {
+static bool hsw_drain_sample_pair(void) {
+    hsw_engine_drain.timing.stage = "entry";
     hsw_engine_drain.end = hsw_forcewake.c0_us;
-    if (!hsw_forcewake_clock(hsw_forcewake.request_us, HSW_WAKE_HOLD_US, &hsw_engine_drain.end))
-        return false;
+    if (!hsw_drain_tick()) return false;
     hsw_engine_drain.begin = hsw_engine_drain.end;
+    hsw_engine_drain.timing.stage = "pass-one";
     if (!hsw_drain_sample(0)) return false;
     uint64_t first_end = hsw_engine_drain.end;
+    hsw_engine_drain.timing.stage = "gap";
     for (unsigned spin = 0; spin < HSW_WAKE_POLL_LIMIT; spin++) {
         if (!hsw_drain_tick()) return false;
-        if (hsw_engine_drain.end - first_end >= HSW_DRAIN_GAP_US) return hsw_drain_sample(1);
+        if (hsw_engine_drain.end - first_end >= HSW_DRAIN_GAP_US) {
+            hsw_engine_drain.timing.stage = "pass-two";
+            return hsw_drain_sample(1);
+        }
         __asm__ volatile("pause");
     }
+    hsw_engine_drain.timing.stop = "spin-limit";
     return false;
+}
+
+static bool hsw_drain_run(void) {
+    /* Exclude CPU0 timer/worker dispatch only across the two MMIO/PCI
+     * samples and their bounded gap. Release, unmap and I/O are outside. */
+    uint64_t flags;
+#ifdef SRVROS_PLATFORM_HOST_TEST
+    extern uint64_t platform_test_hsw_drain_irq_save(void);
+    extern void platform_test_hsw_drain_irq_restore(uint64_t);
+    flags = platform_test_hsw_drain_irq_save();
+#else
+    __asm__ volatile("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+#endif
+    hsw_engine_drain.timing.entered = true;
+    hsw_engine_drain.timing.irq_before = (flags & (1ull << 9)) != 0;
+    hsw_engine_drain.timing.stop = "sample";
+    hsw_engine_drain.timing.ticks[0] = timer_ticks();
+    hsw_engine_drain.timing.preemptions[0] = scheduler_preemptions();
+    bool smi_begin = hsw_smi_count(&hsw_engine_drain.timing.smi[0]);
+    bool sampled = hsw_drain_sample_pair();
+    bool smi_end = hsw_smi_count(&hsw_engine_drain.timing.smi[1]);
+    hsw_engine_drain.timing.smi_valid = smi_begin && smi_end;
+    hsw_engine_drain.timing.ticks[1] = timer_ticks();
+    hsw_engine_drain.timing.preemptions[1] = scheduler_preemptions();
+    if (hsw_engine_drain.timing.ticks[0] != hsw_engine_drain.timing.ticks[1] ||
+        hsw_engine_drain.timing.preemptions[0] != hsw_engine_drain.timing.preemptions[1]) {
+        sampled = false;
+        hsw_engine_drain.timing.stop = "irq-progress";
+    } else if (sampled) {
+        hsw_engine_drain.timing.stop = "complete";
+    }
+#ifdef SRVROS_PLATFORM_HOST_TEST
+    platform_test_hsw_drain_irq_restore(flags);
+#else
+    if (flags & (1ull << 9)) __asm__ volatile("sti" : : : "memory");
+#endif
+    return sampled;
 }
 
 static void hsw_drain_report(void) {
     console_printf("hsw-engine-drain: v=1 samples=%u maps=%u retired=%u reads=%u begin=%u end=%u authority=none\n",
                    (uint64_t)hsw_engine_drain.samples, (uint64_t)hsw_engine_drain.maps, (uint64_t)hsw_engine_drain.retired,
                    (uint64_t)hsw_engine_drain.reads, hsw_engine_drain.begin, hsw_engine_drain.end);
+    console_printf("hsw-engine-drain-timing: v=1 entered=%u irq_before=%u ticks=%u,%u preempt=%u,%u smi=%u,%u,%u max_gap_us=%u gap_stage=%s stop=%s\n",
+                   (uint64_t)hsw_engine_drain.timing.entered, (uint64_t)hsw_engine_drain.timing.irq_before,
+                   hsw_engine_drain.timing.ticks[0], hsw_engine_drain.timing.ticks[1],
+                   hsw_engine_drain.timing.preemptions[0], hsw_engine_drain.timing.preemptions[1],
+                   (uint64_t)hsw_engine_drain.timing.smi_valid,
+                   (uint64_t)hsw_engine_drain.timing.smi[0], (uint64_t)hsw_engine_drain.timing.smi[1],
+                   hsw_engine_drain.timing.max_gap,
+                   hsw_engine_drain.timing.gap_stage ? hsw_engine_drain.timing.gap_stage : "none",
+                   hsw_engine_drain.timing.stop ? hsw_engine_drain.timing.stop : "none");
     for (unsigned phase = 0; phase < hsw_engine_drain.samples; phase++) {
         const struct hsw_drain_sample *s = &hsw_engine_drain.sample[phase];
         console_printf("hsw-engine-drain-pass: phase=%u begin=%u end=%u ack=%u,%u thread=%u,%u smi=%u\n",

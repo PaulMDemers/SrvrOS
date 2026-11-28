@@ -30,6 +30,9 @@ static bool forcewake_route_drop;
 static uint32_t forcewake_ack, forcewake_stores;
 static bool test_engine_drain, drain_late, drain_drop_ack, drain_unmap_fail;
 static unsigned drain_map_fail, drain_mapped, drain_reads;
+static bool drain_irq_enabled, drain_irq_pending, drain_gap_stall;
+static unsigned drain_irq_saves, drain_irq_restores;
+static uint64_t drain_irq_ticks, drain_preemptions;
 static bool test_sweep, sweep_max_zeros;
 static unsigned sweep_reads, sweep_stop_at;
 static uint8_t sweep_visits[65536];
@@ -142,7 +145,39 @@ uint32_t pci_read_config32(const struct pci_device *p,uint8_t offset) {
 }
 uint64_t timer_monotonic_us(void) {
     if(test_forcewake && forcewake_clock_fault && forcewake_stores==1)return 0;
+    if(test_engine_drain && forcewake_stores==1 && drain_reads==20 && hsw_engine_drain.samples==1) {
+        if(drain_gap_stall) {
+            drain_gap_stall=false;
+            test_ticks+=10687; /* Plus the normal clock increment. */
+        }
+        if(drain_irq_pending && drain_irq_enabled) {
+            drain_irq_pending=false;
+            test_ticks+=10687;
+            drain_irq_ticks++;
+            drain_preemptions++;
+        }
+    }
     return ++test_ticks;
+}
+uint64_t timer_ticks(void) {return drain_irq_ticks;}
+uint64_t scheduler_preemptions(void) {return drain_preemptions;}
+uint64_t platform_test_hsw_drain_irq_save(void) {
+    uint64_t flags=drain_irq_enabled ? 512 : 0;
+    drain_irq_enabled=false;
+    drain_irq_saves++;
+    return flags;
+}
+void platform_test_hsw_drain_irq_restore(uint64_t flags) {
+    assert(!drain_irq_enabled);
+    drain_irq_enabled=(flags & 512) != 0;
+    drain_irq_restores++;
+    if(drain_irq_enabled && drain_irq_pending) {
+        assert(drain_reads==40);
+        drain_irq_pending=false;
+        test_ticks+=10688;
+        drain_irq_ticks++;
+        drain_preemptions++;
+    }
 }
 bool timer_delay_us(uint64_t delay) {
     assert(test_candidate && delay==HSW_CANDIDATE_GAP_US);
@@ -225,6 +260,7 @@ uint32_t platform_test_hsw_drain_read(unsigned off) {
     static const unsigned offsets[] = {0x34,0x30,0x3c,0x9c,0x74};
     static const uint32_t values[] = {256,256,1,512,4096};
     assert(test_engine_drain && drain_mapped==15 && forcewake_stores==1 && forcewake_ack==1 && drain_reads<40);
+    assert(!drain_irq_enabled && drain_irq_saves==1 && !drain_irq_restores);
     unsigned engine=(drain_reads/5)%4, word=drain_reads%5;
     assert(off==bases[engine]+offsets[word]);
     drain_reads++;

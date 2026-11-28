@@ -1,7 +1,7 @@
 """Decode the two Haswell engine and requester samples taken under forcewake."""
 
 from hardware_haswell_live_vtd import _decode_af
-from hardware_haswell_survey import MASK32, _record
+from hardware_haswell_survey import MASK32, MASK64, _record
 
 ENGINE_DRAIN_TOKEN = "srvros.hsw-forcewake=engine-drain"
 ENGINES = ("render", "video-decode", "blitter", "video-enhancement")
@@ -49,6 +49,41 @@ def _requester_state(first, last):
     return "clear-at-samples" if all(False in signals for signals in pending) else "unavailable"
 
 
+def _timing_result(lines, wake, summary):
+    timing = [line for line in lines if line.startswith("hsw-engine-drain-timing:")]
+    if not timing:
+        return None  # The original native receipt predates the IRQ guard.
+    line, = timing
+    *fields, stage, stop = _record(line,
+        r"hsw-engine-drain-timing: v=1 entered=([01]) irq_before=([01]) ticks=(\d+),(\d+) "
+        r"preempt=(\d+),(\d+) smi=([01]),(\d+),(\d+) max_gap_us=(\d+) "
+        r"gap_stage=(none|entry|pass-one|gap|pass-two) "
+        r"stop=(none|complete|clock|hold-deadline|sample-deadline|spin-limit|sample|irq-progress)")
+    entered, irq_before, tick_first, tick_last, preempt_first, preempt_last, valid, smi_first, smi_last, gap = map(int, fields)
+    count, _, _, reads, begin, end = summary
+    clocks = wake["clock_us"]
+    if (max(tick_first, tick_last, preempt_first, preempt_last, gap, begin, end) > MASK64
+            or max(smi_first, smi_last) > MASK32 or bool(gap) != (stage != "none")):
+        raise ValueError("engine timing fields")
+    if not entered:
+        if any((irq_before, tick_first, tick_last, preempt_first, preempt_last, valid,
+                smi_first, smi_last, gap, count, reads, begin, end)) or stop != "none":
+            raise ValueError("unentered engine timing window")
+    elif (stop == "none" or not clocks["c0"] or not clocks["c0"] <= end
+          or clocks["c0"] > (begin or end) or begin > end or gap > end - clocks["c0"]
+          or (stop == "complete" and (count != 2 or tick_first != tick_last or preempt_first != preempt_last))
+          or (stop == "sample-deadline" and (not begin or end - begin <= 4000))
+          or (stop == "hold-deadline" and end - clocks["request"] <= 20000)
+          or (stop == "irq-progress" and tick_first == tick_last and preempt_first == preempt_last)):
+        raise ValueError("engine timing window")
+    if wake["status"] == "VERIFIED" and stop != "complete":
+        raise ValueError("successful engine receipt lacks completed timing window")
+    return dict(entered=bool(entered), irq_enabled_before=bool(irq_before), timer_ticks=[tick_first, tick_last],
+                preemptions=[preempt_first, preempt_last], smi=[smi_first, smi_last] if valid else None,
+                smi_delta=(smi_last-smi_first) & MASK32 if valid else None, max_gap_us=gap,
+                gap_stage=stage, stop=stop, begin_us=begin, end_us=end)
+
+
 def engine_drain_result(lines, wake):
     summary, = _records(lines, "hsw-engine-drain:",
         r"hsw-engine-drain: v=1 samples=([0-2]) maps=([0-4]) retired=([0-4]) reads=(\d+) "
@@ -93,6 +128,9 @@ def engine_drain_result(lines, wake):
             sample["requesters"][name] = _pci_sample(*row[2:])
         samples.append(sample)
     result = dict(maps=maps, retired=retired, reads=reads, samples=samples, requester_drain="unverified")
+    timing = _timing_result(lines, wake, summary)
+    if timing is not None:
+        result["timing"] = timing
     if wake["status"] == "VERIFIED":
         if ((count, maps, retired, reads) != (2, 4, 4, 40)
                 or end != previous or end > times["clear"] or end - begin > 4000):

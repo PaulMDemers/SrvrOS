@@ -775,6 +775,8 @@ def main():
                             if manifest['config_version'].startswith('ram-usb-v12-hsw-'):
                                 drain = wake['engine_drain']
                                 assert not drain['samples'] and not drain['maps'] and not drain['reads']
+                                if 'timing' in drain:
+                                    assert not drain['timing']['entered'] and drain['timing']['stop'] == 'none'
                             assert 'hsw-forcewake-progress:' not in text and 'init: started' not in text
                         assert 'hsw-backing-progress: exact Air6,1' in exit_log
                         assert 'laptop-capture: completed=NO' in exit_log

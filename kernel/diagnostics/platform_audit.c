@@ -6,6 +6,7 @@
 #include <srvros/pmm.h>
 #include <srvros/vmm.h>
 #include <srvros/timer.h>
+#include <srvros/scheduler.h>
 #include <srvros/console.h>
 #include <srvros/power.h>
 #include <stddef.h>
