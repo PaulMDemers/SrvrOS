@@ -663,6 +663,18 @@ and failed restoration. Both sibling adapter regressions, 329 boot
 and trial tests and all five exact-image VM rehearsals passed. Evidence
 and the run record use `build/bringup/pro112-rtl8822bu-dma-scheduler/`.
 
+Physical session `session-00066151af9bf712-00` passed H2C, RX admission
+and security setup. The channel 10 comparison verified the change
+from `CR=0x069a` to `0x06bf` with `SECCFG=0x00cf`,
+`TXPAUSE=0xff` and the same pending 32 KiB IN. The two 324 ms
+windows counted 8 and 5 valid PHY CRCs respectively, with zero USB
+completions in either window or during the transition. The sampled
+DMA registers were idle or zero. Passive discovery remains open.
+Both logs agree on endpoint retirement and security restoration.
+All three adapters enumerated, all 702 workspace files matched and
+all seven EFI journal phases verified. The payload and logs are
+preserved under `evidence-b176140dd88a0dab`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
