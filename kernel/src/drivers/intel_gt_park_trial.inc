@@ -256,7 +256,7 @@ static bool park_always_on_raw(uint32_t *request, uint32_t *ack)
 #endif
 }
 
-static bool park_wake_sample(void *context, uint32_t *request, uint32_t *ack, uint32_t *thread)
+static bool wake_power_sample(void *context, uint32_t *request, uint32_t *ack, uint32_t *thread)
 {
     struct wake_adapter *a = context;
     if (!a->mapped[0] || !a->mapped[1] || (thread && !a->mapped[2]) ||
@@ -568,7 +568,7 @@ static bool park_start(struct wake_adapter *a, struct intel_gt_access *g)
             air_park.guard_entry_us - begin >= BDW_TRAFFIC_BLOCK_US) return false;
         a->park_releasing = true;
         bool observed = intel_gt_access_idle_diagnostic(g,&gt_bootstrap_native.borrow,
-                            begin+BDW_TRAFFIC_BLOCK_US,park_wake_sample,park_observe_cold,NULL);
+                            begin+BDW_TRAFFIC_BLOCK_US,wake_power_sample,park_observe_cold,NULL);
         a->park_releasing = false;
         if (g->state == GT_ACCESS_AWAKE && g->idle_writes == 2) air_park.rewake_us = g->last;
         if (!observed || !park_owner(a,g) || !bootstrap_guard()) return false;

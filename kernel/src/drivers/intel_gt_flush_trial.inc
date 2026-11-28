@@ -497,6 +497,7 @@ static bool slot_queue_boundary(unsigned phase) {
     return true;
 }
 
+static bool wake_power_sample(void *, uint32_t *, uint32_t *, uint32_t *);
 #include "intel_gt_boot_page_trial.inc"
 
 /* Each span contains consecutive observations of one raw request. Split

@@ -94,6 +94,11 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertEqual([s['engine_ack_bits'] for s in traffic['samples']], [0, 0])
         self.assertEqual([s['l3_message'] for s in traffic['samples']], [0, 0])
         self.assertTrue(all(s['widi_go'] for s in traffic['samples']))
+        timing = preflight['timing']
+        self.assertEqual(timing['wake_checks'], 4)
+        self.assertGreater(timing['wake_us'], 0)
+        self.assertEqual(sum(timing[key] for key in ('first_traffic_us', 'pte_us', 'last_traffic_us', 'closing_us')),
+                         preflight['summary']['end'] - preflight['summary']['begin'])
 
         partial = bootstrap_result(observe('driver-traffic-read', 10))['flush']['boot_page_preflight']['driver_range']
         self.assertFalse(partial['traffic']['bracket_complete'])
@@ -127,6 +132,10 @@ class FlushAcknowledgements(unittest.TestCase):
                 self.assertFalse(preflight['write_authority'])
 
         record = next(line for line in text.splitlines() if line.startswith('intel-driver-range-preflight:'))
+        for key, value in (('traffic0_end', '0'), ('wake_checks', '12'), ('wake_us', '100000')):
+            with self.assertRaisesRegex(ValueError, 'Driver range timing'):
+                driver_record = re.sub(rf' {key}=\S+', f' {key}={value}', record)
+                bootstrap_result(text.replace(record, driver_record))
         for replacement in ('', record + '\n' + record, record.replace('slot=16385', 'slot=12292'),
                             record.replace('authority=none', 'authority=write'), re.sub(r' b1=\S+', ' b1=0x1', record)):
             with self.assertRaisesRegex(ValueError, 'Driver range preflight'):

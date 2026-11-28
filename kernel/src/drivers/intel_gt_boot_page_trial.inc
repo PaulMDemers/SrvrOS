@@ -35,6 +35,8 @@ static struct {
     uint32_t messages[2][9];
     uint32_t closing_panel[4], closing_smi;
     uint64_t begin, end;
+    uint64_t first_traffic_end, pte_end, last_traffic_end, wake_us;
+    unsigned wake_checks;
     unsigned samples, packets, close_attempted, close_passed, closing_panel_words;
     bool active, stable;
 } boot_driver_page;
@@ -144,11 +146,18 @@ static bool boot_driver_message_register(uint32_t offset)
 static bool boot_driver_powered(void)
 {
     struct wake_adapter *a = gt_bootstrap_native.a;
-    uint32_t request, ack, thread;
-    return boot_page_preflight_live() &&
-        wake_read(a,INTEL_GT_REQUEST,&request) && (request & 0xffffu) == 1 &&
-        wake_read(a,INTEL_GT_ACK,&ack) && ack == 1 &&
-        wake_read(a,INTEL_GT_THREAD,&thread) && !(thread & 7u) && bootstrap_tick();
+    uint32_t request, ack, thread = 0;
+    if (!boot_page_preflight_live() || !bootstrap_tick()) return false;
+    uint64_t begin = gt_bootstrap_native.last;
+    unsigned guards = a->guards;
+    /* One fresh census admits the adjacent reads. Never read the powered
+     * thread register until both always-on words confirm the wake. */
+    bool awake = wake_power_sample(a,&request,&ack,&thread) &&
+        (request & 0xffffu) == 1 && ack == 1 && !(thread & 7u);
+    boot_driver_page.wake_checks += a->guards - guards;
+    if (!bootstrap_tick()) return false;
+    boot_driver_page.wake_us += gt_bootstrap_native.last - begin;
+    return awake;
 }
 
 /* Observe powered messages on each side of the exact PTE read pair. This
@@ -202,6 +211,7 @@ static bool boot_driver_sample(void)
     boot_driver_page.begin = gt_bootstrap_native.last;
     boot_driver_page.active = true;
     (void)boot_driver_traffic();
+    boot_driver_page.first_traffic_end = gt_bootstrap_native.last;
     for (unsigned i = 0; i < 2 && !boot_driver_page.traffic.mapped; ++i) {
         uint32_t *words = boot_driver_page.words[i];
         if (!gt_held_read_alias(&boot_driver_page.access, regs, words, 3,
@@ -209,8 +219,10 @@ static bool boot_driver_sample(void)
             break;
         ++boot_driver_page.samples;
     }
+    boot_driver_page.pte_end = gt_bootstrap_native.last;
     if (boot_driver_page.samples == 2 && boot_driver_page.packets == 1)
         (void)boot_driver_traffic();
+    boot_driver_page.last_traffic_end = gt_bootstrap_native.last;
     boot_driver_page.active = false;
     boot_driver_page.stable = boot_driver_close();
     boot_driver_page.end = gt_bootstrap_native.last;
@@ -280,12 +292,14 @@ static void slot_boot_page_report(void)
         const struct gt_display_access *driver = &boot_driver_page.access;
         const uint32_t *first = boot_driver_page.words[0], *second = boot_driver_page.words[1];
         const struct gt_display_access *traffic = &boot_driver_page.traffic;
-        console_printf("intel-driver-range-preflight: v=3 slot=%u begin=%u end=%u maps=%u retired=%u reads=%u live=%x samples=%u stable=%u a0=%x a1=%x a2=%x b0=%x b1=%x b2=%x packets=%u traffic_maps=%u traffic_retired=%u traffic_reads=%u traffic_live=%x authority=none\n",
+        console_printf("intel-driver-range-preflight: v=4 slot=%u begin=%u end=%u maps=%u retired=%u reads=%u live=%x samples=%u stable=%u a0=%x a1=%x a2=%x b0=%x b1=%x b2=%x packets=%u traffic_maps=%u traffic_retired=%u traffic_reads=%u traffic_live=%x traffic0_end=%u pte_end=%u traffic1_end=%u wake_checks=%u wake_us=%u authority=none\n",
             (uint64_t)BOOT_DRIVER_SLOT, boot_driver_page.begin, boot_driver_page.end, (uint64_t)driver->maps,
             (uint64_t)driver->retired, (uint64_t)driver->reads, driver->mapped, (uint64_t)boot_driver_page.samples,
             (uint64_t)boot_driver_page.stable, (uint64_t)first[0], (uint64_t)first[1], (uint64_t)first[2],
             (uint64_t)second[0], (uint64_t)second[1], (uint64_t)second[2], (uint64_t)boot_driver_page.packets,
-            (uint64_t)traffic->maps, (uint64_t)traffic->retired, (uint64_t)traffic->reads, traffic->mapped);
+            (uint64_t)traffic->maps, (uint64_t)traffic->retired, (uint64_t)traffic->reads, traffic->mapped,
+            boot_driver_page.first_traffic_end,boot_driver_page.pte_end,boot_driver_page.last_traffic_end,
+            (uint64_t)boot_driver_page.wake_checks,boot_driver_page.wake_us);
         const uint32_t *panel = boot_driver_page.closing_panel;
         console_printf("intel-driver-range-close: v=1 attempted=%u passed=%u panel_words=%u frame=%x plane=%x programmed=%x live=%x smi=%u\n",
             (uint64_t)boot_driver_page.close_attempted,(uint64_t)boot_driver_page.close_passed,

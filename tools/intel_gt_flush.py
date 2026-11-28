@@ -69,12 +69,16 @@ def driver_range_preflight_result(rows, traffic_rows, close_rows, parent, baseli
     words = ('a0', 'a1', 'a2', 'b0', 'b1', 'b2')
     keys = ('v', 'slot', 'begin', 'end', 'maps', 'retired', 'reads', 'live', 'samples', 'stable', *words)
     hexkeys = ('live', *words)
-    current = rows[0].startswith((DRIVER_RANGE_PREFIX + ' v=2 ', DRIVER_RANGE_PREFIX + ' v=3 '))
-    if current:
+    version = re.match(r'intel-driver-range-preflight: v=([1-4]) ', rows[0])
+    if not version:
+        raise ValueError('Driver range preflight version')
+    version = int(version[1])
+    if version >= 2:
         keys += ('packets', 'traffic_maps', 'traffic_retired', 'traffic_reads', 'traffic_live')
         hexkeys += ('traffic_live',)
-    sample = fields(rows[0].removesuffix(suffix), DRIVER_RANGE_PREFIX, keys, hexkeys,
-                    versions=(2, 3) if current else (1,))
+    if version == 4:
+        keys += ('traffic0_end', 'pte_end', 'traffic1_end', 'wake_checks', 'wake_us')
+    sample = fields(rows[0].removesuffix(suffix), DRIVER_RANGE_PREFIX, keys, hexkeys, versions=(version,))
     maps, retired, reads, count = (sample[key] for key in ('maps', 'retired', 'reads', 'samples'))
     if (sample['slot'] != 16385 or parent['stage'] not in (4, 5) or
             not parent['begin'] <= sample['begin'] <= sample['end'] <= parent['end'] or
@@ -90,7 +94,7 @@ def driver_range_preflight_result(rows, traffic_rows, close_rows, parent, baseli
         raise ValueError('Driver range preflight closing proof')
     report = dict(summary=sample, pte=(first[0] << 32 | first[1]) if stable else None,
                   empty_encoding=first == (0, 0, 0) if stable else None, write_authority=False)
-    if current:
+    if version >= 2:
         packets, maps, retired, reads, live = (sample[k] for k in
             ('packets', 'traffic_maps', 'traffic_retired', 'traffic_reads', 'traffic_live'))
         if (packets != len(traffic_rows) or not 0 <= packets <= 2 or
@@ -109,7 +113,7 @@ def driver_range_preflight_result(rows, traffic_rows, close_rows, parent, baseli
         report['traffic'] = dict(samples=traffic, bracket_complete=packets == 2 and stable, request_issued=False)
     elif traffic_rows:
         raise ValueError('Driver range preflight unexpected traffic bracket')
-    if sample['v'] == 3:
+    if version >= 3:
         if len(close_rows) != 1:
             raise ValueError('Driver range closing receipt count')
         report['closing'] = driver_range_close(close_rows[0], sample, parent, baseline, frame_before, phase_us)
@@ -120,6 +124,15 @@ def driver_range_preflight_result(rows, traffic_rows, close_rows, parent, baseli
         report['traffic'].update(drain_verified=False, drain_disposition=reason)
     elif close_rows:
         raise ValueError('Unexpected driver range closing receipt')
+    if version == 4:
+        begin, first, pte, last, end = (sample[k] for k in ('begin', 'traffic0_end', 'pte_end', 'traffic1_end', 'end'))
+        wake_checks, wake_us = sample['wake_checks'], sample['wake_us']
+        if (not begin <= first <= pte <= last <= end or not 2 * packets <= wake_checks <= 4 or
+                wake_us > first - begin + last - pte or
+                ((count != 2 or not packets) and last != pte)):
+            raise ValueError('Driver range timing evidence')
+        report['timing'] = dict(first_traffic_us=first-begin, pte_us=pte-first, last_traffic_us=last-pte,
+                                closing_us=end-last, wake_checks=wake_checks, wake_us=wake_us)
     return report
 
 

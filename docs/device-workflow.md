@@ -44,6 +44,9 @@ Version 3 records each closing check through the first failure, including
 the raw closing panel values and sampled SMI count. The collector checks the
 closing elapsed time against the receipt's validated 10 ms hardware phase
 limit. It reports explicitly whether any hardware client was still open.
+Version 4 also records both traffic packet durations, the PTE read duration,
+the closing duration and the number and combined cost of full wake checks.
+A complete pair takes four full wake checks and retains all raw observations.
 
 The Air7,2 `intel-private-range-v1` profile selects `--intel-private-range`.
 It uses the range probe's two existing deadlines and the common display and

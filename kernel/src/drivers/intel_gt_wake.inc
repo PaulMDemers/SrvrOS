@@ -845,7 +845,7 @@ bool intel_gt_wake_probe_report(void) {
     console_write("intel-wake: pre-reset RC1e software target, 10ms deadline. Forcewake held, original panel active. No input.\n");
     console_write("intel-slot: holding five submission pages read-only across PCI reopening. Original panel active, volume 1%, no input.\n");
     console_write("intel-flush: holding WiDi programming pages through GT reset and PCI reopening. Checking the blitter register mapping, original display and slot 12291. No input needed.\n");
-    console_write("intel-range: sampling powered engine and L3 messages around slot 16385 with the original panel active. Closing checks save to USB. No PTE writes.\n");
+    console_write("intel-range: sampling powered engine and L3 messages around slot 16385. Original panel active. Slot timings and closing checks save to USB. No PTE writes.\n");
 #endif
     console_write("intel-bootstrap: automatic full-GT reset/fences/new epoch. No input; volume1%.\n");
     console_write("intel-bootstrap: unchanged60s means photograph and restart manually. Safe saved outcomes return to Ubuntu.\n");
