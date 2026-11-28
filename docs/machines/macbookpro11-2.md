@@ -966,6 +966,16 @@ internal journal records the halt. The credential-bearing image requires
 a root-only EFI mount. Cold authentication and over-the-air reception of
 M4 are pending.
 
+Candidate `6805a2ba3db92ff7` (`57cca214`) passed the production xHCI
+fixture's station exchange, invalid M3 MIC rejection, stale EAPOL OUT
+completion handling and endpoint retirement. The exact boot image
+passed the four workspace and journal combinations and the GPT
+workspace save and reset rehearsal. The image is archived privately
+on this host. The current and recovery boot entries are still
+`7d0941a5138371ea` and `74da74e0b57afbb8`. Install the candidate only
+after the EFI mount is root-only across the cold trial and return to
+Ubuntu.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
