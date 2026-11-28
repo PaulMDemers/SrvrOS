@@ -2,7 +2,8 @@
  * synthesizers on 161 and 10, then samples channel 10 through bulk IN. */
 enum {
     BU_RX_DCI=9, BU_RX_BYTES=32768, BU_RX_TDS=32,
-    BU_RX_CR=0x9a, BU_RX_SCHEDULE=1u<<5, BU_RX_DMA_IDLE=1u<<17,
+    BU_RX_CR=0x9a, BU_RX_DMA_IDLE=1u<<17,
+    BU_RX_SEC_ENABLE=1u<<9, BU_RX_SECCFG=0x680, BU_RX_SEC_POLICY=0xcf,
     BU_RX_DMA_MAP=0xf5a0, BU_RX_ARB=1, BU_RX_LLT=0x0208,
     BU_RX_FILTER0=0xffffffffu, BU_RX_FILTER2=0xffff, BU_RX_RCR=0xf410400e,
     BU_H2C_CR=BU_RX_CR|0x05, BU_H2C_HEAD=0x244, BU_H2C_TAIL=0x248, BU_H2C_READ=0x24c,
@@ -21,6 +22,11 @@ struct bu_rx {
     bool configured,pending,failed,stopping;
 };
 static struct bu_rx *bu_rx_owner;
+
+struct bu_rx_security {
+    uint32_t cr,config;
+    bool touched;
+};
 
 static bool bu_rf_write(struct xhci_device *d,unsigned path,unsigned reg,uint32_t value) {
     return bu_write(d,path?0xe90:0xc90,4,(reg<<20)|(value&BU_RF_MASK)) && timer_delay_us(13);
@@ -185,10 +191,10 @@ static bool bu_rx_observe(const struct bu_rx *rx,const char *sample,bool *idle) 
     return true;
 }
 
-static const char *bu_rx_window(struct bu_rx *rx,bool scheduler,bool *idle_pending) {
+static const char *bu_rx_window(struct bu_rx *rx,bool security,bool *idle_pending) {
     bool idle_before=false,idle_after=false;
     *idle_pending=false;
-    if(!bu_rx_observe(rx,scheduler?"scheduler-before":"before",&idle_before))return "rx-observe";
+    if(!bu_rx_observe(rx,security?"security-before":"before",&idle_before))return "rx-observe";
     if(rx->failed)return "rx-event";
     unsigned starting_completed=rx->completed;
     uint64_t start=timer_monotonic_us();
@@ -210,10 +216,10 @@ static const char *bu_rx_window(struct bu_rx *rx,bool scheduler,bool *idle_pendi
     }
     uint64_t elapsed=timer_monotonic_us()-start;
     unsigned in_window=rx->completed;
-    bool observed=!device_removed(rx->device) && bu_rx_observe(rx,scheduler?"scheduler-after":"after",&idle_after);
+    bool observed=!device_removed(rx->device) && bu_rx_observe(rx,security?"security-after":"after",&idle_after);
     *idle_pending=observed && idle_before && idle_after && rx->pending && rx->posted==1 && !rx->completed;
-    if(scheduler) {
-        console_printf("rtl8822bu-rx-scheduler-window: elapsed_us=%u completed=%u closing=%u transition=%u observed=%u\n",
+    if(security) {
+        console_printf("rtl8822bu-rx-security-window: elapsed_us=%u completed=%u closing=%u transition=%u observed=%u\n",
             elapsed,(uint64_t)(in_window-starting_completed),(uint64_t)(rx->completed-in_window),
             (uint64_t)starting_completed,(uint64_t)observed);
     } else {
@@ -223,16 +229,43 @@ static const char *bu_rx_window(struct bu_rx *rx,bool scheduler,bool *idle_pendi
     return rx->failed?"rx-event":!observed?"rx-observe":rx->target?NULL:"no-target";
 }
 
-static bool bu_rx_enable_scheduler(struct bu_upload *up,const struct bu_rx *rx) {
+static bool bu_rx_enable_security(struct bu_upload *up,const struct bu_rx *rx,struct bu_rx_security *saved) {
     struct xhci_device *d=up->device;
-    uint32_t before=0,after=0,pause=0;
-    bool changed=wifi_hub_check_port(d,up->hub) && bu_read(d,BU_CR,1,&before) && before==BU_RX_CR &&
+    uint32_t after=0,config=0,pause=0,rcr=0;
+    bool permitted=wifi_hub_check_port(d,up->hub) && bu_read(d,BU_CR,2,&saved->cr) &&
+        (saved->cr&0xff)==BU_RX_CR && !(saved->cr&BU_RX_SEC_ENABLE) &&
         bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff && rx->pending && !rx->completed && !rx->failed &&
-        bu_write(d,BU_CR,1,BU_RX_CR|BU_RX_SCHEDULE) && bu_read(d,BU_CR,1,&after) && after==(BU_RX_CR|BU_RX_SCHEDULE) &&
-        bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff && !rx->failed;
-    console_printf("rtl8822bu-rx-scheduler: eligible=1 before=%x after=%x pause=%x verified=%u\n",
-        (uint64_t)before,(uint64_t)after,(uint64_t)pause,(uint64_t)changed);
+        bu_read(d,BU_RX_SECCFG,2,&saved->config) && saved->config!=0xffff &&
+        bu_read(d,0x608,4,&rcr) && rcr==BU_RX_RCR && rx->pending && !rx->completed && !rx->failed;
+    bool changed=false;
+    if(permitted) {
+        /* Linux enables the engine, applies its policy, then reloads RCR.
+         * Preserve the receive-only low CR byte and keep all TX paused. */
+        saved->touched=true;
+        changed=bu_write(d,BU_CR,2,saved->cr|BU_RX_SEC_ENABLE) &&
+            bu_write(d,BU_RX_SECCFG,2,saved->config|BU_RX_SEC_POLICY) &&
+            bu_write(d,0x608,4,rcr) &&
+            bu_read(d,BU_CR,2,&after) && after==(saved->cr|BU_RX_SEC_ENABLE) &&
+            bu_read(d,BU_RX_SECCFG,2,&config) && config==(saved->config|BU_RX_SEC_POLICY) &&
+            bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff &&
+            bu_read(d,0x608,4,&rcr) && rcr==BU_RX_RCR && !rx->failed;
+    }
+    console_printf("rtl8822bu-rx-security: eligible=1 before=%x after=%x cfg_before=%x cfg_after=%x pause=%x rcr=%x verified=%u\n",
+        (uint64_t)saved->cr,(uint64_t)after,(uint64_t)saved->config,(uint64_t)config,
+        (uint64_t)pause,(uint64_t)rcr,(uint64_t)changed);
     return changed;
+}
+
+static bool bu_rx_restore_security(struct xhci_device *d,const struct bu_rx_security *saved) {
+    if(!saved->touched)return true;
+    uint32_t cr=0,config=0;
+    bool ctrl=bu_write(d,BU_CR+1,1,saved->cr>>8) &&
+        bu_read(d,BU_CR,2,&cr) && cr==(saved->cr&0xff00);
+    bool policy=bu_write(d,BU_RX_SECCFG,2,saved->config) &&
+        bu_read(d,BU_RX_SECCFG,2,&config) && config==saved->config;
+    console_printf("rtl8822bu-rx-security-restore: cr=%x cfg=%x verified=%u\n",
+        (uint64_t)cr,(uint64_t)config,(uint64_t)(ctrl && policy));
+    return ctrl && policy;
 }
 
 static bool bu_rx_stop(struct bu_rx *rx) {
@@ -393,6 +426,7 @@ static bool bu_h2c_initialize(struct bu_upload *up) {
 static const char *bu_receive(struct bu_upload *up,bool *retired) {
     struct xhci_device *d=up->device;
     struct bu_rx rx={.device=d};
+    struct bu_rx_security security={0};
     if(!bu_tune(up,161) || !bu_rx_baseband(d) || !bu_tune(up,10))return "channel";
     if(!bu_phy_tx_inhibited(d) || bu_rx_owner)return "endpoint";
     bu_out_state(up,"rx-add-before");
@@ -407,16 +441,17 @@ static const char *bu_receive(struct bu_upload *up,bool *retired) {
         bool idle_pending;
         failure=bu_rx_window(&rx,false,&idle_pending);
         if(failure && !rx.failed && idle_pending) {
-            if(bu_rx_enable_scheduler(up,&rx)) {
-                console_write("rtl8822bu-rx-progress: sampling the same channel with the scheduler enabled\n");
+            if(bu_rx_enable_security(up,&rx,&security)) {
+                console_write("rtl8822bu-rx-progress: sampling the same channel after enabling MAC security\n");
                 failure=bu_rx_window(&rx,true,&idle_pending);
-            } else failure="rx-scheduler";
-        } else console_write("rtl8822bu-rx-scheduler: eligible=0\n");
+            } else failure="rx-security";
+        } else console_write("rtl8822bu-rx-security: eligible=0\n");
     }
     bool gated=bu_write(d,BU_CR,1,0) && bu_phy_tx_inhibited(d);
     bool stopped=bu_rx_stop(&rx);
+    bool restored=bu_rx_restore_security(d,&security);
     bu_rx_owner=NULL;
-    *retired=gated && stopped;
+    *retired=gated && stopped && restored;
     console_printf("rtl8822bu-rx: result=%s posted=%u completed=%u records=%u beacons=%u target=%u bad=%u gated=%u stopped=%u\n",
         failure?failure:"ready",(uint64_t)rx.posted,(uint64_t)rx.completed,(uint64_t)rx.records,
         (uint64_t)rx.beacons,(uint64_t)rx.target,(uint64_t)rx.bad,(uint64_t)gated,(uint64_t)stopped);

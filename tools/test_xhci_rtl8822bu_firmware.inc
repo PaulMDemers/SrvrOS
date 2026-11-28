@@ -7,7 +7,7 @@ enum bu_firmware_fault {
     BU_PHY_OK,BU_PHY_BAD_PROFILE,BU_PHY_BAD_CRYSTAL,BU_PHY_STUCK_RF,
     BU_RX_OK,BU_RX_TIMEOUT,BU_RX_WRONG_EVENT,BU_RX_BAD_STOP,BU_RX_TUNE_FAIL,BU_RX_CLOSING,
     BU_RX_LLT_STUCK,BU_RX_FILTER_DRIFT,
-    BU_RX_SCHEDULER,BU_RX_SCHED_TIMEOUT,BU_RX_SCHED_TRANSITION,BU_RX_SCHED_DRIFT,
+    BU_RX_SECURITY,BU_RX_SEC_TIMEOUT,BU_RX_SEC_TRANSITION,BU_RX_SEC_DRIFT,BU_RX_SEC_RESTORE_DRIFT,
     BU_H2C_BAD_LIMIT,BU_H2C_INIT_STUCK,BU_H2C_BAD_ENTRY,BU_H2C_OUT_SHORT,BU_H2C_OUT_MISSING,
     BU_H2C_OUT_WRONG_TRB,BU_H2C_UNDRAINED,BU_H2C_RESTORE_DRIFT,
 };
@@ -24,7 +24,9 @@ static struct {
     unsigned rx_posts,rx_stops,channel_writes,rx_samples,rx_page_writes,rx_llt_polls,h2c_setup,h2c_posts;
     unsigned out_state_logs,out_event_logs,out_device_logs;
     unsigned h2c_status_writes,h2c_status_reads;
-    bool rx_queue_mapped,rx_llt_requested,rx_filters_written,rx_scheduler_written,rx_scheduler_event;
+    unsigned rx_security_policy_writes;
+    bool rx_security_rcr_reloaded,rx_security_cr_restored;
+    bool rx_queue_mapped,rx_llt_requested,rx_filters_written,rx_security_written,rx_security_event;
     enum bu_firmware_fault fault;
 } bu_model;
 
@@ -185,15 +187,16 @@ static void bu_model_control(void) {
             bu_model.h2c_status_reads++;
             bu_model_store(reg,width,0xeaeaeaea);
         }
-        if(bu_rx_owner && (cr&~BU_RX_SCHEDULE)==BU_RX_CR && (reg==0xfcc || bu_model.rx_samples%10)) {
+        if(bu_rx_owner && cr==BU_RX_CR && (reg==0xfcc || bu_model.rx_samples%10)) {
             static const unsigned registers[]={0xfcc,0xf08,0xf04,0xf14,0xf10,0xf0c,0x284,0x288,0x28c,0x2b0};
             unsigned i=bu_model.rx_samples++;
-            assert(i<40 && reg==registers[i%10] && width==4 && (cr&BU_RX_SCHEDULE)==(i>=20?BU_RX_SCHEDULE:0));
+            assert(i<40 && reg==registers[i%10] && width==4 &&
+                (bu_model_read(BU_CR,2)&BU_RX_SEC_ENABLE)==(i>=20?BU_RX_SEC_ENABLE:0));
             assert((bu_model.rx_posts!=0)==(i>=10));
             uint32_t observed=i%20>=10?0x000b0005:0x00020003;
-            if(bu_model.fault>=BU_RX_SCHEDULER && i%10>=6)observed=reg==0x284?BU_RX_DMA_IDLE:0;
+            if(bu_model.fault>=BU_RX_SECURITY && i%10>=6)observed=reg==0x284?BU_RX_DMA_IDLE:0;
             bu_model_store(reg,width,observed);
-            closing=(i==10 && bu_model.fault==BU_RX_CLOSING) || (i==20 && bu_model.fault==BU_RX_SCHED_TRANSITION);
+            closing=(i==10 && bu_model.fault==BU_RX_CLOSING) || (i==20 && bu_model.fault==BU_RX_SEC_TRANSITION);
         }
         if(bu_model.rx_llt_requested && reg==BU_RX_LLT && width==4)bu_model.rx_llt_polls++;
         memcpy(d->descriptor_buffer,bu_model.reg+reg,width);
@@ -222,12 +225,11 @@ static void bu_model_control(void) {
         }
         if(reg==BU_CR) {
             unsigned previous=bu_model_read(BU_CR,1);
-            if(value==(BU_RX_CR|BU_RX_SCHEDULE)) {
-                assert(bu_model.fault>=BU_RX_SCHEDULER && !bu_model.rx_scheduler_written &&
-                    bu_model_read(BU_CR,1)==0x9a && value==0xba && bu_model_read(BU_TXPAUSE,1)==0xff &&
+            if(width==2) {
+                assert(bu_model.fault>=BU_RX_SECURITY && !bu_model.rx_security_written &&
+                    bu_model_read(BU_CR,2)==0x049a && value==0x069a && bu_model_read(BU_TXPAUSE,1)==0xff &&
                     bu_model.rx_samples==20 && bu_model.rx_posts==1 && bu_rx_owner && bu_rx_owner->pending);
-                bu_model.rx_scheduler_written=true;
-                if(bu_model.fault==BU_RX_SCHED_DRIFT)value=BU_RX_CR;
+                bu_model.rx_security_written=true;
             } else if(value==0x9f) {
                 assert(previous==0 && bu_model.rx_queue_mapped && !bu_model.rx_page_writes &&
                     bu_model_read(BU_TXPAUSE,1)==0xff && !bu_model.h2c_setup && !bu_model.rx_posts);
@@ -235,6 +237,23 @@ static void bu_model_control(void) {
                 assert(bu_model.h2c_setup==6 && !bu_model.rx_posts);
                 if(bu_model.fault==BU_H2C_RESTORE_DRIFT)value=0x9f;
             } else assert(value==0 || value==5);
+        }
+        if(reg==BU_RX_SECCFG) {
+            unsigned i=bu_model.rx_security_policy_writes++;
+            assert(i<2 && width==2 && bu_model.rx_security_written);
+            if(!i) {
+                assert(value==0x31cf && bu_model_read(BU_CR,2)==0x069a &&
+                      bu_model_read(BU_TXPAUSE,1)==0xff && !bu_model.rx_security_rcr_reloaded);
+                if(bu_model.fault==BU_RX_SEC_DRIFT)value=0x3100;
+            } else {
+                assert(value==0x3100 && bu_model_read(BU_CR,1)==0 && bu_model.rx_stops==1 &&
+                       bu_model.rx_security_cr_restored);
+                if(bu_model.fault==BU_RX_SEC_RESTORE_DRIFT)value=0x31cf;
+            }
+        }
+        if(reg==BU_CR+1 && bu_model.rx_security_written && !bu_model.rx_security_cr_restored) {
+            assert(width==1 && value==4 && !bu_model_read(BU_CR,1) && bu_model.rx_stops==1);
+            bu_model.rx_security_cr_restored=true;
         }
         if(reg==BU_H2C_STATUS && bu_model_read(BU_CR,1)==0x9f) {
             assert(width==4 && value==0x80000000u && bu_model.rx_queue_mapped &&
@@ -271,7 +290,11 @@ static void bu_model_control(void) {
             bu_model.rx_llt_requested=true;
             if(bu_model.fault!=BU_RX_LLT_STUCK)value&=~1u;
         }
-        if(bu_rx_owner && reg==0x608) {
+        if(bu_rx_owner && reg==0x608 && bu_model.rx_security_written) {
+            assert(width==4 && value==0xf410400e && bu_model.rx_security_policy_writes==1 &&
+                   bu_model_read(BU_CR,2)==0x069a && !bu_model.rx_security_rcr_reloaded);
+            bu_model.rx_security_rcr_reloaded=true;
+        } else if(bu_rx_owner && reg==0x608) {
             assert(width==4 && value==0xf410400e && bu_model.rx_llt_polls==1 && !(bu_model_read(BU_RX_LLT,1)&1) &&
                 bu_model_read(0x6a0,4)==0xffffffffu && bu_model_read(0x6a4,2)==0xffff &&
                 bu_model.h2c_setup==6 && bu_model_read(BU_H2C_INFO,1)==0x09);
@@ -330,6 +353,7 @@ static void bu_model_control(void) {
             if(value==0xc00f0038 && bu_model.fault!=BU_FW_NOT_READY) {
                 assert(bu_model.ddma==40 && bu_model.written==161176 && (bu_model_read(3,1)&4));
                 bu_model_store(0x80,2,0xc078);
+                bu_model_store(BU_CR+1,1,4);
                 if(bu_model.fault>=BU_BOARD_OK && bu_model.fault!=BU_BOARD_NO_REPLY)
                     bu_model_store(BU_FEATURE_MAILBOX,1,BU_FEATURE_REPLY);
             }
@@ -363,7 +387,7 @@ static void bu_model_control(void) {
 static void bu_model_receive_completion(bool closing) {
     struct bu_rx *rx=bu_rx_owner;
     assert(rx && rx->pending && rx->trb==(bu_model.rx_cursor&~1ull));
-    assert((bu_model_read(BU_CR,1)&~BU_RX_SCHEDULE)==BU_RX_CR && bu_model_read(BU_TXPAUSE,1)==0xff);
+    assert(bu_model_read(BU_CR,1)==BU_RX_CR && bu_model_read(BU_TXPAUSE,1)==0xff);
     const struct xhci_trb *trb=(const void *)(uintptr_t)rx->trb;
     assert(trb->status==BU_RX_BYTES && (trb->control&1));
     assert((rx->phys&0xffff)+BU_RX_BYTES<=0x10000);
@@ -373,7 +397,7 @@ static void bu_model_receive_completion(bool closing) {
     data[0]=54;
     data[24]=0x80;
     memcpy(data+60,"\x00\x09" "Demers2.4" "\x03\x01\x0a",14);
-    if(n==1 && !closing && bu_model.fault!=BU_RX_SCHEDULER)data[1]=0x40;
+    if(n==1 && !closing && bu_model.fault!=BU_RX_SECURITY)data[1]=0x40;
     unsigned actual=n==2?26:78; /* Truncated aggregate, then valid beacon. */
     uint64_t pointer=rx->trb;
     if(bu_model.fault==BU_RX_WRONG_EVENT)pointer+=16;
@@ -393,15 +417,15 @@ static void bu_model_receive(void) {
     assert(bu_model.h2c_posts==2 && bu_model_read(BU_H2C_WP,4)==BU_H2C_START+64 &&
            bu_model_read(BU_H2C_RP,4)==BU_H2C_START+64);
     bu_model.rx_posts++;
-    if(bu_model.fault<BU_RX_SCHEDULER && bu_model.fault!=BU_RX_TIMEOUT && bu_model.fault!=BU_RX_BAD_STOP &&
+    if(bu_model.fault<BU_RX_SECURITY && bu_model.fault!=BU_RX_TIMEOUT && bu_model.fault!=BU_RX_BAD_STOP &&
        bu_model.fault!=BU_RX_CLOSING)
         bu_model_receive_completion(false);
 }
 
-static void bu_model_scheduler_tick(void) {
-    if(bu_model.fault==BU_RX_SCHEDULER && bu_model.rx_samples==30 && !strict_control.device &&
-       bu_rx_owner && bu_rx_owner->pending && !bu_model.rx_scheduler_event) {
-        bu_model.rx_scheduler_event=true;
+static void bu_model_security_tick(void) {
+    if(bu_model.fault==BU_RX_SECURITY && bu_model.rx_samples==30 && !strict_control.device &&
+       bu_rx_owner && bu_rx_owner->pending && !bu_model.rx_security_event) {
+        bu_model.rx_security_event=true;
         bu_model_receive_completion(false);
     }
 }
@@ -465,6 +489,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
         if(fault==BU_FW_ENTRY_MCU)bu_model_store(0x80,2,0xc078);
         bu_model_store(0x3,1,0xd8);bu_model_store(0x550,1,0x14);
         bu_model_store(0x254,1,8);
+        bu_model_store(BU_RX_SECCFG,2,0x3100);
         bu_model_store(0x1700,4,0x20000000);
         bu_model_store(0x1708,4,0xdd03);
         bool board=fault>=BU_BOARD_OK;
@@ -476,11 +501,11 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
         rtl_test_clock=true;rtl_test_delay=bu_model_delay;
         if(fault==BU_FW_MISSING)test_time_step=10000;
         native_boundary_mmio_hook=bu_model_mmio;
-        native_boundary_clock_hook=bu_model_scheduler_tick;
+        native_boundary_clock_hook=bu_model_security_tick;
         if(fault==BU_FW_IMAGE)image[0]^=1;
         bool safe=false;
         bool success=fault==BU_FW_OK || fault==BU_FW_FLASH || fault==BU_FW_COLD_LATCH ||
-            fault==BU_BOARD_OK || fault==BU_PHY_OK || fault==BU_RX_OK || fault==BU_RX_SCHEDULER;
+            fault==BU_BOARD_OK || fault==BU_PHY_OK || fault==BU_RX_OK || fault==BU_RX_SECURITY;
         if(fault>=BU_RX_OK) {
             test_console_printf_hook=bu_model_out_log;
             assert(xhci_rtl8822bu_capture_passive(image,sizeof image,phy,sizeof phy,&safe)==success);
@@ -489,7 +514,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
             assert(bu_model.channel_writes==(fault==BU_RX_TUNE_FAIL?2:4));
             bool admitted=fault!=BU_RX_TUNE_FAIL && fault!=BU_RX_LLT_STUCK && fault!=BU_RX_FILTER_DRIFT &&
                 fault<BU_H2C_BAD_LIMIT;
-            unsigned posts=fault==BU_RX_OK?3:fault==BU_RX_SCHED_TRANSITION?2:admitted?1:0;
+            unsigned posts=fault==BU_RX_OK?3:fault==BU_RX_SEC_TRANSITION?2:admitted?1:0;
             assert(bu_model.rx_posts==posts);
             unsigned commands=admitted || fault>=BU_H2C_UNDRAINED?2:
                 fault>=BU_H2C_OUT_SHORT && fault<=BU_H2C_OUT_WRONG_TRB?1:0;
@@ -502,10 +527,14 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
             assert(bu_model.rx_filters_written==(fault!=BU_RX_TUNE_FAIL && fault!=BU_RX_LLT_STUCK &&
                 fault!=BU_H2C_BAD_LIMIT && fault!=BU_H2C_INIT_STUCK));
             assert(bu_model.rx_stops==(fault==BU_RX_TUNE_FAIL?0:1));
-            bool compared=fault>=BU_RX_SCHEDULER && fault<BU_RX_SCHED_DRIFT;
+            bool compared=fault>=BU_RX_SECURITY && fault<=BU_RX_SEC_RESTORE_DRIFT && fault!=BU_RX_SEC_DRIFT;
             assert(bu_model.rx_samples==(compared?40:admitted?20:0));
-            assert(bu_model.rx_scheduler_written==(fault>=BU_RX_SCHEDULER && fault<=BU_RX_SCHED_DRIFT));
-            assert(bu_model.rx_scheduler_event==(fault==BU_RX_SCHEDULER));
+            assert(bu_model.rx_security_written==(fault>=BU_RX_SECURITY && fault<=BU_RX_SEC_RESTORE_DRIFT));
+            assert(bu_model.rx_security_policy_writes==2u*bu_model.rx_security_written &&
+                   bu_model.rx_security_rcr_reloaded==bu_model.rx_security_written &&
+                   bu_model.rx_security_cr_restored==bu_model.rx_security_written);
+            assert(bu_model_read(BU_RX_SECCFG,2)==(fault==BU_RX_SEC_RESTORE_DRIFT?0x31cfu:0x3100u));
+            assert(bu_model.rx_security_event==(fault==BU_RX_SECURITY));
             assert(bu_model.rx_llt_polls==(fault==BU_RX_TUNE_FAIL?0:fault==BU_RX_LLT_STUCK?100:1));
             if(fault==BU_RX_CLOSING)assert(bu_model.rx_cursor==bu_model.rx_ring+16);
         } else if(fault>=BU_PHY_OK) {
@@ -522,7 +551,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
         }
         if(fault==BU_FW_IMAGE)image[0]^=1;
         assert(safe==(fault!=BU_FW_BAD_STOP && fault!=BU_BOARD_BAD_STOP && fault!=BU_FW_BUSY && fault!=BU_PHY_STUCK_RF &&
-            fault!=BU_FW_PLATFORM_MCU && fault!=BU_FW_COLD_DMA_BUSY && fault!=BU_RX_BAD_STOP));
+            fault!=BU_FW_PLATFORM_MCU && fault!=BU_FW_COLD_DMA_BUSY && fault!=BU_RX_BAD_STOP && fault!=BU_RX_SEC_RESTORE_DRIFT));
         assert(!bu_model.echo_expected && !rtl->control_success && !xhci.devices[2].control_success && !network_count);
         if(success)assert(bu_model.posted==40 && bu_model.ddma==40 && !d->bulk_pending && bu_model.stop);
         if(fault==BU_FW_IMAGE)assert(!bu_model.posted && !bu_model.configure && !bu_model.echoes);
@@ -557,7 +586,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
     if(passive)puts("rtl8822bu: PASS native tuning, 32 KiB bulk IN, beacon parsing, stale/timeout and retirement refusal");
     if(passive)puts("rtl8822bu: PASS read-only pre/post PHY and DMA counters and closing completion excluded from discovery");
     if(passive)puts("rtl8822bu: PASS Linux RX admission order, MAC TX disabled, LLT completion, and filter readback refusal");
-    if(passive)puts("rtl8822bu: PASS same-boot scheduler comparison, retained IN owner, transition discard, and readback refusal");
+    if(passive)puts("rtl8822bu: PASS same-boot Linux MAC security comparison, retained IN owner, transition discard, and verified restore");
     if(passive)puts("rtl8822bu: PASS native firmware commands, Linux USB bytes, queue entry/drain, short/missing OUT and RX-only restoration");
     if(passive)puts("rtl8822bu: PASS Netgear OUT ring and completion tracing, stale running context, and wrong-TRB refusal");
     if(passive)puts("rtl8822bu: PASS Netgear queue setup order, unavailable status, boundary drift and stuck initialization");
