@@ -1,6 +1,7 @@
 /* Read-only qualification at the point where all five submission ports are
  * sealed, under the original reset owner and with PCI bus mastering off. */
 enum { BOOT_PAGE_INDEX = GT_SECOND_SLOT + 1, BOOT_PAGE_PTE = 0x800000 + 8 * BOOT_PAGE_INDEX,
+       BOOT_DRIVER_SLOT = 16385, BOOT_DRIVER_PTE = 0x800000 + 8 * BOOT_DRIVER_SLOT,
        BOOT_PAGE_MISC_CTRL0 = 0xa180, BOOT_PAGE_POWER_SLOT = 0 };
 static const uint32_t boot_page_widi_regs[] = {0x8104, 0x802c, 0x8014, 0x8108, 0x8028};
 static const uint32_t boot_page_tlb_regs[] = {0x40d0, 0x4278, 0x4dc0, 0x4dc4, 0x4278, 0x40d0};
@@ -15,6 +16,14 @@ static struct {
     unsigned stage, policy_samples;
     bool sampling;
 } boot_page_preflight;
+
+static struct {
+    struct gt_display_access access;
+    uint32_t words[2][3];
+    uint64_t begin, end;
+    unsigned samples;
+    bool active, stable;
+} boot_driver_page;
 
 static bool boot_page_preflight_live(void)
 {
@@ -50,7 +59,7 @@ static bool boot_page_panel(unsigned n)
 {
     if (!boot_page_preflight_live() || !completion_mapping(gt_bootstrap_native.a, PIPE_WRITER_SLOT) ||
         !bootstrap_tick()) return false;
-    uint32_t *panel = boot_page_preflight.panel[n];
+    uint32_t panel[4];
     for (unsigned i = 0; i < 4; ++i) {
         uint32_t offset = boot_page_panel_regs[i];
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
@@ -60,8 +69,11 @@ static bool boot_page_panel(unsigned n)
 #endif
     }
     const uint32_t *original = gt_primary.input.sample[1].reader[0];
-    return panel[1] == original[0] && panel[2] == original[1] && panel[3] == original[2] &&
-        completion_mapping(gt_bootstrap_native.a, PIPE_WRITER_SLOT) && boot_page_preflight_live() && bootstrap_tick();
+    if (panel[1] != original[0] || panel[2] != original[1] || panel[3] != original[2] ||
+        !completion_mapping(gt_bootstrap_native.a, PIPE_WRITER_SLOT) || !boot_page_preflight_live() || !bootstrap_tick())
+        return false;
+    for (unsigned i = 0; i < 4; ++i) boot_page_preflight.panel[n][i] = panel[i];
+    return true;
 }
 
 /* MISC_CTRL0 is a firmware policy register in the bus reset domain.
@@ -82,6 +94,42 @@ static bool boot_page_power_policy(void)
         return false;
     boot_page_preflight.policy[boot_page_preflight.policy_samples++] = word;
     return true;
+}
+
+static bool boot_driver_register(uint32_t offset)
+{
+    return offset == BOOT_DRIVER_PTE || offset == BOOT_DRIVER_PTE + 4;
+}
+
+static bool boot_driver_sample(void)
+{
+    uint64_t address = BOOT_DRIVER_SLOT * 4096ull;
+    if (address < window_result.endpoint.fence_end || address >= window_result.aperture_bytes ||
+        BOOT_DRIVER_SLOT <= BOOT_PAGE_INDEX || BOOT_DRIVER_SLOT < GT_COMMAND_FIRST + GT_COMMAND_PAGES ||
+        !boot_page_preflight_live() || !bootstrap_tick()) return false;
+    static const uint32_t regs[] = {BOOT_DRIVER_PTE + 4, BOOT_DRIVER_PTE, BOOT_DRIVER_PTE + 4};
+    boot_driver_page.begin = gt_bootstrap_native.last;
+    boot_driver_page.active = true;
+    for (unsigned i = 0; i < 2; ++i) {
+        uint32_t *words = boot_driver_page.words[i];
+        if (!gt_held_read_alias(&boot_driver_page.access, regs, words, 3,
+                                boot_page_preflight_live, boot_driver_register))
+            break;
+        ++boot_driver_page.samples;
+    }
+    boot_driver_page.active = false;
+    bool closed = boot_driver_page.samples == 2 && boot_page_panel(1) &&
+        (uint32_t)(boot_page_preflight.panel[1][0] - boot_page_preflight.panel[0][0]) <= 8 && bootstrap_guard();
+    if (closed) {
+        boot_page_preflight.smi[1] = bootstrap_smi_count(BOOT_SMI_PIPE);
+        closed = !bootstrap_smi.fault && boot_page_preflight.smi[1] == boot_page_preflight.smi[0] && bootstrap_tick();
+    }
+    boot_driver_page.end = gt_bootstrap_native.last;
+    const uint32_t *first = boot_driver_page.words[0], *second = boot_driver_page.words[1];
+    boot_driver_page.stable = closed && first[0] == first[2] && second[0] == second[2] &&
+        first[0] == second[0] && first[1] == second[1] && !boot_driver_page.access.mapped &&
+        boot_driver_page.end > boot_driver_page.begin && boot_driver_page.end - boot_page_preflight.begin <= BDW_BOOT_PHASE_US;
+    return boot_driver_page.stable;
 }
 
 static bool slot_boot_page_preflight(void)
@@ -114,6 +162,7 @@ static bool slot_boot_page_preflight(void)
         boot_page_preflight.access.mapped || boot_page_preflight.access.maps != 4 ||
         boot_page_preflight.access.retired != 4 || boot_page_preflight.access.reads != 19) goto finished;
     boot_page_preflight.stage = 5;
+    if (!boot_driver_sample()) boot_page_preflight.stage = 4;
 finished:
     boot_page_preflight.end = gt_bootstrap_native.last;
     boot_page_preflight.sampling = false;
@@ -124,7 +173,7 @@ static void slot_boot_page_report(void)
 {
     if (!boot_page_preflight.stage) return;
     const struct gt_display_access *a = &boot_page_preflight.access;
-    console_printf("intel-boot-page-preflight: v=2 slot=%u stage=%u epoch=%u begin=%u end=%u smi0=%u smi1=%u maps=%u retired=%u reads=%u live=%x policy_samples=%u policy0=%x policy1=%x authority=none\n",
+    console_printf("intel-boot-page-preflight: v=3 slot=%u stage=%u epoch=%u begin=%u end=%u smi0=%u smi1=%u maps=%u retired=%u reads=%u live=%x policy_samples=%u policy0=%x policy1=%x authority=none\n",
         (uint64_t)BOOT_PAGE_INDEX, (uint64_t)boot_page_preflight.stage, boot_page_preflight.epoch,
         boot_page_preflight.begin, boot_page_preflight.end, (uint64_t)boot_page_preflight.smi[0],
         (uint64_t)boot_page_preflight.smi[1], (uint64_t)a->maps, (uint64_t)a->retired, (uint64_t)a->reads, a->mapped,
@@ -141,5 +190,14 @@ static void slot_boot_page_report(void)
         console_printf("intel-boot-page-widi: v=1 n=%u req=%x ack=%x win=%x reset=%x gam=%x frame=%x plane=%x programmed=%x live=%x\n",
             (uint64_t)n, (uint64_t)w[0], (uint64_t)w[1], (uint64_t)w[2], (uint64_t)w[3], (uint64_t)w[4],
             (uint64_t)p[0], (uint64_t)p[1], (uint64_t)p[2], (uint64_t)p[3]);
+    }
+    if (boot_driver_page.begin) {
+        const struct gt_display_access *driver = &boot_driver_page.access;
+        const uint32_t *first = boot_driver_page.words[0], *second = boot_driver_page.words[1];
+        console_printf("intel-driver-range-preflight: v=1 slot=%u begin=%u end=%u maps=%u retired=%u reads=%u live=%x samples=%u stable=%u a0=%x a1=%x a2=%x b0=%x b1=%x b2=%x authority=none\n",
+            (uint64_t)BOOT_DRIVER_SLOT, boot_driver_page.begin, boot_driver_page.end, (uint64_t)driver->maps,
+            (uint64_t)driver->retired, (uint64_t)driver->reads, driver->mapped, (uint64_t)boot_driver_page.samples,
+            (uint64_t)boot_driver_page.stable, (uint64_t)first[0], (uint64_t)first[1], (uint64_t)first[2],
+            (uint64_t)second[0], (uint64_t)second[1], (uint64_t)second[2]);
     }
 }

@@ -683,7 +683,8 @@ static bool intel_display_test_bootstrap_display(unsigned p,unsigned i,uint32_t 
 }
 static bool intel_display_test_bootstrap_expected(void) {
 #ifdef SRVROS_INTEL_GT_FLUSH
- if(!strcmp(bootstrap_mode,"pipe-writer") || !strcmp(bootstrap_mode,"boot-page-valid"))return true;
+ if(!strcmp(bootstrap_mode,"pipe-writer") || !strcmp(bootstrap_mode,"boot-page-valid") ||
+    !strcmp(bootstrap_mode,"driver-page-occupied"))return true;
  if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"park-late-ack") ||
     !strcmp(bootstrap_mode,"park-rc1e") || !strcmp(bootstrap_mode,"park-rc1e-ack") ||
     !strcmp(bootstrap_mode,"park-rc1e-stale-closed") ||
@@ -930,7 +931,8 @@ static bool intel_display_test_range_alias(struct vmm_alias_observation *out) {
  *out=(struct vmm_alias_observation){1,1,3,0,0,1,1};
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(boot_page_preflight.sampling) {
-  if(bf("boot-page-alias",boot_page_preflight.access.maps))out->writable=1;
+  if(boot_driver_page.active ? bf("driver-page-alias",boot_driver_page.access.maps) :
+                              bf("boot-page-alias",boot_page_preflight.access.maps))out->writable=1;
   return true;
  }
  if(sampling_command_slots || gt_reopened.reading || gt_widi.reading || gt_widi.sampling || gt_prepare_trace.reading)return true;
@@ -958,6 +960,11 @@ static bool intel_display_test_range_map(uint64_t physical) {
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(boot_page_preflight.sampling) {
   assert(boot_page_preflight_live() && !range_pa && gpu_command==3 && model_engine_ro==31 && host_widi_held);
+  if(boot_driver_page.active) {
+   assert(physical==0xc0820000);
+   if(bf("driver-page-map",boot_driver_page.access.maps+1))return false;
+   range_pa=physical;return true;
+  }
   assert(physical==0xc0004000 || physical==0xc0008000 || physical==0xc0818000);
   if(bf("boot-page-map",boot_page_preflight.access.maps+1))return false;
   range_pa=physical;return true;
@@ -1058,7 +1065,8 @@ static bool intel_display_test_range_unmap(uint64_t *physical) {
  assert(bootstrap_parent() && range_pa);
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(boot_page_preflight.sampling) {
-  if(bf("boot-page-unmap",boot_page_preflight.access.maps))return false;
+  if(boot_driver_page.active ? bf("driver-page-unmap",boot_driver_page.access.maps) :
+                              bf("boot-page-unmap",boot_page_preflight.access.maps))return false;
   *physical=range_pa;range_pa=0;return true;
  }
  if(sampling_command_slots || gt_reopened.reading || gt_widi.reading || gt_widi.sampling || gt_prepare_trace.reading){*physical=range_pa;range_pa=0;return true;}
@@ -1109,6 +1117,12 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
    case 0x701ac: *out=bf("boot-page-plane",boot_page_preflight.stage) ? 4096 : 0; return true;
    default: assert(false); return false;
    }
+  }
+  if(boot_driver_page.active) {
+   assert(boot_driver_register(offset) && range_pa==result.mmio_base+(offset&~4095u));
+   *out=offset==BOOT_DRIVER_PTE && (bf("driver-page-occupied",1) ||
+      bf("driver-page-drift",boot_driver_page.samples+1)) ? 0x8f107001 : 0;
+   return true;
   }
   assert(boot_page_preflight_register(offset) && range_pa==result.mmio_base+(offset&~4095u));
   *out=0;

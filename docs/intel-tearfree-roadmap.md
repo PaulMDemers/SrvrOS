@@ -270,6 +270,18 @@ scratch-to-private-to-scratch trial tests that lifetime with Pipe A active.
 [Air aperture survey](machines/macbookair7-2-current.md#reset-free-primary-plane-flip)
 · [EFI handoff importer](../kernel/src/drivers/intel_air_boot.inc)
 
+The native boot-range checkpoint samples GGTT slot 16385 (`0x04001000`)
+after reset and same-epoch memory maintenance, with all five engine
+submission ports sealed and PCI bus mastering still off. It takes two
+high/low/high readings through temporary read-only UC aliases, retires both
+aliases, and rechecks the inherited Pipe A surface, reset owner and SMI
+counter within the existing 100 ms phase. The `intel-driver-range-preflight`
+record carries the exact words and closing status. An unstable or incomplete
+sample keeps bus mastering off. A stable zero records the empty encoding at
+that boundary. A stable nonzero preserves the occupied entry. Native range
+registration still requires proof that every reader is excluded or retired
+through the subsequent bind and rollback.
+
 The first-publication transaction takes an existing grant and requires an
 exact zero PTE inside it. It verifies the page under the same live Pipe A
 owner, seals the parent range until reboot, and installs one pinned scratch

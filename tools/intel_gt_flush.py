@@ -17,12 +17,44 @@ CPD_GAM_GO_MESSAGES = 1 << 25
 
 SMI_PREFIX = "intel-smi-guard:"
 SMI_FAULT = 2048
+DRIVER_RANGE_PREFIX = 'intel-driver-range-preflight:'
+
+
+def driver_range_preflight_result(rows, parent):
+    if not rows:
+        return None
+    suffix = ' authority=none'
+    if len(rows) != 1 or not rows[0].endswith(suffix):
+        raise ValueError('Driver range preflight authority or record count')
+    words = ('a0', 'a1', 'a2', 'b0', 'b1', 'b2')
+    sample = fields(rows[0].removesuffix(suffix), DRIVER_RANGE_PREFIX,
+                    ('v', 'slot', 'begin', 'end', 'maps', 'retired', 'reads', 'live', 'samples', 'stable', *words),
+                    ('live', *words))
+    maps, retired, reads, count = (sample[key] for key in ('maps', 'retired', 'reads', 'samples'))
+    if (sample['slot'] != 16385 or parent['stage'] not in (4, 5) or
+            not parent['begin'] <= sample['begin'] <= sample['end'] <= parent['end'] or
+            not 0 <= count <= retired <= maps <= 2 or not count * 3 <= reads <= maps * 3 or
+            sample['stable'] != (parent['stage'] == 5) or any(sample[key] >= 1 << 32 for key in words)):
+        raise ValueError('Driver range preflight scope')
+    first = tuple(sample[key] for key in words[:3])
+    second = tuple(sample[key] for key in words[3:])
+    stable = bool(sample['stable'])
+    if stable and ((maps, retired, reads, count) != (2, 2, 6, 2) or sample['live'] or
+                   sample['end'] <= sample['begin'] or first != second or first[0] != first[2] or
+                   0xffffffff in first):
+        raise ValueError('Driver range preflight closing proof')
+    return dict(summary=sample, pte=(first[0] << 32 | first[1]) if stable else None,
+                empty_encoding=first == (0, 0, 0) if stable else None, write_authority=False)
 
 
 def boot_page_preflight_result(text, parent, range_proof, primary, flush):
     prefix = 'intel-boot-page-'
-    rows = [line for line in text.splitlines() if line.startswith(prefix)]
+    lines = text.splitlines()
+    rows = [line for line in lines if line.startswith(prefix)]
+    driver_rows = [line for line in lines if line.startswith(DRIVER_RANGE_PREFIX)]
     if not rows:
+        if driver_rows:
+            raise ValueError('Driver range preflight lacks the boot-page record')
         return None
     if flush['summary']['v'] != 9 or range_proof['summary']['v'] != 8:
         raise ValueError('Boot page preflight lacks the current GT flush baseline')
@@ -30,10 +62,10 @@ def boot_page_preflight_result(text, parent, range_proof, primary, flush):
     if not rows[0].endswith(suffix):
         raise ValueError('Boot page preflight authority')
     keys = ('v', 'slot', 'stage', 'epoch', 'begin', 'end', 'smi0', 'smi1', 'maps', 'retired', 'reads', 'live')
-    has_policy = rows[0].startswith(prefix + 'preflight: v=2 ')
+    has_policy = rows[0].startswith((prefix + 'preflight: v=2 ', prefix + 'preflight: v=3 '))
     summary = fields(rows[0].removesuffix(suffix), prefix + 'preflight:',
                      keys + (('policy_samples', 'policy0', 'policy1') if has_policy else ()),
-                     ('live', 'policy0', 'policy1'), versions=(2,) if has_policy else (1,))
+                     ('live', 'policy0', 'policy1'), versions=(2, 3) if has_policy else (1,))
     stage = summary['stage']
     begin, end = summary['begin'], summary['end']
     maps, retired, reads = (summary[key] for key in ('maps', 'retired', 'reads'))
@@ -79,11 +111,15 @@ def boot_page_preflight_result(text, parent, range_proof, primary, flush):
         enabled = bool(words[0] & CPD_GAM_GO_MESSAGES) if stable else None
         policy = dict(words=words[:count], stable=stable, cpd_locked=locked, cpd_go_enabled=enabled,
                       cpd_go_locked_out=locked and not enabled if stable else None)
+    if (summary['v'] == 3 and stage == 5 and not driver_rows) or (summary['v'] < 3 and driver_rows):
+        raise ValueError('Driver range preflight version or missing record')
+    driver_range = driver_range_preflight_result(driver_rows, summary)
     return dict(summary=summary, translation=translation, wireless=wireless, frame_delta=frame_delta, capture_complete=stage == 5,
                 widi_go=[bool(sample['win'] & 16) for sample in wireless],
                 win_clock_gated=[bool(sample['req'] & sample['ack'] & 32) for sample in wireless],
                 widi_tlb_empty=translation is not None and not any(translation[key] for key in ('wtcr0', 'wtcr1', 'valid0', 'valid1')),
                 **({'power_policy': policy} if policy is not None else {}),
+                **({'driver_range': driver_range} if driver_range is not None else {}),
                 write_authority=False)
 
 

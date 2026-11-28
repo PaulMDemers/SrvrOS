@@ -75,10 +75,46 @@ class FlushAcknowledgements(unittest.TestCase):
         current = next(line for line in lines if line.startswith('intel-boot-page-preflight:'))
         with self.assertRaisesRegex(ValueError, 'power policy bracket'):
             bootstrap_result(text.replace(current, current.replace('policy1=0xc5280000', 'policy1=0xc7280000')))
-        legacy = re.sub(r' policy_samples=\d+ policy0=\w+ policy1=\w+', '', current.replace('v=2', 'v=1', 1))
-        old = bootstrap_result(text.replace(current, legacy))['flush']['boot_page_preflight']
+        legacy = re.sub(r' policy_samples=\d+ policy0=\w+ policy1=\w+', '', current.replace('v=3', 'v=1', 1))
+        old_text = re.sub(r'^intel-driver-range-preflight:.*\n', '', text, flags=re.M)
+        old = bootstrap_result(old_text.replace(current, legacy))['flush']['boot_page_preflight']
         self.assertTrue(old['capture_complete'])
         self.assertNotIn('power_policy', old)
+
+    def test_driver_range_keeps_pci_hold_and_grants_no_authority(self):
+        text = observe('pass')
+        preflight = bootstrap_result(text)['flush']['boot_page_preflight']['driver_range']
+        self.assertEqual(preflight['summary']['slot'], 16385)
+        self.assertEqual(preflight['pte'], 0)
+        self.assertTrue(preflight['empty_encoding'])
+        self.assertFalse(preflight['write_authority'])
+
+        occupied = bootstrap_result(observe('driver-page-occupied', 1))['flush']['boot_page_preflight']['driver_range']
+        self.assertEqual(occupied['pte'], 0x8f107001)
+        self.assertFalse(occupied['empty_encoding'])
+        self.assertFalse(occupied['write_authority'])
+
+        for mode, position in (('driver-page-map', 2), ('driver-page-alias', 1),
+                               ('driver-page-unmap', 2), ('driver-page-drift', 2), ('boot-page-plane', 5),
+                               ('boot-page-smi', 5)):
+            with self.subTest(mode=mode):
+                fault = bootstrap_result(observe(mode, position))
+                self.assertFalse(fault['complete'])
+                self.assertEqual(fault['summary']['commands'], 1)
+                self.assertEqual(fault['summary']['pci_samples'], 3)
+                self.assertEqual(fault['summary']['pte_writes'], 0)
+                preflight = fault['flush']['boot_page_preflight']['driver_range']
+                self.assertIsNone(preflight['empty_encoding'])
+                self.assertFalse(preflight['write_authority'])
+
+        record = next(line for line in text.splitlines() if line.startswith('intel-driver-range-preflight:'))
+        for replacement in ('', record + '\n' + record, record.replace('slot=16385', 'slot=12292'),
+                            record.replace('authority=none', 'authority=write'), re.sub(r' b1=\S+', ' b1=0x1', record)):
+            with self.assertRaisesRegex(ValueError, 'Driver range preflight'):
+                bootstrap_result(text.replace(record, replacement))
+        old_text = text.replace(record, '').replace('intel-boot-page-preflight: v=3 ', 'intel-boot-page-preflight: v=2 ')
+        legacy = bootstrap_result(old_text)['flush']['boot_page_preflight']
+        self.assertNotIn('driver_range', legacy)
 
     def test_samples_and_timing_on_both_original_paths(self):
         for entry in (None, "disabled"):
@@ -676,7 +712,7 @@ class FlushAcknowledgements(unittest.TestCase):
         legacy = legacy.replace("intel-widi-device: v=2", "intel-widi-device: v=1")
         with self.assertRaises(ValueError):
             bootstrap_result(legacy)
-        legacy = re.sub(r"^intel-boot-page-.*\n", "", legacy, flags=re.M)
+        legacy = re.sub(r"^(intel-boot-page-|intel-driver-range-preflight:).*\n", "", legacy, flags=re.M)
         old = bootstrap_result(legacy.replace("intel-range-summary: v=8", "intel-range-summary: v=7"))
         self.assertTrue(old["complete"])
         self.assertNotIn("clock_ack", old["range"]["widi_messages"][0])
@@ -803,7 +839,7 @@ class FlushAcknowledgements(unittest.TestCase):
             "intel-slot-reopened: v=4 pinned=5 restored=5 ro_mask=0 writer=3 hwsp=0 hwstam=0xffffffff", "intel-slot-reopened: v=2")
         old = re.sub(r" clock_before=\w+ clock_ack=\w+ clock_after=\w+", "", old).replace(
             "intel-widi-device: v=2", "intel-widi-device: v=1")
-        old = re.sub(r"^intel-boot-page-.*\n", "", old, flags=re.M)
+        old = re.sub(r"^(intel-boot-page-|intel-driver-range-preflight:).*\n", "", old, flags=re.M)
         self.assertTrue(bootstrap_result(old)["complete"])
 
     def test_wireless_programming_guard_spans_requester_reopening(self):
@@ -846,7 +882,7 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
         legacy = re.sub(r"^intel-(?:command-slots|scanout-backing-guard|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6|idle-change|idle-engine|park|park-frame):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=8 ", "intel-range-summary: v=3 ")
-        legacy = re.sub(r"^intel-boot-page-.*\n", "", legacy, flags=re.M)
+        legacy = re.sub(r"^(intel-boot-page-|intel-driver-range-preflight:).*\n", "", legacy, flags=re.M)
         self.assertTrue(bootstrap_result(legacy)["complete"])
 
     def test_primary_backing_with_independent_slot(self):
@@ -958,7 +994,7 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
         old_power = re.sub(r"^intel-l3-(?:power|steer|bank):.*\n|^intel-gam-.*\n|^intel-flush-sample: v=5 n=2 .*\n", "", text, flags=re.M)
-        old_power = re.sub(r"^intel-boot-page-.*\n", "", old_power, flags=re.M)
+        old_power = re.sub(r"^(intel-boot-page-|intel-driver-range-preflight:).*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-(?:bcs-stop|air-rc6|idle-policy):.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"native_writes=(\d+)", lambda m: f"native_writes={int(m[1])-1}",
                            old_power, count=1)
