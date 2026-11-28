@@ -582,7 +582,16 @@ a mismatched marker address or translation (2), a read error or changing
 sample (3), or the observed words (4).
 A sequence above the image's initial `0x1000` matching both aperture reads
 with zero current timeouts confirms the firmware's last recorded blitter
-marker at that point in UEFI.
+marker at that point in UEFI. The sequence starts from a fixed value on
+each boot. Independent proof of a fresh command needs an observed
+transition or a completion value unique to that request.
 The report does not establish GPU completion after ExitBootServices,
 device-wide L3 and requester drain, or a driver-owned range grant.
 [Intel Broadwell instruction reference](https://cdrdv2-public.intel.com/v1/dl/getcontent/690783)
+
+The reference Air's `51daa3bdb7d9f457` run observed the validated marker
+page at `0x8feef001`. Both reads returned `0x0cd30583` and the sequence
+stayed at its initial `0x1000`. The existing EFI route supplied no matching
+firmware blitter completion. The original framebuffer, seven command
+translations and 19-page reservation all verified.
+[Physical run](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)

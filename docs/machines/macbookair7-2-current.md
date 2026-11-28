@@ -989,6 +989,20 @@ blit observed in UEFI. The device-wide drain and continuing requester and
 WiDi exclusion remain open, so the driver-owned range stays write-refused.
 [Marker capture and limits](../intel-bdw-bcs-flush.md#efi-handoff-on-the-air72)
 
+Release `51daa3bdb7d9f457` at `046fa04c` completed the 1% one-shot
+diagnostic, saved USB session `session-0006615ab7b6a1ed-00`, and returned
+to Ubuntu. The offline exFAT check passed. The firmware image and marker
+translation validated. Both aperture reads gave `0x0cd30583` while the
+firmware sequence still held its initial value `0x1000`. This boot supplied
+no matching firmware blitter completion.
+
+The original framebuffer remained pinned at `0x8c001000`. Its alias in
+slot 16385 was stable across both reads, and all 24 range closing checks
+passed. All seven command translations and 19 reserved pages verified,
+and the reservation returned to its boot owner. Both powered samples
+still showed WiDi GO open and no fresh engine or L3 acknowledgement.
+SrvrOS made zero GPU page-table writes and issued no range grant.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
