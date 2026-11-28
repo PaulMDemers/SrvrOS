@@ -713,6 +713,15 @@ Scope covers the BCM4331 probe, the automatic desktop trial and release
 reports. It depends on the existing station profile and EHCI workspace.
 The previously staged attended router trial has not been armed.
 
+The unused router candidate `08447922b7838c8b` was superseded without
+arming a native boot, and its temporary private payload was retired.
+The first automatic local trial `634b61584f369b05` (`83c2fc03`) associated
+and completed WPA2. DHCP failed before the injection began, so the
+trial returned incomplete. Both flash reports, 214 intact files, and
+Ubuntu recovery verified. The retry delays automatic Connect until
+after desktop startup and records DHCP Discover, Offer, Request, and ACK
+counts in the final report.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

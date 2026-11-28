@@ -103,7 +103,7 @@ SrvrOS will connect to Demers2.4 automatically.
 The driver will briefly drop incoming frames, then resume
 reception and verify traffic through the same connection.
 
-Leave the desktop and router alone. In about 75 seconds
+Leave the desktop and router alone. In about 90 seconds
 SrvrOS will save the final report and return to Ubuntu.
 """
 EHCI_DESKTOP_WIRED_CHECKLISTS = {

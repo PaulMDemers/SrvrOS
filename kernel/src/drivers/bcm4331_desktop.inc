@@ -11,7 +11,7 @@ struct bcm4331_desktop_link {
 static struct {
     struct scheduler_wait_queue wait;
     const struct pci_device *pci;
-    uint64_t owner;
+    uint64_t owner, gap_connect_at;
     unsigned connects, disconnects;
     volatile bool stop, done;
     enum bcm4331_desktop_trial trial;
@@ -108,6 +108,19 @@ static bool desktop_wifi_take(struct bcm4331_station *s, struct wifi_service_com
     return taken;
 }
 
+static void desktop_wifi_gap_connect_if_due(void) {
+    if (!bcm_desktop.gap_connect_at || timer_monotonic_us() < bcm_desktop.gap_connect_at) return;
+    uint64_t flags = station_irq_save();
+    bcm_desktop.gap_connect_at = 0;
+    struct srv_wifi_select request = {
+        .version = SRV_WIFI_VERSION, .size = sizeof request, .owner = bcm_desktop.owner,
+        .generation = 1, .index = 0,
+    };
+    bool queued = wifi_service_request(SRV_WIFI_CONNECT, &request) == SRV_WIFI_OK;
+    station_irq_restore(flags);
+    console_printf("bcm4331-local-gap: connect_queued=%u\n", (uint64_t)queued);
+}
+
 static bool desktop_wifi_finish_request(struct bcm4331_station *s, const struct wifi_service_command *command,
         bool connected, bool success) {
     uint64_t flags = station_irq_save();
@@ -153,6 +166,12 @@ static bool desktop_wifi_connect(struct bcm4331_station *s, struct bcm4331_deskt
             timer_monotonic_us() + 10000000);
         lease = admitted && net_dhcp_request_bounded_paced(&link->scope) > 0;
         link->worker = lease && net_bounded_connection_start_worker(&link->scope, NULL);
+        if (bcm_desktop.trial == BCM4331_DESKTOP_LOCAL_GAP) {
+            const struct net_dhcp_observation *dhcp = &link->scope.dhcp_observation;
+            console_printf("bcm4331-local-gap-dhcp: admitted=%u discovers=%u offers=%u requests=%u acks=%u end=%u\n",
+                (uint64_t)admitted, dhcp->discover_queued, dhcp->accepted_offer, dhcp->request_queued,
+                dhcp->accepted_ack, dhcp->end_reason);
+        }
     }
     console_printf("bcm4331-desktop-connect: epoch=%u associated=%u wpa2=%u dhcp=%u worker=%u\n",
         s->epoch, (uint64_t)joined, (uint64_t)secured, (uint64_t)lease, (uint64_t)link->worker);
@@ -214,6 +233,7 @@ static bool station_desktop(struct bcm4331_station *s, const uint8_t *key) {
     struct bcm4331_desktop_link *link = NULL;
     bool healthy = bcm_desktop.published;
     while (healthy && !bcm_desktop.stop && !s->fault) {
+        if (local_gap) desktop_wifi_gap_connect_if_due();
         struct wifi_service_command command;
         if (!desktop_wifi_take(s, &command)) {
             if (s->signal_trial && link && s->epoch == 1) {
@@ -305,14 +325,11 @@ bool bcm4331_desktop_start(enum bcm4331_desktop_trial trial) {
 
 void bcm4331_desktop_begin_gap(void) {
     uint64_t flags = station_irq_save();
-    struct srv_wifi_select request = {
-        .version = SRV_WIFI_VERSION, .size = sizeof request, .owner = bcm_desktop.owner,
-        .generation = 1, .index = 0,
-    };
-    bool queued = bcm_desktop.trial == BCM4331_DESKTOP_LOCAL_GAP && bcm_desktop.published && !bcm_desktop.stop &&
-        wifi_service_request(SRV_WIFI_CONNECT, &request) == SRV_WIFI_OK;
+    bool armed = bcm_desktop.trial == BCM4331_DESKTOP_LOCAL_GAP && bcm_desktop.published &&
+        !bcm_desktop.stop && !bcm_desktop.gap_connect_at;
+    if (armed) bcm_desktop.gap_connect_at = timer_monotonic_us() + 18000000;
     station_irq_restore(flags);
-    console_printf("bcm4331-local-gap: connect_queued=%u\n", (uint64_t)queued);
+    console_printf("bcm4331-local-gap: armed=%u\n", (uint64_t)armed);
 }
 
 bool bcm4331_desktop_finish(bool *retired) {

@@ -160,9 +160,9 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                     size = len(boot.EHCI_DESKTOP_WIFI_GAP_CHECKLIST)
                     wait_for(serial, lambda s: f"file-result role=text op=1 status=0 bytes={size}" in s, vm, 15)
                     assert "bcm4331-desktop: ready=0" in first
-                    assert "bcm4331-local-gap: connect_queued=0" in first
+                    assert "bcm4331-local-gap: armed=0" in first
                     ui.call("screendump", {"filename": str(logs / "vm-screen.ppm")})
-                    final = wait_for(serial, lambda s: "USB report saved. Restarting into Ubuntu." in s, vm, 100)
+                    final = wait_for(serial, lambda s: "USB report saved. Restarting into Ubuntu." in s, vm, 120)
                     assert "ehci-desktop-wifi-gap-ui: result=PASS planned-exit=1" in final
                     assert "ehci-desktop-wifi: report=saved flash-retirement=safe" in final
                     assert not has_fatal_exception(final)
@@ -374,7 +374,7 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
         assert f"ehci-wifi4331: release={release} phase=startup workspace=1".encode() in startup
         assert b"bcm4331-desktop: ready=0" in startup
         if mode == "desktop-wifi-gap":
-            assert b"bcm4331-local-gap: connect_queued=0" in final
+            assert b"bcm4331-local-gap: armed=0" in final
             assert b"ehci-desktop-wifi-gap-ui: result=PASS planned-exit=1" in final
         else:
             assert b"desktools: settings-page=wifi" in final

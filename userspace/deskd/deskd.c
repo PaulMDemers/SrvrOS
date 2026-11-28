@@ -2606,7 +2606,7 @@ int main(int argc,char **argv) {
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     uint64_t ehci_deadline=ehci_trial?(uint64_t)srv_monotonic_us()+
-        (wired_disconnected?240000000u:ehci_wifi_gap?75000000u:ehci_wifi_trial?180000000u:
+        (wired_disconnected?240000000u:ehci_wifi_gap?90000000u:ehci_wifi_trial?180000000u:
          ehci_telemetry_trial?25000000u:ehci_settings_trial?150000000u:90000000u):0;
     unsigned remaining_seconds=0;
     unsigned ehci_axes=0,ehci_zoom_clicks=0,ehci_pointer_exit=0,ehci_timeout=0;
