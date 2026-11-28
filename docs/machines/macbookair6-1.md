@@ -313,6 +313,13 @@ released and all six aliases retired. The exit snapshot, recovery and offline
 USB check verified after Ubuntu returned. Native active completion and
 requester drain remain unverified.
 
+The next PR567 checkpoint surveys the Haswell blitter's inherited status
+page pointer and sync-status masks. Scope starts at `07d6c9ce` and covers the
+read-only provider audit and receipt verifier. Pipe A stays on its inherited
+surface and slots 4096 and 16385 stay outside the probe. Main `b062ba18` and
+the separate Air7,2 PR301 at `04cf5bd5` were reviewed. Native firmware
+exclusion and completion-page ownership still need independent proof.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
