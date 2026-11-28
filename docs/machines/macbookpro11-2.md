@@ -954,6 +954,18 @@ qualify the Netgear-specific descriptor, endpoint and RF ownership in
 the native xHCI path before scheduling a cold association run. Keep
 private credentials out of logs and source control.
 
+The opt-in station profile preserves the four 32 KiB bulk-IN requests,
+binds the target to a fresh passive beacon and the adapter's eFuse MAC,
+and uses the two Linux-confirmed OUT endpoints for management and WPA2.
+It records AUTH and association replies, the WPA2 messages through M4's
+USB completion, the leave frame, key erasure and endpoint retirement.
+The station path requires the independent startup journal to be open
+before firmware and RF startup. If admission fails, the workspace can
+still save the refusal. If the USB endpoint cannot be retired, the
+internal journal records the halt. The credential-bearing image requires
+a root-only EFI mount. Cold authentication and over-the-air reception of
+M4 are pending.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port

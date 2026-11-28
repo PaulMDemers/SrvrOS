@@ -177,30 +177,35 @@ def run(args):
             assert text.count(receipt) == 1 and "rtl8822bu-identity:" not in text
             if not refusal:
                 assert receipt in parsed['records'][1]['tail']
-            if manifest['config_version'].startswith(("ram-usb-rtl8822bu-v2-", "ram-usb-rtl8822bu-v3-", "ram-usb-rtl8822bu-v4-", "ram-usb-rtl8822bu-v5-", "ram-usb-rtl8822bu-v6-")):
+            station = manifest['config_version'].startswith("ram-usb-rtl8822bu-v6-")
+            skipped = station and refusal
+            if not skipped and manifest['config_version'].startswith(("ram-usb-rtl8822bu-v2-", "ram-usb-rtl8822bu-v3-", "ram-usb-rtl8822bu-v4-", "ram-usb-rtl8822bu-v5-", "ram-usb-rtl8822bu-v6-")):
                 firmware_receipt = "rtl8822bu-firmware: result=identity bytes=0 packets=0"
                 assert firmware_receipt in text
                 if not refusal:
                     assert firmware_receipt in parsed['records'][1]['tail']
                 assert "rtl8822bu-firmware-progress:" not in text
-            if manifest['config_version'].startswith(("ram-usb-rtl8822bu-v3-", "ram-usb-rtl8822bu-v4-", "ram-usb-rtl8822bu-v5-", "ram-usb-rtl8822bu-v6-")):
+            if not skipped and manifest['config_version'].startswith(("ram-usb-rtl8822bu-v3-", "ram-usb-rtl8822bu-v4-", "ram-usb-rtl8822bu-v5-", "ram-usb-rtl8822bu-v6-")):
                 board_receipt = "rtl8822bu-board: result=not-run"
                 assert board_receipt in text and "rtl8822bu-board-entry:" not in text
                 if not refusal:
                     assert board_receipt in parsed['records'][1]['tail']
-            if manifest['config_version'].startswith(("ram-usb-rtl8822bu-v4-", "ram-usb-rtl8822bu-v5-", "ram-usb-rtl8822bu-v6-")):
+            if not skipped and manifest['config_version'].startswith(("ram-usb-rtl8822bu-v4-", "ram-usb-rtl8822bu-v5-", "ram-usb-rtl8822bu-v6-")):
                 phy_receipt = "rtl8822bu-phy: result=not-run writes=0"
                 assert phy_receipt in text
                 if not refusal:
                     assert phy_receipt in parsed['records'][1]['tail']
-            if manifest['config_version'].startswith(("ram-usb-rtl8822bu-v5-", "ram-usb-rtl8822bu-v6-")):
+            if not skipped and manifest['config_version'].startswith(("ram-usb-rtl8822bu-v5-", "ram-usb-rtl8822bu-v6-")):
                 rx_receipt = "rtl8822bu-passive: result=not-run"
                 assert rx_receipt in text
                 if not refusal:
                     assert rx_receipt in parsed['records'][1]['tail']
-            if manifest['config_version'].startswith("ram-usb-rtl8822bu-v6-"):
+            if station:
                 assert "srvros.capture=wifi-rtl8822bu-wpa2" in text
                 assert "rtl8822bu-station-tx:" not in text and "rtl8822bu-wpa2: result=credential" not in text
+                assert ("rtl8822bu-station-skipped: reason=journal-unavailable" in text) == skipped
+                if skipped:
+                    assert "rtl8822bu-firmware: result=" not in text
         if rtl8188cu:
             receipt = 'rtl8188cu-probe: result=absent register_writes=0 firmware=0 rf=0'
             assert text.count(receipt) == 1 and 'rtl8188cu-identity:' not in text
@@ -244,6 +249,8 @@ def run(args):
                 assert f'startup-journal-hash: offset={start if args.mode == "dirty-state" else 512}'.encode() in log
                 assert b'srvros.desktop-release='+args.release.encode() in log
                 assert b'workspace-log: snapshot=exit.log ' in log
+                if manifest['config_version'].startswith("ram-usb-rtl8822bu-v6-"):
+                    assert b"rtl8822bu-station-skipped: reason=journal-unavailable" in log
         report = dict(status='PASS', source=manifest['git_head'], release=args.release, mode=args.mode,
                       exact_stage=True, exact_descriptor=True, independent_ahci=True, full_reconnect_profile=full_reconnect, early_compare_profile=early_compare,
                       native_accepted=False, phases=len(parsed['records']), refusal_exercised=refusal, fallback_saved=args.mode in ('journal-refused','dirty-state'), clean_boot_sector_pinned=True, expected_hold=args.mode=='both-refused', allocated_bytes_compared=checked,

@@ -1130,6 +1130,8 @@ void kmain(void) {
             boot_status("Realtek passive Wi-Fi trial: checking channel 10 for Demers2.4. No input required.\n");
         else if(rtl8188cu_firmware)
             boot_status("Realtek firmware trial: checking USB identity, starting the MCU, and saving results. No input required.\n");
+        else if(netgear_wpa)
+            boot_status("Netgear Wi-Fi trial: testing Demers2.4 association and WPA2. No input required.\n");
         else if(netgear_firmware)
             boot_status("Netgear Wi-Fi trial: starting firmware and saving results. No input required.\n");
         else if(netgear_capture)
@@ -1182,7 +1184,10 @@ void kmain(void) {
     xhci_init();
     bool rtl8188cu_sampled=rtl8188cu_capture && xhci_rtl8188cu_capture_identity();
     bool netgear_sampled=netgear_capture && xhci_rtl8822bu_capture_identity();
-    if(netgear_firmware) {
+    if(netgear_wpa && !startup_journal_admitted) {
+        console_write("rtl8822bu-station-skipped: reason=journal-unavailable\n");
+        netgear_sampled=false;
+    } else if(netgear_firmware) {
         const struct initramfs_file *image=initramfs_find("/firmware/rtw8822b_fw.bin");
         bool safe;
         if(netgear_phy) {

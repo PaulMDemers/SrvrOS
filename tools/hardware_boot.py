@@ -1221,6 +1221,8 @@ def install(release=None, keep_previous=False):
     manifest = verify(source, release)
     if manifest.get("config_version", "").startswith(("ram-usb-rtl8188cu-v4-","ram-usb-rtl8188cu-v5-","ram-usb-rtl8188cu-v6-")) and ESP.stat().st_mode & 0o077:
         raise ValueError("The Realtek WPA2 profile requires a root-only EFI mount")
+    if manifest.get("config_version", "").startswith("ram-usb-rtl8822bu-v6-") and ESP.stat().st_mode & 0o077:
+        raise ValueError("The Netgear WPA2 profile requires a root-only EFI mount")
     if "srvros.wifi-band2g=1" in (source/"limine.conf").read_text().split():
         raise ValueError("Captured EW-7711MAC 7392:a711 is 5GHz-only; 2.4GHz RF profiles are offline regression artifacts, not installable hardware trials")
     uuid = host_uuid()

@@ -1132,6 +1132,16 @@ class InstallTests(unittest.TestCase):
         for options in (dict(mwait_deep_test=True),dict(cpu_load_capture=True,mwait_deep_test=True,mwait_wakeup_test=True),dict(cpu_load_capture=True,wifi_scan_batch=True,wifi_scan_retry=True,mwait_deep_test=True)):
             with self.assertRaises(ValueError):boot.stage(**options)
 
+    def test_netgear_station_refuses_public_esp_before_install(self):
+        self.esp.chmod(0o755)
+        release = "0123456789abcdef"
+        manifest = {"config_version": "ram-usb-rtl8822bu-v6-laptop-probe-12345678-auto-return"}
+        with patch.object(boot, "verify", return_value=manifest), patch.object(boot, "host_uuid") as host:
+            with self.assertRaisesRegex(ValueError, "Netgear WPA2 profile requires a root-only EFI mount"):
+                boot.install(release)
+            host.assert_not_called()
+        self.assertFalse(self.base.exists())
+
     def test_captured_5ghz_adapter_refuses_2ghz_install(self):
         good=self.payload('accepted');boot.install(good)
         before={p:p.read_bytes() for p in [self.snippet,self.cfg,self.base/'state.json']}
