@@ -6860,7 +6860,7 @@ INTEL_EDP_BASELINE_FLAGS := -DSRVROS_INTEL_EDP_BASELINE
 INTEL_EDP_BASELINE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/drivers/intel_display_probe.c.o,$(KERNEL_OBJ))
 INTEL_EDP_BASELINE_SOURCE := kernel/diagnostics/intel_bdw_edp_baseline.c
 INTEL_EDP_PLATFORM_SOURCE := kernel/diagnostics/intel_bdw_edp_platform.c
-build/intel-edp-baseline/boot.o: kernel/src/main.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+build/intel-edp-baseline/boot.o: kernel/src/main.c kernel/src/boot_system_init.inc $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(INTEL_EDP_BASELINE_FLAGS) -c $< -o $@
 build/intel-edp-baseline/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
@@ -6889,7 +6889,13 @@ build/tests/intel-bdw-edp-baseline$(HOST_EXE): tools/test_intel_bdw_edp_baseline
 .PHONY: test-intel-bdw-edp-baseline
 test-intel-bdw-edp-baseline: build/tests/intel-bdw-edp-baseline$(HOST_EXE)
 	$<
-test-core: test-intel-bdw-edp-baseline
+build/tests/boot-edp-pci-hold$(HOST_EXE): tools/test_boot_edp_pci_hold.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror $(INTEL_EDP_BASELINE_FLAGS) -I kernel/include $< -o $@
+.PHONY: test-boot-edp-pci-hold
+test-boot-edp-pci-hold: build/tests/boot-edp-pci-hold$(HOST_EXE)
+	$<
+test-core: test-intel-bdw-edp-baseline test-boot-edp-pci-hold
 
 STOLEN_SCANOUT_HOST_SOURCES := kernel/diagnostics/intel_bdw_stolen_scanout.c
 build/tests/intel-bdw-stolen-scanout$(HOST_EXE): tools/test_intel_bdw_stolen_scanout.c $(STOLEN_SCANOUT_HOST_SOURCES) $(KERNEL_HEADERS)

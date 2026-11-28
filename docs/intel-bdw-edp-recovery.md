@@ -695,6 +695,10 @@ restores the caller's interrupt state before reading the GGTT or unmapping
 the alias. Native release `ffe69ac65cad6101` reached this walk and retired
 its first mapped page without reading any entries. The same run verified
 panel and framebuffer recovery and saved the refusal to USB.
+The census recipe defers user init so the verifier can require the kernel
+to be the sole registered address space. The kernel workspace still mounts
+and saves the report. Version 3 records the last mapping's VMM refusal
+phase and reason, or the observed leaf size, cache selector and permissions.
 
 The joined takeover holds the original display exclusion from before
 shutdown through the first GGTT round trip. After Pipe A and the panel

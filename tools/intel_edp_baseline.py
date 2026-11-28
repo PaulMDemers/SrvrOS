@@ -49,6 +49,8 @@ WELL_ROWS = ("intel-edp-dark-well", "intel-edp-dark-well-word")
 HOLD_ROWS = ("intel-edp-pci-hold", "intel-edp-pci-hold-word")
 PPS_ROWS = ("intel-edp-pps", "intel-edp-pps-word")
 DARK_CENSUS_STOPS = ("complete", "owner", "geometry", "clock", "cache", "map", "alias", "read", "retire")
+DARK_CENSUS_ALIAS = ("alias_phase alias_reason alias_level alias_checked alias_detail "
+                     "alias_pages alias_leaves alias_pat alias_flags alias_sizes").split()
 
 
 def recipe(command, *, cycle=False, flr=False, dark_well=False, pci_hold=False, dark_pwm=False, dark_pps=False):
@@ -84,9 +86,11 @@ def rows_of(text):
         versions = (1, 2, 3, 4, 5) if name == "intel-edp-pci-hold" else (1,)
         keys = SCHEMAS[name].split()
         if name == "intel-edp-dark-census":
-            versions = (1, 2)
-            if row["v"] == 2:
+            versions = (1, 2, 3)
+            if row["v"] >= 2:
                 keys.append("stop")
+            if row["v"] == 3:
+                keys.extend(DARK_CENSUS_ALIAS)
         if row.keys() != set(keys) or row["v"] not in versions or any(v >= 1 << 64 for v in row.values()):
             raise ValueError("Unsupported eDP row")
         rows[name].append(row)
@@ -371,7 +375,7 @@ def dark_census_result(rows, points, hold, pixels, *, native):
                                not 0 < end - begin < 500000):
         raise ValueError("Incomplete dark GGTT census marked complete")
     report = dict(survey=census, write_authority=False)
-    if census["v"] == 2:
+    if census["v"] >= 2:
         stop = census["stop"]
         if (stop >= len(DARK_CENSUS_STOPS) or bool(census["complete"]) != (stop == 0) or
                 (stop == 8) != (maps != retired) or (not census["command"] and stop != 1) or
@@ -379,6 +383,21 @@ def dark_census_result(rows, points, hold, pixels, *, native):
                 not pixels[0]["digest"] or pixels[0]["digest"] != pixels[1]["digest"]):
             raise ValueError("Invalid dark GGTT census stop or framebuffer verification")
         report["stop"] = DARK_CENSUS_STOPS[stop]
+    if census["v"] == 3:
+        witness = {name.removeprefix("alias_"): census[name] for name in DARK_CENSUS_ALIAS}
+        phase, reason, level, checked, detail, pages, leaves, pat, flags, sizes = witness.values()
+        verified = False
+        if not maps:
+            valid = not any(witness.values())
+        elif phase == 4:
+            valid = not (reason or level or detail) and checked == pages == leaves == 1 and pat < 8 and flags < 8 and sizes in (1, 2, 4)
+            verified = valid and (pat, flags, sizes) == (2, 4, 1)
+        else:
+            valid = phase < 4 and 1 <= reason <= 19 and level <= 4 and checked <= 1 and not (pages or leaves or pat or flags or sizes)
+        if (not valid or (stop == 6 and (not maps or verified)) or
+                (maps and not verified and (stop not in (6, 8) or entries > (maps - 1) * 512))):
+            raise ValueError("Invalid dark GGTT census alias witness")
+        report["alias"] = dict(witness, verified=verified)
     return report
 
 

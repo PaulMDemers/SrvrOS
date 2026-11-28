@@ -105,6 +105,21 @@ class EdpBaseline(unittest.TestCase):
             with self.assertRaises(ValueError):
                 dark_census_result([saved], points, hold, invalid, native=True)
 
+        witness = dict(alias_phase=4, alias_reason=0, alias_level=0, alias_checked=1, alias_detail=0,
+                       alias_pages=1, alias_leaves=1, alias_pat=2, alias_flags=4, alias_sizes=1)
+        observed = dict(saved, v=3, **witness)
+        line = "intel-edp-dark-census: " + " ".join(f"{key}={value}" for key, value in observed.items())
+        self.assertEqual(rows_of(line)["intel-edp-dark-census"], [observed])
+        self.assertTrue(dark_census_result([observed], points, hold, pixels, native=True)["alias"]["verified"])
+        refusal = dict(partial, v=3, stop=6, entries=0, framebuffer_aliases=0, **witness)
+        refusal.update(alias_phase=1, alias_reason=7, alias_checked=0, alias_detail=1,
+                       alias_pages=0, alias_leaves=0, alias_pat=0, alias_flags=0, alias_sizes=0)
+        parsed = dark_census_result([refusal], points, hold, pixels, native=True)
+        self.assertEqual((parsed["alias"]["reason"], parsed["alias"]["verified"]), (7, False))
+        for invalid in (dict(refusal, entries=1), dict(refusal, stop=3), dict(observed, alias_flags=5)):
+            with self.assertRaises(ValueError):
+                dark_census_result([invalid], points, hold, pixels, native=True)
+
     def test_dark_rc6_receipt(self):
         hold = dict(v=4, samples=5, writes=4, elapsed_us=204000, settle_us=250)
         first = dict(seq=0, begin_us=260, end_us=270, core=0, residency=0xffffffff, wake_ack=0)

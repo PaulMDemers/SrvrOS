@@ -42,6 +42,8 @@ struct edp_candidate_sample {
 
 struct edp_dark_census {
     uint64_t begin, end;
+    struct vmm_range_observation walk;
+    struct vmm_alias_observation alias;
     uint32_t command;
     unsigned entries, empty, first_empty, framebuffer_aliases, maps, retired;
     unsigned stop;
@@ -849,7 +851,6 @@ static void edp_dark_census(struct edp_adapter *a)
         const uint32_t offset = 0x800000 + first * 8u;
         const uint64_t physical = result.mmio_base + offset;
         struct x86_cache_snapshot cache;
-        struct vmm_alias_observation alias;
         unsigned mtrr, pat, effective;
         c->stop = EDP_CENSUS_CLOCK;
         if (!edp_census_clock(a,c)) return;
@@ -865,15 +866,17 @@ static void edp_dark_census(struct edp_adapter *a)
             return;
         }
         ++c->maps;
+        c->alias = (struct vmm_alias_observation){0};
         /* The sole-root walk requires local IRQ exclusion. Restore the
          * caller's state before reading MMIO or retiring the alias. */
         uint64_t flags;
         __asm__ volatile("pushfq; popq %0; cli" : "=r"(flags) :: "memory");
         bool ok = vmm_diagnostic_kernel_alias(a->backing.common.cr3,BACKING_VA,physical,1,
-                                               cache.cpu.physical_bits,&alias,NULL) &&
-                  alias.pages == 1 && alias.leaves == 1 && alias.pat_index == 2 &&
-                  !alias.writable && !alias.user && alias.no_execute == 1 && alias.leaf_sizes == 1;
+                                               cache.cpu.physical_bits,&c->alias,&c->walk);
         if (flags & (1ull << 9)) __asm__ volatile("sti" ::: "memory");
+        const struct vmm_alias_observation *alias = &c->alias;
+        ok = ok && alias->pages == 1 && alias->leaves == 1 && alias->pat_index == 2 &&
+             !alias->writable && !alias->user && alias->no_execute == 1 && alias->leaf_sizes == 1;
         c->stop = ok ? 0 : EDP_CENSUS_ALIAS;
         for (unsigned i = 0; !c->stop && i < entries_per_page; ++i) {
             uint64_t word, again;
@@ -1442,12 +1445,20 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
                         s->pte[0], s->pte[1], s->pte[2]);
                 }
                 const struct edp_dark_census *census = &flr.census;
-                if (census->begin)
-                    console_printf("intel-edp-dark-census: v=2 first=%u end_slot=%u complete=%u entries=%u empty=%u first_empty=%u framebuffer_aliases=%u maps=%u retired=%u begin_us=%u end_us=%u command=%x stop=%u pte_writes=0\n",
+                if (census->begin) {
+                    const struct vmm_range_observation *walk = &census->walk;
+                    const struct vmm_alias_observation *alias = &census->alias;
+                    console_printf("intel-edp-dark-census: v=3 first=%u end_slot=%u complete=%u entries=%u empty=%u first_empty=%u framebuffer_aliases=%u maps=%u retired=%u begin_us=%u end_us=%u command=%x stop=%u pte_writes=0 alias_phase=%u alias_reason=%u alias_level=%u alias_checked=%u alias_detail=%x alias_pages=%u alias_leaves=%u alias_pat=%u alias_flags=%u alias_sizes=%u\n",
                         (uint64_t)EDP_CENSUS_FIRST, (uint64_t)EDP_CENSUS_END, (uint64_t)census->complete,
                         (uint64_t)census->entries, (uint64_t)census->empty, (uint64_t)census->first_empty,
                         (uint64_t)census->framebuffer_aliases, (uint64_t)census->maps, (uint64_t)census->retired,
-                        census->begin, census->end, (uint64_t)census->command, (uint64_t)census->stop);
+                        census->begin, census->end, (uint64_t)census->command, (uint64_t)census->stop,
+                        (uint64_t)walk->phase, (uint64_t)walk->reason, (uint64_t)walk->level,
+                        walk->checked, walk->detail, (uint64_t)alias->pages, (uint64_t)alias->leaves,
+                        (uint64_t)alias->pat_index,
+                        (uint64_t)(alias->writable | alias->user << 1 | alias->no_execute << 2),
+                        (uint64_t)alias->leaf_sizes);
+                }
                 ready = ready && p->complete && edp_candidate_preserved(&flr);
             }
             if (dark_well) {

@@ -712,6 +712,9 @@ before the census. System init stays resident, and its registered address
 space conflicts with the verifier's sole-kernel-root requirement. The next
 checkpoint is to defer user init only for this terminal capture and record
 the VMM refusal reason or verified alias attributes in the USB receipt.
+This retry touches the dedicated eDP boot recipe, alias receipt and collector.
+It uses main `24feebdd`. Air6,1 PR 567 at `654ad9d9` records a separate
+Haswell census and supplies no Broadwell ownership evidence.
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

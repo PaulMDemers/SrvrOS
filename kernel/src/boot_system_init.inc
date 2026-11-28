@@ -1,8 +1,41 @@
 /* Included by main and its host fixtures. Only dedicated terminal images may
  * defer user init for their exact capture recipes. Ordinary kernel services
  * and all admission checks still apply. */
+#ifdef SRVROS_INTEL_EDP_BASELINE
+static bool edp_boot_literal(const char **cursor, const char *literal) {
+    while (*literal) {
+        if (**cursor != *literal++) return false;
+        ++*cursor;
+    }
+    return true;
+}
+
+static bool edp_boot_hex(const char **cursor, unsigned digits) {
+    for (unsigned i = 0; i < digits; ++i) {
+        char ch = **cursor;
+        if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'))) return false;
+        ++*cursor;
+    }
+    return true;
+}
+
+static bool edp_pci_hold_recipe(const char *cmdline) {
+    return cmdline && edp_boot_literal(&cmdline, "srvros.storage=ram srvros.workspace-volume=") &&
+        edp_boot_hex(&cmdline, 8) && edp_boot_literal(&cmdline, " srvros.desktop-release=") &&
+        edp_boot_hex(&cmdline, 16) &&
+        edp_boot_literal(&cmdline, " srvros.capture=intel-display srvros.intel-backing=read-only"
+            " srvros.intel-cache=read-only srvros.intel-edp-baseline=on srvros.intel-edp-cycle=on"
+            " srvros.intel-edp-flr=pci-hold srvros.capture-failure=reboot") && !*cmdline;
+}
+#endif
+
 static bool boot_system_init(const char *cmdline, bool timer_running) {
-#ifdef SRVROS_INTEL_STOLEN_CAPTURE
+#if defined(SRVROS_INTEL_EDP_BASELINE)
+    if (edp_pci_hold_recipe(cmdline)) {
+        console_write("init: deferred=edp-pci-hold-preinit; terminal automatic capture, no user services\n");
+        return false;
+    }
+#elif defined(SRVROS_INTEL_STOLEN_CAPTURE)
     if(intel_stolen_probe_recipe(cmdline)) {
         console_write("init: deferred=stolen-preinit; terminal automatic capture, no user services\n");
         return false;
