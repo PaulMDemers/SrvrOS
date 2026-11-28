@@ -613,6 +613,18 @@ keeping the low CR byte and TXPAUSE fixed. Restore the original
 security settings on exit.
 [Linux rtw88 security setup](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/sec.c).
 
+Release `bc47b6209efb614b` on `07cca01b` uses a channel 10 control
+window and retains its pending IN across a bounded `CR` bit 9,
+`SECCFG` and RCR transition. The low CR byte stays `0x9a` and TXPAUSE
+stays `0xff`. At exit the code gates and stops bulk IN, then verifies
+restoration of the original high CR byte and policy. The native
+fixture exercised a completion in the second window, an opening
+completion excluded from the comparison, timeout, bad readback and
+failed restoration. Both sibling adapter regressions, 329 boot and
+trial tests, and the five exact-image VM rehearsals passed. The run
+record and Linux summary are under
+`build/bringup/pro112-rtl8822bu-rx-enable/`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
