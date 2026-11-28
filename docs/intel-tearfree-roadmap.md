@@ -303,6 +303,15 @@ scratch-to-private-to-scratch trial tests that lifetime with Pipe A active.
 [Air aperture survey](machines/macbookair7-2-current.md#reset-free-primary-plane-flip)
 · [EFI handoff importer](../kernel/src/drivers/intel_air_boot.inc)
 
+The Air's Broadwell EFI driver accounts for the repeated framebuffer PTEs
+by filling the entire GGTT before overlaying its stolen-memory prefix.
+Its full-controller stop clears all entries before disabling PCI access
+and does not check each store. A firmware detach can therefore blank and
+discard the inherited translations without giving the boot driver a
+completion receipt. Keep the firmware detach outside the one-page grant
+path until independent live completion and scanout preservation are proven.
+[Air firmware review](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
+
 The native boot-range checkpoint samples GGTT slot 16385 (`0x04001000`)
 after reset and same-epoch memory maintenance, with all five engine
 submission ports sealed and PCI bus mastering still off. It takes two

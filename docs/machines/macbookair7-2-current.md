@@ -953,6 +953,32 @@ open WiDi and zero engine and L3 acknowledgements. The EFI firmware
 inventory established no allocator grant. There is no writable Air
 candidate from this qualification. Ubuntu remains the active system.
 
+The native grant follow-up starts at `78270702`. Shared main `b062ba18`
+and Air6,1 PR 567 `05931e32` were reviewed. The scope is the Broadwell
+firmware's initial GGTT provisioning and controller-stop path. This review
+uses the same Air firmware file and keeps all hardware access read-only.
+
+The Broadwell EG2 image fills all 1,048,576 GGTT entries with the first
+stolen framebuffer PTE, then overlays a contiguous stolen-memory prefix.
+The USB capture's `GGC=0x02c1` selects 64 MiB, and `BDSM=0x8c000001`
+places the first mapped page at `0x8c001000`. The prefix covers slots
+`[0, 16383)` and the suffix repeats `0x8c001001`. This predicts exactly
+49,153 framebuffer aliases in the dark CPU-aperture sweep (`a73eb19a306f716e`)
+and 983,040 in the active-panel GPU-only sweep (`025f89dd3986e36b`). All ten
+raw file hashes across the three saved sessions verified. The repeated word
+identifies the firmware's fill pattern. It supplies no exclusive lease.
+
+Full-controller Driver Binding `Stop()` calls the teardown that clears the
+blitter queue registers and then writes zero across the entire GGTT,
+including the live framebuffer entries. It requests PCI I/O, memory and
+bus-master disable after that loop. The loop ignores each write status and
+the teardown returns success without propagating the attribute result.
+The routine supplies no verified live completion proof before those writes.
+We did not invoke it. The native one-page grant still requires independent
+requester exclusion and completion with the inherited framebuffer pinned.
+[UEFI Driver Binding](https://uefi.org/specs/UEFI/2.10_A/11_Protocols_UEFI_Driver_Model.html)
+· [EDK II PCI I/O definitions](https://raw.githubusercontent.com/tianocore/edk2/master/MdePkg/Include/Protocol/PciIo.h)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
