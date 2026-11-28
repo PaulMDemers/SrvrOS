@@ -579,6 +579,20 @@ sibling adapters, 329 boot and trial tests, and all five exact-image
 VM rehearsals passed. The run record and collector are under
 `build/bringup/pro112-rtl8822bu-h2c-queue/`.
 
+Physical session `session-000661503f026844-00` verified the reordered
+setup, including the completed mode transition to `0x09`. The
+`0x1330` reads returned the same unavailable pattern as working Linux
+before and after the successful write. General Info and PHYDM Info both
+completed with matching USB events and zero residue. The queue
+advanced from `0x3fa00` to `0x3fa40` and drained, matching Linux.
+Endpoint Stop reached the next OUT TRB. This trial accepts the revised
+firmware command path on this unit. Both channel 10 windows still show
+idle RX DMA and a pending 32 KiB IN, with 26 and 17 valid PHY CRCs
+respectively and zero completions. Passive discovery remains open.
+Both logs agree, the endpoints and radio retired, all 698 existing
+workspace files matched, and all seven journal phases verified.
+The payload and logs are preserved under `evidence-5238fa6500794559`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
