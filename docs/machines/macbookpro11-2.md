@@ -311,6 +311,14 @@ Ubuntu. The verified payload and logs are in
 `evidence-b8a1111ac4081f76` in the recovery archive. Channel tuning,
 USB bulk receive and passive discovery remain open.
 
+#### Netgear A6150 tuning and USB receive
+
+Continue from native PHY acceptance `9fc69824` with main `24feebdd`.
+Limit this work to the Netgear's two RF paths and bulk IN endpoint 0x84.
+Use the Linux reference for 20 MHz tuning and receive descriptor layout.
+Keep MAC transmit disabled, verify both synthesizer readbacks, bound all
+receive waits and require endpoint retirement before returning to Ubuntu.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
