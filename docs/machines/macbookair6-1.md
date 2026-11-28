@@ -304,6 +304,13 @@ Forcewake released and all six aliases retired. The exit snapshot, recovery
 and offline USB check verified after Ubuntu returned. Active requester
 drain remains unverified and firmware handoff unavailable.
 
+The next PR567 checkpoint prototypes the reset-free blitter hold and checks
+for a fresh sync-flush completion in the host fixture. Scope starts at
+`fc23967b` and includes the Haswell diagnostic core, staged boot and verifier.
+Native admission requires a provider for the pinned Pipe A surface, firmware
+exclusion and the completion destination. Slots 4096 and 16385 stay protected.
+Main `b062ba18` and the separate Air7,2 PR301 at `78270702` were reviewed.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
