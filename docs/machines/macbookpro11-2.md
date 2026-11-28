@@ -625,6 +625,20 @@ trial tests, and the five exact-image VM rehearsals passed. The run
 record and Linux summary are under
 `build/bringup/pro112-rtl8822bu-rx-enable/`.
 
+Physical session `session-00066150c1b9962f-00` passed H2C and the
+same-boot comparison. The control window held `CR=0x049a` and
+`SECCFG=0x0000`. The second window verified `CR=0x069a`,
+`SECCFG=0x00cf`, `TXPAUSE=0xff` and `RCR=0xf410400e` with the
+original 32 KiB IN still pending. The two 328 ms windows counted 2
+and 53 valid PHY CRCs respectively, with no USB IN completion in either
+window or across the transition. The DMA snapshots were idle or zero
+in both windows, as in the successful Linux samples. Passive discovery
+remains open. Both logs verified the original security values were
+restored and the endpoints retired. All three adapters enumerated,
+all 700 existing workspace files matched, and all seven EFI journal
+phases verified. The payload and logs are under
+`evidence-bc47b6209efb614b`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
