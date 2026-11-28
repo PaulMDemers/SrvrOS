@@ -564,6 +564,14 @@ and only one RX bank. RX control and status read all ones in channels
 1 through 5. The revised preflight requires that exact topology while
 checking the real RX and all six TX engines are disabled.
 
+Release `116b5ca72139453e` initialized the radio and armed the RX ring.
+The hardware pointer stayed at zero and no beacons were captured. The
+MAC suspended and PCI bus mastering was fenced, but the RX engine did
+not confirm disable. The trial withheld its DMA pages and saved both
+reports before Ubuntu returned. The next retry verifies the ring base
+before granting bus mastering, enables RX before posting descriptors,
+and can hold D11 in reset after fencing PCI if RX retirement stalls.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

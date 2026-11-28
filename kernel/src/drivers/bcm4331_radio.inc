@@ -185,7 +185,7 @@ static unsigned listen_for_beacons(volatile uint32_t *regs, const uint8_t *buffe
 }
 
 static unsigned receive_beacons(const struct pci_device *p, volatile uint32_t *regs, uint32_t mac,
-        bool *retired, unsigned *dma_pages) {
+        bool *retired, uint64_t *dma_memory) {
     uint16_t command = pci_read_config16(p, PCI_COMMAND);
     if (command == UINT16_MAX || (command & (PCI_MEMORY | PCI_BUS_MASTER)) != PCI_MEMORY) return 0;
     for (unsigned channel = 0; channel < 6; channel++) {
@@ -203,7 +203,7 @@ static unsigned receive_beacons(const struct pci_device *p, volatile uint32_t *r
     }
     uint64_t memory = pmm_alloc_frames_tagged(RX_DMA_PAGES, PMM_FRAME_DMA);
     if (!memory) return 0;
-    *dma_pages = RX_DMA_PAGES;
+    *dma_memory = memory;
     uint64_t ring = (memory + RX_RING_ALIGNMENT - 1) & ~(uint64_t)(RX_RING_ALIGNMENT - 1);
     uint64_t buffers = memory + 3 * PAGE_BYTES;
     struct bcm4331_rx_descriptor *descriptors = pmm_phys_to_virt(ring);
@@ -220,19 +220,21 @@ static unsigned receive_beacons(const struct pci_device *p, volatile uint32_t *r
     uint32_t control = DMA_ENABLE | RX_DMA_NO_PARITY | (RX_FRAME_OFFSET << 1);
     uint32_t low = (uint32_t)ring, high = DMA64_PCIE | (uint32_t)(ring >> 32);
     unsigned end = (RX_SLOTS - 1) * sizeof *descriptors;
-    regs[RX_DMA_CONTROL / 4] = control;
     regs[RX_DMA_LOW / 4] = low;
     regs[RX_DMA_HIGH / 4] = high;
-    regs[RX_DMA_INDEX / 4] = end;
-    bool configured = regs[RX_DMA_CONTROL / 4] == control && regs[RX_DMA_LOW / 4] == low &&
-        regs[RX_DMA_HIGH / 4] == high && regs[RX_DMA_INDEX / 4] == end;
+    bool configured = regs[RX_DMA_LOW / 4] == low && regs[RX_DMA_HIGH / 4] == high &&
+        regs[RX_DMA_INDEX / 4] == 0;
     if (configured) pci_write_config16(p, PCI_COMMAND, command | PCI_BUS_MASTER);
     bool mastering = configured && pci_read_config16(p, PCI_COMMAND) == (command | PCI_BUS_MASTER);
+    if (mastering) regs[RX_DMA_CONTROL / 4] = control;
+    bool started = mastering && regs[RX_DMA_CONTROL / 4] == control;
+    if (started) regs[RX_DMA_INDEX / 4] = end;
+    bool posted = started && regs[RX_DMA_INDEX / 4] == end;
     console_printf("bcm4331-radio: dma_configured=%u dma_started=%u slots=%u\n",
-        (uint64_t)configured, (uint64_t)mastering, (uint64_t)(RX_SLOTS - 1));
+        (uint64_t)configured, (uint64_t)started, (uint64_t)(posted ? RX_SLOTS - 1 : 0));
 
     unsigned matches = 0;
-    if (mastering) {
+    if (posted) {
         regs[D11_DMA0_MASK / 4] = D11_RX_DONE;
         regs[D11_MAC_CONTROL / 4] = mac | MAC_BEACON_PROMISCUOUS | MAC_PROMISCUOUS |
             MAC_AWAKE | MAC_DISCARD_PMQ | D11_MAC_ENABLED;
@@ -241,7 +243,7 @@ static unsigned receive_beacons(const struct pci_device *p, volatile uint32_t *r
     }
     regs[D11_MAC_CONTROL / 4] = mac;
     bool stopped = wait_d11_register(regs, D11_MAC_CONTROL, D11_MAC_ENABLED, 0);
-    bool suspended = stopped && (!mastering || wait_d11_register(regs, D11_IRQ_REASON, D11_MAC_SUSPENDED, D11_MAC_SUSPENDED));
+    bool suspended = stopped && (!posted || wait_d11_register(regs, D11_IRQ_REASON, D11_MAC_SUSPENDED, D11_MAC_SUSPENDED));
     regs[D11_DMA0_MASK / 4] = 0;
     regs[RX_DMA_CONTROL / 4] = 0;
     bool disabled = wait_d11_register(regs, RX_DMA_STATUS, DMA_STATE, 0) &&
@@ -256,17 +258,19 @@ static unsigned receive_beacons(const struct pci_device *p, volatile uint32_t *r
         cleared = !regs[RX_DMA_LOW / 4] && !regs[RX_DMA_HIGH / 4] && !regs[RX_DMA_INDEX / 4];
         if (cleared) {
             pmm_free_frame_range(memory, RX_DMA_PAGES);
-            *dma_pages = 0;
+            *dma_memory = 0;
         }
     }
     *retired = suspended && cleared && !regs[D11_DMA0_MASK / 4];
     console_printf("bcm4331-radio: mac_suspended_event=%u dma_disabled=%u dma_fenced=%u ring_cleared=%u\n",
         (uint64_t)suspended, (uint64_t)disabled, (uint64_t)fenced, (uint64_t)cleared);
+    console_printf("bcm4331-radio: dma_stop_control=%x dma_stop_status=%x dma_stop_error=%x\n",
+        (uint64_t)regs[RX_DMA_CONTROL / 4], (uint64_t)regs[RX_DMA_STATUS / 4], (uint64_t)regs[RX_DMA_ERROR / 4]);
     return matches;
 }
 
 static bool passive_radio_trial(const struct pci_device *p, volatile uint32_t *regs,
-        const struct radio_assets *assets, bool *retired, unsigned *dma_pages) {
+        const struct radio_assets *assets, bool *retired, uint64_t *dma_memory) {
     const uint8_t *profile = assets->profile;
     unsigned powerup = radio_le32(profile + 4), phy = radio_le32(profile + 8), tune = radio_le32(profile + 12);
     if (radio_le32(profile) != 0x30315448 || powerup != 318 || phy != 7658 || tune != 185) return false;
@@ -291,7 +295,7 @@ static bool passive_radio_trial(const struct pci_device *p, volatile uint32_t *r
         half[D11_SHM_DATA / 2] = BEACON_CHANNEL;
         regs[D11_SHM_CONTROL / 4] = (D11_SHM_SHARED << 16) | (0x34 / 4);
         half[D11_SHM_DATA / 2] = 0;
-        matches = receive_beacons(p, regs, mac, retired, dma_pages);
+        matches = receive_beacons(p, regs, mac, retired, dma_memory);
     }
     if (initial) {
         volatile uint16_t *half = (volatile uint16_t *)regs;
