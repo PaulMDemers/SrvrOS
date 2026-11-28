@@ -841,6 +841,57 @@ ACK cleared and all six aliases retired within the 20.472 ms overall
 trial. The protected slots were untouched. The exit snapshot, installed
 recovery and offline USB check verified after Ubuntu returned.
 
+#### Requester drain and firmware handoff audit
+
+The native held-engine result supplies idle ring snapshots and clear
+pending bits. The next proof needs one owner for the exact device,
+range and boot epoch. The owner must block new SrvrOS engine
+submissions, account for display HDA and remaining readers, and
+hold the inherited Pipe A surface, fence and fetch padding for the
+whole interval. That hold must survive the completion checks and
+retirement. Air7,2 PR301's separate ownership gate also reports an
+explicit firmware transfer as its first unmet prerequisite.
+[Air7,2 ownership gate status](https://github.com/PaulMDemers/SrvrOS/pull/301)
+
+The previously observed graphics DRHD0 advertises read and write
+drain support. On a platform where the owner controls the active
+remapper, the local drain proof must identify the requester scope,
+invalidate applicable translations, and verify completion of
+the requested read/write drain. VT-d completion covers the
+specified memory traffic. Endpoint-cached translations, GT
+translation and prefetch state, peer traffic and display-reader
+retirement require their own checks. The earlier Haswell DRHD0
+observations showed translation disabled. This audit uses the
+existing state and issues no remapper commands.
+[Intel VT-d, section 6.5.4](https://cdrdv2-public.intel.com/831418/vt-directed-io-spec.pdf)
+
+The v13 boot audit pairs both engine and PCI requester samples
+with Lynx Point-LP SMI routing observations. It verifies the
+LPC bridge identity, PCI PMBASE and ACPI decode against the
+calibrated FADT timer at `0x1808`, then reads `GEN_PMCON_1` and the
+PM I/O `SMI_EN` and `SMI_STS` words. The receipt records global
+SMI enable and its lock at each valid endpoint, alongside the
+existing CPU0 SMI count. An enabled route documents that source
+of firmware entry even when the count is steady. A disabled
+route describes the sampled PCH setting. A maintained firmware
+transfer or hardware exclusion covering all relevant agents is
+still required. UEFI boot-services exit leaves runtime firmware
+interfaces available.
+[Intel 8 Series PCH datasheet, sections 12.1 and 12.8](https://www.intel.com/content/dam/www/public/us/en/documents/datasheets/8-series-chipset-pch-datasheet.pdf)
+· [UEFI runtime services](https://uefi.org/specs/UEFI/2.11/08_Services_Runtime_Services.html)
+
+SMI enables, locks and status are read only. The only hardware
+stores are the two previously qualified masked forcewake stores.
+The existing 4 ms sample, 20 ms hold and 100 ms full limits
+apply. Pipe A stays on the inherited surface and the probe skips
+slots 4096 and 16385. The audit reports requester drain and
+firmware exclusion as unverified.
+
+Stage with `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-exclusion-audit`.
+The trial saves its receipt to USB and returns to Ubuntu. Decode
+the matched `exit.log` with `tools/hardware_haswell_forcewake.py`.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

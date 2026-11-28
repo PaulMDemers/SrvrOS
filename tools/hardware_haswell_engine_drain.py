@@ -4,6 +4,7 @@ from hardware_haswell_live_vtd import _decode_af
 from hardware_haswell_survey import MASK32, MASK64, _record
 
 ENGINE_DRAIN_TOKEN = "srvros.hsw-forcewake=engine-drain"
+EXCLUSION_AUDIT_TOKEN = "srvros.hsw-forcewake=exclusion-audit"
 ENGINES = ("render", "video-decode", "blitter", "video-enhancement")
 REQUESTERS = ("igd", "display-hda")
 
@@ -141,3 +142,30 @@ def engine_drain_result(lines, wake):
                       requesters={k: _requester_state(first["requesters"][k], last["requesters"][k])
                                   for k in REQUESTERS})
     return result
+
+
+def exclusion_audit_result(lines, drain):
+    count = len(drain["samples"])
+    summary, = _records(lines, "hsw-exclusion-audit:",
+        r"hsw-exclusion-audit: v=1 rows=([0-2]) firmware_exclusion=unverified requester_drain=unverified", 1)
+    if summary != (count,) or "timing" not in drain:
+        raise ValueError("unbound exclusion audit")
+    rows = _records(lines, "hsw-exclusion-smi:",
+        r"hsw-exclusion-smi: phase=([01]) read=([01]) valid=([01]) pmbase=(\d+) "
+        r"acpi=(\d+) pmcon=(\d+) en=(\d+) sts=(\d+)", count)
+    samples = []
+    for index, (phase, read, valid, base, acpi, pmcon, en, status) in enumerate(rows):
+        if (phase != index or max(base, en, status) > MASK32 or acpi > 0xff or pmcon > 0xffff
+                or read and (base != 0x1801 or acpi == 0xff or not acpi & 0x80 or pmcon == 0xffff)
+                or not read and (valid or en or status)
+                or valid and MASK32 in (en, status)):
+            raise ValueError("SMI route observation")
+        samples.append(dict(read=bool(read), valid=bool(valid), pmbase=base, acpi_control=acpi, gen_pmcon1=pmcon,
+                            smi_en=en if read else None, smi_sts=status if read else None,
+                            pch_global_smi_enabled=bool(en & 1) if valid else None,
+                            pch_global_smi_locked=bool(pmcon & 0x10) if valid else None))
+    delivery = [sample["pch_global_smi_enabled"] for sample in samples]
+    pch_route = ("enabled-observed" if True in delivery else
+                 "disabled-at-samples" if delivery == [False, False] else "unavailable")
+    return dict(samples=samples, pch_smi_route=pch_route,
+                firmware_exclusion="unverified", requester_drain="unverified")

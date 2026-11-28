@@ -6,6 +6,8 @@
 
 bool timer_reference_init(void);
 bool timer_reference_ready(void);
+/* The validated System I/O PM timer port, or zero without a reference. */
+uint16_t timer_reference_port(void);
 /* Read-only check of the calibrated live 100 Hz LAPIC wake source. */
 bool timer_idle_wakeup_ready(void);
 bool timer_wall_init(void);

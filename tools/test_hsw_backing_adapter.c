@@ -257,6 +257,7 @@ static void forcewake_setup(void) {
  hsw_wake_ack_window=false;
  test_forcewake=false;
  test_engine_drain=false;
+ hsw_exclusion_audit=false;
  engine_prereqs_setup();
  memset(&hsw_forcewake,0,sizeof(hsw_forcewake));
  test_forcewake=true;
@@ -371,8 +372,46 @@ static void drain_tests(void) {
         !strcmp(hsw_engine_drain.timing.gap_stage,"gap") && hsw_engine_drain.timing.max_gap==10688);
 }
 
+static void exclusion_setup(void) {
+ drain_setup();
+ hsw_exclusion_audit=true;
+ pch_config[0x40/4]=0x1801; pch_config[0x44/4]=0x80; pch_config[0xa0/4]=0x10;
+ exclusion_timer_port=0x1808;
+ exclusion_reads=0;
+ exclusion_route_drift=exclusion_invalid_read=false;
+}
+
+static void exclusion_tests(void) {
+ exclusion_setup();pch_config[0x40/4]=0x2001;
+ assert(hsw_forcewake_run(true) && !exclusion_reads && !hsw_engine_drain.sample[0].smi_route.valid);
+ exclusion_setup();pch_config[0x44/4]=0;
+ assert(hsw_forcewake_run(true) && !exclusion_reads && !hsw_engine_drain.sample[0].smi_route.valid);
+ exclusion_setup();exclusion_timer_port=0x2008;
+ assert(hsw_forcewake_run(true) && !exclusion_reads && !hsw_engine_drain.sample[0].smi_route.valid);
+ exclusion_setup();exclusion_route_drift=true;
+ assert(hsw_forcewake_run(true) && exclusion_reads==4 && !hsw_engine_drain.sample[0].smi_route.valid);
+ assert(hsw_engine_drain.sample[1].smi_route.valid);
+ exclusion_setup();exclusion_invalid_read=true;
+ assert(hsw_forcewake_run(true) && exclusion_reads==4 && !hsw_engine_drain.sample[0].smi_route.valid);
+ exclusion_setup();drain_late=true;
+ assert(!hsw_forcewake_run(true) && exclusion_reads==2 && hsw_forcewake.released && hsw_engine_drain.retired==4);
+}
+
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"exclusion-audit")) {
+  exclusion_tests();
+  exclusion_setup();
+  assert(hsw_forcewake_run(true) && exclusion_reads==4 && !candidate_ptes && candidate_frames==2);
+  assert(hsw_engine_drain.sample[0].smi_route.valid && hsw_engine_drain.sample[1].smi_route.valid);
+  hsw_emit=1;hsw_report();hsw_forcewake_report();hsw_drain_report();
+  puts("laptop-capture: boot options=srvros.storage=ram srvros.workspace-volume=6ada85bb "
+       "srvros.desktop-release=1234567890abcdef srvros.capture=haswell-backing "
+       "srvros.hsw-cpu-control=read-only srvros.hsw-fences=linux-model-32 "
+       "srvros.hsw-forcewake=exclusion-audit srvros.capture-failure=reboot");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"engine-drain")) {
   drain_tests();
   drain_setup();

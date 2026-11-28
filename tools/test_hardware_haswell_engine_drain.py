@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 import hardware_boot as boot
-from hardware_haswell_engine_drain import ENGINE_DRAIN_TOKEN
+from hardware_haswell_engine_drain import ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN
 from hardware_haswell_forcewake import forcewake_result
 
 
@@ -11,6 +11,7 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.text = Path("build/tests/hsw-engine-drain-receipt.log").read_text()
+        cls.audit = Path("build/tests/hsw-exclusion-audit-receipt.log").read_text()
 
     def result(self, text):
         wake = forcewake_result(text)
@@ -71,6 +72,42 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
         self.assertNotIn("srvros.hsw-forcewake=acquire-release", config)
         with self.assertRaisesRegex(ValueError, "isolated automatic return"):
             boot.stage(haswell_forcewake=True, haswell_engine_drain=True)
+
+    def test_smi_route_observations_do_not_grant_drain_or_exclusion(self):
+        audit = forcewake_result(self.audit)["exclusion_audit"]
+        self.assertEqual(audit["pch_smi_route"], "enabled-observed")
+        self.assertEqual((audit["firmware_exclusion"], audit["requester_drain"]), ("unverified", "unverified"))
+        self.assertTrue(all(endpoint["pch_global_smi_locked"] for endpoint in audit["samples"]))
+        disabled = forcewake_result(self.audit.replace("pmcon=16 en=33", "pmcon=16 en=32"))["exclusion_audit"]
+        self.assertEqual(disabled["pch_smi_route"], "disabled-at-samples")
+        self.assertEqual(disabled["firmware_exclusion"], "unverified")
+        unavailable_text = self.audit.replace("read=1 valid=1 pmbase=6145 acpi=128 pmcon=16 en=33 sts=32",
+                                              "read=0 valid=0 pmbase=8193 acpi=128 pmcon=16 en=0 sts=0")
+        self.assertEqual(forcewake_result(unavailable_text)["exclusion_audit"]["pch_smi_route"], "unavailable")
+
+    def test_smi_receipt_rejects_unbound_route_and_authority(self):
+        for old, new in (
+            ("rows=2 firmware_exclusion=unverified", "rows=1 firmware_exclusion=unverified"),
+            ("pmbase=6145", "pmbase=8193"),
+            ("acpi=128", "acpi=0"),
+            ("en=33 sts=32", "en=4294967295 sts=32"),
+            ("read=1 valid=1", "read=0 valid=1"),
+            ("firmware_exclusion=unverified", "firmware_exclusion=verified"),
+            (EXCLUSION_AUDIT_TOKEN, ENGINE_DRAIN_TOKEN),
+        ):
+            with self.subTest(new=new):
+                self.assertIn(old, self.audit)
+                self.assertIsNone(forcewake_result(self.audit.replace(old, new, 1)))
+
+    def test_exclusion_audit_recipe(self):
+        version = "ram-usb-v13-hsw-laptop-probe-6ada85bb"
+        with self.assertRaisesRegex(ValueError, "automatic return"):
+            boot.limine_config("1234567890abcdef", version)
+        config = boot.limine_config("1234567890abcdef", version + "-auto-return")
+        self.assertIn(EXCLUSION_AUDIT_TOKEN, config)
+        self.assertNotIn(ENGINE_DRAIN_TOKEN, config)
+        with self.assertRaisesRegex(ValueError, "isolated automatic return"):
+            boot.stage(haswell_engine_drain=True, haswell_exclusion_audit=True)
 
 
 if __name__ == "__main__":

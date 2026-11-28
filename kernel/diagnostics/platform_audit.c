@@ -12,6 +12,7 @@
 #include <stddef.h>
 #include <srvros/display_resource_audit.h>
 #include <srvros/display_profile.h>
+#include "../src/arch/x86_64/io.h"
 #define GFX_VA 0xffffc001f3200000ull
 #define WELL_VA 0xffffc001f3201000ull
 static struct package_ltr latency[2][PCI_MAX_DEVICES];

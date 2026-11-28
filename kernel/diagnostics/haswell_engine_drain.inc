@@ -7,13 +7,21 @@ static const uint32_t hsw_drain_pages[] = {0x02000, 0x12000, 0x22000, 0x1a000};
 static const uint32_t hsw_drain_offsets[] = {0x34, 0x30, 0x3c, 0x9c, 0x74};
 enum { HSW_DRAIN_RINGS = 4, HSW_DRAIN_WORDS = 5 };
 
+struct hsw_smi_route {
+    uint32_t pmbase, acpi, pmcon, en, status;
+    bool read, valid;
+};
+
 struct hsw_drain_sample {
     uint64_t begin, end;
     uint32_t ack[2], thread[2], smi;
     uint32_t ring[HSW_DRAIN_RINGS][HSW_DRAIN_WORDS];
     uint32_t pci[2][4];
     struct package_pci_af af[2];
+    struct hsw_smi_route smi_route;
 };
+
+static bool hsw_exclusion_audit;
 
 static struct {
     unsigned maps, retired, reads, samples;
@@ -28,6 +36,32 @@ static struct {
     const struct pci_device *hda;
     struct hsw_drain_sample sample[2];
 } hsw_engine_drain;
+
+static void hsw_sample_smi_route(struct hsw_smi_route *route) {
+    uint32_t pch;
+    if (!dependency_pch_valid(&pch)) return;
+    route->pmbase = pci_read_config32(pch_device, 0x40);
+    route->acpi = pci_read_config16(pch_device, 0x44) & 0xff;
+    route->pmcon = pci_read_config16(pch_device, 0xa0);
+    /* Only the captured Air6,1 PM I/O region. Check PCI decode and bind the
+     * base to the independently validated FADT timer port. */
+    if (route->pmbase != 0x1801 || route->acpi == 0xff || !(route->acpi & 0x80) ||
+        route->pmcon == UINT16_MAX || timer_reference_port() != 0x1808) return;
+#ifdef SRVROS_PLATFORM_HOST_TEST
+    extern uint32_t platform_test_hsw_smi_io(uint16_t);
+    route->en = platform_test_hsw_smi_io(0x1830);
+    route->status = platform_test_hsw_smi_io(0x1834);
+#else
+    route->en = inl(0x1830);
+    route->status = inl(0x1834); /* Sticky status. Leave it intact. */
+#endif
+    route->read = true;
+    route->valid = route->en != UINT32_MAX && route->status != UINT32_MAX &&
+                   dependency_pch_valid(&pch) &&
+                   pci_read_config32(pch_device, 0x40) == route->pmbase &&
+                   (pci_read_config16(pch_device, 0x44) & 0xff) == route->acpi &&
+                   pci_read_config16(pch_device, 0xa0) == route->pmcon;
+}
 
 static bool hsw_drain_prepare(void) {
     uint64_t kernel = vmm_kernel_address_space(), pa;
@@ -103,6 +137,10 @@ static bool hsw_drain_sample(unsigned phase) {
         !(sample->pci[0][0] & 2u) || (sample->pci[0][1] & 3u) ||
         !hsw_candidate_pci(hsw_engine_drain.hda, 0x0a0c8086, sample->pci[1], &sample->af[1]) ||
         !hsw_smi_count(&sample->smi)) return false;
+    if (hsw_exclusion_audit) {
+        if (!hsw_drain_tick()) return false;
+        hsw_sample_smi_route(&sample->smi_route);
+    }
     uint64_t kernel = vmm_kernel_address_space();
     if (vmm_current_address_space() != kernel) return false;
     for (unsigned i = 0; i < HSW_DRAIN_RINGS; i++) {
@@ -198,8 +236,17 @@ static void hsw_drain_report(void) {
                    hsw_engine_drain.timing.max_gap,
                    hsw_engine_drain.timing.gap_stage ? hsw_engine_drain.timing.gap_stage : "none",
                    hsw_engine_drain.timing.stop ? hsw_engine_drain.timing.stop : "none");
+    if (hsw_exclusion_audit)
+        console_printf("hsw-exclusion-audit: v=1 rows=%u firmware_exclusion=unverified requester_drain=unverified\n",
+                       (uint64_t)hsw_engine_drain.samples);
     for (unsigned phase = 0; phase < hsw_engine_drain.samples; phase++) {
         const struct hsw_drain_sample *s = &hsw_engine_drain.sample[phase];
+        if (hsw_exclusion_audit) {
+            const struct hsw_smi_route *r = &s->smi_route;
+            console_printf("hsw-exclusion-smi: phase=%u read=%u valid=%u pmbase=%u acpi=%u pmcon=%u en=%u sts=%u\n",
+                           (uint64_t)phase, (uint64_t)r->read, (uint64_t)r->valid, (uint64_t)r->pmbase,
+                           (uint64_t)r->acpi, (uint64_t)r->pmcon, (uint64_t)r->en, (uint64_t)r->status);
+        }
         console_printf("hsw-engine-drain-pass: phase=%u begin=%u end=%u ack=%u,%u thread=%u,%u smi=%u\n",
                        (uint64_t)phase, s->begin, s->end, (uint64_t)s->ack[0], (uint64_t)s->ack[1],
                        (uint64_t)s->thread[0], (uint64_t)s->thread[1], (uint64_t)s->smi);

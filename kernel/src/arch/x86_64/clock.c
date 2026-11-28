@@ -79,6 +79,7 @@ bool timer_reference_init(void) {
 }
 
 bool timer_reference_ready(void) { return pm_port != 0; }
+uint16_t timer_reference_port(void) { return pm_port; }
 
 uint64_t timer_monotonic_us(void) {
     if (pm_port == 0) return timer_ticks() * 10000;

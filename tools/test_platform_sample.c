@@ -33,6 +33,9 @@ static unsigned drain_map_fail, drain_mapped, drain_reads;
 static bool drain_irq_enabled, drain_irq_pending, drain_gap_stall;
 static unsigned drain_irq_saves, drain_irq_restores;
 static uint64_t drain_irq_ticks, drain_preemptions;
+static uint16_t exclusion_timer_port;
+static unsigned exclusion_reads;
+static bool exclusion_route_drift, exclusion_invalid_read;
 static bool test_sweep, sweep_max_zeros;
 static unsigned sweep_reads, sweep_stop_at;
 static uint8_t sweep_visits[65536];
@@ -160,6 +163,7 @@ uint64_t timer_monotonic_us(void) {
     return ++test_ticks;
 }
 uint64_t timer_ticks(void) {return drain_irq_ticks;}
+uint16_t timer_reference_port(void) {return exclusion_timer_port;}
 uint64_t scheduler_preemptions(void) {return drain_preemptions;}
 uint64_t platform_test_hsw_drain_irq_save(void) {
     uint64_t flags=drain_irq_enabled ? 512 : 0;
@@ -267,6 +271,12 @@ uint32_t platform_test_hsw_drain_read(unsigned off) {
     if(drain_late)test_ticks+=HSW_DRAIN_LIMIT_US+1;
     return values[word];
 }
+uint32_t platform_test_hsw_smi_io(uint16_t port) {
+    assert(hsw_exclusion_audit && !drain_irq_enabled && forcewake_stores==1 && forcewake_ack==1);
+    assert(port==(exclusion_reads++%2 ? 0x1834 : 0x1830));
+    if(port==0x1834 && exclusion_route_drift && exclusion_reads==2)pch_config[0xa0/4]^=0x10;
+    return exclusion_invalid_read ? UINT32_MAX : port==0x1830 ? 0x21 : 0x20;
+}
 uint32_t platform_test_hsw_read(unsigned off) {
     if(hsw_wake_ack_window) {
         assert(test_engine_prereqs && hsw_vmm_live && hsw_vmm_pa==gpu_base+HSW_WAKE_ACK_PAGE);
@@ -338,7 +348,8 @@ void console_printf(const char *fmt,...) {
     if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13) || !strncmp(fmt,"hsw-access",10) ||
        !strncmp(fmt,"hsw-live",8) || !strncmp(fmt,"hsw-survey",10) || !strncmp(fmt,"hsw-sweep",9) ||
        !strncmp(fmt,"hsw-ownership",13) || !strncmp(fmt,"hsw-engine-prereqs",18) ||
-       !strncmp(fmt,"hsw-forcewake",13) || !strncmp(fmt,"hsw-engine-drain",16)) {
+       !strncmp(fmt,"hsw-forcewake",13) || !strncmp(fmt,"hsw-engine-drain",16) ||
+       !strncmp(fmt,"hsw-exclusion-",14)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {
