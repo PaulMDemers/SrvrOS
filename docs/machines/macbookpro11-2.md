@@ -442,6 +442,19 @@ Register definitions follow
 [Linux rtw88](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/reg.h).
 Run record `build/bringup/pro112-rtl8822bu-rx-scheduler/run.json`.
 
+Physical session `session-0006614ec03331cc-00` ran both channel 10
+windows with the same pending IN. The baseline (`CR=0x9a`) counted 47
+valid CRCs over 323.680 ms. The scheduler window verified `CR=0xba`
+and `TXPAUSE=0xff` and counted 12 valid CRCs over 323.665 ms. RX DMA
+stayed idle and the xHCI dequeue held at the original IN request across
+both windows, with zero completions during sampling or the switch.
+The receive stall persists with the scheduler enabled. Trace the Linux
+host-to-firmware initialization commands and device state before the
+first successful IN completion. Both logs agree, the endpoint and radio
+retired safely, all 692 workspace files matched, and Ubuntu returned
+automatically. The verified payload and logs are in
+`evidence-4d207e420eb0e290` in the recovery archive.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
