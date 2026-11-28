@@ -2,7 +2,9 @@
  * The historical main remains separate. Unpaced probe paths still refuse
  * waits. The desktop reconnect case explicitly uses the modeled tick wait. */
 #define main dhcp_legacy_test_main
+#define SRVROS_DHCP_RETRY_EMBEDDED
 #include "test_net_dhcp_retry.c"
+#undef SRVROS_DHCP_RETRY_EMBEDDED
 #undef main
 #include <sys/wait.h>
 #include <unistd.h>

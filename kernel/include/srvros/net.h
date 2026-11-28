@@ -116,6 +116,10 @@ void net_notify_rx_deferred(void *arg);
 void net_timer_tick(void);
 void net_print_status(void);
 int64_t net_dhcp_request(void);
+/* A selected wired provider holds the ordinary worker across carrier changes.
+ * Its link supervisor exclusively owns DHCP and IPv4 deconfiguration. */
+bool net_start_managed_worker(const struct net_device_ops *provider);
+bool net_managed_link_down(const struct net_device_ops *provider, bool stop_worker);
 /* Explicit bounded probe variant;the ordinary API keeps its single Discover.
  * CPU0 callbacks must be nonblocking,side-effect-free and remain unchanged for
  * the call. current binds the original selected provider and secured epoch.

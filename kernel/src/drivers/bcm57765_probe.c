@@ -83,7 +83,7 @@ static bool mdio_read(unsigned reg, uint16_t *data, bool *pending) {
     return false;
 }
 
-static enum bcm57765_probe_result read_link(bool *pending) {
+static enum bcm57765_probe_result read_link(bool *pending, bool wait_for_carrier) {
     uint32_t mode = mac_read(MAC_MODE), status = mac_read(MAC_STATUS);
     uint32_t event = mac_read(MAC_EVENT), mdio_mode = mac_read(MDIO_MODE);
     console_printf("bcm57765: mac_mode=%x mac_status=%x mac_event=%x mdio_mode=%x\n",
@@ -109,13 +109,14 @@ static enum bcm57765_probe_result read_link(bool *pending) {
         bool carrier = (current & MII_LINK) && (aux & MII_AUX_LINK);
         unsigned code = carrier ? (aux >> 8) & 7 : 0;
         static const unsigned speed[] = { 0, 10, 10, 100, 0, 100, 1000, 1000 };
-        if (speed[code] || sample == 20) {
+        if (speed[code] || !wait_for_carrier || sample == 20) {
             const char *duplex = !speed[code] ? "unknown" :
                 (code == 2 || code == 5 || code == 7) ? "full" : "half";
             console_printf("bcm57765: bmcr=%x bmsr_first=%x bmsr=%x aux=%x carrier=%u speed_mbps=%u duplex=%s sample=%u\n",
                 (uint64_t)control, (uint64_t)first, (uint64_t)current, (uint64_t)aux,
                 (uint64_t)carrier, (uint64_t)speed[code], duplex, (uint64_t)sample);
             if (speed[code]) return BCM57765_LINK_UP;
+            if (!wait_for_carrier) return BCM57765_LINK_DOWN;
             return ((current & MII_LINK) || (aux & MII_AUX_LINK)) ? BCM57765_INCOMPLETE : BCM57765_LINK_DOWN;
         }
         if (!timer_delay_us(50000)) return BCM57765_INCOMPLETE;
@@ -123,7 +124,7 @@ static enum bcm57765_probe_result read_link(bool *pending) {
     return BCM57765_INCOMPLETE;
 }
 
-enum bcm57765_probe_result bcm57765_probe(void) {
+static enum bcm57765_probe_result probe_controller(bool wait_for_carrier) {
     if (!display_profile_is_pro81()) {
         console_write("bcm57765: refused platform identity\n");
         return BCM57765_REFUSED;
@@ -160,7 +161,7 @@ enum bcm57765_probe_result bcm57765_probe(void) {
     if (!needs_power || pci_power_d0(p)) {
         if (needs_memory) pci_write_config16(p, PCI_COMMAND, command | PCI_MEMORY);
         if (pci_read_config16(p, PCI_COMMAND) == (command | PCI_MEMORY))
-            result = read_link(&pending);
+            result = read_link(&pending, wait_for_carrier);
     }
     bool mdio_idle = !pending || !(mac_read(MDIO_COMMAND) & MDIO_BUSY);
     if (needs_memory) pci_write_config16(p, PCI_COMMAND, command);
@@ -177,5 +178,10 @@ enum bcm57765_probe_result bcm57765_probe(void) {
     return unmapped && restored && mdio_idle ? result : BCM57765_UNSAFE;
 }
 
+enum bcm57765_probe_result bcm57765_probe(void) {
+    return probe_controller(true);
+}
+
 #include "bcm57765_packet.inc"
 #include "bcm57765_desktop.inc"
+#include "bcm57765_wired.inc"

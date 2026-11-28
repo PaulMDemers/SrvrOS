@@ -129,7 +129,8 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
     audio = mode == "desktop-audio"
     telemetry = mode == "desktop-telemetry"
     battery = mode == "desktop-battery"
-    ethernet = mode == "desktop-ethernet"
+    ethernet = mode.startswith("desktop-ethernet")
+    wired_start = mode.removeprefix("desktop-ethernet-") if mode != "desktop-ethernet" and ethernet else None
     live_workspace = saved_file or brightness or audio or telemetry or battery or ethernet
     serial = logs / "trial-serial.log"
     serial.unlink(missing_ok=True)
@@ -155,11 +156,13 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                         assert first.index(marker) < first.index("ehci-desktop: opening desktop"), marker
                 ui = QMP(qmp)
                 if ethernet:
-                    size = len(boot.EHCI_DESKTOP_ETHERNET_CHECKLIST)
+                    checklist = boot.EHCI_DESKTOP_WIRED_CHECKLISTS[wired_start] if wired_start else boot.EHCI_DESKTOP_ETHERNET_CHECKLIST
+                    size = len(checklist)
                     wait_for(serial, lambda s: f"file-result role=text op=1 status=0 bytes={size}" in s, vm, 15)
                     ui.call("screendump", {"filename": str(logs / "vm-screen.ppm")})
                     final = wait_for(serial, lambda s: "USB report saved. Restarting into Ubuntu." in s, vm, 35)
-                    for marker in ("bcm57765: refused platform identity", "ehci-desktop-ethernet: network_started=0",
+                    refused = "bcm57765-wired: provider unavailable" if wired_start else "ehci-desktop-ethernet: network_started=0"
+                    for marker in ("bcm57765: refused platform identity", refused,
                                    "ehci-desktop-ethernet-ui: provider unavailable",
                                    "ehci-desktop-ethernet-ui: result=INCOMPLETE phases=0",
                                    "ehci-desktop-ethernet: report=saved flash-retirement=safe"):
@@ -320,7 +323,7 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
     if file_checklist is not None:
         expected = file_checklist + (b"" if keyboard_exit else b"Ehci-42")
         assert image.read(f"srvros-work/ehci-desktop-{release}.txt") == expected
-    report = "ehci-ethernet" if mode == "desktop-ethernet" else "ehci-trackpad"
+    report = "ehci-ethernet" if mode.startswith("desktop-ethernet") else "ehci-trackpad"
     startup = image.read(f"srvros-work/{report}-{release}-startup.txt")
     final = image.read(f"srvros-work/{report}-{release}.txt")
     assert f"ehci-desktop-startup: release={release} phase=startup".encode() in startup
@@ -328,6 +331,9 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
     if mode == "desktop-ethernet":
         assert b"ehci-desktop-ethernet: network init deferred until after USB checkpoint" in startup
         assert b"bcm57765-desktop: provider unavailable" in final
+        assert b"ehci-desktop-ethernet-ui: result=INCOMPLETE phases=0" in final
+    elif mode.startswith("desktop-ethernet-"):
+        assert b"bcm57765-wired: provider unavailable" in startup
         assert b"ehci-desktop-ethernet-ui: result=INCOMPLETE phases=0" in final
     elif mode == "desktop-telemetry":
         assert b"pro81-telemetry: phase=startup cpu_state=1 cpu_fresh=0" in startup
@@ -394,7 +400,8 @@ def main():
     audio = version.startswith((boot.EHCI_DESKTOP_AUDIO_VERSION, boot.EHCI_DESKTOP_AUDIO_V7_VERSION))
     telemetry = version.startswith(boot.EHCI_DESKTOP_TELEMETRY_VERSION)
     battery = version.startswith(boot.EHCI_DESKTOP_BATTERY_VERSION)
-    desktop_ethernet = version.startswith(boot.EHCI_DESKTOP_ETHERNET_VERSION)
+    wired_start = boot.ehci_desktop_wired_start(version)
+    desktop_ethernet = wired_start or version.startswith(boot.EHCI_DESKTOP_ETHERNET_VERSION)
     file_checklist = boot.EHCI_DESKTOP_FILE_V4_CHECKLIST if version.startswith(boot.EHCI_DESKTOP_FILE_V4_VERSION) else boot.EHCI_DESKTOP_FILE_CHECKLIST
     desktop_trace = version.startswith(boot.EHCI_DESKTOP_VERSION)
     keyboard_checklist = desktop_trace or brightness or audio or version.startswith(boot.EHCI_DESKTOP_V2_VERSION)
@@ -410,7 +417,8 @@ def main():
     trackpad_trial = version == boot.EHCI_TRACKPAD_VERSION or bool(log_match)
     if (keyboard_monitor or trackpad_trial or desktop_match or ethernet_match) and args.stall_hub_status:
         parser.error("the emulated hub is for the split and typing trials")
-    mode = ("ethernet-probe" if ethernet_match else "desktop-ethernet" if desktop_ethernet else "desktop-battery" if battery else
+    mode = ("ethernet-probe" if ethernet_match else f"desktop-ethernet-{wired_start}" if wired_start else
+            "desktop-ethernet" if desktop_ethernet else "desktop-battery" if battery else
             "desktop-telemetry" if telemetry else "desktop-audio" if audio else
             "desktop-brightness" if brightness else "desktop-file" if desktop_file
             else "topcase-desktop" if desktop_trace else "trackpad-desktop" if desktop_match else

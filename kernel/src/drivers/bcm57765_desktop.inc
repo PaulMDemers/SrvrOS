@@ -21,7 +21,7 @@ static bool cable_retry(void *context, uint64_t epoch) {
     return cable_owner(context, epoch) && nic->memory->status.tx_consumer == nic->tx_post;
 }
 
-static bool cable_sample(bool *up) {
+static bool cable_sample(bool keep_carrier, bool *unsafe, bool *up) {
     uint64_t flags;
     __asm__ volatile("pushfq; popq %0; cli" : "=r"(flags) :: "memory");
     uint16_t status, aux;
@@ -32,9 +32,9 @@ static bool cable_sample(bool *up) {
         /* BMSR establishes loss. During negotiation keep the previous state
          * until both status sources establish the supported link mode. */
         *up = (status & MII_LINK) &&
-            ((aux & 0x704) == 0x704 || bcm_desktop.nic.carrier);
+            ((aux & 0x704) == 0x704 || keep_carrier);
     }
-    if (pending && (mac_read(MDIO_COMMAND) & MDIO_BUSY)) bcm_desktop.unsafe = true;
+    if (pending && (mac_read(MDIO_COMMAND) & MDIO_BUSY)) *unsafe = true;
     if (flags & (1ull << 9)) __asm__ volatile("sti" ::: "memory");
     return valid;
 }
@@ -96,7 +96,7 @@ static void cable_worker(void *context) {
     if (!cable_connect()) bcm_desktop.failed = true;
     while (!bcm_desktop.stop && !bcm_desktop.failed) {
         bool up;
-        if (!cable_sample(&up) || nic->fault) {
+        if (!cable_sample(nic->carrier, &bcm_desktop.unsafe, &up) || nic->fault) {
             bcm_desktop.failed = true;
             break;
         }
@@ -110,7 +110,7 @@ static void cable_worker(void *context) {
                 /* Give a newly live link time to forward before Discover. */
                 scheduler_wait_timeout(&bcm_desktop.wait, cable_stop_requested, NULL, timer_ticks() + 100);
                 if (bcm_desktop.stop) break;
-                if (!cable_sample(&up)) bcm_desktop.failed = true;
+                if (!cable_sample(nic->carrier, &bcm_desktop.unsafe, &up)) bcm_desktop.failed = true;
                 else if (!up) nic->carrier = false;
                 else if (!cable_connect()) bcm_desktop.failed = true;
             }
@@ -126,7 +126,7 @@ bool bcm57765_desktop_start(void) {
     if (bcm_desktop.attempted) return false;
     bcm_desktop.attempted = true;
     struct bcm_packet *nic = &bcm_desktop.nic;
-    enum bcm57765_probe_result state = packet_open(nic);
+    enum bcm57765_probe_result state = packet_open(nic, true);
     if (state != BCM57765_LINK_UP) {
         bcm_desktop.unsafe = state == BCM57765_UNSAFE;
         console_write("bcm57765-desktop: provider unavailable\n");

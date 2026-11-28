@@ -2421,7 +2421,10 @@ int main(int argc,char **argv) {
     int retina_trial=retina_screenshot || (argc==2 && !strcmp(argv[1],"--retina-trial"));
     int ehci_file_trial=argc==3 && !strcmp(argv[1],"--ehci-file-trial");
     int ehci_battery_trial=argc==2 && !strcmp(argv[1],"--ehci-battery-trial");
-    int ehci_ethernet_trial=argc==2 && !strcmp(argv[1],"--ehci-ethernet-trial");
+    bool wired_connected=argc==2 && !strcmp(argv[1],"--ehci-ethernet-connected");
+    bool wired_disconnected=argc==2 && !strcmp(argv[1],"--ehci-ethernet-disconnected");
+    bool wired_trial=wired_connected || wired_disconnected;
+    int ehci_ethernet_trial=wired_trial || (argc==2 && !strcmp(argv[1],"--ehci-ethernet-trial"));
     int ehci_telemetry_trial=argc==2 && !strcmp(argv[1],"--ehci-telemetry-trial");
     int ehci_settings_trial=argc==2 && (!strcmp(argv[1],"--ehci-brightness-trial") || !strcmp(argv[1],"--ehci-audio-trial"));
     int ehci_topcase_trial=ehci_file_trial || ehci_settings_trial || ehci_telemetry_trial || ehci_battery_trial || ehci_ethernet_trial ||
@@ -2548,12 +2551,25 @@ int main(int argc,char **argv) {
     uint64_t coexist_keys=0,coexist_key_ack=0;
     struct desk_battery_trial battery_trial={.began=(uint64_t)srv_monotonic_us()};
     unsigned ethernet_phase=0;
+    unsigned ethernet_goal=wired_disconnected?8:wired_connected?1:3;
     uint64_t ethernet_start=(uint64_t)srv_monotonic_us(), ethernet_next=0, ethernet_return=0;
+    uint64_t ethernet_stable_since=0;
     static const char *const ethernet_prompts[]={
         "Keep Ethernet and USB connected. Checking DHCP and the gateway.",
         "Connected. Unplug only Ethernet. Leave the USB flash drive connected.",
         "Link down. Reconnect the Ethernet cable now.",
         "Ethernet reconnected. Saving reports and returning to Ubuntu."
+    };
+    static const char *const wired_cycle_prompts[]={
+        "Keep Ethernet unplugged. Checking desktop startup without a cable.",
+        "Connect Ethernet now. Leave it connected until the next prompt.",
+        "1 of 3. Unplug only Ethernet. Leave the flash drive connected.",
+        "Reconnect Ethernet now. Leave it connected until the next prompt.",
+        "2 of 3. Unplug only Ethernet. Leave the flash drive connected.",
+        "Reconnect Ethernet now. Leave it connected until the next prompt.",
+        "3 of 3. Unplug only Ethernet. Leave the flash drive connected.",
+        "Reconnect Ethernet now. Leave it connected for the return to Ubuntu.",
+        "Cable cycles complete. Saving both reports and returning to Ubuntu.",
     };
     int battery_saving=0;unsigned battery_shot_serial=0;uint64_t battery_shot_due=0;
     uint64_t work_begin=(uint64_t)srv_monotonic_us(),work_keys=0,work_motion=0,work_due=0;
@@ -2587,7 +2603,7 @@ int main(int argc,char **argv) {
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     uint64_t ehci_deadline=ehci_trial?(uint64_t)srv_monotonic_us()+
-        (ehci_telemetry_trial?25000000u:ehci_settings_trial?150000000u:90000000u):0;
+        (wired_disconnected?240000000u:ehci_telemetry_trial?25000000u:ehci_settings_trial?150000000u:90000000u):0;
     unsigned telemetry_seconds=0;
     unsigned ehci_axes=0,ehci_zoom_clicks=0,ehci_pointer_exit=0,ehci_timeout=0;
     const char ehci_expected[]="Ehci-42";
@@ -3546,21 +3562,37 @@ int main(int argc,char **argv) {
                 bool up=(network.link_flags&SRV_NET_LINK_UP)!=0;
                 bool ready=known && up && network.link_speed_mbps==1000 && network.worker_started &&
                     network.dhcp_configured && network.local_ip && network.router_ip;
-                bool down=known && !up && !network.worker_started && !network.dhcp_configured &&
+                bool down=known && !up && (network.worker_started!=0)==wired_trial && !network.dhcp_configured &&
                     !network.local_ip && !network.router_ip;
-                if((ethernet_phase==0 && ready) || (ethernet_phase==1 && down) ||
-                   (ethernet_phase==2 && ready)) {
+                bool advance=false;
+                if(wired_trial && ethernet_phase<ethernet_goal) {
+                    bool expect_down=wired_disconnected && ethernet_phase%2==0;
+                    bool matches=expect_down?down:ready;
+                    if(!matches) ethernet_stable_since=0;
+                    else if(!ethernet_stable_since) ethernet_stable_since=loop_now;
+                    else advance=loop_now-ethernet_stable_since>=(expect_down?4000000u:20000000u);
+                } else if(!wired_trial) {
+                    advance=(ethernet_phase==0 && ready) || (ethernet_phase==1 && down) ||
+                        (ethernet_phase==2 && ready);
+                }
+                if(advance) {
                     ethernet_phase++;
+                    ethernet_stable_since=0;
                     desk_log("ehci-desktop-ethernet-ui: phase=%u link=%u dhcp=%u worker=%u\n",
                         ethernet_phase,(unsigned)up,(unsigned)network.dhcp_configured,(unsigned)network.worker_started);
-                    if(ethernet_phase==3)ethernet_return=loop_now+2000000u;
+                    if(ethernet_phase==ethernet_goal)ethernet_return=loop_now+2000000u;
                 } else if(!network.adapter_count && loop_now-ethernet_start>=6000000u) {
                     desk_log("ehci-desktop-ethernet-ui: provider unavailable\n");
                     failed=1;
                     global_menu_action(&s,GLOBAL_EXIT);
                 }
             }
-            const char *prompt=ethernet_prompts[ethernet_phase];
+            const char *prompt=wired_disconnected?wired_cycle_prompts[ethernet_phase]:
+                wired_connected?(ethernet_phase?"Traffic check complete. Saving both reports and returning to Ubuntu.":
+                    "Leave Ethernet and USB connected. Checking DHCP and sustained gateway traffic."):
+                ethernet_prompts[ethernet_phase];
+            if(wired_trial && ethernet_stable_since && (wired_connected || ethernet_phase%2!=0))
+                prompt="Ethernet connected. Checking sustained traffic. Leave the cable connected.";
             if(!s.exiting && strcmp(s.scene.notice,prompt)) {
                 strcpy(s.scene.notice,prompt);
                 desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
@@ -3804,7 +3836,7 @@ int main(int argc,char **argv) {
     if(retina_screenshot)desk_log("retina-screenshot: result=%s scale=%u completed=%u\n",
         !failed && s.capture_success?"PASS":"FAIL",session_output_scale(&s),s.capture_finished);
     if(ehci_ethernet_trial) {
-        if(ethernet_phase!=3 || ehci_timeout || s.child_errors)failed=1;
+        if(ethernet_phase!=ethernet_goal || ehci_timeout || s.child_errors)failed=1;
         desk_log("ehci-desktop-ethernet-ui: result=%s phases=%u\n",failed?"INCOMPLETE":"PASS",ethernet_phase);
     } else if(ehci_battery_trial) {
         if(battery_trial.phase!=3 || s.child_errors)failed=1;

@@ -21,4 +21,15 @@ enum bcm57765_probe_result bcm57765_packet_trial(void);
 bool bcm57765_desktop_start(void);
 bool bcm57765_desktop_finish(bool *retired);
 
+enum bcm57765_wired_trial {
+    BCM57765_WIRED_NORMAL,
+    BCM57765_WIRED_CONNECTED,
+    BCM57765_WIRED_DISCONNECTED,
+};
+
+/* Ordinary startup and the two attended qualification recipes use this path. */
+bool bcm57765_wired_start(enum bcm57765_wired_trial trial);
+bool bcm57765_wired_finish(bool *retired);
+bool bcm57765_wired_fence(void);
+
 #endif

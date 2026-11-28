@@ -1218,6 +1218,17 @@ checkpoints and confirms deconfiguration when the cable is out.
 Ctrl-Alt-Esc ends the trial early. The startup and final Ethernet
 reports are saved under `srvros-work` before returning to Ubuntu.
 
+To qualify the ordinary wired startup path, add `--ehci-desktop-wired connected`
+for the first boot. Leave Ethernet connected while the desktop acquires a DHCP
+lease and sends sustained gateway echo traffic. Stage a second release with
+`--ehci-desktop-wired disconnected` and start it with Ethernet unplugged, then
+connect at the first prompt and follow the three unplug and reconnect prompts.
+Each connected phase runs for about 20 seconds. Leave Ethernet connected for
+the return to Ubuntu and leave the flash drive attached throughout. Run the
+exact-stage smoke check for each release. On return, verify both flash reports,
+the initial carrier state, gateway replies for each lease, deconfiguration on
+each loss, and safe DMA retirement.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal

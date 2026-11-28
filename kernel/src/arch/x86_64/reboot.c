@@ -2,6 +2,7 @@
  * System I/O form is supported here. Do not guess at memory/PCI addresses. */
 #include <srvros/acpi.h>
 #include <srvros/arch.h>
+#include <srvros/bcm57765_probe.h>
 #include <srvros/console.h>
 #include <srvros/pmm.h>
 #include <srvros/timer.h>
@@ -41,6 +42,11 @@ bool arch_reboot(void) {
     console_sync();
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    if (!bcm57765_wired_fence()) {
+        if (flags & (1ull << 9)) __asm__ volatile ("sti" : : : "memory");
+        console_write("reboot: wired Ethernet DMA shutdown unverified\n");
+        return false;
+    }
     outb(port, value);
     timer_delay_us(1000000);
     if (flags & (1ull << 9)) __asm__ volatile ("sti" : : : "memory");
@@ -51,6 +57,11 @@ bool arch_reboot(void) {
 void arch_reboot_unattended(void) {
     __asm__ volatile("cli":::"memory");
     (void)arch_reboot();
+    if (!bcm57765_wired_fence()) {
+        console_write("reboot: wired Ethernet DMA shutdown unverified, halted\n");
+        console_sync();
+        for (;;) __asm__ volatile("cli; hlt");
+    }
     console_write("reboot: ACPI reset unavailable; architectural reset fallback\n");
     console_sync();
     struct __attribute__((packed)) { uint16_t limit; uint64_t base; } empty_idt={0,0};

@@ -285,7 +285,7 @@ static bool program_rings(struct bcm_packet *nic) {
         mac_read(HOST_STATUS_LOW) == nic->dma + offsetof(struct bcm_packet_memory, status);
 }
 
-static bool packet_start(struct bcm_packet *nic) {
+static bool packet_start(struct bcm_packet *nic, bool loopback) {
     if (!program_rings(nic)) return false;
     packet_barrier();
     uint16_t command = nic->original_command | PCI_INT_DISABLE | PCI_BUS_MASTER;
@@ -296,8 +296,9 @@ static bool packet_start(struct bcm_packet *nic) {
         mac_write(setting->offset, setting->value);
         if (!wait_register(setting->offset, MODE_ENABLE, MODE_ENABLE)) return false;
     }
-    mac_write(MAC_MODE, MAC_DMA_PATH | MAC_GMII | MAC_LOOPBACK);
-    if (!wait_register(MAC_MODE, MAC_DMA_PATH | MAC_LOOPBACK, MAC_DMA_PATH | MAC_LOOPBACK) ||
+    uint32_t mode = MAC_DMA_PATH | MAC_GMII | (loopback ? MAC_LOOPBACK : 0);
+    mac_write(MAC_MODE, mode);
+    if (!wait_register(MAC_MODE, MAC_DMA_PATH | MAC_GMII | MAC_LOOPBACK, mode) ||
         !timer_delay_us(40)) return false;
     mac_write(MAC_TX, 0x102); /* Enable and prevent MBUF lockup. */
     if (!wait_register(MAC_TX, MODE_ENABLE, MODE_ENABLE) || !timer_delay_us(100)) return false;
@@ -307,7 +308,7 @@ static bool packet_start(struct bcm_packet *nic) {
     nic->rx_post = RX_POSTED;
     mac_write(RX_POST_MAILBOX, nic->rx_post);
     nic->active = mac_read(RX_POST_MAILBOX) == RX_POSTED;
-    nic->carrier = nic->active;
+    nic->carrier = nic->active && loopback;
     return nic->active;
 }
 
@@ -506,9 +507,9 @@ static bool packet_stop(struct bcm_packet *nic, bool provider_retired, bool *can
     return true;
 }
 
-static enum bcm57765_probe_result packet_open(struct bcm_packet *nic) {
-    enum bcm57765_probe_result link = bcm57765_probe();
-    if (link != BCM57765_LINK_UP) return link;
+static enum bcm57765_probe_result packet_open(struct bcm_packet *nic, bool loopback) {
+    enum bcm57765_probe_result link = probe_controller(loopback);
+    if (link != BCM57765_LINK_UP && (loopback || link != BCM57765_LINK_DOWN)) return link;
     nic->pci = controller();
     if (!nic->pci || !net_device_registry_empty()) return BCM57765_REFUSED;
     nic->original_command = pci_read_config16(nic->pci, PCI_COMMAND);
@@ -523,7 +524,8 @@ static enum bcm57765_probe_result packet_open(struct bcm_packet *nic) {
     uint16_t aux;
     bool mapped = packet_map(nic);
     bool firmware_idle = mapped && packet_firmware_idle(nic);
-    bool link_ready = firmware_idle && mdio_read(MII_AUX_STATUS, &aux, &pending) && (aux & 0x704) == 0x704;
+    bool link_ready = firmware_idle && (!loopback ||
+        (mdio_read(MII_AUX_STATUS, &aux, &pending) && (aux & 0x704) == 0x704));
     console_printf("bcm57765-packet: preflight mapped=%u firmware_idle=%u gigabit_full=%u\n",
         (uint64_t)mapped, (uint64_t)firmware_idle, (uint64_t)link_ready);
     if (!link_ready) {
@@ -535,7 +537,7 @@ static enum bcm57765_probe_result packet_open(struct bcm_packet *nic) {
         console_write("bcm57765-packet: could not fence prior PCI bus mastering\n");
         return BCM57765_UNSAFE;
     }
-    if (packet_alloc(nic) && packet_start(nic)) return BCM57765_LINK_UP;
+    if (packet_alloc(nic) && packet_start(nic, loopback)) return link;
     bool can_reboot;
     bool clean = packet_stop(nic, true, &can_reboot);
     console_printf("bcm57765-packet: start failed retirement=%s bus_master_off=%u\n",
@@ -553,12 +555,12 @@ static struct net_device_ops packet_provider(struct bcm_packet *nic) {
 static bool packet_wire(bool *pending) {
     mac_write(MAC_MODE, MAC_DMA_PATH | MAC_GMII);
     return wait_register(MAC_MODE, MAC_LOOPBACK, 0) && timer_delay_us(40) &&
-        read_link(pending) == BCM57765_LINK_UP;
+        read_link(pending, true) == BCM57765_LINK_UP;
 }
 
 enum bcm57765_probe_result bcm57765_packet_trial(void) {
     struct bcm_packet nic = {0};
-    enum bcm57765_probe_result open = packet_open(&nic);
+    enum bcm57765_probe_result open = packet_open(&nic, true);
     if (open != BCM57765_LINK_UP) return open;
     bool pending = false;
     bool loopback = packet_loopback(&nic);

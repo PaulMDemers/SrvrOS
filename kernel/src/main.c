@@ -1257,7 +1257,7 @@ static struct ehci_telemetry_sample ehci_telemetry_report(const char *phase) {
 }
 
 static void ehci_desktop_workspace_trial(const char *release, const char *volume, bool trackpad_ready,
-    bool timer_running, enum ehci_workspace_trial kind) {
+    bool timer_running, enum ehci_workspace_trial kind, enum bcm57765_wired_trial wired_trial) {
     char args[] = "--ehci-file-trial /work/srvros-work/ehci-desktop-0000000000000000.txt";
     char *path = args + sizeof("--ehci-file-trial ") - 1;
     for (unsigned i = 0; i < 16; i++) path[sizeof("/work/srvros-work/ehci-desktop-") - 1 + i] = release[i];
@@ -1311,13 +1311,15 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
     uint64_t seed_size = 0;
     bool seeded = file_trial && checkpoint_saved && checklist && checklist->size <= 1024 && !vfs_lookup(path) &&
         vfs_read_all(checklist, &seed, &seed_size) && exfat_write_file(path, seed, seed_size) && workspace_flush_committed();
-    if (ethernet_trial && checkpoint_saved && timer_running) {
+    if (ethernet_trial && !wired_trial && checkpoint_saved && timer_running) {
         bool network = bcm57765_desktop_start();
         console_printf("ehci-desktop-ethernet: network_started=%u\n", (uint64_t)network);
     }
     __asm__ volatile ("sti" : : : "memory");
     console_printf("ehci-desktop: opening desktop release=%s\n", release);
-    const char *desktop_args=ethernet_trial?"--ehci-ethernet-trial":battery_trial?"--ehci-battery-trial":
+    const char *desktop_args=wired_trial==BCM57765_WIRED_CONNECTED?"--ehci-ethernet-connected":
+        wired_trial==BCM57765_WIRED_DISCONNECTED?"--ehci-ethernet-disconnected":
+        ethernet_trial?"--ehci-ethernet-trial":battery_trial?"--ehci-battery-trial":
         telemetry_trial?"--ehci-telemetry-trial":audio_trial?"--ehci-audio-trial":
         file_trial?args:"--ehci-brightness-trial";
     bool desktop_passed = (!file_trial || seeded) && timer_running &&
@@ -1325,12 +1327,13 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
     bool sound_quiet = audio_trial && audio_listen_control(SRV_AUDIO_STOP,0) && audio_pro81_quiet();
     bool smc_stopped = (telemetry_trial || battery_trial) && smc_quiesce();
     bool network_retired = true;
-    bool network_passed = ethernet_trial && bcm57765_desktop_finish(&network_retired);
+    bool network_passed = wired_trial ? bcm57765_wired_finish(&network_retired) :
+        ethernet_trial && bcm57765_desktop_finish(&network_retired);
     bool retired = ehci_desktop_trackpad_stop();
     __asm__ volatile ("cli" : : : "memory");
     bool checked=false;
     if (ethernet_trial) {
-        checked = network_passed;
+        checked = network_passed && (!wired_trial || desktop_passed);
     } else if (battery_trial) {
         bool reconnected=ehci_battery_report("final");
         checked=desktop_passed && reconnected && smc_stopped;
@@ -1395,8 +1398,13 @@ void kmain(void) {
     bool ehci_audio_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-audio");
     bool ehci_telemetry_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-telemetry");
     bool ehci_battery_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-battery");
-    bool ehci_ethernet_desktop = cmdline_has_token(cmdline, "srvros.ehci=desktop-ethernet");
-    const char *ehci_workspace_mode = ehci_ethernet_desktop ? "desktop-ethernet" :
+    enum bcm57765_wired_trial wired_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-ethernet-connected") ?
+        BCM57765_WIRED_CONNECTED : cmdline_has_token(cmdline, "srvros.ehci=desktop-ethernet-disconnected") ?
+        BCM57765_WIRED_DISCONNECTED : BCM57765_WIRED_NORMAL;
+    bool ehci_ethernet_desktop = wired_trial || cmdline_has_token(cmdline, "srvros.ehci=desktop-ethernet");
+    const char *ehci_workspace_mode = wired_trial == BCM57765_WIRED_CONNECTED ? "desktop-ethernet-connected" :
+        wired_trial == BCM57765_WIRED_DISCONNECTED ? "desktop-ethernet-disconnected" :
+        ehci_ethernet_desktop ? "desktop-ethernet" :
         ehci_battery_trial ? "desktop-battery" : ehci_telemetry_trial ? "desktop-telemetry" :
         ehci_audio_trial ? "desktop-audio" : ehci_brightness_trial ? "desktop-brightness" :
         ehci_file_trial ? "desktop-file" : NULL;
@@ -1801,14 +1809,14 @@ void kmain(void) {
     struct wifi_desktop_capture wifi_desktop={
         .reconnect=wifi_desktop_reconnect_trial,.reattach=wifi_desktop_reattach_trial,
         .replug=wifi_desktop_replug_trial,.active_remove=wifi_desktop_active_remove_trial};
-    if(ehci_ethernet_desktop)console_write("ehci-desktop-ethernet: network init deferred until after USB checkpoint\n");
+    if(ehci_ethernet_desktop && !wired_trial)console_write("ehci-desktop-ethernet: network init deferred until after USB checkpoint\n");
     else if(http_child_trial)console_write("http-child-boot: isolated_init=1 net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_http_reconnect5_requested)console_write("wifi-http-reconnect5-boot: isolated_init=1 net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_early5_requested)console_write("wifi-early5-boot: calibration_only=1 net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_reconnect5_requested)console_write("wifi-reconnect5-boot: net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_stack5_trial)console_write("wifi-stack5-boot: net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_provider_trial)console_write("wifi-provider5-boot: net_init_deferred=1 worker_deferred=1\n");
-    else {
+    else if (!bcm57765_wired_start(wired_trial) && !wired_trial) {
         net_init();
         if (!net_start_worker())console_write("net: worker not started\n");
     }
@@ -1860,7 +1868,7 @@ void kmain(void) {
         ehci_desktop_workspace_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running,
             ehci_ethernet_desktop?EHCI_WORKSPACE_ETHERNET:ehci_battery_trial?EHCI_WORKSPACE_BATTERY:
             ehci_telemetry_trial?EHCI_WORKSPACE_TELEMETRY:ehci_audio_trial?EHCI_WORKSPACE_AUDIO:
-            ehci_brightness_trial?EHCI_WORKSPACE_BRIGHTNESS:EHCI_WORKSPACE_FILE);
+            ehci_brightness_trial?EHCI_WORKSPACE_BRIGHTNESS:EHCI_WORKSPACE_FILE, wired_trial);
     if (ehci_trackpad_desktop_trial)
         ehci_desktop_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running, ehci_desktop_trace);
     if (auth_mode == LOCAL_AUTH_SIGNIN) {
