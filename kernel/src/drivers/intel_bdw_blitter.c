@@ -80,12 +80,32 @@ static bool owner_clock(struct bdw_blitter_request *r)
     return true;
 }
 
+static uint64_t completion_marker(const struct bdw_blitter_request *r)
+{
+    return (r->image->epoch<<8)|(BDW_BARRIER_BCS+1);
+}
+
+static bool completion_words(const struct bdw_blitter_request *r,uint64_t data,uint64_t marker)
+{
+    volatile const uint32_t *words=r->image->vm->result[BDW_BARRIER_BCS];
+    unsigned offset=BDW_QUEUE_DRAIN/sizeof(*words);
+    return words[0]==(uint32_t)data && words[1]==(uint32_t)(data>>32) &&
+           words[offset]==(uint32_t)marker && words[offset+1]==(uint32_t)(marker>>32);
+}
+
 static bool queue_store(struct bdw_blitter_request *r,unsigned offset,uint32_t value)
 {
     if (r->traffic && (!intel_bdw_command_submission_owned(r->traffic) ||
                        !command_port_held(r->traffic,&r->device))) {
         r->traffic->phase=BDW_CMD_RETAINED;
         return false;
+    }
+    if (offset==ELSP && r->port.p.writes==3) {
+        /* The fourth DWORD triggers execution. The marker and the CSB
+         * cursors must still be untouched after the last owner callback. */
+        uint32_t ptr=reg(r,CSB_PTR);
+        if ((ptr&15u)!=r->csb_start || ((ptr>>8)&15u)!=r->csb_read || !completion_words(r,0,0))
+            return false;
     }
     r->device.registers[offset/4]=value;
     return true;
@@ -170,7 +190,7 @@ static enum intel_gt_write post(void *ctx,uint32_t offset,uint32_t value)
 
 static bool result_matches(const struct bdw_blitter_request *r)
 {
-    uint64_t marker=(r->image->epoch<<8)|(BDW_BARRIER_BCS+1);
+    uint64_t marker=completion_marker(r);
     volatile const uint32_t *words=r->image->vm->result[BDW_BARRIER_BCS];
     for (unsigned i=0;i<PAGE/4;i++) {
         uint64_t expected=i/2==0 ? ~marker : i/2==BDW_QUEUE_DRAIN/8 ? marker : 0;
@@ -184,6 +204,13 @@ static bool within_wait(const struct bdw_blitter_request *r,uint64_t at,uint64_t
     return at && at>=previous && at-r->port.end<=BCS_FLUSH_WAIT_US &&
            at-r->device.prepare<=INTEL_DIAGNOSTIC_PREPARE_US && at-r->device.gt<=INTEL_DIAGNOSTIC_GT_TOTAL_US &&
            at-r->device.hda<=INTEL_DIAGNOSTIC_HDA_US && at-r->device.outer<=INTEL_DIAGNOSTIC_OUTER_US;
+}
+
+static bool queue_completed(const struct bdw_blitter_request *r,uint32_t ptr,unsigned start,unsigned end)
+{
+    return (reg(r,CSB+start*8)&0x801fu)==1 && (reg(r,CSB+end*8)&0x801fu)==0x18 &&
+           reg(r,CSB+end*8+4)==r->image->config.context_id &&
+           !(reg(r,STATUS)&QUEUE_BUSY) && reg(r,CSB_PTR)==ptr;
 }
 
 static bool retire(struct bdw_blitter_request *r)
@@ -202,16 +229,16 @@ static bool retire(struct bdw_blitter_request *r)
         unsigned start=(r->csb_start+1)%CSB_SLOTS, end=(start+1)%CSB_SLOTS;
         if (tail!=r->csb_start && tail!=start && tail!=end) return false;
         if (tail!=end) continue;
-        uint32_t enter=reg(r,CSB+start*8), exit=reg(r,CSB+end*8);
-        if ((enter&0x801fu)!=1 || (exit&0x801fu)!=0x18 ||
-            reg(r,CSB+end*8+4)!=r->image->config.context_id || reg(r,CSB_PTR)!=ptr ||
-            (reg(r,STATUS)&QUEUE_BUSY) || !bound(r,request_hwsp(r)) || !result_matches(r)) return false;
+        if (!queue_completed(r,ptr,start,end) || !bound(r,request_hwsp(r)) || !result_matches(r)) return false;
         /* Record the consumed cursor for the queue owner. Only engine
          * initialization resets the hardware CSB pointers. */
-        if (!held(r) || reg(r,CSB_PTR)!=ptr || (reg(r,STATUS)&QUEUE_BUSY)) return false;
         uint64_t closing=clock_now(r);
-        if (!within_wait(r,closing,last)) return false;
-        r->last=closing;
+        if (!within_wait(r,closing,last) || !held(r)) return false;
+        uint64_t checked=r->traffic ? r->traffic->last : closing;
+        uint64_t marker=completion_marker(r);
+        if (!within_wait(r,checked,closing) || !queue_completed(r,ptr,start,end) ||
+            reg(r,HWS_PGA)!=request_hwsp(r) || !completion_words(r,~marker,marker)) return false;
+        r->last=checked;
         r->csb_end=tail;
         return true;
     }
@@ -285,6 +312,7 @@ static bool run_request(struct bdw_blitter_request *r,const struct bdw_blitter_i
     r->state=BDW_BLITTER_RETIRED;
     return true;
 retained:
+    if (r->traffic) r->traffic->phase=BDW_CMD_RETAINED;
     r->state=BDW_BLITTER_RETAINED;
     return false;
 }

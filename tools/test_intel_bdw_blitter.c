@@ -27,6 +27,10 @@ static unsigned posted;
  * successful path and revoke one lease on its final clock before the store. */
 static unsigned trigger_clocks, revoke_at;
 static bool revoked;
+enum completion_fault { COMPLETION_OK, EARLY_MARKER, EARLY_CURSOR, CLOSING_DEVICE,
+                        CLOSING_WIDI, CLOSING_MARKER, CLOSING_CURSOR };
+static enum completion_fault completion_fault;
+static unsigned completion_clocks, closing_fault_at;
 static _Alignas(4096) uint32_t invalidate_regs[1024], aperture[PAGES*1024];
 static uint64_t translations[PAGES];
 enum translation_fault { NORMAL_TRANSLATION, STALE_SEVENTH, SWAPPED, UNPOSTED, STALE_RESTORE };
@@ -84,8 +88,17 @@ static bool hardware_held(void *ctx,const struct bdw_blitter_image *p)
 static uint64_t now(void *ctx)
 {
     assert(ctx==&space);
-    if (active->port.p.attempts==4 && active->port.p.writes==3 && ++trigger_clocks==revoke_at)
-        revoked=true;
+    if (active->port.p.attempts==4 && active->port.p.writes==3 && ++trigger_clocks==revoke_at) {
+        if (completion_fault==EARLY_MARKER) {
+            uint64_t marker=(image.epoch<<8)|2;
+            ram.vm.result[BDW_BARRIER_BCS][16]=(uint32_t)marker;
+            ram.vm.result[BDW_BARRIER_BCS][17]=(uint32_t)(marker>>32);
+        } else if (completion_fault==EARLY_CURSOR) {
+            regs[0x3a0/4]^=1;
+        } else {
+            revoked=true;
+        }
+    }
     if (posted<active->port.p.writes) {
         const uint32_t expected[]={0,0,image.config.context_id,(uint32_t)image.descriptor};
         assert(active->port.p.writes==posted+1 && regs[0x230/4]==expected[posted]);
@@ -106,6 +119,11 @@ static uint64_t now(void *ctx)
         }
     }
     if (active->state==BDW_BLITTER_ISSUED) {
+        if (++completion_clocks==closing_fault_at) {
+            if (completion_fault==CLOSING_MARKER) ram.vm.result[BDW_BARRIER_BCS][16]^=1;
+            else if (completion_fault==CLOSING_CURSOR) regs[0x3a0/4]^=1;
+            else revoked=true;
+        }
         if (fault==EXPIRED)clock_us+=BCS_FLUSH_WAIT_US+1;
         if (fault==BUSY)regs[0x234/4]|=1u<<14;
     }
@@ -221,7 +239,7 @@ static struct {
 static uint64_t block_epoch(const struct scanout_transfer *t,const struct scanout_publication *p)
 {
     assert(t==controller.transfer && p==controller.publication);
-    return revoked && traffic_fault==FINAL_DEVICE_LEASE ? 0 : controller.epoch;
+    return revoked && (traffic_fault==FINAL_DEVICE_LEASE || completion_fault==CLOSING_DEVICE) ? 0 : controller.epoch;
 }
 static bool traffic_read(const struct scanout_transfer *t,uint32_t offset,uint32_t *out)
 {
@@ -300,7 +318,7 @@ static enum intel_gt_write block_release(const struct scanout_transfer *t,const 
 static uint64_t widi_epoch(const struct scanout_transfer *t,const struct scanout_publication *p)
 {
     assert(t==controller.transfer && p==controller.publication);
-    if (revoked && traffic_fault==FINAL_WIDI_LEASE) return 0;
+    if (revoked && (traffic_fault==FINAL_WIDI_LEASE || completion_fault==CLOSING_WIDI)) return 0;
     return traffic_fault==UNOWNED_CLOCK && controller.bcs ? 0 : controller.widi_epoch;
 }
 static enum intel_gt_write isolate_widi(const struct scanout_transfer *t,const struct scanout_publication *p,
@@ -462,6 +480,15 @@ static void run_transfer(enum mapping_case which)
         }
     }
     bool done=intel_bdw_blitter_map_and_run(&mapping,&image,&device,&transfer,&grant,&window);
+    if (completion_fault!=COMPLETION_OK) {
+        unsigned expected=completion_fault<=EARLY_CURSOR ? 3 : 4;
+        assert(!done && posted==expected && mapping.request.port.p.triggered==(expected==4));
+        assert(!mapping.request.csb_end && mapping.request.state==BDW_BLITTER_RETAINED &&
+               mapping.traffic.phase==BDW_CMD_RETAINED && port_pin==&mapping);
+        assert(mapping.pages.writes==PAGES && mapping.pages.readers==&mapping.request.reader &&
+               transfer.device_publication==&mapping.pages && !scanout_transfer_close(&transfer,&grant));
+        return;
+    }
     if (traffic_fault==WRITER_ALIAS) {
         assert(!done && !posted && !port_pin && !invalidates && !mapping.pages.writes &&
                transfer.state==TRANSFER_RESERVED && !transfer.device_publication);
@@ -639,6 +666,24 @@ int main(int argc,char **argv)
     if (argc==2 && !strcmp(argv[1],"cold-rollback-fault")) {
         run_transfer(COLD_EPOCH_DURING_ROLLBACK);
         puts("PASS cold rollback retains changed reset epoch");
+        return 0;
+    }
+    const char *const completion_failures[]={"premature-marker","premature-cursor","completion-device-lease",
+        "completion-widi-lease","completion-marker-changed","completion-cursor-changed"};
+    for (unsigned i=0;argc==2 && i<sizeof(completion_failures)/sizeof(completion_failures[0]);i++) {
+        if (strcmp(argv[1],completion_failures[i])) continue;
+        run_transfer(COLD_OK);
+        const unsigned trigger=trigger_clocks, closing=completion_clocks;
+        assert(trigger>0 && closing>0);
+        completion_fault=(enum completion_fault)(i+1);
+        /* Two early cases target the last callback before the trigger.
+         * The rest target the final clock in the completion proof. */
+        bool early=completion_fault<=EARLY_CURSOR;
+        trigger_clocks=completion_clocks=0;
+        revoke_at=early ? trigger : 0;
+        closing_fault_at=early ? 0 : closing;
+        run_transfer(COLD_OK);
+        printf("PASS %s\n",completion_failures[i]);
         return 0;
     }
     assert(argc==1);

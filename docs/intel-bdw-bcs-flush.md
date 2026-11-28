@@ -480,6 +480,14 @@ status-page setup and the fourth descriptor word, which triggers execution.
 Losing either epoch on the final clock callback leaves a three-word prefix
 in the port and the command pages pinned.
 
+The fourth descriptor store also requires the original CSB cursors and
+zero data and completion words in the private result page. The completion
+check verifies both CSB events and the complete result page, then rechecks
+the requester and WiDi owner, CSB entries, status page and result words
+after the closing clock. A marker present before the trigger, or changing
+ownership, cursor or result at acceptance, keeps the command publication
+and framebuffer exclusion pinned. The original deadlines still apply.
+
 On publication and rollback the driver reads both WiDi translation-valid
 vectors (BWDTLB_VLD_0 and BWDTLB_VLD_1) between two reads of WTCR after
 the GGTT invalidation has posted. A surviving valid entry or an invalidation
@@ -516,6 +524,13 @@ WiDi exclusion across global GO reopening. The GPM request, its continuous
 ownership and that independent exclusion still need native implementations.
 The Q35 test supplies a modeled controller. The Air diagnostic only reads
 the clock and acknowledgement registers.
+
+Intel documents a WiDi reset-prepare message at `MSG_RESET_GCP[5]`.
+It belongs to the GT message channel, which protects the register from
+non-GT writes. The WiDi reset request in `GDRST[6]` self-clears when the
+reset completes. These descriptions establish a reset sequence. The
+command path needs a WiDi hold that stays active when global traffic
+reopens for the blitter. [Intel Broadwell register reference, pp. 609 and 1337–1338](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
 
 Run the host comparison with the render user's marker binary. The observer
 uses i915 forcewake and read-only BAR mappings. A pending primary flip rejects

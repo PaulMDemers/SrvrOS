@@ -7446,6 +7446,12 @@ test-intel-bdw-blitter: build/tests/intel-bdw-blitter$(HOST_EXE)
 	$< warm-lost-completion
 	$< cold-init-fault
 	$< cold-rollback-fault
+	$< premature-marker
+	$< premature-cursor
+	$< completion-device-lease
+	$< completion-widi-lease
+	$< completion-marker-changed
+	$< completion-cursor-changed
 	$< stale-seventh
 	$< swapped-translations
 	$< unposted-invalidate

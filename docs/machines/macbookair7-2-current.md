@@ -1003,6 +1003,20 @@ and the reservation returned to its boot owner. Both powered samples
 still showed WiDi GO open and no fresh engine or L3 acknowledgement.
 SrvrOS made zero GPU page-table writes and issued no range grant.
 
+The next Air7,2 checkpoint in PR 301 tightens the command trigger and
+closing ownership checks. Main `b062ba18` and Air6,1's separate Haswell
+observation in PR 567 were reviewed. The host and Q35 fixtures reject a
+premature marker or cursor movement before submission and changes to the
+device lease, WiDi lease, marker or cursor at completion. Each fault retains
+the command pages and framebuffer exclusion without attempting restoration.
+
+Two new Ubuntu/i915 comparisons completed fresh blitter markers on this
+Air. Both verified all 4,096 result bytes and kept the same programmed and
+live eDP surface. A third attempt stopped on a pending page flip. Both
+successful comparisons still saw WiDi GO open and no L3 acknowledgement.
+The native test remains unarmed while the device requester provider and
+persistent WiDi hold are unverified.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

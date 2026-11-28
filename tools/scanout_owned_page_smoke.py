@@ -57,7 +57,9 @@ def main():
         (mode, f'PASS {mode}') for mode in OWNED_PAGE_MODES]
     if args.blitter:
         cases.extend((mode, f'PASS {mode}') for mode in
-                     ('stale-seventh', 'swapped-translations', 'unposted-invalidate', 'stale-restore',
+                     ('premature-marker', 'premature-cursor', 'completion-device-lease', 'completion-widi-lease',
+                      'completion-marker-changed', 'completion-cursor-changed',
+                      'stale-seventh', 'swapped-translations', 'unposted-invalidate', 'stale-restore',
                       'missing-engine-ack', 'early-l3', 'missing-l3', 'widi-escapes',
                       'changed-traffic-epoch', 'moving-scanout', 'missing-rollback-ack',
                       'air-reset-reasons', 'partial-gam-go', 'unowned-widi-clock', 'wireless-audio-reopens', 'uncertain-release',
