@@ -721,6 +721,24 @@ omits adapter identity and the last firmware-download OUT details,
 which survive in the workspace exit log. Preserve this coverage
 limitation in `evidence-0b7b3bacada36cb3/archive-note.json`.
 
+#### RTL8822BU bulk-IN depth and endpoint setup
+
+Device scope from `34106eee` against main `24feebdd`. Keep all three
+adapters on the Genesys hub, existing Netgear H2C, security and passive
+FIFO settings, channel 10, `TXPAUSE=0xff` and MAC TX disabled.
+Changes are limited to the Netgear passive xHCI diagnostic and fixture.
+
+The target-only Linux driver rebind retained the hub and default route.
+Linux configured EP4 IN (DCI 9), 512-byte max packet, three errors,
+zero max burst, no streams and Average TRB Length zero. The driver
+queued four distinct 32 KiB requests before scanning and resubmitted
+them as short completions arrived. Use the measured endpoint context
+for both SrvrOS windows. Keep one request in the control window, then
+add three distinct DMA buffers if that request is still pending with
+zero completions. Verify transfer ownership and the stopped dequeue
+before retiring the diagnostic.
+[Linux rtw88 USB receive definitions](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/usb.h).
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
