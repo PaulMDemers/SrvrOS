@@ -772,6 +772,16 @@ and the matching flash reports. The existing qualified station profile,
 EHCI workspace, and Ubuntu recovery are dependencies. Access-point
 outage and automatic reassociation remain deferred.
 
+On source `5e739194`, release `62e9f5ea86fe37c4` passed all admission
+checks, WPA2, DHCP and 14 gateway probes. Release `d543cc55e339a0e0`
+passed the same early admission and initialized firmware, the PHY,
+channel 10, and the receive ring. The first beacon window expired before
+the provider became ready. Both releases saved their flash reports and
+confirmed hardware retirement and Ubuntu return. The earlier combined
+PCI or mapping refusal did not recur in those two boots. The next
+candidate records receive descriptors and validated beacons and allows
+one more initialization after verified retirement of the first attempt.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

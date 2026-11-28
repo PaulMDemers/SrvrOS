@@ -30,7 +30,9 @@ struct bcm4331_station {
     uint64_t muted_frames;
     unsigned rx_next, sent, acked;
     uint32_t tx_status, tx_dma_status, tx_dma_error;
+    unsigned startup_descriptors, startup_valid, startup_beacons, startup_channel;
     bool fault, tx_pending, secured, provider_live, provider_pinned, desktop, signal_trial, rx_muted, range_trial;
+    bool startup_observing;
     uint8_t address[6], bssid[6], last_anonce_digest[32];
     struct wpa2_hs_peer peer;
     uint16_t aid, auth_status, assoc_status;
@@ -213,6 +215,10 @@ static unsigned station_rx(struct bcm4331_station *s, uint8_t *out, unsigned cap
     unsigned channel = radio_le16(buffer + 22);
     unsigned prefix = 6 + (mac_status & 4 ? 2 : 0);
     unsigned length = 0;
+    if (s->startup_observing) {
+        s->startup_descriptors++;
+        s->startup_channel = channel;
+    }
     if (!(mac_status & 1) && (channel & 0x1ff8) == BEACON_CHANNEL * 8 && n >= prefix + 4 &&
         n <= RX_BUFFER_BYTES - RX_FRAME_OFFSET && n - prefix <= capacity) {
         const uint8_t *mpdu = buffer + RX_FRAME_OFFSET + prefix;
@@ -220,6 +226,10 @@ static unsigned station_rx(struct bcm4331_station *s, uint8_t *out, unsigned cap
         if (beacon_fcs(mpdu, n - 4) == radio_le32(mpdu + n - 4)) {
             for (unsigned i = 0; i < n; i++) out[i] = mpdu[i];
             length = n;
+            if (s->startup_observing) {
+                s->startup_valid++;
+                if (mpdu[0] == 0x80) s->startup_beacons++;
+            }
         }
     }
     *available = 0;

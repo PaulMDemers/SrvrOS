@@ -15,7 +15,7 @@ static struct {
     unsigned connects, disconnects;
     volatile bool stop, done;
     enum bcm4331_desktop_trial trial;
-    bool starting, published, passed, unsafe;
+    bool starting, published, passed, unsafe, beacon_missed;
 } bcm_desktop;
 
 struct bcm4331_signal_trial {
@@ -236,8 +236,17 @@ static bool station_desktop(struct bcm4331_station *s, const uint8_t *key) {
     s->signal_trial = local_gap || s->range_trial || bcm_desktop.trial == BCM4331_DESKTOP_SIGNAL_LOSS;
     uint8_t beacon[RX_BUFFER_BYTES];
     s->epoch = 1;
-    s->deadline = timer_monotonic_us() + 3000000;
-    if (!station_management(s, beacon, sizeof beacon, 0x80) || bcm_desktop.stop) return false;
+    uint64_t scan_started = timer_monotonic_us();
+    s->deadline = scan_started + 3000000;
+    s->startup_observing = true;
+    bool beacon_found = station_management(s, beacon, sizeof beacon, 0x80) != 0;
+    s->startup_observing = false;
+    bcm_desktop.beacon_missed = !beacon_found && !s->fault && !bcm_desktop.stop;
+    console_printf("bcm4331-startup-rx: matched=%u elapsed_us=%u descriptors=%u valid=%u beacons=%u channel=%x status=%x error=%x fault=%u\n",
+        (uint64_t)beacon_found, timer_monotonic_us() - scan_started, (uint64_t)s->startup_descriptors,
+        (uint64_t)s->startup_valid, (uint64_t)s->startup_beacons, (uint64_t)s->startup_channel,
+        (uint64_t)s->regs[RX_DMA_STATUS / 4], (uint64_t)s->regs[RX_DMA_ERROR / 4], (uint64_t)s->fault);
+    if (!beacon_found || bcm_desktop.stop) return false;
     for (unsigned i = 0; i < 6; i++) s->bssid[i] = beacon[16 + i];
     s->epoch = 0;
     const struct wifi_service_provider wifi = {s, "Broadcom BCM4331", desktop_wifi_present};
@@ -312,6 +321,19 @@ static void desktop_wifi_worker(void *unused) {
     (void)unused;
     uint64_t flags = station_irq_save();
     enum bcm4331_probe_result result = bcm4331_probe(BCM4331_STATION_DESKTOP);
+    if (result == BCM4331_BEACON_TIMEOUT && !bcm_desktop.stop) {
+        bcm_desktop.pci = NULL;
+        console_write("bcm4331-startup-rx: retrying after verified hardware retirement\n");
+        station_irq_restore(flags);
+        uint64_t until = timer_ticks() + 25;
+        bool settled = scheduler_wait_timeout(&bcm_desktop.wait, desktop_wifi_due, &until, until) &&
+            desktop_wifi_due(&until);
+        flags = station_irq_save();
+        if (settled && !bcm_desktop.stop) {
+            bcm_desktop.beacon_missed = false;
+            result = bcm4331_probe(BCM4331_STATION_DESKTOP);
+        }
+    }
     bcm_desktop.unsafe = result == BCM4331_UNSAFE;
     if (!bcm_desktop.unsafe) bcm_desktop.pci = NULL;
     bcm_desktop.done = true;
@@ -339,7 +361,7 @@ bool bcm4331_desktop_start(enum bcm4331_desktop_trial trial) {
     if (!bcm4331_desktop_configured()) return false;
     bcm_desktop.starting = scheduler_spawn("bcm4331-wifi", desktop_wifi_worker, NULL);
     if (!bcm_desktop.starting) return false;
-    if (!scheduler_wait_timeout(&bcm_desktop.wait, desktop_wifi_ready, NULL, timer_ticks() + 600) ||
+    if (!scheduler_wait_timeout(&bcm_desktop.wait, desktop_wifi_ready, NULL, timer_ticks() + 1400) ||
         !desktop_wifi_ready(NULL)) bcm_desktop.stop = true;
     return bcm_desktop.published && !bcm_desktop.done && !bcm_desktop.stop;
 }

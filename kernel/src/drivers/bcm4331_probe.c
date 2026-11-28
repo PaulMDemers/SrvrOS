@@ -506,6 +506,8 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
         (uint64_t)(dma.memory ? RX_DMA_PAGES : 0), (uint64_t)firmware_attempted);
     if (!restored || !unmapped || !pins_restored || !psm_retired) return BCM4331_UNSAFE;
     if (matched) console_printf("bcm4331: board_data=%u phy_identified=%u\n", (uint64_t)srom_ready, (uint64_t)phy_ready);
+    if (desktop_mode && bcm_desktop.beacon_missed && !dma.memory && bus_master_off)
+        return BCM4331_BEACON_TIMEOUT;
     if (reconnect_mode || desktop_mode) return completed ? BCM4331_RECONNECT_OK : BCM4331_INCOMPLETE;
     if (mode == BCM4331_STATION_DHCP) return completed ? BCM4331_DHCP_OK : BCM4331_INCOMPLETE;
     if (mode == BCM4331_STATION) return completed ? BCM4331_ASSOCIATED : BCM4331_INCOMPLETE;

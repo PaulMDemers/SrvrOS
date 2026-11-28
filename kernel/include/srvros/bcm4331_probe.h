@@ -13,6 +13,7 @@ enum bcm4331_probe_result {
     BCM4331_DHCP_OK,
     BCM4331_RECONNECT_OK,
     BCM4331_UNSAFE,
+    BCM4331_BEACON_TIMEOUT,
 };
 
 enum bcm4331_probe_mode {
