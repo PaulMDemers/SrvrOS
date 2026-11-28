@@ -480,6 +480,8 @@ static bool edp_source_held(void *context, const struct bdw_edp_source_image *im
     struct edp_adapter *a = context;
     return a->run_cycle && a->well_requested && a->image && image->backing == &backing &&
            image->epoch == a->cycle_epoch && image->backing_hash == a->image->backing_hash &&
+           image->backing_physical == (backing.pte[0] & ~4095ull) &&
+           image->mapped_bytes == BDW_EDP_BACKING_PAGES * 4096ull &&
            image->reference_crc == a->image->reference_crc &&
            edp_expect(a, BDW_EDP_WELL_DRIVER, UINT32_MAX, BDW_EDP_WELL_REQUEST | BDW_EDP_WELL_ON) &&
            edp_expect(a, 0x45400, UINT32_MAX, BDW_EDP_WELL_REQUEST | BDW_EDP_WELL_ON);
@@ -1059,6 +1061,7 @@ static bool edp_native_cycle(struct edp_adapter *a, const struct bdw_edp_baselin
     }
     struct bdw_edp_source_image image = {
         .backing = &backing, .epoch = now(a), .mapped_bytes = BDW_EDP_BACKING_PAGES * 4096ull,
+        .backing_physical = backing.pte[0] & ~4095ull,
         .backing_hash = ref->sample.backing_hash, .reference_crc = ref->crc[2],
         .cdclk_khz = 675000, .ddi_lane_bits = ref->sample.buffer & 0x10010u,
     };

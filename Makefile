@@ -6838,6 +6838,8 @@ BDW_EDP_RECOVERY_SOURCES := kernel/diagnostics/intel_bdw_edp.c kernel/diagnostic
 BDW_EDP_HOST_SOURCES := $(BDW_EDP_RECOVERY_SOURCES) kernel/diagnostics/intel_bdw_display_takeover.c kernel/diagnostics/intel_bdw_boot_scanout.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_space.c kernel/src/scanout_publish.c kernel/src/display_access.c
 BDW_EDP_TAKEOVER_CASES := takeover-roundtrip takeover-range-protected takeover-reset-declined takeover-traffic-open takeover-bad-crc takeover-no-grant takeover-overlap takeover-foreign-lease takeover-epoch-replay takeover-root-drift takeover-bar-drift takeover-stale-epoch takeover-stale-rollback takeover-l3-before takeover-l3-held takeover-l3-selector takeover-drain-io takeover-drain-sequence takeover-drain-completion takeover-drain-result-owner
 BDW_EDP_TAKEOVER_CASES += takeover-rmrr-scratch takeover-rmrr-private
+BDW_EDP_TAKEOVER_CASES += takeover-framebuffer-alias takeover-late-framebuffer-alias takeover-dark-read-error
+BDW_EDP_TAKEOVER_CASES += takeover-backing-scratch takeover-backing-private
 BDW_EDP_GUEST_OBJECTS := $(addprefix $(SCANOUT_GUEST_DIR)/,$(patsubst %.c,%.o,tools/test_intel_bdw_edp.c $(BDW_EDP_HOST_SOURCES)))
 build/tests/intel-bdw-edp$(HOST_EXE): tools/test_intel_bdw_edp.c $(BDW_EDP_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)

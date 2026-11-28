@@ -8,6 +8,7 @@
 struct bdw_edp_source_image {
     const void *backing;
     uint64_t epoch, mapped_bytes, backing_hash;
+    uint64_t backing_physical; /* First page of the contiguous pinned fetch extent, including its tail. */
     uint32_t cdclk_khz, ddi_lane_bits, reference_crc;
     uint32_t pch_pwm_data; /* Required pre-reset sample for a reset-capable cycle. */
     uint32_t phy[BDW_EDP_PHY_ENTRIES][2];

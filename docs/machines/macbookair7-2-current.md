@@ -663,6 +663,18 @@ keep the same reservation through panel recovery, bind and rollback. The
 native prerequisite remains a verified traffic retirement and a range
 handoff that excludes firmware and the display proxy.
 
+The joined takeover now registers one exact page and keeps the same loan
+through dark-state vacancy, both original CRC windows, scratch publication,
+private bind and rollback. It also rejects scratch or private frames inside
+the inherited physical fetch extent. All 27 takeover cases passed both on
+the host and in the SrvrOS Q35 guest. The saved Air framebuffer alias was
+refused as an occupied entry both at admission and when injected after
+panel recovery. An uncertain rollback kept the existing loan and backing
+pinned. The current Air boot path supplies neither the sustained drain needed
+by the takeover reset nor the exclusive post-reset grant, so no write-capable
+trial was armed.
+[Joined takeover and recovery](../intel-bdw-edp-recovery.md#full-takeover-with-a-boot-blank)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

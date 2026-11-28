@@ -688,14 +688,21 @@ rebuilds the original panel path and reports refusal. A potentially
 issued request or reset with uncertain completion retains ownership.
 
 After reset and powered-resource recovery, the same boot driver can
-grant a vacant page under the original CPU root and a new ownership
-epoch. Pipe A must then pass both reference CRC windows, restore its
+grant one candidate under the original CPU root and a new ownership
+epoch. While the panel is still dark, the takeover registers the exact
+address, takes its exclusive loan and verifies an empty GGTT entry. Scratch
+and private backing must both fall outside the original framebuffer's pinned
+physical extent, including its fetch tail. Pipe A must then pass both
+reference CRC windows, restore its
 interrupt mask and light the backlight before the first PTE store. The
-driver publishes scratch, binds the private page and restores scratch.
-Each transition checks its ordered invalidation and aperture marker.
+driver checks the entry is still empty, then publishes scratch, binds the
+private page and restores scratch under the same loan. Each transition
+checks its ordered invalidation and aperture marker.
 An absent or stale grant allows recovery of the original display and
-prevents GGTT writes. Any uncertain page rollback retains the range,
-backing and display exclusion. [Takeover core](../kernel/diagnostics/intel_bdw_display_takeover.c)
+prevents GGTT writes. An occupied entry at either check also refuses the
+bind and leaves the original display active. Any uncertain page rollback
+retains the range, backing and display exclusion.
+[Takeover core](../kernel/diagnostics/intel_bdw_display_takeover.c)
 
 The `smoke-intel-bdw-display-takeover` target runs this core, the existing
 reset/recovery cores and the page publisher inside SrvrOS on QEMU Q35

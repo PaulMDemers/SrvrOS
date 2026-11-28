@@ -248,10 +248,11 @@ path described under [Boot ownership decision](#boot-ownership-decision).
 
 ### Driver-owned range qualification
 
-The allocator can register a range under the existing boot driver and lend
-one contained page exclusively. The inherited framebuffer fence and imported
-firmware ranges remain reserved. The page writer requires fresh proof from
-the same driver, root and reset epoch, with its pinned scratch backing and
+The takeover registers the exact page granted by the boot driver and verifies
+an empty PTE while the panel is dark. It keeps the same loan across display
+recovery, scratch publication, bind and rollback. The inherited framebuffer
+fence and imported firmware ranges remain reserved. The page writer requires
+fresh proof from the same driver, root and reset epoch, with its pinned scratch backing and
 the original programmed and live Pipe A surface. It observes scratch, private
 and restored scratch markers through the same aperture alias, with posted
 translation invalidation after each store. Clean rollback returns the page
