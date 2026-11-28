@@ -593,6 +593,26 @@ Both logs agree, the endpoints and radio retired, all 698 existing
 workspace files matched, and all seven journal phases verified.
 The payload and logs are preserved under `evidence-5238fa6500794559`.
 
+#### RTL8822BU post-firmware receive enable
+
+Device scope from `2806b091` with main inspected at `24feebdd`. Keep
+the accepted firmware queue, all three adapters on the Genesys hub,
+channel 10 and the 32 KiB USB request. Compare the post-firmware MAC
+security configuration in the bounded Netgear diagnostic and native
+xHCI fixture while preserving MAC transmit and TX DMA gates.
+
+The Linux trace shows `CR=0x04ff` becoming `0x06ff` after General
+Info and PHYDM Info. Linux then sets `SECCFG=0x00cf` and writes the
+receive filter, which settles to `RCR=0xf410400e` during scan. Its
+passive scan found both Demers networks. All sampled Linux DMA
+registers were idle or zero even while bulk IN completed, so those
+registers alone cannot establish a stalled DMA path. Compare a control
+window with the same IN pending during the security transition. Match
+the two security settings and reapply the existing scan filter while
+keeping the low CR byte and TXPAUSE fixed. Restore the original
+security settings on exit.
+[Linux rtw88 security setup](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/sec.c).
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
