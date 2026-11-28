@@ -896,6 +896,23 @@ autonomous radio transmissions. The Linux state was restored and the
 SrvrOS image and its passive transmit gate were untouched.
 Evidence is archived as `netgear-linux-mac-gate-reference`.
 
+#### RTL8822BU RF coexistence transmit inhibit
+
+Device scope from `25fa871e`, against inspected main `117a0294`. In an
+isolated channel 10 Linux test, the RTL8188CU supplied directed traffic
+and its monitor interface observed the Netgear's replies. The Edimax
+carried Ubuntu's default route. With CR bit 6 set and TXPAUSE fixed at
+`0xff`, forcing the RF WLAN grant low at coexistence register `0x38`
+preserved all 16 directed receives and produced zero observed ACKs
+and CTS replies. The preceding window captured 19 ACKs and 16 CTS
+replies. Restoring the RF grant restored both response types and delivery.
+The baseband grant, TX pause, scheduler, protocol and host TX DMA controls
+alone all allowed replies. Scope the native comparison to the fixed
+Netgear profile, verify the RF grant before enabling bit 6 in the scan,
+keep the four 32 KiB requests, and restore the grant after the MAC is
+disabled and the RX endpoint has stopped.
+[Linux rtw88 coexistence grant control](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/coex.c).
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
