@@ -1045,6 +1045,27 @@ all 716 previous workspace files matched, the EFI partition retained
 its root-only mount, and recovery verified. The saved evidence is in
 the private `evidence-5fafa9293311c5df` archive.
 
+The first-Auth comparison uses the same USB hub and three adapters with
+main inspected at `b062ba18`. The Linux Netgear control captured a
+paired 78-byte EP5 OUT submit and completion in 23 µs in usbmon and
+13 µs between Linux xHCI enqueue and giveback. The Auth used a single
+Normal TRB with TD Size zero and IOC, followed by the DCI 10 doorbell.
+Linux reported no Configure Endpoint command during the association
+capture. The xHCI trace had no drops. The usbmon monitor reported drops
+elsewhere, but retained the matched Auth pair and the WPA2 exchange.
+The Edimax default route stayed active.
+
+The next comparison moves the EAPOL endpoint configuration earlier,
+before the firmware upload and the four bulk-IN submissions. Its
+verification still runs immediately before opening the passive scan.
+The last successful H2C OUT and the first Auth now use the same endpoint
+set. The Auth descriptor, DCI 10, radio sequence and four 32 KiB receive
+owners stay fixed. This tests whether the late Configure Endpoint command
+is required to reproduce the timeout. A repeated timeout with all 78
+bytes remaining would still need USB bus evidence to distinguish missed
+scheduling from NAKs. The separate Linux zero Average TRB Length hint
+and the report-tag bytes are recorded differences for later comparisons.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port

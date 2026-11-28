@@ -532,6 +532,8 @@ static bool bu_capture(const uint8_t *image,uint64_t size,enum bu_mode mode,
                     if(power) {
                         console_printf("rtl8822bu-power: stage=%s ok=0\n",power);
                         failure="digital-power";
+                    } else if(station && !bu_station_configure(&up)) {
+                        failure="station-endpoint";
                     } else if(mode==BU_PASSIVE) {
                         rx_failure=bu_rx_prequeue(&up,&rx);
                         if(rx_failure)failure="rx-prequeue";

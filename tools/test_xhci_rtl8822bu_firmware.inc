@@ -63,17 +63,21 @@ static void bu_model_command(struct xhci_device *d) {
     unsigned type=(command->control>>10)&63;
     assert(command->control>>24==4);
     if(type==XHCI_TRB_TYPE_CONFIGURE_ENDPOINT) {
-        static const unsigned dci_order[]={BU_OUT_DCI,BU_RX_DCI,BU_EAPOL_DCI};
-        assert(bu_model.configure<3);
+        static const unsigned station_order[]={BU_OUT_DCI,BU_EAPOL_DCI,BU_RX_DCI};
+        static const unsigned passive_order[]={BU_OUT_DCI,BU_RX_DCI};
+        bool station=bu_model.fault>=BU_STA_OK;
+        unsigned count=station?sizeof station_order/sizeof *station_order:sizeof passive_order/sizeof *passive_order;
+        const unsigned *dci_order=station?station_order:passive_order;
+        assert(bu_model.configure<count);
         unsigned dci=dci_order[bu_model.configure++];
         assert(context_read32(d->input_context,0,1)==(1u|(1u<<dci)));
-        assert(context_read32(d->input_context,1,0)>>27==(dci==BU_EAPOL_DCI?12:10));
+        assert(context_read32(d->input_context,1,0)>>27==(station && bu_model.configure>1?12:10));
         assert(context_read32(d->input_context,dci+1,1)==(6u|((dci==BU_RX_DCI?6u:2u)<<3)|(512u<<16)));
         uint64_t ring=context_read32(d->input_context,dci+1,2) |
                       (uint64_t)context_read32(d->input_context,dci+1,3)<<32;
         assert((ring&4095)==1);
         if(dci==BU_RX_DCI) {
-            assert(bu_model.configure==2 && !bu_model.channel_writes && !bu_model_read(BU_CR,1));
+            assert(bu_model.configure==count && !bu_model.channel_writes && !bu_model_read(BU_CR,1));
             assert(bu_model.cursor==bu_model.ring && bu_out_dequeue(d)==bu_model.ring &&
                    !bu_model.ddma && bu_model_read(BU_TXPAUSE,1)==0xff);
             assert(context_read32(d->input_context,dci+1,4)==0);
@@ -85,7 +89,7 @@ static void bu_model_command(struct xhci_device *d) {
             context_write32(d->output_context,dci,3,ring>>32);
         } else {
             if(dci==BU_EAPOL_DCI) {
-                assert(bu_model.fault>=BU_STA_OK && bu_model.rx_posts==4 && bu_model_read(BU_CR,1)==0xbf);
+                assert(station && !bu_model.rx_posts && !bu_model.channel_writes && !bu_model_read(BU_CR,1));
                 bu_model.eapol_cursor=ring;
             } else bu_model.ring=bu_model.cursor=ring;
             context_write32(d->output_context,0,0,dci<<27);
@@ -127,7 +131,8 @@ static void bu_model_receive_event(bool closing,unsigned ahead);
 
 static void bu_model_bulk(struct xhci_device *d) {
     bool passive=bu_model.fault>=BU_RX_OK;
-    assert(bu_model.configure==(passive?2u:1u) && !bu_model.stop && bu_model.posted==bu_model.ddma);
+    unsigned endpoints=bu_model.fault>=BU_STA_OK?3u:passive?2u:1u;
+    assert(bu_model.configure==endpoints && !bu_model.stop && bu_model.posted==bu_model.ddma);
     if(passive)assert(bu_rx_owner && bu_model.rx_posts==4 && bu_model_read(BU_TXPAUSE,1)==0xff);
     assert(bu_model_read(0x100,2)==0x105 && !(bu_model_read(0x550,1)&8) &&
            (bu_model_read(0x80,1)&1) && !(bu_model_read(3,1)&4) && !(bu_model_read(0x1d,1)&1));
@@ -169,7 +174,8 @@ static void bu_model_h2c(struct xhci_device *d) {
          [54]=1,[56]=3,[57]=2,[58]=3,[59]=0x33},
     };
     unsigned seq=bu_model.h2c_posts++;
-    assert(seq<2 && bu_model.rx_posts==4 && bu_model.ddma==40 && bu_model.configure==2 && bu_model.h2c_setup==6);
+    unsigned endpoints=bu_model.fault>=BU_STA_OK?3u:2u;
+    assert(seq<2 && bu_model.rx_posts==4 && bu_model.ddma==40 && bu_model.configure==endpoints && bu_model.h2c_setup==6);
     assert(bu_model_read(BU_CR,1)==0x9f && bu_model_read(BU_TXPAUSE,1)==0xff && d->bulk_pending);
     assert(bu_model.h2c_status_writes==1 && bu_model.h2c_status_reads==2 &&
            bu_model_read(BU_H2C_INFO,1)==0x09 && bu_model_read(BU_H2C_TAIL,4)==0x3fe00);

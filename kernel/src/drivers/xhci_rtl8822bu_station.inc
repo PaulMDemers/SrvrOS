@@ -5,13 +5,26 @@ enum {
     BU_STA_GENERATION=1,
 };
 
+static bool bu_station_configure(struct bu_upload *up) {
+    struct xhci_device *d=up->device;
+    /* Linux has both OUT pipes before its first transfer. Keep the slot's
+     * endpoint set stable from firmware upload through the first Auth. */
+    up->eapol_ready=bu_configure_out_pipe(d,&up->eapol,BU_EAPOL_DCI);
+    console_printf("rtl8822bu-station-pipes: phase=pre-firmware mgmt=%u eapol=%u configured=%u entries=%u\n",
+        (uint64_t)up->out.dci,(uint64_t)BU_EAPOL_DCI,(uint64_t)up->eapol_ready,
+        (uint64_t)(context_read32(d->output_context,0,0)>>27));
+    return up->eapol_ready;
+}
+
 static bool bu_station_prepare(struct bu_upload *up,struct bu_rx *rx) {
     struct xhci_device *d=up->device;
     bool identity=bytes_equal(up->station,rx->station->peer.station,6);
     bool ready=identity && wifi_hub_check_port(d,up->hub) &&
         bu_rx_cr_verified(d,BU_RX_DMA_CR) && !d->bulk_pending;
-    up->eapol_ready=ready && bu_configure_out_pipe(d,&up->eapol,BU_EAPOL_DCI);
-    bool verified=up->eapol_ready &&
+    bool verified=ready && up->eapol_ready &&
+        (context_read32(d->output_context,0,0)>>27)>=BU_EAPOL_DCI &&
+        (context_read32(d->output_context,BU_OUT_DCI,0)&7)==1 &&
+        context_read32(d->output_context,BU_OUT_DCI,1)==0x02000016 &&
         (context_read32(d->output_context,BU_EAPOL_DCI,0)&7)==1 &&
         context_read32(d->output_context,BU_EAPOL_DCI,1)==0x02000016 &&
         bu_pipe_dequeue(d,BU_EAPOL_DCI)==(up->eapol.ring_phys|1);
