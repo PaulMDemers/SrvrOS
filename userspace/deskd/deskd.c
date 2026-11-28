@@ -2530,7 +2530,7 @@ int main(int argc,char **argv) {
     if(battery_work)strcpy(s.scene.notice,"5-minute test: type, save NEW file, reopen, use Files. Keep AC/USB connected.");
     if(battery_guided)strcpy(s.scene.notice,"1/3 Keep AC and USB connected. Waiting for three fresh battery readings.");
     if(ehci_battery_trial)strcpy(s.scene.notice,"1/3 Keep the charger and USB connected. Battery percentage is from the SMC.");
-    if(ehci_ethernet_trial)strcpy(s.scene.notice,"Keep Ethernet and USB connected. Checking DHCP and the gateway.");
+    if(ehci_ethernet_trial)s.scene.automatic_test=1;
     if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
     /* Diagnostic: no app menus, preferences, Home or screenshot jobs.
      * The study client exercises independent IPC/surface publication. Generated
@@ -2549,6 +2549,12 @@ int main(int argc,char **argv) {
     struct desk_battery_trial battery_trial={.began=(uint64_t)srv_monotonic_us()};
     unsigned ethernet_phase=0;
     uint64_t ethernet_start=(uint64_t)srv_monotonic_us(), ethernet_next=0, ethernet_return=0;
+    static const char *const ethernet_prompts[]={
+        "Keep Ethernet and USB connected. Checking DHCP and the gateway.",
+        "Connected. Unplug only Ethernet. Leave the USB flash drive connected.",
+        "Link down. Reconnect the Ethernet cable now.",
+        "Ethernet reconnected. Saving reports and returning to Ubuntu."
+    };
     int battery_saving=0;unsigned battery_shot_serial=0;uint64_t battery_shot_due=0;
     uint64_t work_begin=(uint64_t)srv_monotonic_us(),work_keys=0,work_motion=0,work_due=0;
     unsigned work_shot=0;int work_phase=0;
@@ -3547,17 +3553,17 @@ int main(int argc,char **argv) {
                     ethernet_phase++;
                     desk_log("ehci-desktop-ethernet-ui: phase=%u link=%u dhcp=%u worker=%u\n",
                         ethernet_phase,(unsigned)up,(unsigned)network.dhcp_configured,(unsigned)network.worker_started);
-                    strcpy(s.scene.notice,ethernet_phase==1?
-                        "Connected. Unplug only the Ethernet cable now. Leave the USB flash drive connected.":
-                        ethernet_phase==2?"Link down. Reconnect the Ethernet cable now.":
-                        "Ethernet reconnected. Saving reports and returning to Ubuntu.");
-                    desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
                     if(ethernet_phase==3)ethernet_return=loop_now+2000000u;
                 } else if(!network.adapter_count && loop_now-ethernet_start>=6000000u) {
                     desk_log("ehci-desktop-ethernet-ui: provider unavailable\n");
                     failed=1;
                     global_menu_action(&s,GLOBAL_EXIT);
                 }
+            }
+            const char *prompt=ethernet_prompts[ethernet_phase];
+            if(!s.exiting && strcmp(s.scene.notice,prompt)) {
+                strcpy(s.scene.notice,prompt);
+                desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
             }
             if(ethernet_return && loop_now>=ethernet_return)global_menu_action(&s,GLOBAL_EXIT);
         }

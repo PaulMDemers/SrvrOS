@@ -240,6 +240,9 @@ bool net_bounded_probe_poll(struct net_bounded_probe *probe);
  * 1second/100ticks/10000polls,then terminal refusal. Success leaves only cache. */
 int64_t net_prepare_route_bounded(struct net_bounded_probe *probe,uint32_t remote_ip);
 int64_t net_dhcp_request_bounded(struct net_bounded_probe *probe);
+/* Connection-scope DHCP for a schedulable supervisor. Wait up to one tick
+ * between polls so the existing elapsed-time retry can run on a fast NIC. */
+int64_t net_dhcp_request_bounded_paced(struct net_bounded_probe *probe);
 int64_t net_dns_resolve_bounded(struct net_bounded_probe *probe,const char *name,uint32_t *ip_out);
 int64_t net_ping_bounded(struct net_bounded_probe *probe,uint32_t remote_ip,
     uint16_t sequence,uint64_t *elapsed_ticks_out);

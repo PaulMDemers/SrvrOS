@@ -3558,7 +3558,8 @@ int64_t net_prepare_route_bounded(struct net_bounded_probe *p,uint32_t remote_ip
     bounded_probe_scrub(mac,sizeof mac);if(result<0)bounded_probe_fail(p);p->busy=false;return result;
 }
 
-int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) {
+static int64_t net_dhcp_request_bounded_mode(struct net_bounded_probe *p, bool paced) {
+    if (paced && (!p || !p->connection_scope)) return -1;
     if (!bounded_probe_enter(p)) return -1;
     int64_t result=-1;bool started=false,retried=false;unsigned polls=0;
     struct net_dhcp_observation *o=&p->dhcp_observation;
@@ -3597,6 +3598,7 @@ int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) {
             if (!bounded_probe_check(p)) goto done;
             p->dhcp_retries++;
         }
+        if (paced) net_wait_tick();
     }
     o->end_reason=NET_DHCP_POLL_LIMIT;
 done:
@@ -3608,6 +3610,14 @@ done:
     if(started){o->have_offer=dhcp_have_offer;o->request_sent=dhcp_request_sent;o->configured=dhcp_configured;}
     o->polls=polls;o->elapsed_us=p->last_us-us;o->elapsed_ticks=p->last_tick-tick;
     p->busy=false;return result;
+}
+
+int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) {
+    return net_dhcp_request_bounded_mode(p, false);
+}
+
+int64_t net_dhcp_request_bounded_paced(struct net_bounded_probe *p) {
+    return net_dhcp_request_bounded_mode(p, true);
 }
 
 int64_t net_dns_resolve_bounded(struct net_bounded_probe *p,const char *name,uint32_t *ip_out) {

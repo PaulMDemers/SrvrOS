@@ -44,7 +44,7 @@ static bool cable_connect(void) {
     struct net_bounded_probe *scope = &bcm_desktop.scopes[epoch - 1];
     bool admitted = net_bounded_probe_init_connection(scope, &bcm_desktop.io, &bcm_desktop.provider,
         epoch, timer_monotonic_us() + 5000000);
-    int64_t address = admitted ? net_dhcp_request_bounded(scope) : -1;
+    int64_t address = admitted ? net_dhcp_request_bounded_paced(scope) : -1;
     struct srv_net_status_info status;
     bool route = address > 0 && net_status_info(&status) == 0 &&
         status.dhcp_configured && status.local_ip == (uint32_t)address && status.router_ip;
@@ -53,6 +53,8 @@ static bool cable_connect(void) {
     bool worker = gateway && net_bounded_connection_start_worker(scope, NULL);
     if (!worker && admitted && !scope->closed) (void)net_bounded_probe_finish(scope);
     const struct net_dhcp_observation *dhcp = &scope->dhcp_observation;
+    console_printf("bcm57765-desktop: dhcp epoch=%u queued=%u rx=%u reason=%u polls=%u retries=%u\n",
+        (uint64_t)epoch, dhcp->discover_queued, dhcp->frames, dhcp->end_reason, dhcp->polls, scope->dhcp_retries);
     console_printf("bcm57765-desktop: connected epoch=%u lease=%u offer=%u ack=%u gateway_echo=%u worker=%u dhcp_us=%u\n",
         (uint64_t)epoch, (uint64_t)(address > 0), dhcp->accepted_offer, dhcp->accepted_ack,
         (uint64_t)gateway, (uint64_t)worker, dhcp->elapsed_us);
@@ -104,8 +106,13 @@ static void cable_worker(void *context) {
             differing = 0;
             if (!up) {
                 if (!cable_disconnect(true)) bcm_desktop.failed = true;
-            } else if (bcm_desktop.leases < 2 && !cable_connect()) {
-                bcm_desktop.failed = true;
+            } else if (bcm_desktop.leases < 2) {
+                /* Give a newly live link time to forward before Discover. */
+                scheduler_wait_timeout(&bcm_desktop.wait, cable_stop_requested, NULL, timer_ticks() + 100);
+                if (bcm_desktop.stop) break;
+                if (!cable_sample(&up)) bcm_desktop.failed = true;
+                else if (!up) nic->carrier = false;
+                else if (!cable_connect()) bcm_desktop.failed = true;
             }
         }
         scheduler_wait_timeout(&bcm_desktop.wait, cable_stop_requested, NULL, timer_ticks() + 10);

@@ -1,6 +1,6 @@
 /* Reuse the independent DHCP wire peer and actual stack/registry host stubs.
- * The historical main remains separate;new APIs below may never use its wait
- * hooks (waits must stay zero). No native USB/CCMP claim follows. */
+ * The historical main remains separate. Unpaced probe paths still refuse
+ * waits. The desktop reconnect case explicitly uses the modeled tick wait. */
 #define main dhcp_legacy_test_main
 #include "test_net_dhcp_retry.c"
 #undef main
@@ -152,6 +152,22 @@ static void connection_tests(const struct net_device_ops *ops){
   struct net_device_ops wrong=*ops;wrong.context=&stale;assert(!net_bounded_probe_init_connection(&stale,&connection_ios[generation],&wrong,owner_epoch+1,test_us+15000000));
   assert(!net_bounded_probe_init(&stale,&connection_ios[generation],owner_epoch+1,test_us+15000000) && !bounded_connection.active && !bounded_connection.failed);
  }
+ /* Fast polling alone cannot wait for a switch to forward after link-up.
+  * Model a first Discover lost and clocks that advance only at sleeps. */
+ pid_t paced=fork();assert(paced>=0);
+ if(!paced){
+  connection_peer_next();
+  bounded=&connection_objects[2];owner_epoch=102;
+  connection_ios[2]=(struct net_bounded_probe_io){&caller_token,bounded_owned,bounded_ready};
+  assert(net_bounded_probe_init_connection(bounded,&connection_ios[2],ops,owner_epoch,test_us+5000000));
+  scenario=DROP_FIRST;freeze_ticks=freeze_mono=true;
+  assert(net_dhcp_request_bounded_paced(bounded)==0x0a00020f);
+  assert(discovers==2 && requests==1 && ready_calls==1 && bounded->dhcp_retries==1);
+  assert(waits>=100 && bounded->dhcp_observation.elapsed_ticks>=100);
+  assert(net_bounded_probe_disconnect(bounded) && !dhcp_configured && !local_ip);
+  _exit(0);
+ }
+ int paced_status;assert(waitpid(paced,&paced_status,0)==paced && WIFEXITED(paced_status) && WEXITSTATUS(paced_status)==0);
  /* Each negative child inherits the completed two-generation adapter, then
   * starts one new scope and injects one uncertain boundary. No active scope is
   * reset to obtain a pass; failed admission remains fused in that child. */

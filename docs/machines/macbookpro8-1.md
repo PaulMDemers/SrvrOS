@@ -399,6 +399,16 @@ gateway traffic, observed cable loss and address retirement, renewed
 DHCP and gateway traffic after reconnect, and both USB reports with
 clean topcase, network and flash retirement.
 
+Release `7dd94caf8a4f6945` passed connected DHCP and gateway echo on
+the desktop. Unplugging cleared carrier, IPv4 and the resident worker.
+Reconnect restored 1 Gb/s carrier and completed the Discover transmit.
+The second DHCP round exhausted its poll count after 48,395 µs before
+the time-based retry. Text startup also cleared the first cable prompt
+after the compositor had logged it. Both native reports were verified,
+and DMA retirement and Ubuntu return succeeded. The next candidate
+keeps the prompt visible across app launches and paces DHCP polling so
+the existing elapsed-time retry can run.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
