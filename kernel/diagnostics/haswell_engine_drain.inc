@@ -1,8 +1,9 @@
 /* The Haswell 0a26 render, video decode, blitter and video enhancement
- * rings. Only HEAD, TAIL, CTL, MI_MODE and ACTHD are admitted. */
+ * rings. Only HEAD, TAIL, CTL, MI_MODE, ACTHD and the audit's INSTPM are read. */
 #define HSW_DRAIN_VA (HWB_VA + 8192u)
 #define HSW_DRAIN_GAP_US 250u
 #define HSW_DRAIN_LIMIT_US 4000u
+#define HSW_INSTPM 0xc0u /* Haswell register reference, Vol. 2c, pp. 50, 309, 399, 432. */
 static const uint32_t hsw_drain_pages[] = {0x02000, 0x12000, 0x22000, 0x1a000};
 static const uint32_t hsw_drain_offsets[] = {0x34, 0x30, 0x3c, 0x9c, 0x74};
 enum { HSW_DRAIN_RINGS = 4, HSW_DRAIN_WORDS = 5 };
@@ -28,16 +29,17 @@ struct hsw_drain_sample {
     uint64_t begin, end;
     uint32_t ack[2], thread[2], smi;
     uint32_t ring[HSW_DRAIN_RINGS][HSW_DRAIN_WORDS];
+    uint32_t instpm[HSW_DRAIN_RINGS];
     uint32_t pci[2][4];
     struct package_pci_af af[2];
     struct hsw_smi_route smi_route;
     struct hsw_handoff_sample handoff;
 };
 
-static bool hsw_exclusion_audit, hsw_handoff_audit;
+static bool hsw_exclusion_audit, hsw_handoff_audit, hsw_reset_free_audit;
 
 static struct {
-    unsigned maps, retired, reads, samples;
+    unsigned maps, retired, reads, instpm_reads, samples;
     bool poisoned;
     uint64_t begin, end;
     struct {
@@ -182,6 +184,17 @@ static bool hsw_sample_handoff(struct hsw_handoff_sample *sample) {
     return hsw_drain_tick();
 }
 
+static uint32_t hsw_drain_read(unsigned engine, uint64_t va, uint32_t offset) {
+#ifdef SRVROS_PLATFORM_HOST_TEST
+    (void)va;
+    extern uint32_t platform_test_hsw_drain_read(unsigned);
+    return platform_test_hsw_drain_read(hsw_drain_pages[engine] + offset);
+#else
+    (void)engine;
+    return *(volatile const uint32_t *)(va + offset);
+#endif
+}
+
 static bool hsw_drain_sample(unsigned phase) {
     struct hsw_drain_sample *sample = &hsw_engine_drain.sample[phase];
     if (!hsw_drain_tick()) return false;
@@ -204,14 +217,13 @@ static bool hsw_drain_sample(unsigned phase) {
             return false;
         for (unsigned word = 0; word < HSW_DRAIN_WORDS; word++) {
             if (!hsw_drain_tick()) return false;
-            uint32_t offset = hsw_drain_offsets[word];
-#ifdef SRVROS_PLATFORM_HOST_TEST
-            extern uint32_t platform_test_hsw_drain_read(unsigned);
-            sample->ring[i][word] = platform_test_hsw_drain_read(hsw_drain_pages[i] + offset);
-#else
-            sample->ring[i][word] = *(volatile const uint32_t *)(va + offset);
-#endif
+            sample->ring[i][word] = hsw_drain_read(i, va, hsw_drain_offsets[word]);
             hsw_engine_drain.reads++;
+        }
+        if (hsw_reset_free_audit) {
+            if (!hsw_drain_tick()) return false;
+            sample->instpm[i] = hsw_drain_read(i, va, HSW_INSTPM);
+            hsw_engine_drain.instpm_reads++;
         }
     }
     if (!hsw_drain_wake(&sample->ack[1], &sample->thread[1])) return false;
@@ -297,6 +309,9 @@ static void hsw_drain_report(void) {
     if (hsw_handoff_audit)
         console_printf("hsw-handoff-audit: v=1 rows=%u requester_hold=unavailable firmware_handoff=unavailable authority=none\n",
                        (uint64_t)hsw_engine_drain.samples);
+    if (hsw_reset_free_audit)
+        console_printf("hsw-reset-free-audit: v=1 rows=%u instpm_reads=%u ring_stop_stores=0 flush_stores=0 reset_stores=0 requester_drain=unverified authority=none\n",
+                       (uint64_t)hsw_engine_drain.samples, (uint64_t)hsw_engine_drain.instpm_reads);
     for (unsigned phase = 0; phase < hsw_engine_drain.samples; phase++) {
         const struct hsw_drain_sample *s = &hsw_engine_drain.sample[phase];
         if (hsw_exclusion_audit) {
@@ -319,6 +334,9 @@ static void hsw_drain_report(void) {
             console_printf("hsw-engine-drain-ring: phase=%u engine=%u head=%u tail=%u ctl=%u mode=%u acthd=%u\n",
                            (uint64_t)phase, (uint64_t)i, (uint64_t)r[0], (uint64_t)r[1],
                            (uint64_t)r[2], (uint64_t)r[3], (uint64_t)r[4]);
+            if (hsw_reset_free_audit)
+                console_printf("hsw-reset-free-instpm: phase=%u engine=%u raw=%u\n",
+                               (uint64_t)phase, (uint64_t)i, (uint64_t)s->instpm[i]);
         }
         for (unsigned i = 0; i < 2; i++) {
             const uint32_t *p = s->pci[i];

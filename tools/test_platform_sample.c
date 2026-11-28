@@ -265,12 +265,21 @@ void platform_test_hsw_forcewake_store(unsigned off,uint32_t value) {
         forcewake_ack=0;
     }
 }
+static bool instpm_inaccessible, instpm_slow;
 uint32_t platform_test_hsw_drain_read(unsigned off) {
     static const unsigned bases[] = {0x2000,0x12000,0x22000,0x1a000};
     static const unsigned offsets[] = {0x34,0x30,0x3c,0x9c,0x74};
     static const uint32_t values[] = {256,256,1,512,4096};
-    assert(test_engine_drain && drain_mapped==15 && forcewake_stores==1 && forcewake_ack==1 && drain_reads<40);
+    assert(test_engine_drain && drain_mapped==15 && forcewake_stores==1 && forcewake_ack==1);
     assert(!drain_irq_enabled && drain_irq_saves==1 && !drain_irq_restores);
+    if ((off & 4095u) == 0xc0) {
+        unsigned index = hsw_engine_drain.instpm_reads;
+        assert(hsw_reset_free_audit && index < 8 && drain_reads == 5 * (index + 1));
+        assert(off == bases[index % 4] + 0xc0);
+        if (instpm_slow) test_ticks += HSW_DRAIN_LIMIT_US + 1;
+        return instpm_inaccessible ? UINT32_MAX : 0x80 + index % 4;
+    }
+    assert(drain_reads<40);
     unsigned engine=(drain_reads/5)%4, word=drain_reads%5;
     assert(off==bases[engine]+offsets[word]);
     drain_reads++;
@@ -356,7 +365,7 @@ void console_printf(const char *fmt,...) {
        !strncmp(fmt,"hsw-ownership",13) || !strncmp(fmt,"hsw-requester-hold:",19) ||
        !strncmp(fmt,"hsw-engine-prereqs",18) ||
        !strncmp(fmt,"hsw-forcewake",13) || !strncmp(fmt,"hsw-engine-drain",16) ||
-       !strncmp(fmt,"hsw-exclusion-",14) || !strncmp(fmt,"hsw-handoff-",12)) {
+       !strncmp(fmt,"hsw-exclusion-",14) || !strncmp(fmt,"hsw-handoff-",12) || !strncmp(fmt,"hsw-reset-free-",15)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {

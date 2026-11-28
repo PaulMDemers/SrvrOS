@@ -3,7 +3,9 @@ import unittest
 from pathlib import Path
 
 import hardware_boot as boot
-from hardware_haswell_engine_drain import ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN
+from hardware_haswell_engine_drain import (
+    ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN,
+)
 from hardware_haswell_forcewake import forcewake_result
 
 
@@ -13,6 +15,7 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
         cls.text = Path("build/tests/hsw-engine-drain-receipt.log").read_text()
         cls.audit = Path("build/tests/hsw-exclusion-audit-receipt.log").read_text()
         cls.handoff = Path("build/tests/hsw-handoff-audit-receipt.log").read_text()
+        cls.reset_free = Path("build/tests/hsw-reset-free-audit-receipt.log").read_text()
 
     def result(self, text):
         wake = forcewake_result(text)
@@ -144,6 +147,50 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
         self.assertNotIn(EXCLUSION_AUDIT_TOKEN, config)
         with self.assertRaisesRegex(ValueError, "isolated automatic return"):
             boot.stage(haswell_handoff_audit=True, haswell_exclusion_audit=True)
+
+    def test_reset_free_audit_observes_each_engine_without_grant(self):
+        wake = forcewake_result(self.reset_free)
+        self.assertEqual(wake["status"], "VERIFIED")
+        self.assertEqual((wake["stores"], wake["protected_reads"], wake["ring_reads"]), (2, 0, 40))
+        audit = wake["reset_free_audit"]
+        self.assertEqual(audit["instpm_reads"], 8)
+        self.assertEqual(audit["requester_drain"], "unverified")
+        self.assertEqual([row["instpm"] for row in audit["samples"]], [128, 129, 130, 131] * 2)
+        self.assertTrue(all(row["ring_idle"] and not row["stop_ring"] and not row["sync_flush_requested"]
+                            for row in audit["samples"]))
+
+        modified = self.reset_free.replace("engine=0 raw=128", "engine=0 raw=4294967295", 1)
+        modified = modified.replace("engine=1 raw=129", "engine=1 raw=161", 1)
+        modified = modified.replace("engine=2 head=256 tail=256 ctl=1 mode=512",
+                                    "engine=2 head=256 tail=256 ctl=1 mode=770", 1)
+        rows = forcewake_result(modified)["reset_free_audit"]["samples"]
+        self.assertIsNone(rows[0]["sync_flush_requested"])
+        self.assertTrue(rows[1]["sync_flush_requested"])
+        self.assertTrue(rows[2]["stop_ring"] and rows[2]["fence_write_bypassed"])
+
+    def test_reset_free_audit_rejects_missing_or_authorizing_receipts(self):
+        for old, new in (
+            ("instpm_reads=8", "instpm_reads=7"),
+            ("flush_stores=0", "flush_stores=1"),
+            ("reset_stores=0", "reset_stores=1"),
+            ("reset_stores=0 requester_drain=unverified", "reset_stores=0 requester_drain=verified"),
+            ("hsw-reset-free-instpm: phase=1 engine=3", "hsw-reset-free-instpm: phase=0 engine=3"),
+            ("raw=128", "raw=4294967296"),
+            (RESET_FREE_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN),
+        ):
+            with self.subTest(new=new):
+                self.assertIn(old, self.reset_free)
+                self.assertIsNone(forcewake_result(self.reset_free.replace(old, new, 1)))
+
+    def test_reset_free_audit_recipe(self):
+        version = "ram-usb-v16-hsw-laptop-probe-6ada85bb"
+        with self.assertRaisesRegex(ValueError, "automatic return"):
+            boot.limine_config("1234567890abcdef", version)
+        config = boot.limine_config("1234567890abcdef", version + "-auto-return")
+        self.assertIn(RESET_FREE_AUDIT_TOKEN, config)
+        self.assertNotIn(HANDOFF_AUDIT_TOKEN, config)
+        with self.assertRaisesRegex(ValueError, "isolated automatic return"):
+            boot.stage(haswell_reset_free_audit=True, haswell_handoff_audit=True, haswell_linux_fences=True)
 
 
 if __name__ == "__main__":

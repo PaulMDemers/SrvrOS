@@ -1021,6 +1021,50 @@ the hardware requester hold unverified. The installed release, final
 snapshot, archived replay, recovery and offline USB check verified after
 the one-shot returned to Ubuntu.
 
+#### Reset-free requester drain audit
+
+Haswell documents a per-engine parser-stop and synchronizing-flush sequence.
+`MI_MODE` exposes the parser's Stop Ring and Ring Idle bits. `INSTPM`
+exposes the synchronizing-flush request and engine-specific controls. The
+render memory-sync control is bit 8, while the other three use bit 6.
+The blitter's bit 9 is reserved, and its `MI_MODE` bypass bit can suppress
+writes associated with a flush. Treat the Intel video-decode programming
+note that names the blitter mode register as ambiguous; require a checked
+video engine sequence before attempting that request. The command stream
+reference also describes engine-local sync status and hardware status
+page writes. A future trial needs fresh completion evidence with a known
+status destination. An idle parser and a clear request bit can both exist
+before a request has ever been issued.
+[Haswell register reference, pp. 40–41, 49–51, 302–303, 309–310, 393–394, 399–400 and 425–433](https://cdrdv2-public.intel.com/690873/intel-gfx-prm-osrc-hsw-commandreference-registers_0.pdf)
+· [Haswell command stream reference](https://cdrdv2-public.intel.com/690970/intel-gfx-prm-osrc-hsw-command-stream-programming_1.pdf)
+
+The Air7,2 Broadwell verifier binds a maintained traffic block to fresh
+engine and L3 acknowledgements. Haswell needs its own equivalent authority
+and completion scope. The Haswell per-engine controls leave shared-cache
+completion, translations, display fetches, display HDA and firmware outside
+their proof. i915 also invalidates GGTT translations through a separate
+register operation. Before any active experiment, bind command ownership,
+firmware exclusion, the inherited Pipe A backing and the status destinations
+for the whole hold. Then qualify an engine stop, fresh completion and release
+without relying on old completion status or altering a live scanout entry.
+[Air7,2 ownership work](https://github.com/PaulMDemers/SrvrOS/pull/301)
+· [i915 GGTT invalidation](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L2446-L2460)
+
+The isolated v16 audit reads the four Haswell `INSTPM` DWORDs in each of
+the two held-engine samples. The decoder binds them to `MI_MODE` and
+reports Stop Ring, Ring Idle, Sync Flush Enable and the blitter bypass
+bit. All-ones observations remain unavailable. The inherited PCI and
+OpRegion evidence stays in the same bracket. Only the previously qualified
+masked forcewake acquire and clear stores run. Pipe A continues scanning
+and the test keeps slots 4096 and 16385 untouched. The 4 ms sample, 20 ms
+hold and 100 ms full limits carry forward. The receipt grants no requester
+drain or GGTT authority.
+
+Stage using `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-reset-free-audit`.
+The probe saves its receipt and returns to Ubuntu. Decode the matching
+`exit.log` with `tools/hardware_haswell_forcewake.py`.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

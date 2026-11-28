@@ -6,6 +6,7 @@ from hardware_haswell_survey import MASK32, MASK64, _record
 ENGINE_DRAIN_TOKEN = "srvros.hsw-forcewake=engine-drain"
 EXCLUSION_AUDIT_TOKEN = "srvros.hsw-forcewake=exclusion-audit"
 HANDOFF_AUDIT_TOKEN = "srvros.hsw-forcewake=handoff-audit"
+RESET_FREE_AUDIT_TOKEN = "srvros.hsw-forcewake=reset-free-audit"
 ENGINES = ("render", "video-decode", "blitter", "video-enhancement")
 REQUESTERS = ("igd", "display-hda")
 
@@ -200,3 +201,28 @@ def handoff_audit_result(lines, drain):
         state = "present-at-samples" if samples[0]["asls"] else "absent-at-samples"
     return dict(samples=samples, opregion_state=state, requester_hold="unavailable",
                 firmware_handoff="unavailable")
+
+
+def reset_free_audit_result(lines, drain):
+    (count, reads), = _records(lines, "hsw-reset-free-audit:",
+        r"hsw-reset-free-audit: v=1 rows=([0-2]) instpm_reads=([0-8]) ring_stop_stores=0 "
+        r"flush_stores=0 reset_stores=0 requester_drain=unverified authority=none", 1)
+    groups = drain["reads"] // 5
+    if (count != len(drain["samples"]) or "timing" not in drain
+            or not max(4 * count, groups - 1) <= reads <= groups):
+        raise ValueError("unbound INSTPM read extent")
+    rows = _records(lines, "hsw-reset-free-instpm:",
+        r"hsw-reset-free-instpm: phase=([01]) engine=([0-3]) raw=(\d+)", 4 * count)
+    samples = []
+    for index, (phase, engine, raw) in enumerate(rows):
+        if (phase, engine) != divmod(index, 4) or raw > MASK32:
+            raise ValueError("INSTPM row identity or value")
+        name = ENGINES[engine]
+        mode = drain["samples"][phase]["rings"][name][3]
+        samples.append(dict(phase=phase, engine=name, instpm=raw, mi_mode=mode,
+                            sync_flush_requested=bool(raw & 0x20) if raw != MASK32 else None,
+                            stop_ring=bool(mode & 0x100) if mode != MASK32 else None,
+                            ring_idle=bool(mode & 0x200) if mode != MASK32 else None,
+                            fence_write_bypassed=bool(mode & 2) if engine == 2 and mode != MASK32 else None))
+    return dict(instpm_reads=reads, samples=samples, ring_stop_stores=0, flush_stores=0,
+                reset_stores=0, requester_drain="unverified")

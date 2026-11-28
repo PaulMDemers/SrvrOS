@@ -220,8 +220,10 @@ static bool hsw_range_run(enum hsw_range_trial range, bool backing_captured) {
  case HSW_RANGE_FORCEWAKE:
  case HSW_RANGE_ENGINE_DRAIN:
  case HSW_RANGE_EXCLUSION_AUDIT:
- case HSW_RANGE_HANDOFF_AUDIT: {
-  hsw_handoff_audit=range==HSW_RANGE_HANDOFF_AUDIT;
+ case HSW_RANGE_HANDOFF_AUDIT:
+ case HSW_RANGE_RESET_FREE_AUDIT: {
+  hsw_reset_free_audit=range==HSW_RANGE_RESET_FREE_AUDIT;
+  hsw_handoff_audit=hsw_reset_free_audit || range==HSW_RANGE_HANDOFF_AUDIT;
   hsw_exclusion_audit=hsw_handoff_audit || range==HSW_RANGE_EXCLUSION_AUDIT;
   bool sample_engines=range!=HSW_RANGE_FORCEWAKE;
   bool verified=backing_captured && hsw_forcewake_run(sample_engines);
@@ -247,7 +249,7 @@ static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_sl
  hsw_cpu_control=cpu_control;hsw_linux_fences=linux_fences;
  hsw_forcewake_backing=range==HSW_RANGE_FORCEWAKE || range==HSW_RANGE_ENGINE_DRAIN ||
                        range==HSW_RANGE_EXCLUSION_AUDIT || range==HSW_RANGE_HANDOFF_AUDIT ||
-                       range==HSW_RANGE_REQUESTER_HOLD;
+                       range==HSW_RANGE_REQUESTER_HOLD || range==HSW_RANGE_RESET_FREE_AUDIT;
  hsw_result=(struct hwb_result){.status=2,.version=linux_fences?3:cpu_control?2:1,.fences=linux_fences?32:HWB_FENCES};
  console_write("hsw-backing-progress: exact Air6,1 read-only identity/config preflight\n");
  const struct pci_device *candidate=NULL;

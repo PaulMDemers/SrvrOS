@@ -286,6 +286,8 @@ static void forcewake_setup(void) {
  test_engine_drain=false;
  hsw_exclusion_audit=false;
  hsw_handoff_audit=false;
+ hsw_reset_free_audit=false;
+ instpm_inaccessible=instpm_slow=false;
  engine_prereqs_setup();
  memset(&hsw_forcewake,0,sizeof(hsw_forcewake));
  test_forcewake=true;
@@ -464,8 +466,34 @@ static void handoff_tests(void) {
  assert(hsw_engine_drain.sample[1].handoff.stable && hsw_forcewake.released);
 }
 
+static void reset_free_tests(void) {
+ handoff_setup();hsw_reset_free_audit=true;instpm_inaccessible=true;
+ assert(hsw_forcewake_run(true) && hsw_engine_drain.instpm_reads==8 && forcewake_stores==2);
+ assert(hsw_engine_drain.sample[1].instpm[3]==UINT32_MAX && hsw_engine_drain.retired==4);
+ handoff_setup();hsw_reset_free_audit=true;instpm_slow=true;
+ assert(!hsw_forcewake_run(true) && hsw_engine_drain.instpm_reads==1 && drain_reads==5);
+ assert(!strcmp(hsw_engine_drain.timing.stop,"sample-deadline") && !hsw_engine_drain.samples);
+ assert(hsw_forcewake.released && hsw_engine_drain.retired==4 && hsw_forcewake.retired==2);
+}
+
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"reset-free-audit")) {
+  reset_free_tests();
+  handoff_setup();hsw_reset_free_audit=true;
+  assert(hsw_forcewake_run(true) && hsw_engine_drain.instpm_reads==8 && drain_reads==40);
+  assert(hsw_forcewake.released && hsw_forcewake.retired==2 && hsw_engine_drain.retired==4);
+  assert(forcewake_stores==2 && !candidate_ptes && candidate_frames==2);
+  for(unsigned pass=0;pass<2;pass++)
+   for(unsigned engine=0;engine<4;engine++)assert(hsw_engine_drain.sample[pass].instpm[engine]==0x80+engine);
+  hsw_emit=1;hsw_report();hsw_forcewake_report();hsw_drain_report();
+  puts("laptop-capture: boot options=srvros.storage=ram srvros.workspace-volume=6ada85bb "
+       "srvros.desktop-release=1234567890abcdef srvros.capture=haswell-backing "
+       "srvros.hsw-cpu-control=read-only srvros.hsw-fences=linux-model-32 "
+       "srvros.hsw-forcewake=reset-free-audit srvros.capture-failure=reboot");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"handoff-audit")) {
   handoff_tests();
   handoff_setup();
