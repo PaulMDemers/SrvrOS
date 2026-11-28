@@ -15,7 +15,8 @@ static bool live(const struct bdw_boot_page *p)
 {
     return p->object == p && p->state == BDW_PAGE_RUNNING && p->source->object == p->source &&
            p->source->consumer == p && p->source->consumed && same_binding(&p->binding,&p->source->binding) &&
-           p->source->driver_range == p->driver_range && p->source->scratch == p->scratch &&
+           p->source->driver_range == p->driver_range && p->source->firmware_range == p->firmware_range &&
+           p->source->scratch == p->scratch &&
            display_access_held(&p->binding.display);
 }
 
@@ -23,7 +24,11 @@ static bool interval_held(const struct bdw_boot_page *p)
 {
     const struct bdw_boot_page_binding *b = &p->binding;
     const struct scanout_interval *loan = p->outer_loan ? p->outer_loan : &p->interval;
-    return loan->lender == p->driver_range &&
+    const struct scanout_interval *lender = p->driver_range ? p->driver_range : p->firmware_range;
+    return loan->lender == lender && loan->driver == (p->driver_range ? b->driver : NULL) && !loan->firmware &&
+           (!p->firmware_range || (p->firmware_range->firmware && !p->firmware_range->driver &&
+             !p->firmware_range->lender && scanout_interval_held(p->firmware_range,b->mmio,b->aperture,
+                 b->aperture_bytes,b->fence_end,p->firmware_range->pages))) &&
            scanout_interval_held(loan,b->mmio,b->aperture,b->aperture_bytes,
                                  b->fence_end,(struct scanout_space_range){b->index,1});
 }
@@ -49,7 +54,8 @@ static bool prove(struct bdw_boot_page *p)
     uint64_t after = page_clock(p);
     return after && proof.at >= before && proof.at <= after && proof.source == p->source &&
            proof.driver == b->driver && proof.epoch == b->epoch && proof.root == b->root &&
-           proof.driver_range == p->driver_range && proof.scratch == p->scratch &&
+           proof.driver_range == p->driver_range && proof.firmware_range == p->firmware_range &&
+           proof.scratch == p->scratch &&
            proof.index == b->index && proof.rights == BDW_PAGE_REQUIRED && proof.plane == b->plane &&
            (proof.programmed & ~8u) == b->surface && proof.live == b->surface;
 }
@@ -129,12 +135,15 @@ static bool begin_page(struct bdw_boot_page *p, struct bdw_boot_page_source *sou
         b->marker[0] == b->marker[1] ||
         !scanout_interval_boot_framebuffer_matches(b->mmio,b->aperture,b->aperture_bytes,b->fence_end)) return false;
     const struct scanout_interval *owner = source->driver_range;
+    const struct scanout_interval *firmware = source->firmware_range;
     uint64_t scratch = source->scratch;
+    if (firmware && (owner || !loan || seed)) return false;
     if (owner) {
         if (!scratch || (scratch & 4095) || scratch >= 0x100000000ull ||
             !scanout_interval_held(owner,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,owner->pages)) return false;
     } else if (scratch) return false;
-    if (loan && (!owner || loan == &p->interval || loan->lender != owner || loan->driver != b->driver ||
+    if (loan && ((!owner && !firmware) || loan == &p->interval || loan->lender != (owner ? owner : firmware) ||
+        loan->firmware || loan->driver != (owner ? b->driver : NULL) ||
         !scanout_interval_held(loan,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,
                                (struct scanout_space_range){b->index,1}))) return false;
     if (seed) {
@@ -149,6 +158,7 @@ static bool begin_page(struct bdw_boot_page *p, struct bdw_boot_page_source *sou
     p->source = source;
     p->binding = *b;
     p->driver_range = owner;
+    p->firmware_range = firmware;
     p->scratch = scratch;
     p->io = *io;
     p->entry = entry;
@@ -157,7 +167,7 @@ static bool begin_page(struct bdw_boot_page *p, struct bdw_boot_page_source *sou
     source->consumed = true;
     source->consumer = p;
     b = &p->binding;
-    if ((!owner && !prove(p)) || !display_access_pin(&b->display)) goto refuse;
+    if ((!owner && !firmware && !prove(p)) || !display_access_pin(&b->display)) goto refuse;
     struct scanout_space_range managed = {b->index,1};
     bool claimed = loan ? interval_held(p) : owner ? scanout_interval_borrow_driver(&p->interval,owner,b->driver,managed) :
         scanout_interval_claim(&p->interval,b->mmio,b->aperture,b->aperture_bytes,b->fence_end,managed);
@@ -167,7 +177,7 @@ static bool begin_page(struct bdw_boot_page *p, struct bdw_boot_page_source *sou
     }
     /* Establish the first proof after holding the exact child, so a provider
      * cannot release the parent between admission and reservation. */
-    if (owner && !guard(p)) {
+    if ((owner || firmware) && !guard(p)) {
         if (!interval_held(p) || !display_access_unpin(&b->display)) return retained(p);
         if (!loan) scanout_interval_release(&p->interval);
         goto refuse;

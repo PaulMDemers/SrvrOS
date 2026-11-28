@@ -169,6 +169,19 @@ The provider owns the actual request, checks the pre-reopen boot context
 and retains the firmware, proxy and cache-policy guards. The saved Air
 baseline refuses before any request. [Diagnostic core](../kernel/diagnostics/intel_bdw_boot_drain.c)
 
+The occupied-slot path borrows one exact page from its original registered
+firmware interval. It can qualify the hold with zero PTE writes, or keep the
+same loan and traffic ticket for one private bind and exact rollback. It
+waits for fresh engine and L3 acknowledgements before the first store and
+checks the WiDi and GAM hold around each store and invalidation. Before
+returning the ticket it verifies the restored PTE and original aperture
+markers while Pipe A remains on the inherited scanout. A stale translation
+or lost owner keeps the loan, both backings and display pin live. A verified
+return releases the child and keeps the original firmware interval reserved.
+The captured Air `GO_GAM_REQ=0x7fff` still refuses before requesting the hold.
+The physical test needs a native provider with a verified acquire, hold and
+release sequence. [Occupied-slot core](../kernel/diagnostics/intel_bdw_boot_drain.c)
+
 The separate-range entry point borrows an exact slot from a registered
 driver interval and requires an exactly zero PTE before requesting a hold.
 It keeps the loan and the inherited display pinned through the fresh

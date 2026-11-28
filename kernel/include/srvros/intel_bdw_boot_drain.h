@@ -30,8 +30,8 @@ struct bdw_boot_drain {
     struct bdw_boot_page_binding binding;
     struct bdw_boot_drain_io io;
     struct scanout_interval interval;
-    const struct scanout_interval *driver_range;
-    struct scanout_space_range driver_pages;
+    const struct scanout_interval *driver_range, *firmware_range;
+    struct scanout_space_range lender_pages;
     uint64_t begin, last, requested_at, release_begin, ticket;
     uint32_t engine_acks;
     bool l3_ack;
@@ -48,6 +48,9 @@ bool intel_bdw_boot_drain_run(struct bdw_boot_drain *, const struct bdw_boot_pag
  * trial leaves both the page and its parent's publication state unchanged. */
 bool intel_bdw_boot_drain_run_driver(struct bdw_boot_drain *, const struct bdw_boot_page_binding *,
                                     const struct scanout_interval *driver_range, const struct bdw_boot_drain_io *);
+/* Qualify the same occupied-slot loan and drain without providing a writer. */
+bool intel_bdw_boot_drain_run_occupied(struct bdw_boot_drain *, const struct bdw_boot_page_binding *,
+                                      const struct scanout_interval *firmware_range, const struct bdw_boot_drain_io *);
 
 struct bdw_boot_bind {
     struct bdw_boot_drain hold;
@@ -64,5 +67,13 @@ bool intel_bdw_boot_bind(struct bdw_boot_bind *, const struct bdw_boot_page_bind
                          struct scanout_interval *driver_range, uint64_t private_frame,
                          const uint64_t private_marker[2], const struct bdw_boot_drain_io *,
                          const struct bdw_boot_page_io *);
+
+/* Borrow one occupied slot from its registered firmware interval. The native
+ * provider must own the handoff, pin the original and replacement backing and
+ * retain the traffic ticket through both invalidations and marker checks. The
+ * original firmware reservation remains registered after a clean return. */
+bool intel_bdw_boot_bind_occupied(struct bdw_boot_bind *, const struct bdw_boot_page_binding *,
+                                  const struct scanout_interval *firmware_range,
+                                  const struct bdw_boot_drain_io *, const struct bdw_boot_page_io *);
 
 #endif

@@ -737,6 +737,16 @@ and WiDi and hold fresh engine and L3 completion through both PTE stores.
 The native census establishes occupancy only. The Air's earlier request
 samples do not supply that provider.
 
+The occupied-slot core now has a no-write drain trial and a two-store bind
+and rollback trial using the same exact firmware loan. The host transfer
+suite passed 341 cases and the Q35 suite passed 120, including ten occupied
+slot cases. Both check fresh acknowledgements before writing and retention
+on lost ownership or stale rollback. Open WiDi, missing L3, and missing
+firmware exclusion prevent the first write. The saved Air baseline refuses
+before requesting the hold. The branch leaves Ubuntu at 1% volume with
+recovery `9aa8dbf6fbda8252` and no occupied-slot trial armed. The native
+provider for the on-chip traffic hold is still required for a hardware boot.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
