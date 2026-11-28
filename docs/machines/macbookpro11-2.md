@@ -994,6 +994,10 @@ entry consumed, the exit log verified, all 714 prior workspace files intact,
 and recovery verified. The private archive is `evidence-6805a2ba3db92ff7`.
 The next diagnostic is the first management OUT completion on DCI 10.
 
+Trace scope from `f1c70898` with main at `b062ba18` covers the first Netgear
+station OUT, its cleanup, and the xHCI host fixture. Use the archived
+station return and the Linux authentication capture from the same adapter.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
