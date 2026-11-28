@@ -365,6 +365,18 @@ two SrvrOS samples. Register definitions follow
 [Linux rtw88](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/reg.h).
 Run record `build/bringup/pro112-rtl8822bu-rx-counters/run.json`.
 
+Physical session `session-0006614d7827ff9b-00` observed 12 CCK and 6
+OFDM frames with valid CRCs during the 333.174 ms channel 10 window.
+The PHY also counted 8 CCK and 20 OFDM CRC errors. RX DMA stayed idle
+(`RXPKT_NUM=0x00020000`), its status, pointer and packet registers stayed
+zero, and the xHCI dequeue stayed at the pending IN TRB. There were no
+USB completions during the wait or closing sample. This places the
+observed stall between PHY frame validation and the USB receive queue.
+Compare MAC receive admission and RX DMA setup to Linux next. Both logs
+agree, the endpoint and radio retired safely, all 688 workspace files
+matched, and Ubuntu returned automatically. The verified payload and
+logs are in `evidence-dcfa2ac84069edd9` in the recovery archive.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
