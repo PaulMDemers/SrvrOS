@@ -245,12 +245,15 @@ and GGTT slots 4096 and 16385 were untouched. The exit snapshot, recovery
 and offline USB check verified. Requester hold remains unverified.
 Air7,2 PR301 at `e69ae6fa` has a separate Broadwell full-GT range scope.
 
-The next PR567 checkpoint samples the four Haswell command rings and
-PCI requester status while the verified kernel forcewake bit is held.
-Scope is the isolated Air6,1 backing adapter, boot recipe and receipt
-verifier on `c765c6ae` against integration head `24feebdd`. Pipe A
-keeps the inherited surface, and GGTT slots 4096 and 16385 stay
-protected. Air7,2 PR301 at `9827235e` owns its Broadwell full-GT work.
+The [native held-engine trial](../intel-hsw-tearfree.md#native-held-engine-result)
+on `b9121084` / `f53f55d9ba361ef2` completed one of two passes
+with ACK set and GT thread C0. All four rings reported idle in the
+first pass, and the available IGD and display HDA pending bits were
+clear. A 10.688 ms clock gap exceeded the 4 ms sampling budget before
+the second pass. Pipe A's closing frame was unobserved. Forcewake
+released, all six aliases retired, and the protected slots were
+untouched. The exit snapshot, recovery and offline USB check verified.
+Air7,2 PR301 at `9827235e` owns its Broadwell full-GT work.
 
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,

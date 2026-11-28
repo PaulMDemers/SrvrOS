@@ -779,6 +779,29 @@ Stage with `--laptop-probe-volume UUID --haswell-backing-capture
 The unattended profile saves the result to USB and returns to Ubuntu.
 Decode the exit snapshot with `tools/hardware_haswell_forcewake.py`.
 
+#### Native held-engine result
+
+On source `b9121084` and release `f53f55d9ba361ef2`, the first pass
+completed in 46 µs with ACK set and GT thread C0 at both ends. All
+four rings reported MI_MODE idle and matching masked HEAD and TAIL.
+Render, video decode and video enhancement had disabled rings. The
+enabled blitter reported HEAD, TAIL and ACTHD at `0x970`. IGD
+Advanced Features Transactions Pending and display HDA PCIe
+Transactions Pending were clear in this pass, with PCI bus mastering
+enabled for both devices. CPU0's SMI count was 13.
+
+The next recorded clock was 10.688 ms after the first pass ended.
+The 4 ms sampling budget expired before the second pass began.
+The receipt has the initial Pipe A frame 927 and no closing frame
+sample. Two-pass engine idle and requester status, Pipe A continuity
+across the trial, requester drain and firmware exclusion remain
+unverified. The cause of the clock gap is unconfirmed.
+
+Forcewake ACK cleared 5 µs after the release attempt. All six aliases
+retired, and the receipt recorded zero reads of protected slots 4096
+and 16385. The exit snapshot, installed recovery and offline USB check
+verified after Ubuntu returned with the one-shot consumed.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two
