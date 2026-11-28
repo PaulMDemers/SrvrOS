@@ -2,11 +2,15 @@
 #include <srvros/console.h>
 #include <srvros/display_profile.h>
 #include <srvros/initramfs.h>
+#include <srvros/mt76_rsn.h>
+#include <srvros/net.h>
+#include <srvros/net_device.h>
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
 #include <srvros/sha256.h>
 #include <srvros/timer.h>
 #include <srvros/vmm.h>
+#include <srvros/wpa2_ccmp.h>
 
 enum {
     PCI_COMMAND = 0x04, PCI_MEMORY = 2, PCI_BUS_MASTER = 4,
@@ -275,7 +279,7 @@ static bool reset_d11(const struct pci_device *p, const struct bcma_core *core, 
 #include "bcm4331_radio.inc"
 
 static bool retire_stuck_radio_dma(const struct pci_device *p, const struct bcma_core *core,
-        volatile uint32_t *regs, uint64_t *dma_memory) {
+        volatile uint32_t *regs, struct radio_dma *dma) {
     uint16_t command = pci_read_config16(p, PCI_COMMAND);
     if (command == UINT16_MAX || !(command & PCI_MEMORY)) return false;
     if (command & PCI_BUS_MASTER) pci_write_config16(p, PCI_COMMAND, command & ~PCI_BUS_MASTER);
@@ -286,17 +290,17 @@ static bool retire_stuck_radio_dma(const struct pci_device *p, const struct bcma
     bool reset = wait_d11_register(regs, CORE_RESET_CONTROL, CORE_RESET, CORE_RESET) &&
         wait_d11_register(regs, CORE_RESET_STATUS, UINT32_MAX, 0) && pci_transactions_drained(p);
     console_printf("bcm4331-radio: dma_recovery_reset=%u\n", (uint64_t)reset);
-    if (reset) {
-        pmm_free_frame_range(*dma_memory, RX_DMA_PAGES);
-        *dma_memory = 0;
+    if (reset && !dma->provider_pinned) {
+        pmm_free_frame_range(dma->memory, RX_DMA_PAGES);
+        dma->memory = 0;
     }
-    return reset;
+    return reset && !dma->provider_pinned;
 }
 
 /* Run the D11 PSM bootstrap. Keep the MAC disabled and mask device IRQs
  * while loading firmware. An explicit radio trial may enable receive. */
 static bool firmware_trial(const struct pci_device *p, volatile uint32_t *regs, const uint8_t *ucode,
-    const struct radio_assets *radio, bool *beacon, bool *retired, uint64_t *dma_memory) {
+    const struct radio_assets *radio, bool *completed, bool *retired, struct radio_dma *dma) {
     const uint32_t quiet = D11_GMODE | D11_SHM_ENABLED | D11_IHR_ENABLED | D11_INFRA;
     regs[D11_IRQ_MASK / 4] = 0;
     regs[D11_MAC_CONTROL / 4] = quiet | D11_PSM_JUMP_ZERO;
@@ -339,7 +343,7 @@ static bool firmware_trial(const struct pci_device *p, volatile uint32_t *regs, 
         }
     }
     bool radio_retired = true;
-    if (radio && revision == 784 && patch == 2) *beacon = radio_trial(p, regs, radio, &radio_retired, dma_memory);
+    if (radio && revision == 784 && patch == 2) *completed = radio_trial(p, regs, radio, &radio_retired, dma);
     regs[D11_MAC_CONTROL / 4] = quiet;
     uint32_t control = regs[D11_MAC_CONTROL / 4];
     *retired = radio_retired && control != UINT32_MAX && !(control & (D11_MAC_ENABLED | D11_PSM_RUN)) && !regs[D11_IRQ_MASK / 4];
@@ -360,8 +364,9 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
         console_write("bcm4331: refused missing or mismatched firmware image\n");
         return BCM4331_REFUSED;
     }
-    bool radio_trial_mode = mode == BCM4331_CHANNEL10 || mode == BCM4331_STATION;
-    struct radio_assets assets = {.station = mode == BCM4331_STATION};
+    bool station_mode = mode == BCM4331_STATION || mode == BCM4331_STATION_DHCP;
+    bool radio_trial_mode = mode == BCM4331_CHANNEL10 || station_mode;
+    struct radio_assets assets = {.station = station_mode};
     if (radio_trial_mode) {
         assets.initial = pinned_asset("/firmware/bcm4331-ht-init.fw", 2830,
             "1ee846e61c27505bc55d68bd1ff8155affc2771eb8244d935d329ed8c08ad764");
@@ -375,6 +380,13 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
         if (!assets.initial || !assets.band || !assets.profile) {
             console_write("bcm4331: refused missing or mismatched channel 10 assets\n");
             return BCM4331_REFUSED;
+        }
+        if (mode == BCM4331_STATION_DHCP) {
+            assets.key = station_key();
+            if (!assets.key) {
+                console_write("bcm4331: refused missing or invalid station key record\n");
+                return BCM4331_REFUSED;
+            }
         }
     }
     const struct pci_device *p = bcm4331_controller();
@@ -415,8 +427,8 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
     if (enabled != fenced) pci_write_config16(p, PCI_COMMAND, enabled);
     bool mapped = false, switched = false, matched = false, pins_restored = true, srom_ready = false, phy_ready = false;
     bool firmware_attempted = false, firmware_ready = false, psm_retired = true;
-    bool beacon = false;
-    uint64_t dma_memory = 0;
+    bool completed = false;
+    struct radio_dma dma = {0};
     if (pci_read_config16(p, PCI_COMMAND) == enabled) {
         volatile uint32_t *cc = (volatile uint32_t *)fixed;
         uint32_t id = cc[CHIP_ID / 4], cap = cc[CHIP_CAP / 4], erom = cc[CHIP_EROM / 4];
@@ -445,8 +457,8 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
                         volatile uint32_t *regs = (volatile uint32_t *)bcm4331_window;
                         firmware_attempted = reset_d11(p, &cores[1], regs, &psm_retired);
                         if (firmware_attempted) firmware_ready = firmware_trial(p, regs, ucode + UCODE_HEADER_BYTES,
-                            radio_trial_mode ? &assets : 0, &beacon, &psm_retired, &dma_memory);
-                        if (dma_memory) psm_retired = retire_stuck_radio_dma(p, &cores[1], regs, &dma_memory);
+                            radio_trial_mode ? &assets : 0, &completed, &psm_retired, &dma);
+                        if (dma.memory) psm_retired = retire_stuck_radio_dma(p, &cores[1], regs, &dma);
                     }
                 } else if (selected) {
                     console_write("bcm4331: enumeration ROM did not match the captured topology\n");
@@ -467,11 +479,12 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
     if (mapped) unmapped = (vmm_unmap_page_in_space(root, bcm4331_window, &physical) && physical == bar) && unmapped;
     console_printf("bcm4331: mapping=%s pci_windows_restored=%u bus_master_off=%u pins_restored=%u dma_pages=%u mac_writes=%u\n",
         unmapped ? "released" : "unverified", (uint64_t)restored, (uint64_t)bus_master_off, (uint64_t)pins_restored,
-        (uint64_t)(dma_memory ? RX_DMA_PAGES : 0), (uint64_t)firmware_attempted);
+        (uint64_t)(dma.memory ? RX_DMA_PAGES : 0), (uint64_t)firmware_attempted);
     if (!restored || !unmapped || !pins_restored || !psm_retired) return BCM4331_UNSAFE;
     if (matched) console_printf("bcm4331: board_data=%u phy_identified=%u\n", (uint64_t)srom_ready, (uint64_t)phy_ready);
-    if (mode == BCM4331_STATION) return beacon ? BCM4331_ASSOCIATED : BCM4331_INCOMPLETE;
-    if (mode == BCM4331_CHANNEL10) return beacon ? BCM4331_BEACON_OK : BCM4331_INCOMPLETE;
+    if (mode == BCM4331_STATION_DHCP) return completed ? BCM4331_DHCP_OK : BCM4331_INCOMPLETE;
+    if (mode == BCM4331_STATION) return completed ? BCM4331_ASSOCIATED : BCM4331_INCOMPLETE;
+    if (mode == BCM4331_CHANNEL10) return completed ? BCM4331_BEACON_OK : BCM4331_INCOMPLETE;
     if (start_firmware) return firmware_ready ? BCM4331_FIRMWARE_OK : BCM4331_INCOMPLETE;
     return matched ? BCM4331_TOPOLOGY_OK : BCM4331_INCOMPLETE;
 }

@@ -603,6 +603,15 @@ are independent transports. PR #568 tracks this device branch. The open
 graphics and runtime PRs have no overlapping D11 work. Keep the accepted
 passive release and Ubuntu recovery available throughout.
 
+Release `cbd2537e8ca4d612` (`691a58c9`) passed the exact VM rehearsal and
+native station test. The AP acknowledged the Open System authentication
+and association frames and returned status 0 for both. The station sent
+an acknowledged disassociation. RX and TX stopped and PCI bus mastering
+was fenced. Both flash reports verified, and Ubuntu returned with both
+links up. The station radio profile includes the TX gain calibration from
+this unit's Linux trace. Ubuntu's sanitized b43 capture confirmed the
+1 Mb/s management header and the D11 transmit queue.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

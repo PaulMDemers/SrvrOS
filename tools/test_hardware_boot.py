@@ -1021,6 +1021,38 @@ class InstallTests(unittest.TestCase):
                           (self.stage / candidate / "limine.conf").read_text())
             boot.verify(self.stage / candidate, candidate)
 
+    def test_bcm4331_dhcp_private_archive(self):
+        import tarfile
+
+        from bcm4331_station_key import ARCHIVE_NAME
+        from wifi_wpa5_credentials import MAGIC
+
+        for name in ("limine-binary/BOOTX64.EFI", "kernel/srvros.elf"):
+            path = self.root / "build" / name
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"fixture")
+        firmware = self.root / "ucode29.fw"
+        firmware.write_bytes(bytes(43224))
+        profile = self.root / "station.bin"
+        profile.write_bytes(b"station fixture")
+        key = self.root / "station.key"
+        key.write_bytes(MAGIC + b"\x09" + b"Demers2.4".ljust(32, b"\0") + bytes(range(64)))
+        key.chmod(0o600)
+        assets = {"firmware/bcm4331-station.bin": (profile.stat().st_size, boot.digest(profile), None)}
+        with patch.object(boot, "ROOT", self.root), patch.object(boot, "BCM4331_UCODE_SOURCE", firmware), \
+                patch.object(boot, "BCM4331_UCODE_SHA256", boot.digest(firmware)), patch.object(boot, "BCM4331_STATION_ASSETS", assets), \
+                patch.object(boot.subprocess, "check_output", side_effect=["fixture-revision\n", ""]):
+            release = boot.stage(ehci_bcm4331_volume="0d9b53a0", ehci_bcm4331_firmware=True,
+                                 ehci_bcm4331_profile=profile, ehci_bcm4331_station=True, ehci_bcm4331_station_key=key)
+            payload = self.stage / release
+            self.assertIn("srvros.ehci=wifi4331-dhcp", (payload / "limine.conf").read_text())
+            boot.verify(payload, release)
+            with tarfile.open(payload / "initramfs.tar") as archive:
+                self.assertEqual(archive.getmember(ARCHIVE_NAME).mode, 0o600)
+            self.assertEqual((payload / "initramfs.tar").stat().st_mode & 0o777, 0o600)
+        with self.assertRaisesRegex(ValueError, "station key requires the station trial"):
+            boot.stage(ehci_bcm4331_station_key=key)
+
     def test_wifi_channel_state_profile(self):
         v="ram-usb-wifi-fw-v75-laptop-probe-0e535900-auto-return"
         config=boot.limine_config("0123456789abcdef",v)
