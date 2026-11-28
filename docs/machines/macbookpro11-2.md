@@ -546,6 +546,26 @@ all three adapters enumerated, all 696 workspace files matched, and all
 seven EFI journal phases agreed with the exit evidence. The verified
 payload and logs are under `evidence-6bdef8c70130ba12`.
 
+#### RTL8822BU queue initialization and status readback
+
+Device scope from `2fedf161`, against main `24feebdd`. The Netgear RX
+diagnostic and its native xHCI fixture are the only code in scope.
+Keep all adapters in the Genesys hub, the same firmware and target
+channel, the 32 KiB IN, TX pause and the MAC transmit gate.
+
+A new Linux control and bulk capture found both Demers networks in a
+passive scan without changing Ubuntu's default route. The Linux driver
+reads `0xeaeaeaea` at `0x1330` even while MAC control is `0xff`,
+the FIFO registers read correctly and bulk IN is working. The full bit
+is unobservable in that read. The firmware queue starts at `0x3fa00`;
+after the two 80-byte commands and the first IN, Linux reads both
+cursors at `0x3fa40`. The capture shows Linux writes the constant
+`0x80000000` to the queue status after enabling host DMA and before
+programming the page table and LLT. Reproduce that write and ordering
+with MAC TX still disabled, then verify the H2C boundary, mode and
+offset registers before issuing General Info.
+[Linux RTL8822B USB MAC initialization](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/mac.c).
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
