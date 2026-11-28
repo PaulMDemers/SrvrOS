@@ -1027,6 +1027,24 @@ descriptor. The pre-boot baseline covers 716 workspace files. The on-disk
 On return use that directory’s `collect-local.py` to compare the workspace
 and EFI journal records for the authentication transfer.
 
+Cold trace session `session-0006615b00932dda-00` again decoded the
+Demers2.4 beacon on channel 10 with all three adapters on the hub.
+Four 32 KiB bulk-IN requests were pending at firmware startup and at
+scan entry. The first 78-byte authentication OUT on DCI 10 had a
+matching published buffer and stayed pending for 250,002 µs. The
+Netgear reported `TXPAUSE=0` and `TXDMA_STATUS=0`. Endpoint Stop produced
+completion 26 with all 78 bytes remaining and left the dequeue at the
+authentication TRB. This bounds the failure to the first USB management
+transfer. It does not distinguish host scheduling from USB endpoint
+backpressure. Association and WPA2 remain unverified.
+
+The workspace `exit.log` and independent journal agree on the four
+authentication trace records. Both endpoint retirement and an automatic
+return to Ubuntu were recorded. The journal has all seven checkpoints,
+all 716 previous workspace files matched, the EFI partition retained
+its root-only mount, and recovery verified. The saved evidence is in
+the private `evidence-5fafa9293311c5df` archive.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
