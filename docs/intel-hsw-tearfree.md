@@ -1213,6 +1213,22 @@ Stage with `--laptop-probe-volume UUID --haswell-backing-capture
 --haswell-tilectl --haswell-linux-fences --haswell-completion-page`.
 Decode the matching `exit.log` with `tools/hardware_haswell_forcewake.py`.
 
+##### Native completion-page refusal
+
+Air6,1 release `17050d730eeb277b` from source `412036c5` completed in
+session `session-0006615abd378f43-00`. The firmware exclusion gate returned
+`state=refused reason=firmware-exclusion` with zero page initialization,
+PTE writes or PGA writes attempted. Engine-hold admission also refused
+with zero ring commands. The two read-only samples completed in 382 µs
+and again observed `PGA=0` and both masks all ones. Native page binding
+and active flush completion remain unverified.
+
+Pipe A advanced from frame 922 to 923 on the inherited framebuffer.
+Slots 4096 and 16385 stayed untouched. Forcewake ACK cleared in 3 µs
+after release and all seven aliases retired. The installed release, exit
+snapshot, archived replay, recovery and offline USB check verified after
+the one-shot returned to Ubuntu.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two
