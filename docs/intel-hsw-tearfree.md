@@ -352,6 +352,21 @@ from a clear bit. It binds that sample to the later inherited-surface
 observation. Slot 4096 stays protected. The profile issues no invalidation,
 fault acknowledgement, requester inhibition or firmware control.
 
+#### Native drain-state trial halted during retirement
+
+Source `caedb228` / release `05fbf4639efa4821` completed the first pass's
+12 register reads. The halt photograph shows `CCMD=0x0800000000000000`,
+`FSTS=0x00000000` and `IOTLB=0x0200000000000000`. The context and IOTLB
+pending bits were clear in that batch. The fresh 42-table census took
+75.370 ms and fit in 3,072 bytes per raw pass.
+
+Retirement began with 7.199 ms remaining. The 100 ms deadline expired
+after the unlink attempt began and before either frame was freed. Unlink
+completion and full retirement remain unverified. Pass two and the slot
+4096 audit were skipped. The halt preceded USB logging, so
+this is a photographed first-pass observation. Ubuntu returned with the
+one-shot consumed, and recovery and the offline USB check verified.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

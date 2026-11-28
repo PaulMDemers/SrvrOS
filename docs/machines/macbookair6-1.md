@@ -139,6 +139,14 @@ VT-d lifetimes and binds the observed state to the subsequent Pipe A and
 slot 4096 receipt. The existing deadlines and retirement checks apply.
 Broadwell PR301 at `c66d5c3b` retains its independent drain work.
 
+The [native drain-state trial](../intel-hsw-tearfree.md#native-drain-state-trial-halted-during-retirement)
+on `caedb228` / `05fbf4639efa4821` completed the first 12 reads, with clear
+command pending bits and `FSTS=0` on the halt screen. The first pass hit
+100 ms during retirement after the unlink attempt began. It freed no
+frames. The second pass and slot 4096 probe remain pending. The halt
+photo was archived locally. Ubuntu returned, and recovery and the
+offline USB filesystem check verified.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
