@@ -6,6 +6,8 @@ enum {
     BU_RX_SCHEDULE=1u<<5, BU_RX_HOST_TXDMA=1u, BU_RX_TXDMA=1u<<2,
     BU_RX_SEC_ENABLE=1u<<9, BU_RX_SECCFG=0x680, BU_RX_SEC_POLICY=0xcf,
     BU_RX_DMA_MAP=0xf5a0, BU_RX_ARB=1, BU_RX_LLT=0x0208,
+    BU_RX_FIFO_END=0x5eff, BU_RX_USB_MODE=0x1e, BU_RX_AGG_ENABLE=1u<<2,
+    BU_RX_AGG_TH=0x280, BU_RX_AGG_SCAN=0x2003, BU_RX_AGG_SHORT=0x100,
     BU_RX_FILTER0=0xffffffffu, BU_RX_FILTER2=0xffff, BU_RX_RCR=0xf410400e,
     BU_H2C_CR=BU_RX_CR|BU_RX_HOST_TXDMA|BU_RX_TXDMA,
     BU_RX_DMA_CR=BU_H2C_CR|BU_RX_SCHEDULE,
@@ -28,6 +30,11 @@ static struct bu_rx *bu_rx_owner;
 
 struct bu_rx_security {
     uint32_t cr,config;
+    bool touched;
+};
+
+struct bu_rx_fifo {
+    uint32_t boundary,mode,offset,map,threshold,cr,pause;
     bool touched;
 };
 
@@ -194,10 +201,10 @@ static bool bu_rx_observe(const struct bu_rx *rx,const char *sample,bool *idle) 
     return true;
 }
 
-static const char *bu_rx_window(struct bu_rx *rx,bool dma,bool *idle_pending) {
+static const char *bu_rx_window(struct bu_rx *rx,bool aggregate,bool *idle_pending) {
     bool idle_before=false,idle_after=false;
     *idle_pending=false;
-    if(!bu_rx_observe(rx,dma?"dma-before":"before",&idle_before))return "rx-observe";
+    if(!bu_rx_observe(rx,aggregate?"agg-before":"before",&idle_before))return "rx-observe";
     if(rx->failed)return "rx-event";
     unsigned starting_completed=rx->completed;
     uint64_t start=timer_monotonic_us();
@@ -219,10 +226,10 @@ static const char *bu_rx_window(struct bu_rx *rx,bool dma,bool *idle_pending) {
     }
     uint64_t elapsed=timer_monotonic_us()-start;
     unsigned in_window=rx->completed;
-    bool observed=!device_removed(rx->device) && bu_rx_observe(rx,dma?"dma-after":"after",&idle_after);
+    bool observed=!device_removed(rx->device) && bu_rx_observe(rx,aggregate?"agg-after":"after",&idle_after);
     *idle_pending=observed && idle_before && idle_after && rx->pending && rx->posted==1 && !rx->completed;
-    if(dma) {
-        console_printf("rtl8822bu-rx-dma-window: elapsed_us=%u completed=%u closing=%u transition=%u observed=%u\n",
+    if(aggregate) {
+        console_printf("rtl8822bu-rx-agg-window: elapsed_us=%u completed=%u closing=%u transition=%u observed=%u\n",
             elapsed,(uint64_t)(in_window-starting_completed),(uint64_t)(rx->completed-in_window),
             (uint64_t)starting_completed,(uint64_t)observed);
     } else {
@@ -259,22 +266,79 @@ static bool bu_rx_enable_security(struct bu_upload *up,const struct bu_rx *rx,st
     return changed;
 }
 
-static bool bu_rx_enable_dma(struct bu_upload *up,const struct bu_rx *rx,const struct bu_rx_security *security) {
+static bool bu_rx_prepare_dma(struct bu_upload *up,const struct bu_rx *rx,const struct bu_rx_security *security) {
     struct xhci_device *d=up->device;
     uint32_t before=0,after=0,config=0,pause=0;
     uint32_t expected=(security->cr&0xff00)|BU_RX_SEC_ENABLE|BU_RX_DMA_CR;
-    uint64_t owner=rx->trb;
     bool changed=wifi_hub_check_port(d,up->hub) &&
         bu_read(d,BU_CR,2,&before) && before==(security->cr|BU_RX_SEC_ENABLE) &&
-        bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff && rx->pending && !rx->completed && !rx->failed &&
+        bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff && !rx->posted && !rx->failed &&
         bu_write(d,BU_CR,1,BU_RX_DMA_CR) && bu_read(d,BU_CR,2,&after) && after==expected &&
         bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff &&
         bu_read(d,BU_RX_SECCFG,2,&config) && config==(security->config|BU_RX_SEC_POLICY) &&
-        rx->trb==owner && !rx->failed;
-    console_printf("rtl8822bu-rx-dma-enable: eligible=1 before=%x after=%x cfg=%x pause=%x owner=%x pending=%u verified=%u\n",
-        (uint64_t)before,(uint64_t)after,(uint64_t)config,(uint64_t)pause,owner,
-        (uint64_t)rx->pending,(uint64_t)changed);
+        !rx->failed;
+    console_printf("rtl8822bu-rx-dma-enable: before=%x after=%x cfg=%x pause=%x verified=%u\n",
+        (uint64_t)before,(uint64_t)after,(uint64_t)config,(uint64_t)pause,(uint64_t)changed);
     return changed;
+}
+
+static bool bu_rx_fifo_read(struct xhci_device *d,struct bu_rx_fifo *f,const char *phase) {
+    bool ok=bu_read(d,0x11c,4,&f->boundary) && bu_read(d,0x290,1,&f->mode) &&
+        bu_read(d,0x20c,2,&f->offset) && bu_read(d,0x10c,2,&f->map) &&
+        bu_read(d,BU_RX_AGG_TH,4,&f->threshold) && bu_read(d,BU_CR,2,&f->cr) &&
+        bu_read(d,BU_TXPAUSE,1,&f->pause);
+    console_printf("rtl8822bu-rx-fifo: phase=%s boundary=%x mode=%x offset=%x map=%x threshold=%x cr=%x pause=%x read=%u\n",
+        phase,(uint64_t)f->boundary,(uint64_t)f->mode,(uint64_t)f->offset,(uint64_t)f->map,
+        (uint64_t)f->threshold,(uint64_t)f->cr,(uint64_t)f->pause,(uint64_t)ok);
+    return ok;
+}
+
+static bool bu_rx_fifo_match(const struct bu_rx_fifo *f,uint32_t map,uint32_t threshold) {
+    return f->boundary==BU_RX_FIFO_END && f->mode==BU_RX_USB_MODE && f->offset==0x8200 &&
+        f->map==map && f->threshold==threshold;
+}
+
+static bool bu_rx_fifo_write(struct xhci_device *d,uint32_t map,uint32_t threshold) {
+    /* USB v1 aggregation control: queue bit, USB high byte, then size/timer. */
+    return bu_write(d,0x10c,1,map&0xff) && bu_write(d,BU_RX_AGG_TH+3,1,threshold>>24) &&
+        bu_write(d,BU_RX_AGG_TH,2,threshold&0xffff);
+}
+
+static bool bu_rx_fifo_control(struct xhci_device *d,struct bu_rx_fifo *saved) {
+    const uint32_t map=BU_RX_DMA_MAP|BU_RX_ARB;
+    if(!bu_rx_fifo_read(d,saved,"entry") || (saved->threshold&0x7fff0000u) ||
+       !bu_rx_fifo_match(saved,saved->map,saved->threshold) || (saved->map&~BU_RX_AGG_ENABLE)!=map ||
+       (saved->cr&0xff)!=BU_RX_DMA_CR || saved->pause!=0xff)return false;
+    saved->touched=true;
+    struct bu_rx_fifo f={0};
+    return bu_rx_fifo_write(d,map,BU_RX_AGG_SCAN) && bu_rx_fifo_read(d,&f,"control") &&
+        bu_rx_fifo_match(&f,map,BU_RX_AGG_SCAN) && f.cr==saved->cr && f.pause==0xff;
+}
+
+static bool bu_rx_fifo_short(struct bu_upload *up,const struct bu_rx *rx,const struct bu_rx_fifo *saved) {
+    struct xhci_device *d=up->device;
+    const uint32_t map=BU_RX_DMA_MAP|BU_RX_ARB;
+    struct bu_rx_fifo f={0};
+    uint64_t owner=rx->trb;
+    bool ok=wifi_hub_check_port(d,up->hub) && bu_rx_fifo_read(d,&f,"switch-entry") &&
+        bu_rx_fifo_match(&f,map,BU_RX_AGG_SCAN) && f.cr==saved->cr && f.pause==0xff &&
+        rx->pending && !rx->completed && !rx->failed &&
+        bu_rx_fifo_write(d,map|BU_RX_AGG_ENABLE,BU_RX_AGG_SHORT) && bu_rx_fifo_read(d,&f,"short") &&
+        bu_rx_fifo_match(&f,map|BU_RX_AGG_ENABLE,BU_RX_AGG_SHORT) &&
+        f.cr==saved->cr && f.pause==0xff && rx->trb==owner && !rx->failed;
+    console_printf("rtl8822bu-rx-agg-enable: eligible=1 owner=%x pending=%u verified=%u\n",
+        owner,(uint64_t)rx->pending,(uint64_t)ok);
+    return ok;
+}
+
+static bool bu_rx_fifo_restore(struct xhci_device *d,const struct bu_rx_fifo *saved) {
+    if(!saved->touched)return true;
+    struct bu_rx_fifo f={0};
+    bool restored=bu_rx_fifo_write(d,saved->map,saved->threshold) &&
+        bu_rx_fifo_read(d,&f,"restore") && bu_rx_fifo_match(&f,saved->map,saved->threshold) &&
+        !(f.cr&0xff) && f.pause==0xff;
+    console_printf("rtl8822bu-rx-fifo-restore: verified=%u\n",(uint64_t)restored);
+    return restored;
 }
 
 static bool bu_rx_restore_security(struct xhci_device *d,const struct bu_rx_security *saved) {
@@ -362,7 +426,7 @@ static const char *bu_rx_admit(struct xhci_device *d) {
     if(!bu_update(d,0x22c,4,0,1u<<31) || !bu_write(d,0x204,2,0x7cc) ||
        !bu_update(d,0x422,1,0,0x10) || !bu_write(d,0x424,2,0x7cc) ||
        !bu_write(d,0x206,2,0x7cc) || !bu_write(d,0x456,2,0x7cc) ||
-       !bu_write(d,0x11c,4,0x5eff))return "rx-pages";
+       !bu_write(d,0x11c,4,BU_RX_FIFO_END))return "rx-pages";
     if(!bu_update(d,BU_RX_LLT,1,0xf0,0x30) || !bu_write(d,BU_RX_LLT+3,1,3) ||
        !bu_update(d,BU_H2C_OFFSET,1,0,2) || !bu_update(d,BU_RX_LLT,1,0,1) ||
        !bu_poll(d,BU_RX_LLT,4,1,0,100,&llt) || !bu_write(d,BU_CR+3,1,0))return "rx-llt";
@@ -374,7 +438,7 @@ static const char *bu_rx_admit(struct xhci_device *d) {
        !bu_write(d,0x6a4,2,BU_RX_FILTER2) || !bu_write(d,0x608,4,BU_RX_RCR) ||
        !bu_write(d,0x60c,1,0x18) || !bu_write(d,0x60f,1,4) ||
        !bu_update(d,0x115,1,15,15) || !bu_update(d,0x7d4,4,3u<<8,0) ||
-       !bu_write(d,0x290,1,0x1e) || !bu_update(d,0x20c,2,0,1u<<9))return "rx-filter";
+       !bu_write(d,0x290,1,BU_RX_USB_MODE) || !bu_update(d,0x20c,2,0,1u<<9))return "rx-filter";
     uint32_t pause,map,rcr,map0,map2,mode;
     if(!bu_read(d,BU_CR,1,&cr) || !bu_read(d,BU_TXPAUSE,1,&pause) || !bu_read(d,0x10c,2,&map) ||
        !bu_read(d,0x608,4,&rcr) || !bu_read(d,0x6a0,4,&map0) || !bu_read(d,0x6a4,2,&map2) ||
@@ -448,6 +512,7 @@ static const char *bu_receive(struct bu_upload *up,bool *retired) {
     struct xhci_device *d=up->device;
     struct bu_rx rx={.device=d};
     struct bu_rx_security security={0};
+    struct bu_rx_fifo fifo={0};
     if(!bu_tune(up,161) || !bu_rx_baseband(d) || !bu_tune(up,10))return "channel";
     if(!bu_phy_tx_inhibited(d) || bu_rx_owner)return "endpoint";
     bu_out_state(up,"rx-add-before");
@@ -458,22 +523,25 @@ static const char *bu_receive(struct bu_upload *up,bool *retired) {
     const char *failure=bu_rx_admit(d);
     if(!failure && !bu_h2c_initialize(up))failure="firmware-command";
     if(!failure && !bu_rx_enable_security(up,&rx,&security))failure="rx-security";
+    if(!failure && !bu_rx_prepare_dma(up,&rx,&security))failure="rx-dma-enable";
+    if(!failure && !bu_rx_fifo_control(d,&fifo))failure="rx-fifo-control";
     if(!failure) {
         console_write("rtl8822bu-rx-progress: sampling channel 10 with MAC transmit disabled\n");
         bool idle_pending;
         failure=bu_rx_window(&rx,false,&idle_pending);
         if(failure && !rx.failed && idle_pending) {
-            if(bu_rx_enable_dma(up,&rx,&security)) {
-                console_write("rtl8822bu-rx-progress: sampling the same channel with DMA and scheduler bits enabled\n");
+            if(bu_rx_fifo_short(up,&rx,&fifo)) {
+                console_write("rtl8822bu-rx-progress: sampling the same channel with short-timeout USB aggregation\n");
                 failure=bu_rx_window(&rx,true,&idle_pending);
-            } else failure="rx-dma-enable";
-        } else console_write("rtl8822bu-rx-dma-enable: eligible=0\n");
+            } else failure="rx-agg-enable";
+        } else console_write("rtl8822bu-rx-agg-enable: eligible=0\n");
     }
     bool gated=bu_write(d,BU_CR,1,0) && bu_phy_tx_inhibited(d);
     bool stopped=bu_rx_stop(&rx);
+    bool fifo_restored=!fifo.touched || (gated && stopped && bu_rx_fifo_restore(d,&fifo));
     bool restored=bu_rx_restore_security(d,&security);
     bu_rx_owner=NULL;
-    *retired=gated && stopped && restored;
+    *retired=gated && stopped && fifo_restored && restored;
     console_printf("rtl8822bu-rx: result=%s posted=%u completed=%u records=%u beacons=%u target=%u bad=%u gated=%u stopped=%u\n",
         failure?failure:"ready",(uint64_t)rx.posted,(uint64_t)rx.completed,(uint64_t)rx.records,
         (uint64_t)rx.beacons,(uint64_t)rx.target,(uint64_t)rx.bad,(uint64_t)gated,(uint64_t)stopped);
