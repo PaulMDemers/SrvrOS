@@ -288,6 +288,19 @@ loading the tables. Verify the crystal trim, baseband readback, shutdown
 and journaled return before starting channel tuning or USB receive.
 Scope is the Netgear-only xHCI continuation and its pinned PHY recipe.
 
+Release `b8a1111ac4081f76` on `de00ae72` uses 2,891 ordered writes
+from the unit's Linux USB trace, with the two observed RF settling
+intervals. The native fixture verifies disabled MAC traffic, all
+table writes, both crystal readbacks, and shutdown. Invalid table
+bytes and wrong crystal readback fail the trial. An RF gate stuck
+on refuses normal return. The Linux receive reference contained valid
+Demers2.4 and Demers5 beacons on channels 10 and 161. A focused scan
+with its cache flushed returned neither, so the reference does not
+establish discovery reliability. Both sibling desktop regressions, 329
+boot and trial tests and all five exact-image VM rehearsals passed.
+Channel tuning and USB receive requests are pending. Run record
+`build/bringup/pro112-rtl8822bu-phy/run.json`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
