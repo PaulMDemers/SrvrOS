@@ -793,6 +793,60 @@ starts, so its specific cause remains undetermined. All ten reports
 from the investigation matched their recorded flash checksums. Each boot
 returned to Ubuntu with hardware retirement and allocation checks verified.
 
+### BCM4331 cold starts (November 28)
+
+Three unattended desktop starts on merged main `117a0294` tested the
+existing BCM4331 admission path and provisioned Demers2.4 connection after
+an Ubuntu power-off and a manual power-on. The kernel and EFI loader were
+byte-identical across releases `2eaa1a38868bc855`, `379dd7a1952a3d6f` and
+`89f40a72c9dd7101`. Each release passed its exact-stage VM rehearsal. The
+shared driver and trial recipe were unchanged.
+
+All three native boots reported `INCOMPLETE` before radio initialization.
+PCI function `03:00.0` still identified as `14e4:4331` revision `02`, but
+configuration offset `0x2c` held `0x00d6106b` (Apple `106b:00d6`). The
+driver's identity check requires `0x433114e4` (Broadcom `14e4:4331`), the
+value sampled while Ubuntu's driver was active before each shutdown. The
+clock and kernel-root checks passed and both MMIO windows were free. No
+association, DHCP, or gateway probe was attempted. The earlier warm starts
+remain verified. The hardware or software transition between subsystem
+values remains to be established before qualifying a cold-boot profile.
+
+All six release-matched startup and final reports remained on the exFAT
+workspace and matched the recovery archives by SHA-256. All prior files
+were preserved and each offline allocation check passed. Each one-shot was
+consumed, Ubuntu returned, and the temporary private payload was removed.
+
+#### Cold-start PCI admission correction
+
+Work on `device/macbookpro8-1/bringup` from merged `main` at `117a0294`
+is limited to BCM4331 PCI identity admission and its host fixture. All
+three cold reports matched this board's `03:00.0` endpoint, class `0280`,
+and revision `02`. The local PCI ID registry lists `106b:00d6` under
+`14e4:4331` as AirPort Extreme, and [Linux's BCMA board table](https://github.com/torvalds/linux/blob/master/include/linux/bcma/bcma.h)
+identifies `00d6` as BCM94331X19. Admit that exact subsystem in the
+existing MacBookPro8,1 probe alongside its observed warm-boot value.
+The qualified station profile, firmware, clock, MMIO, SPROM and DMA
+checks, EHCI workspace and Ubuntu recovery remain dependencies. The
+trial checks for the matched subsystem, Demers2.4 traffic, and both flash
+reports after Ubuntu returns.
+
+Release `104e80d543d57898` was staged with the old kernel even though its
+manifest named the fix commit. Its kernel digest matched the baseline,
+and it again refused PCI identity. Both reports verified. The corrected
+rehearsals rebuilt the kernel, checked that it contained the new admission
+log and matched the staged ELF byte for byte, and ran on a distinct digest.
+
+Source `1c813017` passed two native cold startups in releases
+`f472b8457df5db2c` and `20713b95a55d1a47`. Both admitted `106b:00d6`,
+matched the expected BCMA cores and PHY, and verified the 220-word
+revision 9 SPROM CRC. The provider found its first qualified beacon in
+26.354 and 44.860 ms. Both connected to Demers2.4 with WPA2, received a
+DHCP ACK, received all 14 gateway replies, and reported `STARTUP_OK`
+with clean adapter and DMA retirement. The four corrected-build reports
+matched the flash and archive by SHA-256. Previous files, offline
+allocation, one-shot Ubuntu return and private payload removal verified.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
@@ -1810,7 +1864,7 @@ Offline allocation passed for 143 files with zero writes.
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
-| Wi-Fi | Settings Connect, Disconnect, and reconnect passed on BCM4331 against `Demers2.4` in `d6defd5b7a97090b`. The original association resumed gateway traffic after a 15-second driver receive gap in `c809111f83871175`. Both trials saved both reports | Three consecutive instrumented warm startups passed WPA2, DHCP and gateway traffic. Original admission refusal remains unexplained. Access-point outage and automatic reassociation testing are deferred |
+| Wi-Fi | Settings Connect, Disconnect, and reconnect passed on BCM4331 against `Demers2.4` in `d6defd5b7a97090b`. The original association resumed gateway traffic after a 15-second driver receive gap in `c809111f83871175`. Both trials saved both reports | Three instrumented warm startups passed WPA2, DHCP and gateway traffic. Two corrected cold starts on `1c813017` admitted the Apple subsystem and passed the same connection checks, with both reports verified each time. Access-point outage and automatic reassociation testing are deferred |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native

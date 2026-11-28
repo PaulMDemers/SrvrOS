@@ -126,6 +126,14 @@ static const struct pci_device *bcm4331_controller(void) {
     return 0;
 }
 
+static bool bcm4331_pci_identity_matches(const struct pci_device *p, uint32_t subsystem) {
+    /* This probe is model-gated to MacBookPro8,1. Match the captured Apple
+     * AirPort subsystem on cold start and the Broadcom value on warm start. */
+    return p && p->vendor_id == 0x14e4 && p->device_id == 0x4331 &&
+        p->class_code == 2 && p->subclass == 0x80 && p->revision == 2 &&
+        p->header_type == 0 && (subsystem == 0x00d6106b || subsystem == 0x433114e4);
+}
+
 static bool pci_transactions_drained(const struct pci_device *p) {
     for (unsigned attempt = 0; attempt < 1000; attempt++) {
         uint16_t status = pci_read_config16(p, PCI_EXP_STATUS);
@@ -396,9 +404,7 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
     uint64_t root = vmm_kernel_address_space(), d11_physical = 0, chipcommon_physical = 0;
     const uint64_t fixed = bcm4331_window + CHIPCOMMON_PAGE;
     uint32_t subsystem = p ? pci_read_config32(p, PCI_SUBSYSTEM) : UINT32_MAX;
-    bool identity = p && p->vendor_id == 0x14e4 && p->device_id == 0x4331 &&
-        p->class_code == 2 && p->subclass == 0x80 && p->revision == 2 &&
-        p->header_type == 0 && subsystem == 0x433114e4;
+    bool identity = bcm4331_pci_identity_matches(p, subsystem);
     bool clock = timer_reference_ready(), sole_root = vmm_diagnostic_sole_kernel_root(root);
     bool d11_occupied = sole_root && vmm_virt_to_phys_in_space(root, bcm4331_window, &d11_physical);
     bool chipcommon_occupied = sole_root && vmm_virt_to_phys_in_space(root, fixed, &chipcommon_physical);
@@ -420,6 +426,7 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
         console_printf("bcm4331: refused %s\n", reason);
         return BCM4331_REFUSED;
     }
+    console_printf("bcm4331-admission: subsystem=%x\n", (uint64_t)subsystem);
 
     uint16_t command = pci_read_config16(p, PCI_COMMAND), pm = pci_read_config16(p, PCI_PMCSR);
     uint32_t window = pci_read_config32(p, PCI_BAR0_WINDOW);

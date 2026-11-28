@@ -4,6 +4,19 @@
 #include "../kernel/src/drivers/bcm4331_probe.c"
 
 int main(void) {
+    struct pci_device airport = {
+        .vendor_id = 0x14e4, .device_id = 0x4331, .class_code = 2,
+        .subclass = 0x80, .revision = 2, .header_type = 0,
+    };
+    assert(bcm4331_pci_identity_matches(&airport, 0x00d6106b));
+    assert(bcm4331_pci_identity_matches(&airport, 0x433114e4));
+    assert(!bcm4331_pci_identity_matches(&airport, 0x00e4106b));
+    assert(!bcm4331_pci_identity_matches(&airport, 0x00d614e4));
+    assert(!bcm4331_pci_identity_matches(&airport, UINT32_MAX));
+    assert(!bcm4331_pci_identity_matches(NULL, 0x00d6106b));
+    airport.revision = 3;
+    assert(!bcm4331_pci_identity_matches(&airport, 0x00d6106b));
+
     assert(srom_crc_byte(0, 1) == 0xf7 && srom_crc_byte(0xff, 0xff) == 0);
     assert(beacon_fcs((const uint8_t *)"123456789", 9) == 0xcbf43926);
     uint8_t beacon[54] = {0x80, [10] = 2, [16] = 2, [34] = 1, [37] = 9};
@@ -54,5 +67,5 @@ int main(void) {
     memcpy(changed, erom, sizeof changed);
     changed[11] = 0x4bf81201;
     assert(!read_erom(changed, count, cores));
-    puts("bcm4331-probe: PASS exact BCMA cores, extended descriptors, truncation and mismatch refusal");
+    puts("bcm4331-probe: PASS PCI identity, exact BCMA cores, extended descriptors, truncation and mismatch refusal");
 }
