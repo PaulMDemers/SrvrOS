@@ -679,6 +679,15 @@ cross-checked with i915. [Intel Broadwell Display PRM](https://xorg.freedesktop.
 
 ### Full takeover with a boot blank
 
+The Air's PCI-hold diagnostic now scans the 56,832 CPU-visible GGTT entries
+after the inherited fence. It runs after re-verifying the original backing
+with PCI memory decode restored and bus mastering still disabled. It uses
+read-only UC aliases one register page at a time and rereads each zero entry
+before counting it. The count of entries that match the first framebuffer
+page, the first zero slot, and alias retirement are saved in the dark census
+record. A clean partial survey still permits panel recovery. The survey has
+a 500 ms budget within the existing PCI hold and grants no write access.
+
 The joined takeover holds the original display exclusion from before
 shutdown through the first GGTT round trip. After Pipe A and the panel
 are dark, it runs the existing PCI AF reset and remapper drain under the

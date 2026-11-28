@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from hardware_boot import EDP_CONFIGS, limine_config
 from hardware_boot_smoke import intel_probe_cpu_args, intel_probe_profile
-from intel_edp_baseline import PREFIX, candidate_result, checkpoint, dark_rc6_result, pci_reopen_result, recipe, result, rows_of
+from intel_edp_baseline import PREFIX, candidate_result, checkpoint, dark_census_result, dark_rc6_result, pci_reopen_result, recipe, result, rows_of
 
 ROOT = Path(__file__).resolve().parent.parent
 RELEASE = "1" * 16
@@ -71,6 +71,26 @@ class EdpBaseline(unittest.TestCase):
         refused = dict(display, stage=0, complete=0)
         self.assertIsNone(candidate_result([], [], dict(hold, v=4), refused, native=False))
         self.assertFalse(candidate_result([], [], dict(hold, samples=0, complete=0), refused, native=False)["preserved"])
+
+    def test_dark_census_is_bounded_to_memory_decode_without_bus_mastering(self):
+        hold = dict(samples=5, complete=1)
+        points = [{}, dict(begin_us=100, end_us=110, command=0x100402), dict(begin_us=300)]
+        census = dict(v=1, first=8704, end_slot=65536, complete=1, entries=56832,
+                      empty=1, first_empty=16385, framebuffer_aliases=50000, maps=111, retired=111,
+                      begin_us=120, end_us=290, command=0x100402, pte_writes=0)
+        self.assertEqual(dark_census_result([census], points, hold, native=True),
+                         dict(survey=census, write_authority=False))
+        partial = dict(census, complete=0, entries=64, empty=0, first_empty=0,
+                       framebuffer_aliases=24, maps=1, retired=1)
+        self.assertFalse(dark_census_result([partial], points, hold, native=True)["survey"]["complete"])
+        self.assertIsNone(dark_census_result([], [], hold, native=True))
+        for change in (dict(command=0x100407), dict(maps=110), dict(pte_writes=1),
+                       dict(first_empty=0), dict(framebuffer_aliases=56832),
+                       dict(retired=110), dict(begin_us=105), dict(end_us=301)):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                dark_census_result([dict(census, **change)], points, hold, native=True)
+        with self.assertRaises(ValueError):
+            dark_census_result([census], points, hold, native=False)
 
     def test_dark_rc6_receipt(self):
         hold = dict(v=4, samples=5, writes=4, elapsed_us=204000, settle_us=250)

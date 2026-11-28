@@ -37,6 +37,8 @@ SCHEMAS = {
     "intel-edp-pci-hold-word": "v phase command af",
     "intel-edp-rc6": "v seq begin_us end_us core residency wake_ack",
     "intel-edp-candidate": "v phase slot complete reads retired begin_us end_us command af left target right",
+    "intel-edp-dark-census": ("v first end_slot complete entries empty first_empty framebuffer_aliases "
+                             "maps retired begin_us end_us command pte_writes"),
     "intel-edp-reopen": "v seq check at ok read got want",
     "intel-edp-pwm": "v complete retained writes elapsed_us before_ctl before_data after_ctl after_data",
     "intel-edp-pps": "v complete retained samples writes wait_us program_us initial_status idle_status",
@@ -336,6 +338,35 @@ def candidate_result(points, config, hold, display, *, native):
     return dict(samples=points, preserved=preserved)
 
 
+def dark_census_result(rows, points, hold, *, native):
+    if not rows:
+        return None
+    if not native or len(rows) != 1 or hold["samples"] < 4 or len(points) < 2:
+        raise ValueError("Missing dark GGTT census ownership boundary")
+    census = rows[0]
+    first, end_slot = census["first"], census["end_slot"]
+    entries, empty, first_empty = (census[key] for key in ("entries", "empty", "first_empty"))
+    maps, retired = census["maps"], census["retired"]
+    begin, end = census["begin_us"], census["end_us"]
+    dark = points[1]
+    limit = end_slot - first
+    if ((first, end_slot) != (8704, 65536) or census["pte_writes"] or census["complete"] > 1 or
+            not 0 < dark["begin_us"] <= begin <= end or
+            (dark["end_us"] and begin < dark["end_us"]) or
+            (len(points) == 3 and points[2]["begin_us"] and end > points[2]["begin_us"]) or
+            not 0 <= retired <= maps <= limit // 512 or maps - retired > 1 or
+            not 0 <= entries <= maps * 512 or not 0 <= empty + census["framebuffer_aliases"] <= entries or
+            (empty == 0 and first_empty) or (empty and not first <= first_empty < first + entries) or
+            (census["command"] and (census["command"] & 0xffff) != 0x402) or
+            (census["command"] and dark["command"] and census["command"] != dark["command"]) or
+            (maps and not census["command"]) or (hold["complete"] and maps != retired)):
+        raise ValueError("Invalid dark GGTT census scope")
+    if census["complete"] and (entries != limit or maps != limit // 512 or retired != maps or
+                               not 0 < end - begin < 500000):
+        raise ValueError("Incomplete dark GGTT census marked complete")
+    return dict(survey=census, write_authority=False)
+
+
 def pci_hold_result(rows, *, native, display):
     summaries, samples = (rows[k] for k in HOLD_ROWS)
     if len(summaries) != 1:
@@ -547,12 +578,16 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
         dark_rc6 = dark_rc6_result(rows["intel-edp-rc6"], hold)
         candidate = candidate_result(rows["intel-edp-candidate"], rows["intel-edp-flr-config"], hold,
                                      observed, native=native)
+        census = dark_census_result(rows["intel-edp-dark-census"], rows["intel-edp-candidate"], hold,
+                                    native=native)
+        if census is None:
+            del rows["intel-edp-dark-census"]
         if dark_rc6 is None:
             del rows["intel-edp-rc6"]
         if candidate is None:
             del rows["intel-edp-candidate"]
     else:
-        for key in (*HOLD_ROWS, "intel-edp-reopen", "intel-edp-rc6", "intel-edp-candidate"):
+        for key in (*HOLD_ROWS, "intel-edp-reopen", "intel-edp-rc6", "intel-edp-candidate", "intel-edp-dark-census"):
             if rows.pop(key):
                 raise ValueError("Unexpected PCI decode hold evidence")
     if dark_pwm:
@@ -612,6 +647,8 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
             report["dark_rc6"] = dark_rc6
         if candidate is not None:
             report["candidate"] = candidate
+        if census is not None:
+            report["dark_census"] = census
         if hold["v"] >= 2:
             report["pci_reopen_failure"] = reopen_failure
         else:

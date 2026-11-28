@@ -1021,7 +1021,7 @@ void kmain(void) {
                 if (dark_well)
                     console_write("intel-edp-dark-well: release/reclaim driver well request while the panel is off.\n");
                 if (pci_hold)
-                    console_write("intel-edp-pci-hold: check GT idle state and slot 12292 through panel recovery. No reset or PTE writes. Automatic, volume 1%.\n");
+                    console_write("intel-edp-pci-hold: census GGTT while the panel is dark and PCI bus mastering is off. No reset or PTE writes. Automatic, volume 1%.\n");
                 if (dark_pwm)
                     console_write("intel-edp-pwm: restore the captured backlight PWM with the panel off.\n");
                 if (dark_pps)
