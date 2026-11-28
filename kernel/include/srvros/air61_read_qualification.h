@@ -7,6 +7,7 @@
  * device ownership grant. Read-enabled builds expose only the sample entry. */
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
 bool haswell_air61_register_sample(void);
+bool haswell_air61_drain_state_sample(void);
 bool air61_sample_cache0(struct air61_sample_admission *);
 bool air61_sample_cache1(struct air61_sample_admission *);
 #else

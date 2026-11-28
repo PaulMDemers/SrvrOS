@@ -335,6 +335,23 @@ and firmware exclusion open. Slot 4096 stays protected. Ubuntu returned
 with the one-shot consumed, and the saved receipt, recovery and offline
 USB check verified.
 
+#### Separate drain-state boot test
+
+The v10 `--haswell-drain-state` profile uses the same guarded lifetimes and
+replaces the v9 register sequence for this boot. Each pass starts with GSTS,
+VER and ECAP-low. It requires GSTS zero, legacy VER `0x10`, and the previously
+observed ECAP-low `0x00f0101a` before proceeding to CCMD, FSTS and IOTLB.
+Both 64-bit command registers are read high/low/high. FSTS and GSTS repeat
+within the batch. The second pass must match the first and both mappings
+must retire. The receipt uses the existing wire layout with a distinct boot
+token and register allowlist. [Intel VT-d register descriptions](https://cdrdv2-public.intel.com/774206/vt-directed-io-spec%20.pdf)
+
+Each pass retains its 100 ms limit and twelve DWORDs. The joined decoder
+reports raw command and fault status and distinguishes a pending command
+from a clear bit. It binds that sample to the later inherited-surface
+observation. Slot 4096 stays protected. The profile issues no invalidation,
+fault acknowledgement, requester inhibition or firmware control.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

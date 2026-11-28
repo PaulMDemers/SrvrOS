@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 import re
 
-from hardware_air61_register_sample import sample_result
+from hardware_air61_register_sample import DRAIN_TOKEN, sample_result
+from hardware_air61_read_qualification import decode_drain_state
 from hardware_haswell_access import access_result
 from hardware_haswell_candidate import WORD_MAX
 from haswell_vtd_capability_audit import decode_sample
@@ -99,7 +100,8 @@ def _parse(window, ecam, exit_log, session, release):
     if any(value >= WORD_MAX for row in gt for value in row):
         return None
 
-    sample = sample_result(window, ecam, exit_log, session)
+    drain_state = DRAIN_TOKEN in options[0]
+    sample = sample_result(window, ecam, exit_log, session, drain_state=drain_state)
     result = dict(slot=4096, session=session, release=release, requesters=gpu,
                   gt=[dict(core=row[0], rc6_raw=row[1]) for row in gt], hardware_authority=False)
     if not observed:
@@ -124,7 +126,8 @@ def _parse(window, ecam, exit_log, session, release):
            for req, row in zip(requester, rows)):
         return None
 
-    decoded = [decode_sample(row) for row in sample["raw_samples"]]
+    decode = decode_drain_state if drain_state else decode_sample
+    decoded = [decode(row) for row in sample["raw_samples"]]
     if len(decoded) != 2 or decoded[0] != decoded[1]:
         return None
     gpu_scope = {"kind": 1, "bus": 0, "path": [(2, 0)]}
@@ -133,6 +136,7 @@ def _parse(window, ecam, exit_log, session, release):
     result.update(status="OBSERVED", slot_access=access, target_in_igd_rmrr=target_in_igd_rmrr,
                   requester_observation=_observe_requesters(exit_log, (start, end)),
                   remapper="DMAR DRHD0 graphics unit", remapper_sample=decoded[0],
+                  drain_state_profile=drain_state,
                   remapper_reads=24, remapper_writes=0, candidate_gap_us=start - sample["end"],
                   input_sha256={name: hashlib.sha256(data.encode()).hexdigest()
                                 for name, data in (("window", window), ("ecam", ecam), ("exit", exit_log))},

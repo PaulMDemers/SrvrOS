@@ -199,6 +199,15 @@ static AIR61_SAMPLE_CODE bool rw_refuse(void){
 }
 static AIR61_SAMPLE_CODE bool rw_reentry(void){rw_fault("reentry");rc.view.window.claimed=true;return rw_poison();}
 static const uint32_t rw_offsets[AIR61_READ_SLOTS]={0x1c,0,0x0c,8,0x0c,0x14,0x10,0x14,0x24,0x20,0x24,0x1c};
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+/* A separate release uses the same access budget for command-state reads.
+ * Both split registers are sampled high/low/high. The pinned ECAP low
+ * DWORD at slot 2 must pass before any IOTLB offset can be reached. */
+static const uint32_t rw_drain_offsets[AIR61_READ_SLOTS]={
+ 0x1c,0,0x10,0x2c,0x28,0x2c,0x34,0x10c,0x108,0x10c,0x34,0x1c,
+};
+static const unsigned rw_drain_match[AIR61_READ_SLOTS]={0,1,2,3,4,3,6,7,8,7,6,0};
+#endif
 static AIR61_SAMPLE_CODE bool rw_wait_gap(void){
  if(!rw.current)return true;
  uint64_t previous=rw.pass[0].view.slot_end;
@@ -365,14 +374,15 @@ static AIR61_SAMPLE_CODE bool rw_load_slot(unsigned i){
  if(i>=AIR61_READ_SLOTS || rc.view.attempts!=i || rc.view.reads!=i ||
     rc.view.slots!=i || rc.view.window.state!=AIR61_WINDOW_ACTIVE ||
     !rc.view.window.claimed || !rw_guard())return rw_fault("target-scope");
- rc.view.attempts++;rc.view.load_begin[i]=rc.last;
+ uint32_t offset=rw.io.drain_state?rw_drain_offsets[i]:rw_offsets[i];
+ rc.view.offsets[i]=offset;rc.view.attempts++;rc.view.load_begin[i]=rc.last;
  uint32_t value;
 #ifdef SRVROS_AIR61_WINDOW_HOST_TEST
  extern bool air61_sample_test_load(unsigned,unsigned,uint32_t,uint32_t *);
- if(!air61_sample_test_load(rw.current,i,rw_offsets[i],&value))return rw_fault("target-incomplete");
+ if(!air61_sample_test_load(rw.current,i,offset,&value))return rw_fault("target-incomplete");
 #else
  __asm__ volatile("lfence":::"memory");
- value=*(volatile const uint32_t *)(uintptr_t)(AIR61_WINDOW_VA+rw_offsets[i]);
+ value=*(volatile const uint32_t *)(uintptr_t)(AIR61_WINDOW_VA+offset);
  __asm__ volatile("lfence":::"memory");
 #endif
  rc.view.values[i]=value;rc.view.reads++;
@@ -381,7 +391,9 @@ static AIR61_SAMPLE_CODE bool rw_load_slot(unsigned i){
 static AIR61_SAMPLE_CODE bool rw_sample_word_valid(unsigned i){
  uint32_t value=rc.view.values[i];
  if(value==UINT32_MAX || (i==1 && !value))return rw_fault("target-unavailable");
- unsigned previous=i==4?2:i==7?5:i==10?8:i==11?0:i;
+ if(rw.io.drain_state && ((i==0 && value) || (i==1 && value!=0x10) || (i==2 && value!=0x00f0101a)))
+  return rw_fault("target-drain-identity");
+ unsigned previous=rw.io.drain_state?rw_drain_match[i]:i==4?2:i==7?5:i==10?8:i==11?0:i;
  if(previous!=i && value!=rc.view.values[previous])return rw_fault("target-torn-bracket");
  if(rw.current && value!=rw.pass[0].view.values[i])return rw_fault("target-sample-changed");
  return true;
@@ -402,11 +414,11 @@ static AIR61_SAMPLE_CODE bool rw_slots(void){
     rw.result.gap_us=rc.last-previous;
    }
   }
-  rc.view.offsets[i]=rw_offsets[i];
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
   if(!rw_load_slot(i))return rw_poison();
 #else
   /* Qualification only: no target dereference. */
+  rc.view.offsets[i]=rw_offsets[i];
 #endif
   if(!rw_tick())return rw_poison();
   rc.view.slot_end=rc.last;

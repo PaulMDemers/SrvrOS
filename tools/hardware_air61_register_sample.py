@@ -2,11 +2,13 @@
 import re,struct
 import hardware_air61_read_qualification as q
 
-def sample_result(text,ecam_text,exit_text,session):
-    try:return _sample_result(text,ecam_text,exit_text,session)
+DRAIN_TOKEN='srvros.hsw-drain-state=read-only'
+
+def sample_result(text,ecam_text,exit_text,session,*,drain_state=False):
+    try:return _sample_result(text,ecam_text,exit_text,session,drain_state)
     except (ValueError,KeyError,IndexError,TypeError,struct.error):return None
 
-def _sample_result(text,ecam_text,exit_text,session):
+def _sample_result(text,ecam_text,exit_text,session,drain_state=False):
     import base64
     if any(line.startswith(('hsw-read:','hsw-read-data:','hsw-window:')) for line in (text+'\n'+exit_text).splitlines()):raise ValueError('mixed receipt profile')
     from hardware_haswell_ecam import one,ecam_result
@@ -37,13 +39,18 @@ def _sample_result(text,ecam_text,exit_text,session):
     options=[line.split('boot options=',1)[1].split() for line in exit_text.splitlines() if line.startswith('laptop-capture: boot options=')]
     required={'srvros.capture=haswell-firmware','srvros.hsw-cache=alias-nx-preinit','srvros.ecam=air61-2m-test','srvros.vtd-window=air61-two-pass-read-only'}
     if not options or any(not required<=set(row) or row.count('srvros.vtd-window=air61-two-pass-read-only')!=1 or 'srvros.vtd-window=air61-no-read' in row or 'srvros.vtd-window=air61-two-pass-no-read' in row for row in options):raise ValueError('explicit boot profile')
+    expected=[DRAIN_TOKEN] if drain_state else []
+    if any([token for token in row if token.startswith('srvros.hsw-drain-state=')]!=expected for row in options):
+        raise ValueError('drain state boot profile')
+    if drain_state and any(row.count('srvros.hsw-live-vtd=read-only')!=1 for row in options):
+        raise ValueError('drain state requester bracket profile')
     attempts,count=map(int,one(text,'hsw-sample-counts:',r'hsw-sample-counts: attempts=(\d+) reads=(\d+)'))
     if count!=reads or not 0<=reads<=attempts<=24:raise ValueError('actual read accounting')
     if complete=='0':
         if attempts or reads or parts or ok or 'laptop-capture: completed=yes' in exit_text:raise ValueError('incomplete source')
         return dict(status='REFUSED' if state in ('0','2') else 'FAILED',source_completed=False,reason=reason,progress=progress,target_reads=0,target_writes=0,register_read_authorized=False,hardware_authority=False,ownership=False)
     if state!='3' or not ok or reason!='none' or (attempts,reads)!=(24,24):raise ValueError('series completion')
-    p=q._decode(b''.join(parts),session,True)
+    p=q._decode(b''.join(parts),session,True,drain_state=drain_state)
     if p['root']!=int(root,16) or p['epoch']!=int(epoch) or p['end']>=report:raise ValueError('header/report binding')
     for v,row in zip(p['passes'],progress):
         if row!=(4,v['begin'],v['end'],v['words'],12,v['slot_begin'],v['slot_end'],0):raise ValueError('progress binding')

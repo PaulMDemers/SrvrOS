@@ -42,7 +42,8 @@ int main(int argc,char **argv){
  clock_ticks+=160000;
  terminal_expected=true;
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
- assert(haswell_air61_register_sample());
+ bool drain=argc>1 && !strncmp(argv[1],"drain",5);
+ assert(drain?haswell_air61_drain_state_sample():haswell_air61_register_sample());
 #else
  assert(haswell_air61_read_qualify());
 #endif

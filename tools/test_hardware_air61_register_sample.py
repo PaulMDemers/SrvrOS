@@ -9,18 +9,19 @@ from hardware_haswell_ecam import Reader
 from test_hardware_haswell_ecam import fixture,PIN,SESSION
 EXE=Path('build/tests/air61-register-sample')
 OPTIONS='laptop-capture: boot options=srvros.capture=haswell-firmware srvros.hsw-cache=alias-nx-preinit srvros.ecam=air61-2m-test srvros.vtd-window=air61-two-pass-read-only\n'
+DRAIN_OPTIONS=OPTIONS.rstrip()+' srvros.hsw-live-vtd=read-only '+sample.DRAIN_TOKEN+'\n'
 
 def joint(mode=None):
     text=subprocess.check_output([str(EXE),*([mode] if mode else [])],text=True)
     blob=b''.join(base64.b64decode(s.split('data=')[1]) for s in text.splitlines() if s.startswith('hsw-sample-data:'))
-    with patch('hardware_haswell_firmware.PIN',PIN):p=q._decode(blob,SESSION,True)
+    with patch('hardware_haswell_firmware.PIN',PIN):p=q._decode(blob,SESSION,True,drain_state=mode=='drain')
     early='\n'.join(s for s in text.splitlines() if s.startswith('hsw-ecam'))+'\n'
     graph=copy.deepcopy(p['passes'][0]['_graph'])
     for i in range(16):graph[0x2004000]['raw'][256+i]&=~32
     if mode=='ad-transition':graph[0x2004000]['raw'][2]&=~32
     a,b=fixture(early=early,graph=graph)
     ref=next(s for s in text.splitlines() if s.startswith('hsw-sample-ref:'))+'\n'
-    return text,a,b+ref+OPTIONS,blob
+    return text,a,b+ref+(DRAIN_OPTIONS if mode=='drain' else OPTIONS),blob
 
 class SampleProfile(unittest.TestCase):
     @classmethod
@@ -40,7 +41,7 @@ class SampleProfile(unittest.TestCase):
                 self.assertTrue(all(x['words']<=65536 and x['end']-x['begin']<100000 and len(x['load_times'])==12 for x in p['passes']))
                 self.assertLessEqual(len('\n'.join(s for s in t.splitlines() if s.startswith('hsw-sample')))+1024,65536)
     def test_terminal_no_retry_on_read_uncertainty(self):
-        for mode in ('partial','unavailable','zero-ver','torn','changed','deadline','root','dirty'):
+        for mode in ('partial','unavailable','zero-ver','torn','changed','deadline','root','dirty','drain-pin','drain-torn'):
             with self.subTest(mode=mode):
                 t=subprocess.check_output([str(EXE),mode],text=True)
                 self.assertIn('expected terminal poison',t)
@@ -52,6 +53,19 @@ class SampleProfile(unittest.TestCase):
         text=subprocess.check_output([str(EXE),'small-wire'],text=True)
         self.assertIn('bounded encoder refuses overflow and retry',text)
         self.assertNotIn('hsw-sample-data:',text)
+    def test_drain_profile_requires_new_register_set_and_explicit_token(self):
+        t,a,b,_=joint('drain')
+        with patch('hardware_haswell_firmware.PIN',PIN):
+            self.assertIsNone(sample.sample_result(t,a,b,SESSION))
+            self.assertIsNone(sample.sample_result(t,a,b.replace(DRAIN_OPTIONS,OPTIONS),SESSION,drain_state=True))
+            proof=sample.sample_result(t,a,b,SESSION,drain_state=True)
+        self.assertEqual(proof['target_reads'],24)
+        state=q.decode_drain_state(proof['raw_samples'][0])
+        self.assertEqual(state['raw']['IOTLB'],'0x0200000000000000')
+        self.assertFalse(state['context_command_pending'])
+        self.assertFalse(state['requester_drain_proven'])
+        rows=list(proof['raw_samples'][0]);rows[7]=rows[9]=(0x10c,0x80000000)
+        self.assertTrue(q.decode_drain_state(rows)['iotlb_command_pending'])
     def test_distinct_closed_formats(self):
         from test_hardware_air61_read_profile import joint as old_joint
         t,a,b,blob=self.base
@@ -93,11 +107,11 @@ class SampleProfile(unittest.TestCase):
                 q._decode(q.pack(d,True),SESSION,True)
     def test_vm_harness_classifies_v8_at_both_levels(self):
         from hardware_boot_smoke import HFW_PROFILES
-        for i in range(1,10):
+        for i in range(1,11):
             text=f'ram-usb-v{i}-hfw-laptop-probe-6ada85bb-auto-return'
             self.assertTrue(text.startswith(HFW_PROFILES))
             self.assertEqual(text.startswith(HFW_PROFILES[1:]),i>=2)
-        self.assertFalse('ram-usb-v10-hfw-laptop-probe-6ada85bb'.startswith(HFW_PROFILES))
+        self.assertFalse('ram-usb-v11-hfw-laptop-probe-6ada85bb'.startswith(HFW_PROFILES))
     def test_persistence_counts_and_session_mutations(self):
         t,a,b,_=self.base
         for prefix in ('hsw-sample:','hsw-sample-data:','hsw-sample-end:','hsw-sample-pass:','hsw-sample-failure:','hsw-sample-counts:'):

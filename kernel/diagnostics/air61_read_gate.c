@@ -70,7 +70,7 @@ static void read_halt_timing(unsigned pass,const struct air61_read_pass_result *
 }
 
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
-AIR61_SAMPLE_CODE bool haswell_air61_register_sample(void){
+static AIR61_SAMPLE_CODE bool read_register_sample(bool drain_state){
 #else
 AIR61_SAMPLE_CODE bool haswell_air61_read_qualify(void){
 #endif
@@ -82,6 +82,7 @@ AIR61_SAMPLE_CODE bool haswell_air61_read_qualify(void){
  const struct air61_read_window_env io={.check=read_check,.ram=read_ram,.now=read_now,
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
  .sample_admit=read_sample_admit,
+ .drain_state=drain_state,
 #endif
  };
  #ifdef SRVROS_AIR61_REGISTER_SAMPLE
@@ -118,6 +119,10 @@ AIR61_SAMPLE_CODE bool haswell_air61_read_qualify(void){
  }
  eg_test_irq_restore(flags);return ok;
 }
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+AIR61_SAMPLE_CODE bool haswell_air61_register_sample(void){return read_register_sample(false);}
+AIR61_SAMPLE_CODE bool haswell_air61_drain_state_sample(void){return read_register_sample(true);}
+#endif
 #ifdef SRVROS_ECAM_GATE_HOST_TEST
 AIR61_SAMPLE_CODE void air61_read_bridge_test_reset(void){read_started=false;}
 #endif

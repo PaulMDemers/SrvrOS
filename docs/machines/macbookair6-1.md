@@ -133,6 +133,12 @@ at 13 while Pipe A advanced two frames. The receipt, recovery and offline
 USB check verified after Ubuntu returned. Slot 4096 stays protected while
 requester drain and firmware exclusion remain open.
 
+The next PR567 checkpoint adds a separate Haswell drain-state boot profile.
+It selects a fixed 12-DWORD read list for each of the two existing guarded
+VT-d lifetimes and binds the observed state to the subsequent Pipe A and
+slot 4096 receipt. The existing deadlines and retirement checks apply.
+Broadwell PR301 at `c66d5c3b` retains its independent drain work.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

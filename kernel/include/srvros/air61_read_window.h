@@ -28,6 +28,7 @@ struct air61_read_window_env {
  uint64_t (*now)(void *);
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
  bool (*sample_admit)(void *,unsigned,unsigned,struct air61_sample_admission *);
+ bool drain_state;
 #endif
 };
 enum air61_read_state {AIR61_READ_NEW,AIR61_READ_RUNNING,AIR61_READ_REFUSED,AIR61_READ_COMPLETE,AIR61_READ_POISONED};

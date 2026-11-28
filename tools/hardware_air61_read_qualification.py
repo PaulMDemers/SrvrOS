@@ -10,6 +10,24 @@ LEAF=0x80000000fed90039
 RECEIPT_CAP=45000
 RAW_CAP=70000
 OFFSETS=(0x1c,0,0x0c,8,0x0c,0x14,0x10,0x14,0x24,0x20,0x24,0x1c)
+DRAIN_OFFSETS=(0x1c,0,0x10,0x2c,0x28,0x2c,0x34,0x10c,0x108,0x10c,0x34,0x1c)
+
+
+def decode_drain_state(rows):
+    if tuple(offset for offset, _ in rows)!=DRAIN_OFFSETS:
+        raise ValueError('drain state offsets')
+    values=[value for _,value in rows]
+    if (any(type(value) is not int or not 0<=value<0xffffffff for value in values) or
+            values[:3]!=[0,0x10,0x00f0101a] or
+            any(values[a]!=values[b] for a,b in ((0,11),(3,5),(6,10),(7,9)))):
+        raise ValueError('drain state identity or changed bracket')
+    ccmd=values[3]<<32|values[4]
+    iotlb=values[7]<<32|values[8]
+    fsts=values[6]
+    return dict(raw=dict(GSTS=f'0x{values[0]:08x}',VER=f'0x{values[1]:08x}',ECAP_low=f'0x{values[2]:08x}',
+                         CCMD=f'0x{ccmd:016x}',FSTS=f'0x{fsts:08x}',IOTLB=f'0x{iotlb:016x}'),
+                context_command_pending=bool(ccmd>>63),iotlb_command_pending=bool(iotlb>>63),
+                fault_status_clear=fsts==0,hardware_authority=False,requester_drain_proven=False)
 
 def _read_gate(r, root, hhdm, begin, end):
     phases, fw_bytes, config, selectors, efer_reads, reads0, reads1 = r.take('7I')
@@ -143,7 +161,7 @@ def unpack(blob, sampled=False):
 def decode(blob,session):
     return _decode(blob,session,False)
 
-def _decode(blob,session,sampled):
+def _decode(blob,session,sampled,drain_state=False):
     if not re.fullmatch(r'session-[0-9a-f]{16}-[0-9a-f]{2}',session):raise ValueError('session grammar')
     raw=unpack(blob,sampled);r=Reader(raw)
     if r.raw(8)!=(b'R2AIR610' if sampled else b'R1AIR610') or r.raw(27)!=session.encode():raise ValueError('series identity')
@@ -174,7 +192,7 @@ def _decode(blob,session,sampled):
                     raise ValueError('fresh slot cache/NX snapshot')
                 if not p['begin']<=c[10]<=c[11]<=p['end']:raise ValueError('cache sample lifetime')
                 admissions.append(dict(msr_reads=msrs,efer_reads=efer_reads,efer=efer,raw=c,begin=c[10],end=c[11]))
-        for offset in OFFSETS:
+        for offset in DRAIN_OFFSETS if drain_state else OFFSETS:
             observed,=r.take('I');before=r.take('4Q');after=r.take('4Q')
             if observed!=offset or before!=path or after!=path:raise ValueError('exact per-slot path')
             observations.append((observed,before,after))
@@ -183,8 +201,11 @@ def _decode(blob,session,sampled):
                 if not first<=lb<=le<=last or (load_times and load_times[-1][1]>lb):raise ValueError('read timing')
                 values.append((observed,value));load_times.append((lb,le))
         if sampled:
-            from haswell_vtd_read_lifetime_audit import sample_words
-            sample_words(values)
+            if drain_state:
+                decode_drain_state(values)
+            else:
+                from haswell_vtd_read_lifetime_audit import sample_words
+                sample_words(values)
             if load_times[0][0]!=first or load_times[-1][1]!=last:raise ValueError('read endpoints')
             if admissions[0]['begin']<p['_cpus'][1]['pm_us'][1]:raise ValueError('stale first cache admission')
             for i,(lb,le) in enumerate(load_times):

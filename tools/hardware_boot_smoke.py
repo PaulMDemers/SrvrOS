@@ -18,7 +18,7 @@ from mk_usb_image import Fat32Builder, ESP_TYPE, gpt_entry, gpt_header
 from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_qmp_key, has_fatal_exception
 
 
-HFW_PROFILES=tuple(f"ram-usb-v{i}-hfw-" for i in range(1,10))
+HFW_PROFILES=tuple(f"ram-usb-v{i}-hfw-" for i in range(1,11))
 
 def verify_http5_absent_radio(log):
     """Expected VM absence retires unused owners, without a receiver handoff."""
@@ -680,7 +680,7 @@ def main():
                             if manifest['config_version'].startswith(HFW_PROFILES[3:]):
                                 from hardware_haswell_alias import alias_preinit_result
                                 assert alias_preinit_result(exit_log)['status']=='REFUSED'
-                                if manifest['config_version'].startswith('ram-usb-v9-hfw-'):
+                                if manifest['config_version'].startswith(('ram-usb-v9-hfw-', 'ram-usb-v10-hfw-')):
                                     assert 'init: started pid=' not in text
                                 else:
                                     assert text.index('hsw-alias-progress: capturing before')<text.index('init: started pid=')<text.index('hsw-alias:')
@@ -691,12 +691,13 @@ def main():
                                 assert result and result['status']=='REFUSED' and not result['source_completed']
                                 assert text.index('ecam-boot-progress:')<text.index('pci:')<text.index('hsw-alias-progress:')
                                 (logs/'laptop-capture-ecam.log').write_text(ecam_log)
-                                if manifest['config_version'].startswith(('ram-usb-v8-hfw-', 'ram-usb-v9-hfw-')):
+                                if manifest['config_version'].startswith(('ram-usb-v8-hfw-', 'ram-usb-v9-hfw-', 'ram-usb-v10-hfw-')):
                                     from hardware_air61_register_sample import sample_result
                                     read_log=stored.read(folder+'/window.log').decode()
-                                    w=sample_result(read_log,ecam_log,exit_log,folder.split('/')[-1])
+                                    w=sample_result(read_log,ecam_log,exit_log,folder.split('/')[-1],
+                                                    drain_state=manifest['config_version'].startswith('ram-usb-v10-hfw-'))
                                     assert w and w['status']=='REFUSED' and not w['source_completed'] and w['target_reads']==0
-                                    if manifest['config_version'].startswith('ram-usb-v9-hfw-'):
+                                    if manifest['config_version'].startswith(('ram-usb-v9-hfw-', 'ram-usb-v10-hfw-')):
                                         from hardware_haswell_live_vtd import live_result
                                         live = live_result(read_log, ecam_log, exit_log, folder.split('/')[-1], release)
                                         assert live and live['status']=='REFUSED' and not live['requesters'] and not live['gt']

@@ -1098,7 +1098,9 @@ void kmain(void) {
     bool a1466_capture = boot_a1466_capture_requested(cmdline);
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
     bool live_vtd = cmdline_has_token(cmdline,"srvros.hsw-live-vtd=read-only");
+    bool drain_state = cmdline_has_token(cmdline,"srvros.hsw-drain-state=read-only");
     bool live_requesters_ready = false;
+    if(drain_state && !live_vtd)halt_forever();
     if(live_vtd && (!cmdline_tokens_unique(cmdline) ||
        !cmdline_has_token(cmdline,"srvros.storage=ram") ||
        !cmdline_has_token(cmdline,"srvros.capture=haswell-firmware") ||
@@ -1108,7 +1110,8 @@ void kmain(void) {
        !cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-read-only")))halt_forever();
 #else
     const bool live_vtd = false;
-    if(cmdline_has_token(cmdline,"srvros.hsw-live-vtd=read-only"))halt_forever();
+    if(cmdline_has_token(cmdline,"srvros.hsw-live-vtd=read-only") ||
+       cmdline_has_token(cmdline,"srvros.hsw-drain-state=read-only"))halt_forever();
 #endif
 
 
@@ -1495,7 +1498,7 @@ void kmain(void) {
 #ifdef SRVROS_AIR61_READ_QUALIFICATION
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
             if(read_test && aliases_ready && (!live_vtd || platform_haswell_live_requester())) {
-                bool observed = haswell_air61_register_sample();
+                bool observed = drain_state ? haswell_air61_drain_state_sample() : haswell_air61_register_sample();
                 if(live_vtd && observed)live_requesters_ready=platform_haswell_live_requester();
             }
 #else

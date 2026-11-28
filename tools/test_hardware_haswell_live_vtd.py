@@ -6,6 +6,8 @@ from unittest.mock import patch
 
 import hardware_boot as boot
 from hardware_haswell_live_vtd import live_result
+from hardware_air61_read_qualification import DRAIN_OFFSETS
+from hardware_air61_register_sample import DRAIN_TOKEN
 from hardware_haswell_candidate import candidate_result
 from haswell_vtd_capability_audit import OFFSETS
 from test_hardware_haswell_ecam import SESSION
@@ -77,6 +79,15 @@ class LiveReceipt(unittest.TestCase):
                         dict(claim_released=False), dict(status="REFUSED")):
             self.assertIsNone(self.result(**changes))
 
+    def test_drain_state_join_keeps_a_nonzero_fault_observational(self):
+        opts = self.exit_log.replace('srvros.hsw-live-vtd=read-only', 'srvros.hsw-live-vtd=read-only '+DRAIN_TOKEN)
+        raw = list(zip(DRAIN_OFFSETS, (0,0x10,0x00f0101a,0x08000000,0,0x08000000,2,0x02000000,0,0x02000000,2,0)))
+        proof = self.result(opts, raw_samples=[raw,raw])
+        self.assertTrue(proof['drain_state_profile'])
+        self.assertFalse(proof['remapper_sample']['fault_status_clear'])
+        self.assertFalse(proof['remapper_sample']['requester_drain_proven'])
+        self.assertIsNone(self.result(self.exit_log, raw_samples=[raw,raw]))
+
     def test_release_config_is_distinct_explicit_and_automatic(self):
         profile = "ram-usb-v9-hfw-laptop-probe-6ada85bb"
         cmd = boot.limine_config(RELEASE, profile+"-auto-return")
@@ -88,3 +99,8 @@ class LiveReceipt(unittest.TestCase):
             boot.limine_config(RELEASE, profile)
         with self.assertRaisesRegex(ValueError, "guarded register sampler"):
             boot.stage(haswell_live_vtd=True)
+        drain = profile.replace('v9','v10')+'-auto-return'
+        self.assertEqual(boot.limine_config(RELEASE,drain).split().count(DRAIN_TOKEN),1)
+        self.assertNotIn(DRAIN_TOKEN,cmd)
+        with self.assertRaisesRegex(ValueError, "isolated live VT-d profile"):
+            boot.stage(haswell_drain_state=True)
