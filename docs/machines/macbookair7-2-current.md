@@ -618,6 +618,14 @@ the private store, and stale translation after rollback. The checkout
 still has no native provider for the maintained hold and range grant.
 [Held bind fixture](../intel-tearfree-roadmap.md#native-rollback-admission-after-the-air-checkpoint)
 
+The November 27 Ubuntu/i915 comparison recorded eight powered IDI and
+GAM samples. IDI was awake and unblocked, GAM remained open, all five
+engine flush acknowledgements and both L3 bits were clear, and the firmware
+policy stayed locked at `0xc5280000`. Raw register data was saved in local
+diagnostic evidence. The one-page hardware test remains unarmed and Ubuntu
+is running at 1% volume.
+[IDI register scope and comparison](../intel-tearfree-roadmap.md#native-rollback-admission-after-the-air-checkpoint)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

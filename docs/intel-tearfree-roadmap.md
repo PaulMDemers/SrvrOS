@@ -222,6 +222,19 @@ and release interface, or a platform firmware contract that exposes one.
 [Intel PCIe register reference, pp. 23 and 31–33](https://cdrdv2-public.intel.com/690865/intel-gfx-prm-osrc-bdw-vol-12-pcie-config-registers.pdf)
 · [Intel register reference, pp. 1476–1477](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
 
+The GT's IDI path also exposes a request and a status. The Broadwell
+register reference describes `IDIMSG[6]` at `0x8500` as a CPD-flow
+request, and `MSG_GARB_MBC[4]` at `0x801c` as the interface's block
+status. The reference supplies no CPU acquire, maintain and release
+sequence for a GAM hold or its five engine and L3 handshakes. A fresh
+read-only comparison on the Air under Ubuntu/i915 held driver forcewake
+for eight bracketed samples. `IDIMSG` stayed zero, `MSG_GARB_MBC` stayed
+at `0x0c` with IDI awake and unblocked, and GAM remained open at
+request `0xff` and response `0x7f`. All five engine flush acknowledgements
+and both L3 acknowledgement bits stayed clear. `MISC_CTRL0` remained
+`0xc5280000`. This is an observation of the powered interval under i915.
+[Broadwell register reference, pp. 544–545 and 801–802](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+
 If the occupied interval cannot be transferred, the boot allocator needs
 an interval explicitly yielded before any firmware or device client can
 use it. The existing Air capture identifies preserved mappings and reserved
