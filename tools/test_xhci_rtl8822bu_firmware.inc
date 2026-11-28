@@ -7,7 +7,7 @@ enum bu_firmware_fault {
     BU_PHY_OK,BU_PHY_BAD_PROFILE,BU_PHY_BAD_CRYSTAL,BU_PHY_STUCK_RF,
     BU_RX_OK,BU_RX_TIMEOUT,BU_RX_WRONG_EVENT,BU_RX_BAD_STOP,BU_RX_TUNE_FAIL,BU_RX_CLOSING,
     BU_RX_LLT_STUCK,BU_RX_FILTER_DRIFT,
-    BU_RX_SECURITY,BU_RX_SEC_TIMEOUT,BU_RX_SEC_TRANSITION,BU_RX_SEC_DRIFT,BU_RX_SEC_RESTORE_DRIFT,
+    BU_RX_DMA,BU_RX_DMA_TIMEOUT,BU_RX_DMA_TRANSITION,BU_RX_DMA_DRIFT,BU_RX_SEC_RESTORE_DRIFT,BU_RX_SEC_SETUP_DRIFT,
     BU_H2C_BAD_LIMIT,BU_H2C_INIT_STUCK,BU_H2C_BAD_ENTRY,BU_H2C_OUT_SHORT,BU_H2C_OUT_MISSING,
     BU_H2C_OUT_WRONG_TRB,BU_H2C_UNDRAINED,BU_H2C_RESTORE_DRIFT,
 };
@@ -25,8 +25,8 @@ static struct {
     unsigned out_state_logs,out_event_logs,out_device_logs;
     unsigned h2c_status_writes,h2c_status_reads;
     unsigned rx_security_policy_writes;
-    bool rx_security_rcr_reloaded,rx_security_cr_restored;
-    bool rx_queue_mapped,rx_llt_requested,rx_filters_written,rx_security_written,rx_security_event;
+    bool rx_security_rcr_reloaded,rx_security_cr_restored,rx_dma_written;
+    bool rx_queue_mapped,rx_llt_requested,rx_filters_written,rx_security_written,rx_dma_event;
     enum bu_firmware_fault fault;
 } bu_model;
 
@@ -187,16 +187,17 @@ static void bu_model_control(void) {
             bu_model.h2c_status_reads++;
             bu_model_store(reg,width,0xeaeaeaea);
         }
-        if(bu_rx_owner && cr==BU_RX_CR && (reg==0xfcc || bu_model.rx_samples%10)) {
+        if(bu_rx_owner && (cr==0x9a || cr==0xbf) && (reg==0xfcc || bu_model.rx_samples%10)) {
             static const unsigned registers[]={0xfcc,0xf08,0xf04,0xf14,0xf10,0xf0c,0x284,0x288,0x28c,0x2b0};
             unsigned i=bu_model.rx_samples++;
             assert(i<40 && reg==registers[i%10] && width==4 &&
-                (bu_model_read(BU_CR,2)&BU_RX_SEC_ENABLE)==(i>=20?BU_RX_SEC_ENABLE:0));
+                bu_model_read(BU_CR,2)==(i>=20?0x06bf:0x069a) &&
+                bu_model_read(BU_RX_SECCFG,2)==0x31cf && bu_model_read(BU_TXPAUSE,1)==0xff);
             assert((bu_model.rx_posts!=0)==(i>=10));
             uint32_t observed=i%20>=10?0x000b0005:0x00020003;
-            if(bu_model.fault>=BU_RX_SECURITY && i%10>=6)observed=reg==0x284?BU_RX_DMA_IDLE:0;
+            if(bu_model.fault>=BU_RX_DMA && i%10>=6)observed=reg==0x284?BU_RX_DMA_IDLE:0;
             bu_model_store(reg,width,observed);
-            closing=(i==10 && bu_model.fault==BU_RX_CLOSING) || (i==20 && bu_model.fault==BU_RX_SEC_TRANSITION);
+            closing=(i==10 && bu_model.fault==BU_RX_CLOSING) || (i==20 && bu_model.fault==BU_RX_DMA_TRANSITION);
         }
         if(bu_model.rx_llt_requested && reg==BU_RX_LLT && width==4)bu_model.rx_llt_polls++;
         memcpy(d->descriptor_buffer,bu_model.reg+reg,width);
@@ -226,10 +227,17 @@ static void bu_model_control(void) {
         if(reg==BU_CR) {
             unsigned previous=bu_model_read(BU_CR,1);
             if(width==2) {
-                assert(bu_model.fault>=BU_RX_SECURITY && !bu_model.rx_security_written &&
+                assert(!bu_model.rx_security_written && bu_model.h2c_posts==2 &&
                     bu_model_read(BU_CR,2)==0x049a && value==0x069a && bu_model_read(BU_TXPAUSE,1)==0xff &&
-                    bu_model.rx_samples==20 && bu_model.rx_posts==1 && bu_rx_owner && bu_rx_owner->pending);
+                    !bu_model.rx_samples && !bu_model.rx_posts && bu_rx_owner && !bu_rx_owner->pending);
                 bu_model.rx_security_written=true;
+            } else if(value==0xbf) {
+                assert(bu_model.fault>=BU_RX_DMA && !bu_model.rx_dma_written && bu_model.rx_security_rcr_reloaded &&
+                    bu_model_read(BU_CR,2)==0x069a && bu_model_read(BU_RX_SECCFG,2)==0x31cf &&
+                    bu_model_read(BU_TXPAUSE,1)==0xff && bu_model.rx_samples==20 &&
+                    bu_model.rx_posts==1 && bu_rx_owner && bu_rx_owner->pending);
+                bu_model.rx_dma_written=true;
+                if(bu_model.fault==BU_RX_DMA_DRIFT)value=0x9f;
             } else if(value==0x9f) {
                 assert(previous==0 && bu_model.rx_queue_mapped && !bu_model.rx_page_writes &&
                     bu_model_read(BU_TXPAUSE,1)==0xff && !bu_model.h2c_setup && !bu_model.rx_posts);
@@ -244,7 +252,7 @@ static void bu_model_control(void) {
             if(!i) {
                 assert(value==0x31cf && bu_model_read(BU_CR,2)==0x069a &&
                       bu_model_read(BU_TXPAUSE,1)==0xff && !bu_model.rx_security_rcr_reloaded);
-                if(bu_model.fault==BU_RX_SEC_DRIFT)value=0x3100;
+                if(bu_model.fault==BU_RX_SEC_SETUP_DRIFT)value=0x3100;
             } else {
                 assert(value==0x3100 && bu_model_read(BU_CR,1)==0 && bu_model.rx_stops==1 &&
                        bu_model.rx_security_cr_restored);
@@ -387,7 +395,7 @@ static void bu_model_control(void) {
 static void bu_model_receive_completion(bool closing) {
     struct bu_rx *rx=bu_rx_owner;
     assert(rx && rx->pending && rx->trb==(bu_model.rx_cursor&~1ull));
-    assert(bu_model_read(BU_CR,1)==BU_RX_CR && bu_model_read(BU_TXPAUSE,1)==0xff);
+    assert(bu_model_read(BU_CR,2)==(bu_model.rx_dma_written?0x06bf:0x069a) && bu_model_read(BU_TXPAUSE,1)==0xff);
     const struct xhci_trb *trb=(const void *)(uintptr_t)rx->trb;
     assert(trb->status==BU_RX_BYTES && (trb->control&1));
     assert((rx->phys&0xffff)+BU_RX_BYTES<=0x10000);
@@ -397,7 +405,7 @@ static void bu_model_receive_completion(bool closing) {
     data[0]=54;
     data[24]=0x80;
     memcpy(data+60,"\x00\x09" "Demers2.4" "\x03\x01\x0a",14);
-    if(n==1 && !closing && bu_model.fault!=BU_RX_SECURITY)data[1]=0x40;
+    if(n==1 && !closing && bu_model.fault!=BU_RX_DMA)data[1]=0x40;
     unsigned actual=n==2?26:78; /* Truncated aggregate, then valid beacon. */
     uint64_t pointer=rx->trb;
     if(bu_model.fault==BU_RX_WRONG_EVENT)pointer+=16;
@@ -417,15 +425,15 @@ static void bu_model_receive(void) {
     assert(bu_model.h2c_posts==2 && bu_model_read(BU_H2C_WP,4)==BU_H2C_START+64 &&
            bu_model_read(BU_H2C_RP,4)==BU_H2C_START+64);
     bu_model.rx_posts++;
-    if(bu_model.fault<BU_RX_SECURITY && bu_model.fault!=BU_RX_TIMEOUT && bu_model.fault!=BU_RX_BAD_STOP &&
+    if(bu_model.fault<BU_RX_DMA && bu_model.fault!=BU_RX_TIMEOUT && bu_model.fault!=BU_RX_BAD_STOP &&
        bu_model.fault!=BU_RX_CLOSING)
         bu_model_receive_completion(false);
 }
 
-static void bu_model_security_tick(void) {
-    if(bu_model.fault==BU_RX_SECURITY && bu_model.rx_samples==30 && !strict_control.device &&
-       bu_rx_owner && bu_rx_owner->pending && !bu_model.rx_security_event) {
-        bu_model.rx_security_event=true;
+static void bu_model_dma_tick(void) {
+    if(bu_model.fault==BU_RX_DMA && bu_model.rx_samples==30 && !strict_control.device &&
+       bu_rx_owner && bu_rx_owner->pending && !bu_model.rx_dma_event) {
+        bu_model.rx_dma_event=true;
         bu_model_receive_completion(false);
     }
 }
@@ -501,22 +509,23 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
         rtl_test_clock=true;rtl_test_delay=bu_model_delay;
         if(fault==BU_FW_MISSING)test_time_step=10000;
         native_boundary_mmio_hook=bu_model_mmio;
-        native_boundary_clock_hook=bu_model_security_tick;
+        native_boundary_clock_hook=bu_model_dma_tick;
         if(fault==BU_FW_IMAGE)image[0]^=1;
         bool safe=false;
         bool success=fault==BU_FW_OK || fault==BU_FW_FLASH || fault==BU_FW_COLD_LATCH ||
-            fault==BU_BOARD_OK || fault==BU_PHY_OK || fault==BU_RX_OK || fault==BU_RX_SECURITY;
+            fault==BU_BOARD_OK || fault==BU_PHY_OK || fault==BU_RX_OK || fault==BU_RX_DMA;
         if(fault>=BU_RX_OK) {
             test_console_printf_hook=bu_model_out_log;
             assert(xhci_rtl8822bu_capture_passive(image,sizeof image,phy,sizeof phy,&safe)==success);
             test_console_printf_hook=NULL;
             assert(!bu_rx_owner && !bu_model_read(BU_CR,1) && (bu_model_read(0x1f,1)&7)==0);
             assert(bu_model.channel_writes==(fault==BU_RX_TUNE_FAIL?2:4));
-            bool admitted=fault!=BU_RX_TUNE_FAIL && fault!=BU_RX_LLT_STUCK && fault!=BU_RX_FILTER_DRIFT &&
+            bool firmware_ready=fault!=BU_RX_TUNE_FAIL && fault!=BU_RX_LLT_STUCK && fault!=BU_RX_FILTER_DRIFT &&
                 fault<BU_H2C_BAD_LIMIT;
-            unsigned posts=fault==BU_RX_OK?3:fault==BU_RX_SEC_TRANSITION?2:admitted?1:0;
+            bool admitted=firmware_ready && fault!=BU_RX_SEC_SETUP_DRIFT;
+            unsigned posts=fault==BU_RX_OK?3:fault==BU_RX_DMA_TRANSITION?2:admitted?1:0;
             assert(bu_model.rx_posts==posts);
-            unsigned commands=admitted || fault>=BU_H2C_UNDRAINED?2:
+            unsigned commands=firmware_ready || fault>=BU_H2C_UNDRAINED?2:
                 fault>=BU_H2C_OUT_SHORT && fault<=BU_H2C_OUT_WRONG_TRB?1:0;
             assert(bu_model.h2c_posts==commands && !d->bulk_pending);
             assert(bu_model.out_event_logs==1+commands);
@@ -527,14 +536,15 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
             assert(bu_model.rx_filters_written==(fault!=BU_RX_TUNE_FAIL && fault!=BU_RX_LLT_STUCK &&
                 fault!=BU_H2C_BAD_LIMIT && fault!=BU_H2C_INIT_STUCK));
             assert(bu_model.rx_stops==(fault==BU_RX_TUNE_FAIL?0:1));
-            bool compared=fault>=BU_RX_SECURITY && fault<=BU_RX_SEC_RESTORE_DRIFT && fault!=BU_RX_SEC_DRIFT;
+            bool compared=fault>=BU_RX_DMA && fault<=BU_RX_SEC_RESTORE_DRIFT && fault!=BU_RX_DMA_DRIFT;
             assert(bu_model.rx_samples==(compared?40:admitted?20:0));
-            assert(bu_model.rx_security_written==(fault>=BU_RX_SECURITY && fault<=BU_RX_SEC_RESTORE_DRIFT));
+            assert(bu_model.rx_security_written==firmware_ready);
+            assert(bu_model.rx_dma_written==(fault>=BU_RX_DMA && fault<=BU_RX_SEC_RESTORE_DRIFT));
             assert(bu_model.rx_security_policy_writes==2u*bu_model.rx_security_written &&
                    bu_model.rx_security_rcr_reloaded==bu_model.rx_security_written &&
                    bu_model.rx_security_cr_restored==bu_model.rx_security_written);
             assert(bu_model_read(BU_RX_SECCFG,2)==(fault==BU_RX_SEC_RESTORE_DRIFT?0x31cfu:0x3100u));
-            assert(bu_model.rx_security_event==(fault==BU_RX_SECURITY));
+            assert(bu_model.rx_dma_event==(fault==BU_RX_DMA));
             assert(bu_model.rx_llt_polls==(fault==BU_RX_TUNE_FAIL?0:fault==BU_RX_LLT_STUCK?100:1));
             if(fault==BU_RX_CLOSING)assert(bu_model.rx_cursor==bu_model.rx_ring+16);
         } else if(fault>=BU_PHY_OK) {
@@ -586,7 +596,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
     if(passive)puts("rtl8822bu: PASS native tuning, 32 KiB bulk IN, beacon parsing, stale/timeout and retirement refusal");
     if(passive)puts("rtl8822bu: PASS read-only pre/post PHY and DMA counters and closing completion excluded from discovery");
     if(passive)puts("rtl8822bu: PASS Linux RX admission order, MAC TX disabled, LLT completion, and filter readback refusal");
-    if(passive)puts("rtl8822bu: PASS same-boot Linux MAC security comparison, retained IN owner, transition discard, and verified restore");
+    if(passive)puts("rtl8822bu: PASS same-boot Netgear DMA and scheduler comparison, retained IN owner, transition discard, and TX gate");
     if(passive)puts("rtl8822bu: PASS native firmware commands, Linux USB bytes, queue entry/drain, short/missing OUT and RX-only restoration");
     if(passive)puts("rtl8822bu: PASS Netgear OUT ring and completion tracing, stale running context, and wrong-TRB refusal");
     if(passive)puts("rtl8822bu: PASS Netgear queue setup order, unavailable status, boundary drift and stuck initialization");

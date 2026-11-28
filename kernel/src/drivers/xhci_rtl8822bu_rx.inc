@@ -3,10 +3,13 @@
 enum {
     BU_RX_DCI=9, BU_RX_BYTES=32768, BU_RX_TDS=32,
     BU_RX_CR=0x9a, BU_RX_DMA_IDLE=1u<<17,
+    BU_RX_SCHEDULE=1u<<5, BU_RX_HOST_TXDMA=1u, BU_RX_TXDMA=1u<<2,
     BU_RX_SEC_ENABLE=1u<<9, BU_RX_SECCFG=0x680, BU_RX_SEC_POLICY=0xcf,
     BU_RX_DMA_MAP=0xf5a0, BU_RX_ARB=1, BU_RX_LLT=0x0208,
     BU_RX_FILTER0=0xffffffffu, BU_RX_FILTER2=0xffff, BU_RX_RCR=0xf410400e,
-    BU_H2C_CR=BU_RX_CR|0x05, BU_H2C_HEAD=0x244, BU_H2C_TAIL=0x248, BU_H2C_READ=0x24c,
+    BU_H2C_CR=BU_RX_CR|BU_RX_HOST_TXDMA|BU_RX_TXDMA,
+    BU_RX_DMA_CR=BU_H2C_CR|BU_RX_SCHEDULE,
+    BU_H2C_HEAD=0x244, BU_H2C_TAIL=0x248, BU_H2C_READ=0x24c,
     BU_H2C_INFO=0x254, BU_H2C_RP=0x10d0, BU_H2C_WP=0x10d4,
     BU_H2C_OFFSET=0x20d, BU_H2C_INFO_MODE=1, BU_H2C_INFO_INIT=4,
     BU_H2C_MASK=0x3ffff, BU_H2C_START=0x3fa00, BU_H2C_END=0x3fe00,
@@ -191,10 +194,10 @@ static bool bu_rx_observe(const struct bu_rx *rx,const char *sample,bool *idle) 
     return true;
 }
 
-static const char *bu_rx_window(struct bu_rx *rx,bool security,bool *idle_pending) {
+static const char *bu_rx_window(struct bu_rx *rx,bool dma,bool *idle_pending) {
     bool idle_before=false,idle_after=false;
     *idle_pending=false;
-    if(!bu_rx_observe(rx,security?"security-before":"before",&idle_before))return "rx-observe";
+    if(!bu_rx_observe(rx,dma?"dma-before":"before",&idle_before))return "rx-observe";
     if(rx->failed)return "rx-event";
     unsigned starting_completed=rx->completed;
     uint64_t start=timer_monotonic_us();
@@ -216,10 +219,10 @@ static const char *bu_rx_window(struct bu_rx *rx,bool security,bool *idle_pendin
     }
     uint64_t elapsed=timer_monotonic_us()-start;
     unsigned in_window=rx->completed;
-    bool observed=!device_removed(rx->device) && bu_rx_observe(rx,security?"security-after":"after",&idle_after);
+    bool observed=!device_removed(rx->device) && bu_rx_observe(rx,dma?"dma-after":"after",&idle_after);
     *idle_pending=observed && idle_before && idle_after && rx->pending && rx->posted==1 && !rx->completed;
-    if(security) {
-        console_printf("rtl8822bu-rx-security-window: elapsed_us=%u completed=%u closing=%u transition=%u observed=%u\n",
+    if(dma) {
+        console_printf("rtl8822bu-rx-dma-window: elapsed_us=%u completed=%u closing=%u transition=%u observed=%u\n",
             elapsed,(uint64_t)(in_window-starting_completed),(uint64_t)(rx->completed-in_window),
             (uint64_t)starting_completed,(uint64_t)observed);
     } else {
@@ -234,9 +237,9 @@ static bool bu_rx_enable_security(struct bu_upload *up,const struct bu_rx *rx,st
     uint32_t after=0,config=0,pause=0,rcr=0;
     bool permitted=wifi_hub_check_port(d,up->hub) && bu_read(d,BU_CR,2,&saved->cr) &&
         (saved->cr&0xff)==BU_RX_CR && !(saved->cr&BU_RX_SEC_ENABLE) &&
-        bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff && rx->pending && !rx->completed && !rx->failed &&
+        bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff &&
         bu_read(d,BU_RX_SECCFG,2,&saved->config) && saved->config!=0xffff &&
-        bu_read(d,0x608,4,&rcr) && rcr==BU_RX_RCR && rx->pending && !rx->completed && !rx->failed;
+        bu_read(d,0x608,4,&rcr) && rcr==BU_RX_RCR && !rx->posted && !rx->failed;
     bool changed=false;
     if(permitted) {
         /* Linux enables the engine, applies its policy, then reloads RCR.
@@ -253,6 +256,24 @@ static bool bu_rx_enable_security(struct bu_upload *up,const struct bu_rx *rx,st
     console_printf("rtl8822bu-rx-security: eligible=1 before=%x after=%x cfg_before=%x cfg_after=%x pause=%x rcr=%x verified=%u\n",
         (uint64_t)saved->cr,(uint64_t)after,(uint64_t)saved->config,(uint64_t)config,
         (uint64_t)pause,(uint64_t)rcr,(uint64_t)changed);
+    return changed;
+}
+
+static bool bu_rx_enable_dma(struct bu_upload *up,const struct bu_rx *rx,const struct bu_rx_security *security) {
+    struct xhci_device *d=up->device;
+    uint32_t before=0,after=0,config=0,pause=0;
+    uint32_t expected=(security->cr&0xff00)|BU_RX_SEC_ENABLE|BU_RX_DMA_CR;
+    uint64_t owner=rx->trb;
+    bool changed=wifi_hub_check_port(d,up->hub) &&
+        bu_read(d,BU_CR,2,&before) && before==(security->cr|BU_RX_SEC_ENABLE) &&
+        bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff && rx->pending && !rx->completed && !rx->failed &&
+        bu_write(d,BU_CR,1,BU_RX_DMA_CR) && bu_read(d,BU_CR,2,&after) && after==expected &&
+        bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff &&
+        bu_read(d,BU_RX_SECCFG,2,&config) && config==(security->config|BU_RX_SEC_POLICY) &&
+        rx->trb==owner && !rx->failed;
+    console_printf("rtl8822bu-rx-dma-enable: eligible=1 before=%x after=%x cfg=%x pause=%x owner=%x pending=%u verified=%u\n",
+        (uint64_t)before,(uint64_t)after,(uint64_t)config,(uint64_t)pause,owner,
+        (uint64_t)rx->pending,(uint64_t)changed);
     return changed;
 }
 
@@ -436,16 +457,17 @@ static const char *bu_receive(struct bu_upload *up,bool *retired) {
     bu_rx_owner=&rx;
     const char *failure=bu_rx_admit(d);
     if(!failure && !bu_h2c_initialize(up))failure="firmware-command";
+    if(!failure && !bu_rx_enable_security(up,&rx,&security))failure="rx-security";
     if(!failure) {
         console_write("rtl8822bu-rx-progress: sampling channel 10 with MAC transmit disabled\n");
         bool idle_pending;
         failure=bu_rx_window(&rx,false,&idle_pending);
         if(failure && !rx.failed && idle_pending) {
-            if(bu_rx_enable_security(up,&rx,&security)) {
-                console_write("rtl8822bu-rx-progress: sampling the same channel after enabling MAC security\n");
+            if(bu_rx_enable_dma(up,&rx,&security)) {
+                console_write("rtl8822bu-rx-progress: sampling the same channel with DMA and scheduler bits enabled\n");
                 failure=bu_rx_window(&rx,true,&idle_pending);
-            } else failure="rx-security";
-        } else console_write("rtl8822bu-rx-security: eligible=0\n");
+            } else failure="rx-dma-enable";
+        } else console_write("rtl8822bu-rx-dma-enable: eligible=0\n");
     }
     bool gated=bu_write(d,BU_CR,1,0) && bu_phy_tx_inhibited(d);
     bool stopped=bu_rx_stop(&rx);
