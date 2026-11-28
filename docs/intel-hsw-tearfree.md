@@ -377,6 +377,24 @@ guarded retirement in place. Acceptance requires both retirements, the
 existing identical-read and graph checks, and a subsequent read-only
 slot 4096 observation with Pipe A active.
 
+#### Native drain-state retry completed
+
+Source `8c824c61` / release `ac08271ebcde3224` saved session
+`session-0006614cd5690d31-00`. The two VT-d mappings retired and released
+their claims in 99.209 ms and 98.302 ms under the 110 ms limit. Each census
+covered 42 tables and used 3,084 bytes per raw pass. The read batches were
+97.001 ms apart and returned identical values across 24 reads and zero
+target writes. CCMD and IOTLB showed no pending command, and FSTS was zero
+in both batches.
+
+The joined receipt verified the subsequent read-only slot 4096 audit.
+The slot still held `0x8ea00001` at both endpoints, and Pipe A advanced
+from frame 1014 to 1015 on the inherited surface over 21.390 ms. The
+temporary audit aliases retired. IGD pending status was clear at both
+endpoints and the CPU0 SMI count stayed at 13. Requester drain and firmware
+exclusion remain unproved. Ubuntu returned with the one-shot consumed, and
+the archived exit snapshot, installed recovery and offline USB check verified.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

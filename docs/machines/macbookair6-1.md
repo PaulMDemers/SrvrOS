@@ -154,6 +154,14 @@ objective is two complete retirements followed by the read-only slot 4096
 sample with Pipe A still active. Broadwell PR301 at `4ca02154` remains
 independent.
 
+The [native drain-state retry](../intel-hsw-tearfree.md#native-drain-state-retry-completed)
+passed on `8c824c61` / `ac08271ebcde3224`. Both VT-d passes retired and
+released their claims in 99.209 ms and 98.302 ms, with a 97.001 ms gap
+between read batches. The subsequent slot 4096 audit retired its temporary
+aliases as Pipe A advanced one frame on the inherited surface. The saved
+receipt, installed recovery and offline USB check verified. Slot 4096 stays
+protected pending requester drain and firmware exclusion evidence.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
