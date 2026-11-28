@@ -828,6 +828,14 @@ four file hashes. The first collection used the 100 ms GT budget for the
 closing check. The corrected parser uses the 10 ms limit from the
 validated receipt and can replay the same raw bytes without a reboot.
 
+The timing retry starts at `04d4fb19`. Shared main `117a0294` and Air6,1
+PR 567 `6c42e738` were reviewed. Scope is the Broadwell powered traffic
+sampler and its receipt and host fixtures. Each powered sample uses a
+single fresh wake census and rechecks request and acknowledgement before
+reading the powered thread register. The retry measures each traffic packet,
+the PTE pair and closing separately within the same 10 ms phase. The
+Air's original scanout, PCI requester hold and read-only scope are required.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
