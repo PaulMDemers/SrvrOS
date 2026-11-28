@@ -913,6 +913,20 @@ keep the four 32 KiB requests, and restore the grant after the MAC is
 disabled and the RX endpoint has stopped.
 [Linux rtw88 coexistence grant control](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/coex.c).
 
+Release `7d0941a5138371ea` on `f8e8060c` keeps the existing setup and
+changes CR bit 6 only inside the guarded receive window. The driver
+verifies TX pause and the low RF grant on entry, during the window,
+and on exit. It clears CR and verifies endpoint Stop before restoring
+the original grant field. Native xHCI tests passed grant admission
+drift, loss in the window, failed restoration, and prequeued receive
+ownership. Both sibling tests, 329 boot and trial tests, and all five
+exact-image VM cases passed. The installed release has fresh automatic
+workspace and EFI capture, with verified Ubuntu default and recovery
+`74da74e0b57afbb8`. The run record in
+`build/bringup/pro112-rtl8822bu-tx-inhibit/` is unarmed and cold
+Demers2.4 validation is pending. The Linux evidence is archived as
+`netgear-linux-rf-inhibit-reference`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
