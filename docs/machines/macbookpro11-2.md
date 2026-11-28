@@ -817,7 +817,19 @@ The xHCI lifecycle, both sibling adapters, 329 boot and trial tests and
 five exact-image VM rehearsals passed. The candidate is installed,
 with `74da74e0b57afbb8` verified as recovery. The run record is under
 `build/bringup/pro112-rtl8822bu-rx-prequeue-retry/`. Cold hardware
-validation remains pending.
+session `session-0006615353931b75-00` verified that CR was zero at
+PHY entry and TXPAUSE read back as `0x00` after firmware startup.
+The new write restored `0xff` and PHY initialization and both H2C
+commands completed. Passive channel 10 sampling ran for about 391 ms
+with all four 32 KiB requests pending. The PHY counted six good CCK
+frames, while the RX DMA packet count and pointer stayed at zero and
+xHCI completed none of the four requests. No beacons were received.
+TXPAUSE remained `0xff` during verified endpoint retirement. The
+workspace exit log and EFI checkpoints agree on the pause, scan and
+retirement. All three adapters remained on the hub, all 708 prior
+workspace files matched, and Ubuntu recovery was verified. This
+accepts the TX-pause fix and early queue on this unit. Netgear receive
+delivery and discovery remain open.
 
 #### RTL8188CUS identity checkpoint
 
