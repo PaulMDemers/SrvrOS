@@ -1,4 +1,3 @@
-#include "fixtures/wpa2-handshake-synthetic.h"
 
 enum rtl_station_fixture {
     RTL_STATION_OFF,RTL_STATION_OK,RTL_STATION_BAD_MIC,RTL_STATION_USB_TIMEOUT,RTL_STATION_USB_SPIN_LIMIT,

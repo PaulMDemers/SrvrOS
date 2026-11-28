@@ -2,7 +2,7 @@
  * Bound to the verified firmware 30.20.0 and the independently captured
  * port-4 descriptor. The staging queue never enables MAC TX or baseband/RF. */
 enum {
-    BU_OUT_DCI=10, BU_DESC_BYTES=48, BU_BLOCK_BYTES=4096,
+    BU_OUT_DCI=10, BU_EAPOL_DCI=12, BU_DESC_BYTES=48, BU_BLOCK_BYTES=4096,
     BU_FW_BYTES=161240, BU_FW_HEADER=64, BU_DMEM_BYTES=11216, BU_IMEM_BYTES=149960,
     BU_MCU=0x0080, BU_CR=0x0100, BU_BCN_HEAD=0x0204, BU_BCN=0x0550,
     BU_DDMA_SRC=0x1200, BU_DDMA_DST=0x1204, BU_DDMA=0x1208,
@@ -16,12 +16,13 @@ enum {
 
 struct bu_upload {
     struct xhci_device *device,*hub;
-    struct xhci_bulk_endpoint out;
+    struct xhci_bulk_endpoint out,eapol;
     uint8_t *packet;
     uint64_t packet_phys;
     unsigned bytes,packets;
+    uint8_t station[6];
     uint32_t mcu;
-    bool power_touched,unexpected_mcu,endpoint_ready,stopped,parked,trace_out;
+    bool power_touched,unexpected_mcu,endpoint_ready,eapol_ready,stopped,parked,trace_out;
 };
 
 static bool bu_image_valid(const uint8_t *data,uint64_t size) {
@@ -173,38 +174,45 @@ static const char *bu_power_on(struct bu_upload *up) {
     return bu_radio_off(d)?NULL:"radio-gate";
 }
 
-static bool bu_configure_out(struct bu_upload *up) {
-    struct xhci_device *d=up->device;
-    struct xhci_bulk_endpoint *ep=&up->out;
+static bool bu_configure_out_pipe(struct xhci_device *d,struct xhci_bulk_endpoint *ep,unsigned dci) {
     void *page;
     if(!alloc_frame_zero(&ep->ring_phys,&page))return false;
-    ep->ring=page;ep->dci=BU_OUT_DCI;ep->cycle=true;ep->packet=512;
+    ep->ring=page;ep->dci=dci;ep->cycle=true;ep->packet=512;
     write_link_trb(ep->ring,ep->ring_phys,true);
-    uint64_t phys=pmm_alloc_frames_tagged(3,PMM_FRAME_DMA);
-    if(!phys)return false;
-    /* One Normal TRB may not span a 64 KiB boundary. Keep its two pages
-     * inside the same window even if the first allocation ends at 64 KiB. */
-    if((phys&0xffffu)+BU_BLOCK_BYTES+BU_DESC_BYTES+1>0x10000u)phys+=PMM_FRAME_SIZE;
-    up->packet_phys=phys;up->packet=pmm_phys_to_virt(phys);
-    if(!up->packet)return false;
     zero_bytes(d->input_context,PMM_FRAME_SIZE);
-    context_write32(d->input_context,0,1,1u|(1u<<BU_OUT_DCI));
+    context_write32(d->input_context,0,1,1u|(1u<<dci));
     uint32_t slot0=context_read32(d->output_context,0,0);
-    context_write32(d->input_context,1,0,(slot0&~(31u<<27))|(BU_OUT_DCI<<27));
+    uint32_t entries=slot0>>27;
+    context_write32(d->input_context,1,0,(slot0&~(31u<<27))|((dci>entries?dci:entries)<<27));
     for(unsigned i=1;i<3;i++)context_write32(d->input_context,1,i,context_read32(d->output_context,0,i));
     rtl_cu_bulk_context(d,ep,2,BU_BLOCK_BYTES+BU_DESC_BYTES);
     const struct xhci_trb command={.parameter_low=(uint32_t)d->input_context_phys,
         .parameter_high=d->input_context_phys>>32,
         .control=(XHCI_TRB_TYPE_CONFIGURE_ENDPOINT<<10)|((uint32_t)d->slot_id<<24)};
     uint64_t slot=UINT64_MAX;
-    up->endpoint_ready=submit_command_trb(&command,XHCI_TRB_TYPE_CONFIGURE_ENDPOINT,&slot) && slot==d->slot_id;
+    bool configured=submit_command_trb(&command,XHCI_TRB_TYPE_CONFIGURE_ENDPOINT,&slot) && slot==d->slot_id;
     if(slot!=UINT64_MAX && slot!=d->slot_id)xhci.command_failed=true;
+    return configured;
+}
+
+static bool bu_configure_out(struct bu_upload *up) {
+    uint64_t phys=pmm_alloc_frames_tagged(3,PMM_FRAME_DMA);
+    if(!phys)return false;
+    /* One Normal TRB may not span a 64 KiB boundary. Keep its two pages
+     * inside the same window even if the first allocation ends at 64 KiB. */
+    if((phys&0xffffu)+BU_BLOCK_BYTES+BU_DESC_BYTES+1>0x10000u)phys+=PMM_FRAME_SIZE;
+    up->packet_phys=phys;up->packet=pmm_phys_to_virt(phys);
+    up->endpoint_ready=up->packet && bu_configure_out_pipe(up->device,&up->out,BU_OUT_DCI);
     return up->endpoint_ready;
 }
 
+static uint64_t bu_pipe_dequeue(const struct xhci_device *d,unsigned dci) {
+    return context_read32(d->output_context,dci,2) |
+           (uint64_t)context_read32(d->output_context,dci,3)<<32;
+}
+
 static uint64_t bu_out_dequeue(const struct xhci_device *d) {
-    return context_read32(d->output_context,BU_OUT_DCI,2) |
-           (uint64_t)context_read32(d->output_context,BU_OUT_DCI,3)<<32;
+    return bu_pipe_dequeue(d,BU_OUT_DCI);
 }
 
 static void bu_out_state(struct bu_upload *up,const char *phase) {
@@ -218,26 +226,12 @@ static void bu_out_state(struct bu_upload *up,const char *phase) {
         ep->ring_phys+ep->enqueue*sizeof(struct xhci_trb),d->bulk_trb,(uint64_t)ep->cycle,(uint64_t)d->bulk_pending);
 }
 
-static bool bu_send(struct bu_upload *up,const uint8_t *bytes,unsigned count,bool command) {
+static bool bu_post_out(struct bu_upload *up,struct xhci_bulk_endpoint *ep,unsigned length,
+                        bool command,const char *trace_phase) {
     struct xhci_device *d=up->device;
-    struct xhci_bulk_endpoint *ep=&up->out;
-    if(d->bulk_pending || device_removed(d) || !count || count>BU_BLOCK_BYTES ||
-       ep->enqueue>=XHCI_TRB_COUNT-2)return false;
-    unsigned padded=count+((count+BU_DESC_BYTES)%512==0),length=padded+BU_DESC_BYTES;
-    uint8_t *p=up->packet;
-    zero_bytes(p,length);
-    p[0]=(uint8_t)padded;p[1]=(uint8_t)(padded>>8);
-    if(command) {
-        p[5]=0x13; /* H2C, with no radio frame offset or last-segment flag. */
-    } else {
-        p[2]=BU_DESC_BYTES;p[3]=4;p[5]=0x10;
-    }
-    uint16_t checksum=0;
-    for(unsigned i=0;i<32;i+=2)checksum^=p[i]|(uint16_t)p[i+1]<<8;
-    p[28]=(uint8_t)checksum;p[29]=(uint8_t)(checksum>>8);
-    copy_bytes(p+BU_DESC_BYTES,bytes,count);
-    bool trace=command || (up->trace_out && up->packets==39);
-    if(command)bu_out_state(up,"h2c-before");
+    if(!ep->ring || d->bulk_pending || device_removed(d) || !length || ep->enqueue>=XHCI_TRB_COUNT-2)
+        return false;
+    bool trace=trace_phase!=NULL;
     const struct xhci_trb trb={.parameter_low=(uint32_t)up->packet_phys,.parameter_high=up->packet_phys>>32,
         .status=length,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|(command?0:XHCI_TRB_ISP)};
     struct xhci_trb *entry=&ep->ring[ep->enqueue];
@@ -258,7 +252,7 @@ static bool bu_send(struct bu_upload *up,const uint8_t *bytes,unsigned count,boo
     for(unsigned i=0;i<XHCI_TRANSFER_TIMEOUT && d->bulk_pending;i++) {
         struct xhci_trb event;
         if(poll_event(&event)) {
-            if(trace && (event.control>>24)==d->slot_id && ((event.control>>16)&31)==BU_OUT_DCI &&
+            if(trace && (event.control>>24)==d->slot_id && ((event.control>>16)&31)==ep->dci &&
                ((event.control>>10)&63)==XHCI_TRB_TYPE_TRANSFER_EVENT) {
                 observed=event;
                 events++;
@@ -275,11 +269,35 @@ static bool bu_send(struct bu_upload *up,const uint8_t *bytes,unsigned count,boo
         console_printf("rtl8822bu-out-event: length=%u control=%x count=%u ptr=%x cc=%u residue=%u ed=%u\n",
             (uint64_t)length,(uint64_t)(trb.control|cycle),(uint64_t)events,event_trb,
             (uint64_t)(observed.status>>24),(uint64_t)(observed.status&0xffffff),(uint64_t)((observed.control>>2)&1));
-        bu_out_state(up,command?"h2c-after":"firmware-last");
+        if(ep->dci==BU_OUT_DCI)bu_out_state(up,trace_phase);
     }
     if(!ok)console_printf("rtl8822bu-out: length=%u completion=%u residue=%u pending=%u trb=%x\n",
         (uint64_t)length,(uint64_t)d->bulk_completion,(uint64_t)d->bulk_remaining,
         (uint64_t)d->bulk_pending,d->bulk_trb);
+    return ok;
+}
+
+static bool bu_send(struct bu_upload *up,const uint8_t *bytes,unsigned count,bool command) {
+    struct xhci_device *d=up->device;
+    struct xhci_bulk_endpoint *ep=&up->out;
+    if(d->bulk_pending || device_removed(d) || !count || count>BU_BLOCK_BYTES ||
+       ep->enqueue>=XHCI_TRB_COUNT-2)return false;
+    unsigned padded=count+((count+BU_DESC_BYTES)%512==0),length=padded+BU_DESC_BYTES;
+    uint8_t *p=up->packet;
+    zero_bytes(p,length);
+    p[0]=(uint8_t)padded;p[1]=(uint8_t)(padded>>8);
+    if(command) {
+        p[5]=0x13; /* H2C, with no radio frame offset or last-segment flag. */
+    } else {
+        p[2]=BU_DESC_BYTES;p[3]=4;p[5]=0x10;
+    }
+    uint16_t checksum=0;
+    for(unsigned i=0;i<32;i+=2)checksum^=p[i]|(uint16_t)p[i+1]<<8;
+    p[28]=(uint8_t)checksum;p[29]=(uint8_t)(checksum>>8);
+    copy_bytes(p+BU_DESC_BYTES,bytes,count);
+    const char *trace=command?"h2c-after":up->trace_out && up->packets==39?"firmware-last":NULL;
+    if(command)bu_out_state(up,"h2c-before");
+    bool ok=bu_post_out(up,ep,length,command,trace);
     if(ok && !command)up->packets++;
     return ok;
 }
@@ -346,20 +364,26 @@ static const char *bu_download(struct bu_upload *up,const uint8_t *image) {
     return NULL;
 }
 
-static bool bu_stop(struct bu_upload *up) {
+static bool bu_stop_pipe(struct bu_upload *up,struct xhci_bulk_endpoint *ep) {
     struct xhci_device *d=up->device;
-    if(!up->endpoint_ready)return !xhci.command_failed;
     uint64_t slot=UINT64_MAX;
-    uint64_t end=up->out.ring_phys+up->out.enqueue*sizeof(struct xhci_trb);
-    uint64_t pending=d->bulk_pending?d->bulk_trb:end;
-    if(!submit_command(XHCI_TRB_TYPE_STOP_ENDPOINT,((uint32_t)d->slot_id<<24)|(BU_OUT_DCI<<16),&slot) ||
+    uint64_t end=ep->ring_phys+ep->enqueue*sizeof(struct xhci_trb);
+    bool owned=d->bulk_pending && d->bulk_dci==ep->dci;
+    uint64_t pending=owned?d->bulk_trb:end;
+    if(!submit_command(XHCI_TRB_TYPE_STOP_ENDPOINT,((uint32_t)d->slot_id<<24)|(ep->dci<<16),&slot) ||
        slot!=d->slot_id)return false;
-    if(up->trace_out)bu_out_state(up,"stopped");
-    uint64_t cursor=bu_out_dequeue(d);
-    if((context_read32(d->output_context,BU_OUT_DCI,0)&7)!=3 ||
+    if(up->trace_out && ep->dci==BU_OUT_DCI)bu_out_state(up,"stopped");
+    uint64_t cursor=bu_pipe_dequeue(d,ep->dci);
+    if((context_read32(d->output_context,ep->dci,0)&7)!=3 ||
        (cursor!=(pending|1) && cursor!=(end|1)))return false;
-    d->bulk_pending=false;
+    if(owned)d->bulk_pending=false;
     return true;
+}
+
+static bool bu_stop(struct bu_upload *up) {
+    bool prepared_stop=!up->eapol_ready || bu_stop_pipe(up,&up->eapol);
+    bool download_stop=up->endpoint_ready?bu_stop_pipe(up,&up->out):!xhci.command_failed;
+    return prepared_stop && download_stop;
 }
 
 static bool bu_park(struct bu_upload *up) {
@@ -439,6 +463,8 @@ static const char *bu_capture_board(struct bu_upload *up) {
         (uint64_t)sizeof physical,(uint64_t)id,(uint64_t)rfe,(uint64_t)xtal,(uint64_t)plan);
     if(id!=0x8129 || rfe!=3 || xtal!=0x28 || plan!=0x34)return "board-profile";
 
+    copy_bytes(up->station,logical+0x107,sizeof up->station);
+
     if(!bu_poll(d,BU_FEATURE_MAILBOX,1,0xff,BU_FEATURE_REPLY,400,&control))return "feature-id";
     for(unsigned i=0;i<sizeof feature;i++) {
         if(!bu_read(d,BU_FEATURE_MAILBOX+2+i,1,&control))return "feature-body";
@@ -461,7 +487,7 @@ static const char *bu_capture_board(struct bu_upload *up) {
 enum bu_mode { BU_FIRMWARE_ONLY, BU_BOARD_ONLY, BU_PHY_INIT, BU_PASSIVE };
 
 static bool bu_capture(const uint8_t *image,uint64_t size,enum bu_mode mode,
-                       const uint8_t *phy,uint64_t phy_size,bool *return_safe) {
+                       const uint8_t *phy,uint64_t phy_size,struct bu_station *station,bool *return_safe) {
     struct bu_upload up={.trace_out=mode==BU_PASSIVE};
     const char *failure="identity";
     const char *board_failure="not-run";
@@ -475,7 +501,7 @@ static bool bu_capture(const uint8_t *image,uint64_t size,enum bu_mode mode,
     }
     *return_safe=true;
     struct xhci_device *d=up.device;
-    struct bu_rx rx={.device=d};
+    struct bu_rx rx={.device=d,.station=station};
     if(d) {
         up.hub=device_by_slot(d->parent_slot_id);
         failure="admission";
@@ -551,17 +577,38 @@ static bool bu_capture(const uint8_t *image,uint64_t size,enum bu_mode mode,
 }
 
 bool xhci_rtl8822bu_capture_firmware(const uint8_t *image,uint64_t size,bool *return_safe) {
-    return bu_capture(image,size,BU_FIRMWARE_ONLY,NULL,0,return_safe);
+    return bu_capture(image,size,BU_FIRMWARE_ONLY,NULL,0,NULL,return_safe);
 }
 
 bool xhci_rtl8822bu_capture_board(const uint8_t *image,uint64_t size,bool *return_safe) {
-    return bu_capture(image,size,BU_BOARD_ONLY,NULL,0,return_safe);
+    return bu_capture(image,size,BU_BOARD_ONLY,NULL,0,NULL,return_safe);
 }
 
 bool xhci_rtl8822bu_capture_phy(const uint8_t *image,uint64_t size,const uint8_t *phy,uint64_t phy_size,bool *return_safe) {
-    return bu_capture(image,size,BU_PHY_INIT,phy,phy_size,return_safe);
+    return bu_capture(image,size,BU_PHY_INIT,phy,phy_size,NULL,return_safe);
 }
 
 bool xhci_rtl8822bu_capture_passive(const uint8_t *image,uint64_t size,const uint8_t *phy,uint64_t phy_size,bool *return_safe) {
-    return bu_capture(image,size,BU_PASSIVE,phy,phy_size,return_safe);
+    return bu_capture(image,size,BU_PASSIVE,phy,phy_size,NULL,return_safe);
+}
+
+bool xhci_rtl8822bu_capture_wpa2(const uint8_t *image,uint64_t size,const uint8_t *phy,uint64_t phy_size,
+                               const uint8_t *record,uint64_t record_size,bool *return_safe) {
+    static const uint8_t magic[]={'S','R','B','U','W','P','A',1};
+    struct bu_station station={0};
+    *return_safe=true;
+    if(!record || record_size!=52 || !bytes_equal(record,magic,sizeof magic)) {
+        console_write("rtl8822bu-wpa2: result=credential\n");
+        return false;
+    }
+    copy_bytes(station.peer.station,record+8,6);
+    copy_bytes(station.peer.bssid,record+14,6);
+    if(!rtl_cu_station_identity(&station.peer)) {
+        console_write("rtl8822bu-wpa2: result=peer\n");
+        return false;
+    }
+    station.pmk=record+20;
+    bool ok=bu_capture(image,size,BU_PASSIVE,phy,phy_size,&station,return_safe);
+    rtl_cu_erase(&station,sizeof station);
+    return ok;
 }

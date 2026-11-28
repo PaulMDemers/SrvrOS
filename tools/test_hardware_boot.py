@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -40,6 +41,26 @@ class InstallTests(unittest.TestCase):
     def test_rtl8822bu_identity_stage(self):
         self.verify_usb_wifi_identity_stage("rtl8822bu")
 
+    def test_netgear_station_record_is_separate_from_realtek_record(self):
+        import rtl8188cu_credentials as credential
+        with tempfile.TemporaryDirectory() as work:
+            root = Path(work)
+            record = root / "station"
+            archive = root / "initramfs.tar"
+            station = b"\x02\x01\x02\x03\x04\x05"
+            bssid = b"\x02\x05\x04\x03\x02\x01"
+            record.write_bytes(credential.NETGEAR_MAGIC + station + bssid + bytes(range(32)))
+            record.chmod(0o600)
+            with tarfile.open(archive, "w"):
+                pass
+            with self.assertRaisesRegex(ValueError, "Invalid Realtek station record"):
+                credential.add_to_initramfs(record, archive)
+            credential.add_to_initramfs(record, archive, netgear=True)
+            credential.verify_initramfs(archive, True, netgear=True)
+            credential.verify_initramfs(archive, False)
+            with self.assertRaisesRegex(ValueError, "Unexpected private Realtek credential"):
+                credential.verify_initramfs(archive, False, netgear=True)
+
     def test_rtl8822bu_firmware_recipe(self):
         release = "0123456789abcdef"
         identity = "ram-usb-rtl8822bu-v1-laptop-probe-12345678-auto-return"
@@ -55,6 +76,11 @@ class InstallTests(unittest.TestCase):
         passive = identity.replace("-v1-", "-v5-")
         self.assertEqual(boot.limine_config(release, passive), boot.limine_config(release, identity).replace(
             "srvros.capture=wifi-rtl8822bu ", "srvros.capture=wifi-rtl8822bu-passive "))
+        station = identity.replace("-v1-", "-v6-")
+        self.assertEqual(boot.limine_config(release, station), boot.limine_config(release, identity).replace(
+            "srvros.capture=wifi-rtl8822bu ", "srvros.capture=wifi-rtl8822bu-wpa2 "))
+        with self.assertRaisesRegex(ValueError, "passive receive profile"):
+            boot.stage(rtl8822bu_wpa2=Path("record"))
         with self.assertRaisesRegex(ValueError, "pinned PHY profile"):
             boot.stage(rtl8822bu_passive=True)
         with self.assertRaisesRegex(ValueError, "pinned firmware and a separate profile"):

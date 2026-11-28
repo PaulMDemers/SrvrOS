@@ -26,6 +26,7 @@ static bool cal5_drain_test_delay(unsigned);
 static bool cal5_drain_test_command(const struct xhci_trb *,unsigned,uint64_t *);
 #endif
 static void xhci_test_control_publish(struct xhci_device *, uint64_t, bool);
+#define SRVROS_RTL8822BU_STATION_TEST
 #include "../kernel/src/drivers/xhci.c"
 
 static struct xhci_device *receive_test_device;
@@ -7528,6 +7529,7 @@ static void test_rtl8822bu_probe(void) {
     puts("rtl8822bu: PASS native Netgear USB2 route, one exact read, sibling isolation and eleven refusal cases");
 }
 
+#include "fixtures/wpa2-handshake-synthetic.h"
 #include "test_xhci_rtl8822bu_firmware.inc"
 
 static void rtl_firmware_model(uint64_t offset,uint32_t value) {

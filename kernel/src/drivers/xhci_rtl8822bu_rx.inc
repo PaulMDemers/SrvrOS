@@ -1,7 +1,7 @@
 /* Receive-only validation for the measured A6150. The trial tunes both
  * synthesizers on 161 and 10, then samples channel 10 through bulk IN. */
 enum {
-    BU_RX_DCI=9, BU_RX_BYTES=32768, BU_RX_TDS=32, BU_RX_DEPTH=4,
+    BU_RX_DCI=9, BU_RX_BYTES=32768, BU_RX_TDS=32, BU_STA_TDS=60, BU_RX_DEPTH=4,
     BU_RX_CR=0x9a,
     BU_RX_SCHEDULE=1u<<5, BU_RX_HOST_TXDMA=1u, BU_RX_TXDMA=1u<<2,
     BU_RX_SEC_ENABLE=1u<<9, BU_RX_SECCFG=0x680, BU_RX_SEC_POLICY=0xcf,
@@ -32,15 +32,27 @@ struct bu_rx_fifo {
     bool touched;
 };
 
+struct bu_station {
+    struct rtl_cu_station_peer peer;
+    struct rtl_cu_station_response reply;
+    struct wpa2_handshake handshake;
+    struct wpa2_ccmp keys;
+    const uint8_t *pmk;
+    unsigned sequence;
+    bool auth,assoc,m1,m2,m3,m4,leave,keys_erased;
+};
+
 struct bu_rx {
     struct xhci_device *device;
     struct xhci_bulk_endpoint ep;
     struct bu_rx_security security;
     struct bu_rx_fifo fifo;
+    struct bu_station *station;
     uint8_t *buffer;
     uint64_t phys;
-    uint32_t rf_grant_saved;
+    uint32_t rf_grant_saved,rf_grant_mask;
     unsigned posted,completed,consumed,actual[BU_RX_DEPTH],records,beacons,target,bad;
+    size_t frame_offset;
     bool configured,failed,stopping,rf_grant_touched;
 };
 static struct bu_rx *bu_rx_owner;
@@ -163,8 +175,9 @@ static bool bu_rx_event(struct xhci_device *d,uint8_t dci,uint64_t pointer,uint8
 
 static void bu_rx_fill(struct bu_rx *rx) {
     struct xhci_bulk_endpoint *ep=&rx->ep;
-    _Static_assert(BU_RX_TDS<XHCI_TRB_COUNT-1,"bounded RX ring never wraps");
-    while(rx->posted<BU_RX_TDS && rx->posted-rx->consumed<BU_RX_DEPTH) {
+    _Static_assert(BU_STA_TDS<XHCI_TRB_COUNT-1,"bounded RX ring never wraps");
+    unsigned limit=rx->station?BU_STA_TDS:BU_RX_TDS;
+    while(rx->posted<limit && rx->posted-rx->consumed<BU_RX_DEPTH) {
         uint64_t phys=rx->phys+(rx->posted%BU_RX_DEPTH)*BU_RX_BYTES;
         const struct xhci_trb trb={.parameter_low=(uint32_t)phys,.parameter_high=phys>>32,
             .status=BU_RX_BYTES,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
@@ -217,7 +230,11 @@ static void bu_rx_parse(struct bu_rx *rx,unsigned slot) {
                 if((tag==3 && len==1) || (tag==61 && len>=1))on_channel|=frame[at+2]==10;
                 at+=2+len;
             }
-            if(valid){rx->beacons++;rx->target+=target && on_channel;}
+            if(valid) {
+                rx->beacons++;
+                if(target && on_channel && (!rx->station ||
+                   rtl_cu_station_beacon(&rx->station->peer,frame,mpdu-4)))rx->target++;
+            }
         }
         size_t used=(prefix+mpdu+7u)&~7u;
         if(used>=length)return;
@@ -254,6 +271,7 @@ static bool bu_rx_scan_enable(struct bu_rx *rx) {
         bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff && !rx->failed &&
         bu_rx_rf_grant_read(d,&rx->rf_grant_saved);
     if(ready) {
+        rx->rf_grant_mask=BU_RX_RF_GRANT_MASK;
         requested=(rx->rf_grant_saved&~BU_RX_RF_GRANT_MASK)|BU_RX_RF_GRANT_LOW;
         rx->rf_grant_touched=requested!=rx->rf_grant_saved;
         ready=(!rx->rf_grant_touched || bu_rx_rf_grant_write(d,requested)) && !rx->failed &&
@@ -269,7 +287,7 @@ static bool bu_rx_rf_grant_restore(struct bu_rx *rx) {
     struct xhci_device *d=rx->device;
     uint32_t current;
     bool restored=bu_rx_rf_grant_read(d,&current) &&
-        bu_rx_rf_grant_write(d,(current&~BU_RX_RF_GRANT_MASK)|(rx->rf_grant_saved&BU_RX_RF_GRANT_MASK));
+        bu_rx_rf_grant_write(d,(current&~rx->rf_grant_mask)|(rx->rf_grant_saved&rx->rf_grant_mask));
     console_printf("rtl8822bu-rx-grant: phase=restore verified=%u\n",(uint64_t)restored);
     return restored;
 }
@@ -635,6 +653,8 @@ static bool bu_h2c_initialize(struct bu_upload *up) {
     return !failure && restored;
 }
 
+#include "xhci_rtl8822bu_station.inc"
+
 static const char *bu_receive(struct bu_upload *up,struct bu_rx *rx) {
     struct xhci_device *d=up->device;
     if(rx->failed)return "rx-startup-event";
@@ -644,10 +664,12 @@ static const char *bu_receive(struct bu_upload *up,struct bu_rx *rx) {
     if(!failure && !bu_rx_enable_security(up,rx,&rx->security))failure="rx-security";
     if(!failure && !bu_rx_prepare_dma(up,rx,&rx->security))failure="rx-dma-enable";
     if(!failure && !bu_rx_fifo_control(d,&rx->fifo))failure="rx-fifo-control";
+    if(!failure && rx->station && !bu_station_prepare(up,rx))failure="station-prepare";
     if(!failure && !bu_rx_scan_enable(rx))failure="rx-transmit-inhibit";
     if(failure)return failure;
     console_write("rtl8822bu-rx-progress: sampling channel 10 with four prequeued bulk-IN requests\n");
-    return bu_rx_window(rx);
+    failure=bu_rx_window(rx);
+    return !failure && rx->station?bu_station_exchange(up,rx):failure;
 }
 
 static bool bu_rx_finish(struct bu_rx *rx,const char *failure) {
