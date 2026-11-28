@@ -171,8 +171,50 @@ static void survey_tests(void) {
  assert(!hsw_survey_run() && hsw_survey.status==HSW_SURVEY_RETAINED && survey_reads==1024);
  assert(hsw_window_poison && hsw_window_live && !hsw_survey.pass[0].retired);
 }
+static void sweep_setup(void) {
+ survey_setup();
+ memset(&hsw_sweep,0,sizeof(hsw_sweep));
+ memset(sweep_visits,0,sizeof(sweep_visits));
+ sweep_reads=sweep_stop_at=0;
+ test_sweep=true;
+ sweep_max_zeros=false;
+}
+static void sweep_tests(void) {
+ sweep_setup();
+ uint32_t word;
+ hsw_survey_window=0x204000;
+ assert(hsw_map(NULL,0x204000) && !hsw_read(NULL,0x204000,&word) && hsw_unmap(NULL));
+ hsw_survey_window=0x210000;
+ assert(hsw_map(NULL,0x210000) && !hsw_read(NULL,0x210004,&word) && hsw_unmap(NULL));
+ hsw_survey_window=0;
+ assert(!sweep_reads);
+ sweep_setup();sweep_stop_at=8191;
+ assert(!hsw_sweep_run() && hsw_sweep.status==HSW_SURVEY_ACCESS);
+ assert(hsw_sweep.complete==1 && hsw_sweep.attempted==2 && sweep_reads==8191 && !hsw_window_live);
+ assert(hsw_sweep.row[1].batch.pass[0].retired==1 && !hsw_sweep.row[1].shortlisted);
+}
 int main(int argc,char **argv) {
 
+ if(argc==2 && (!strcmp(argv[1],"sweep") || !strcmp(argv[1],"sweep-max") || !strcmp(argv[1],"sweep-failed"))) {
+  sweep_tests();
+  sweep_setup();sweep_max_zeros=!strcmp(argv[1],"sweep-max");
+  bool expect_success=strcmp(argv[1],"sweep-failed")!=0;
+  if(!expect_success)sweep_stop_at=8191;
+  assert(hsw_sweep_run()==expect_success);
+  if(expect_success){
+   assert(sweep_reads==2*57342 && hsw_sweep.attempted==14 && hsw_sweep.complete==14);
+   assert(hsw_vmm_maps==122 && hsw_vmm_unmaps==122 && candidate_frames==28 && !hsw_window_live);
+   for(unsigned i=0;i<65536;i++){
+    unsigned page=i/1024;
+    bool skipped=i<=4096 || i==16385 || page==8 || page==24 || page==40 || page==56;
+    assert(sweep_visits[i]==(skipped?0:2));
+   }
+  }
+  hsw_emit=1;hsw_report();hsw_sweep_report();
+  puts("laptop-capture: boot options=srvros.hsw-sweep=read-only");
+  puts(expect_success?"laptop-capture: completed=yes":"laptop-capture: completed=NO");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"survey")) {
   survey_tests();
   survey_setup();assert(hsw_survey_run() && survey_reads==8192 && candidate_frames==2);

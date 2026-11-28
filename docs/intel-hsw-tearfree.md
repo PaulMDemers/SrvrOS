@@ -471,6 +471,31 @@ populated and outside the captured stolen-memory range. The exact-zero
 shortlist was empty. Ubuntu returned with the one-shot consumed, and
 the exit snapshot, installed recovery and offline USB check verified.
 
+#### Survey of the remaining aperture
+
+The v8 Haswell backing profile surveys the remaining 57,342 eligible
+entries in fourteen four-page batches. The plan covers slots from 4096
+through 65535, with the four v7 ranges and the two protected slots removed.
+It never reads the inherited fence. For table pages that contain slots
+4096 and 16385, the temporary mapping is read-only and the exact DWORDs
+are masked in both the loop and the MMIO accessor. Their neighbors
+remain in scope. The backing memory behind the observed entries is
+never dereferenced.
+
+Each batch compares two passes word for word and retains the 20 ms
+inter-pass gap and 100 ms lifetime. Each batch checks the inherited
+Pipe A route, frame progress and retirement of all eight temporary
+mappings before the next batch starts. A failed batch stops the sweep.
+The receipt fits in the exit log using per-batch scope, timing,
+accounting, matching hashes, presence counts and a bounded exact-zero
+shortlist. The kernel checks raw equality before producing those counts.
+The host checks the complete batch schedule and recorded totals. An
+exact-zero candidate still needs a separate ownership check.
+
+Stage with `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-sweep`. Decode the
+matched `exit.log` with `tools/hardware_haswell_sweep.py`.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

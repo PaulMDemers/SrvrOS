@@ -1517,7 +1517,8 @@ void kmain(void) {
         cmdline_has_token(cmdline,"srvros.hsw-fences=linux-model-32");
     bool hsw_candidate = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-candidate=read-only");
     bool hsw_survey = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-survey=read-only");
-    bool hsw_preinit = hsw_candidate || hsw_survey;
+    bool hsw_sweep = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-sweep=read-only");
+    bool hsw_preinit = hsw_candidate || hsw_survey || hsw_sweep;
     bool init_ready = false;
     int64_t init_pid = (hsw_preinit || live_vtd) ? -1 : process_spawn_background_elf_args_quiet("/init", (http_child_trial || wifi_http5_trial || wifi_http_reconnect5_trial || wifi_desktop_owner_trial)?"--network-probe":"--system");
     if (init_pid >= 0) {
@@ -1891,7 +1892,7 @@ void kmain(void) {
 #ifdef SRVROS_AP_PROBE
             sampled=platform_haswell_backing_run(cmdline_has_token(cmdline,"srvros.hsw-cpu-control=read-only"),cmdline_has_token(cmdline,"srvros.hsw-fences=linux-model-32"),hsw_candidate,
                 hsw_preinit && cmdline_has_token(cmdline,"srvros.hsw-access=read-only"),
-                hsw_preinit && cmdline_has_token(cmdline,"srvros.hsw-boot-slot=read-only"),hsw_survey);
+                hsw_preinit && cmdline_has_token(cmdline,"srvros.hsw-boot-slot=read-only"),hsw_survey,hsw_sweep);
 #else
             console_write("hsw-backing: ordinary-kernel refused\n");sampled=false;
 #endif

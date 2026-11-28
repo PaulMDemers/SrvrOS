@@ -20,6 +20,9 @@ static bool test_candidate;
 static unsigned candidate_frames, candidate_ptes;
 static unsigned survey_reads, survey_route_drop_at;
 static bool survey_drift, survey_ones;
+static bool test_sweep, sweep_max_zeros;
+static unsigned sweep_reads, sweep_stop_at;
+static uint8_t sweep_visits[65536];
 static unsigned access_fbc_controls, access_entries;
 static bool access_fbc_drift, access_entry_drift, access_fbc_ones;
 static bool candidate_frozen, candidate_drift, candidate_late, candidate_bad_route;
@@ -147,6 +150,16 @@ void platform_test_hsw_endpoint_start(void) {backing_reads=0;map_walks=0;}
 uint32_t platform_test_hsw_read(unsigned off) {
     if(hsw_survey_window) {
         assert(test_candidate && hsw_vmm_live && hsw_vmm_pa==gpu_base+hsw_survey_window);
+        if(test_sweep) {
+            unsigned slot=(off-0x200000u)/4u, page=slot/1024u;
+            assert(slot>4096 && slot<65536 && slot!=16385);
+            assert(page!=8 && page!=24 && page!=40 && page!=56);
+            assert(++sweep_visits[slot]<=2);
+            if(++sweep_reads==sweep_stop_at)return UINT32_MAX;
+            if(sweep_max_zeros || slot==4097 || slot==16386 || slot==65535)return 0;
+            if(slot==4098)return 2;
+            return 0x8da00001;
+        }
         const unsigned pages[]={0x208000,0x218000,0x228000,0x238000};
         assert(survey_reads<8192 && off==pages[survey_reads/1024%4]+4*(survey_reads%1024));
         unsigned index=survey_reads++;
@@ -185,7 +198,7 @@ uint32_t platform_test_hsw_read(unsigned off) {
 static unsigned dependency_reports,hda_reports,dry_reports;
 void console_printf(const char *fmt,...) {
     if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13) || !strncmp(fmt,"hsw-access",10) ||
-       !strncmp(fmt,"hsw-live",8) || !strncmp(fmt,"hsw-survey",10)) {
+       !strncmp(fmt,"hsw-live",8) || !strncmp(fmt,"hsw-survey",10) || !strncmp(fmt,"hsw-sweep",9)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {

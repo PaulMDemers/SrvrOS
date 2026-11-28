@@ -3,6 +3,7 @@
 #define HSW_SURVEY_PAGES 4u
 #define HSW_SURVEY_WORDS 1024u
 #define HSW_SURVEY_CHUNK 128u
+#define HSW_SURVEY_TABLE 0x200000u
 static const uint32_t hsw_survey_first[HSW_SURVEY_PAGES] = {8192, 24576, 40960, 57344};
 
 enum hsw_survey_status {
@@ -13,13 +14,14 @@ struct hsw_survey_pass {
     uint64_t begin, end, hash;
     unsigned reads, maps, retired;
 };
-static struct {
+struct hsw_survey_batch {
     enum hsw_survey_status status;
     uint64_t begin, end;
     uint32_t frames[2];
     struct hsw_survey_pass pass[2];
-    uint32_t words[HSW_SURVEY_PAGES][HSW_SURVEY_WORDS];
-} hsw_survey;
+};
+static struct hsw_survey_batch hsw_survey;
+static uint32_t hsw_survey_words[HSW_SURVEY_PAGES][HSW_SURVEY_WORDS];
 
 static bool hsw_survey_tick(void) {
     uint64_t now = timer_monotonic_us();
@@ -62,16 +64,18 @@ static bool hsw_survey_page(unsigned phase, unsigned page, uint32_t mmio) {
     if (mapped_page) pass->maps++;
     for (unsigned i = 0; ok && i < HSW_SURVEY_WORDS; i++) {
         if (!(i % 32) && !hsw_survey_tick()) {ok = false; break;}
+        uint32_t off = mmio + i * 4;
+        if (hsw_survey_protected(off)) continue;
         uint32_t word;
-        if (!hsw_read(NULL, mmio + i * 4, &word)) {ok = false; break;}
+        if (!hsw_read(NULL, off, &word)) {ok = false; break;}
         pass->reads++;
         if (word == UINT32_MAX) {ok = false; break;}
-        if (phase && word != hsw_survey.words[page][i]) {
+        if (phase && word != hsw_survey_words[page][i]) {
             hsw_survey.status = HSW_SURVEY_CHANGED;
             ok = false;
             break;
         }
-        if (!phase) hsw_survey.words[page][i] = word;
+        if (!phase) hsw_survey_words[page][i] = word;
         for (unsigned byte = 0; byte < 4; byte++)
             pass->hash = (pass->hash ^ ((word >> (8 * byte)) & 255u)) * 1099511628211ull;
     }
@@ -84,17 +88,15 @@ static bool hsw_survey_page(unsigned phase, unsigned page, uint32_t mmio) {
     return ok && hsw_survey_display();
 }
 
-static bool hsw_survey_run(void) {
+static bool hsw_survey_batch(const uint32_t first[HSW_SURVEY_PAGES]) {
     uint32_t mmio[HSW_SURVEY_PAGES];
     for (unsigned i = 0; i < HSW_SURVEY_PAGES; i++) {
-        uint32_t start = hsw_survey_first[i], end = start + HSW_SURVEY_WORDS;
+        uint32_t start = first[i], end = start + HSW_SURVEY_WORDS;
         uint32_t last;
-        if ((start <= 4096 && 4096 < end) || (start <= 16385 && 16385 < end) ||
-            !intel_hsw_ggtt_candidate(&hsw_result, start * 4096u, &mmio[i]) ||
+        if (!intel_hsw_ggtt_candidate(&hsw_result, start * 4096u, &mmio[i]) ||
             !intel_hsw_ggtt_candidate(&hsw_result, (end - 1) * 4096u, &last) ||
             (mmio[i] & 4095u) || last != mmio[i] + 4092u) return false;
     }
-    console_write("hsw-survey-progress: two read-only GGTT passes with inherited Pipe A; no input needed\n");
     hsw_survey.begin = hsw_survey.end = timer_monotonic_us();
     hsw_survey.status = HSW_SURVEY_ACCESS;
     if (!hsw_survey.begin || !hsw_survey_display()) return false;
@@ -119,6 +121,11 @@ static bool hsw_survey_run(void) {
     return hsw_survey.status == HSW_SURVEY_OBSERVED;
 }
 
+static bool hsw_survey_run(void) {
+    console_write("hsw-survey-progress: two read-only GGTT passes with inherited Pipe A; no input needed\n");
+    return hsw_survey_batch(hsw_survey_first);
+}
+
 static void hsw_survey_report(void) {
     console_printf("hsw-survey: v=1 status=%u begin=%u end=%u frames=%u,%u writes=0 authority=none\n",
                    (uint64_t)hsw_survey.status, hsw_survey.begin, hsw_survey.end,
@@ -135,8 +142,98 @@ static void hsw_survey_report(void) {
             uint8_t raw[HSW_SURVEY_CHUNK * 4];
             char data[sizeof(raw) * 4 / 3 + 5];
             unsigned n = 0;
-            for (unsigned j = 0; j < HSW_SURVEY_CHUNK; j++) hda_put(raw, &n, hsw_survey.words[page][i+j], 4);
+            for (unsigned j = 0; j < HSW_SURVEY_CHUNK; j++) hda_put(raw, &n, hsw_survey_words[page][i+j], 4);
             hsw_b64(raw, n, data);
             console_printf("hsw-survey-data: first=%u data=%s\n", (uint64_t)hsw_survey_first[page] + i, data);
         }
+}
+
+#define HSW_SWEEP_BATCHES 14u
+#define HSW_SWEEP_CANDIDATES 16u
+struct hsw_sweep_row {
+    struct hsw_survey_batch batch;
+    uint32_t first[HSW_SURVEY_PAGES];
+    unsigned present, nonzero, zero, first_image, stolen, shortlisted;
+    uint32_t shortlist[HSW_SWEEP_CANDIDATES];
+};
+static struct {
+    enum hsw_survey_status status;
+    unsigned attempted, complete;
+    struct hsw_sweep_row row[HSW_SWEEP_BATCHES];
+} hsw_sweep;
+
+static void hsw_sweep_tally(struct hsw_sweep_row *row) {
+    uint64_t first_image = intel_hsw_ggtt_address(hsw_result.sample[0].pte[0]);
+    for (unsigned page = 0; page < HSW_SURVEY_PAGES; page++)
+        for (unsigned i = 0; i < HSW_SURVEY_WORDS; i++) {
+            uint32_t slot = row->first[page] + i;
+            if (hsw_survey_protected(HSW_SURVEY_TABLE + 4 * slot)) continue;
+            uint32_t word = hsw_survey_words[page][i];
+            if (!word) {
+                row->zero++;
+                if (row->shortlisted < HSW_SWEEP_CANDIDATES)
+                    row->shortlist[row->shortlisted++] = slot;
+            } else if (word & 1u) {
+                uint64_t address = intel_hsw_ggtt_address(word);
+                row->present++;
+                row->first_image += address == first_image;
+                row->stolen += address >= hsw_result.stolen_base && address < hsw_result.stolen_end;
+            } else row->nonzero++;
+        }
+}
+
+static bool hsw_sweep_run(void) {
+    unsigned pages = 0;
+    for (uint32_t slot = 4096; slot < 65536; slot += HSW_SURVEY_WORDS) {
+        bool surveyed = false;
+        for (unsigned i = 0; i < HSW_SURVEY_PAGES; i++)
+            surveyed |= slot == hsw_survey_first[i];
+        if (surveyed) continue;
+        if (pages == HSW_SWEEP_BATCHES * HSW_SURVEY_PAGES) return false;
+        hsw_sweep.row[pages / HSW_SURVEY_PAGES].first[pages % HSW_SURVEY_PAGES] = slot;
+        pages++;
+    }
+    if (pages != HSW_SWEEP_BATCHES * HSW_SURVEY_PAGES) return false;
+
+    console_write("hsw-sweep-progress: fourteen read-only GGTT batches; inherited Pipe A stays active\n");
+    for (unsigned i = 0; i < HSW_SWEEP_BATCHES; i++) {
+        struct hsw_sweep_row *row = &hsw_sweep.row[i];
+        hsw_survey = (struct hsw_survey_batch){0};
+        bool ok = hsw_survey_batch(row->first);
+        row->batch = hsw_survey;
+        hsw_sweep.attempted++;
+        if (!ok) {
+            hsw_sweep.status = hsw_survey.status;
+            return false;
+        }
+        hsw_sweep_tally(row);
+        hsw_sweep.complete++;
+    }
+    hsw_sweep.status = HSW_SURVEY_OBSERVED;
+    return true;
+}
+
+static void hsw_sweep_report(void) {
+    console_printf("hsw-sweep: v=1 status=%u batches=%u complete=%u writes=0 authority=none\n",
+                   (uint64_t)hsw_sweep.status, (uint64_t)hsw_sweep.attempted, (uint64_t)hsw_sweep.complete);
+    for (unsigned i = 0; i < hsw_sweep.attempted; i++) {
+        const struct hsw_sweep_row *row = &hsw_sweep.row[i];
+        const struct hsw_survey_batch *b = &row->batch;
+        console_printf("hsw-sweep-batch: index=%u status=%u pages=%u,%u,%u,%u begin=%u end=%u frames=%u,%u\n",
+                       (uint64_t)i, (uint64_t)b->status, (uint64_t)row->first[0], (uint64_t)row->first[1],
+                       (uint64_t)row->first[2], (uint64_t)row->first[3], b->begin, b->end,
+                       (uint64_t)b->frames[0], (uint64_t)b->frames[1]);
+        for (unsigned phase = 0; phase < 2; phase++) {
+            const struct hsw_survey_pass *p = &b->pass[phase];
+            console_printf("hsw-sweep-pass: index=%u phase=%u begin=%u end=%u reads=%u maps=%u retired=%u hash=%u\n",
+                           (uint64_t)i, (uint64_t)phase, p->begin, p->end, (uint64_t)p->reads,
+                           (uint64_t)p->maps, (uint64_t)p->retired, p->hash);
+        }
+        if (i >= hsw_sweep.complete) continue;
+        console_printf("hsw-sweep-count: index=%u present=%u nonzero=%u zero=%u first_image=%u stolen=%u\n",
+                       (uint64_t)i, (uint64_t)row->present, (uint64_t)row->nonzero, (uint64_t)row->zero,
+                       (uint64_t)row->first_image, (uint64_t)row->stolen);
+        for (unsigned j = 0; j < row->shortlisted; j++)
+            console_printf("hsw-sweep-zero: index=%u slot=%u\n", (uint64_t)i, (uint64_t)row->shortlist[j]);
+    }
 }

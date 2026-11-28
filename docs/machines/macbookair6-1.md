@@ -189,6 +189,13 @@ aliased the first inherited framebuffer page. This survey found no
 exact-zero candidate. The exit snapshot, recovery and offline USB check
 verified after the one-shot returned.
 
+The next PR567 checkpoint covers the rest of the 256 MiB GGTT
+aperture in fourteen read-only batches. It skips the inherited fence
+and four previously surveyed table pages, and masks the exact DWORDs
+for slots 4096 and 16385 while surveying their neighbors. The Haswell
+backing adapter keeps the same per-batch timing and Pipe A checks.
+Air7,2 PR301 at `b189f81a` retains its independent boot-owner scope.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

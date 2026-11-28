@@ -5455,11 +5455,15 @@ test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing
 	build/tests/hsw-backing-adapter$(HOST_EXE) candidate > build/tests/hsw-candidate-receipt.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) boot-slot > build/tests/hsw-boot-slot-receipt.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) survey > build/tests/hsw-survey-receipt.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) sweep > build/tests/hsw-sweep-receipt.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) sweep-max > build/tests/hsw-sweep-max.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) sweep-failed > build/tests/hsw-sweep-failed.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) access > build/tests/hsw-access-receipt.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_access.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_live_vtd.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_candidate.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_survey.py
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_sweep.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_backing.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_tilectl.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_fences.py
