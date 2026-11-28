@@ -21,11 +21,13 @@ int main(void) {
     memcpy(station_beacon, beacon, sizeof beacon - 4);
     memcpy(station_beacon + sizeof beacon - 4, station_rsn, sizeof station_rsn);
     radio_put32(station_beacon + sizeof station_beacon - 4, beacon_fcs(station_beacon, sizeof station_beacon - 4));
-    assert(station_peer(station_beacon, sizeof station_beacon));
-    assert(!station_peer(beacon, sizeof beacon));
+    struct wpa2_hs_peer peer = {0};
+    assert(station_peer(station_beacon, sizeof station_beacon, &peer));
+    assert(peer.rsne_size == sizeof station_rsn && !memcmp(peer.rsne, station_rsn, sizeof station_rsn));
+    assert(!station_peer(beacon, sizeof beacon, &peer));
     station_beacon[sizeof station_beacon - 6] |= 0x40; /* AP requires PMF. */
     radio_put32(station_beacon + sizeof station_beacon - 4, beacon_fcs(station_beacon, sizeof station_beacon - 4));
-    assert(!station_peer(station_beacon, sizeof station_beacon));
+    assert(!station_peer(station_beacon, sizeof station_beacon, &peer));
     /* A 64-bit-form address and explicit size precede the next core tag. */
     const uint32_t erom[] = {
         0x4bf80001, 0x25080201, 0x18000005, 0x18100085,
