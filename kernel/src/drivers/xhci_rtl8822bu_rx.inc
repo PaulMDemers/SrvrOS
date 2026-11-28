@@ -9,6 +9,7 @@ enum {
     BU_RX_FIFO_END=0x5eff, BU_RX_USB_MODE=0x1e, BU_RX_AGG_ENABLE=1u<<2,
     BU_RX_AGG_TH=0x280, BU_RX_AGG_SCAN=0x2003,
     BU_RX_FILTER0=0xffffffffu, BU_RX_FILTER2=0xffff, BU_RX_RCR=0xf410400e,
+    BU_RX_MAC_REPORT=0x664, BU_RX_MAC_SELECTOR=0xf4, BU_RX_MAC_RESET=1u<<3,
     BU_H2C_CR=BU_RX_CR|BU_RX_HOST_TXDMA|BU_RX_TXDMA,
     BU_RX_DMA_CR=BU_H2C_CR|BU_RX_SCHEDULE,
     BU_H2C_HEAD=0x244, BU_H2C_TAIL=0x248, BU_H2C_READ=0x24c,
@@ -220,6 +221,36 @@ static void bu_rx_parse(struct bu_rx *rx,unsigned slot) {
     }
 }
 
+static bool bu_rx_mac_sample(const struct bu_rx *rx,const char *sample) {
+    struct xhci_device *d=rx->device;
+    /* RTL8822B legacy MAC report selectors: CCK and OFDM good/FCS error.
+     * Change only the high byte, leaving the counter and reset untouched. */
+    static const uint8_t selector[]={0x30,0x00,0x40,0x10};
+    uint32_t cr,pause,saved=0,readback=0,counters[4]={0};
+    unsigned sampled=0;
+    bool gated=bu_read(d,BU_CR,1,&cr) && cr==BU_RX_DMA_CR &&
+        bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff;
+    bool selected=gated && bu_read(d,BU_RX_MAC_REPORT+3,1,&saved) && !(saved&BU_RX_MAC_RESET);
+    bool restored=false;
+    if(selected) {
+        for(;sampled<sizeof selector;sampled++) {
+            uint32_t selected=(saved&~BU_RX_MAC_SELECTOR)|selector[sampled];
+            uint32_t value;
+            if(!bu_write(d,BU_RX_MAC_REPORT+3,1,selected) ||
+               !bu_read(d,BU_RX_MAC_REPORT,4,&value) || value>>24!=selected)break;
+            counters[sampled]=value&0xffff;
+        }
+        restored=bu_write(d,BU_RX_MAC_REPORT+3,1,saved) &&
+            bu_read(d,BU_RX_MAC_REPORT+3,1,&readback) && readback==saved;
+    }
+    console_printf("rtl8822bu-rx-mac: sample=%s cck_ok=%u ofdm_ok=%u cck_error=%u ofdm_error=%u sampled=%u selector=%x restored=%u\n",
+        sample,(uint64_t)counters[0],(uint64_t)counters[1],(uint64_t)counters[2],(uint64_t)counters[3],
+        (uint64_t)sampled,(uint64_t)saved,(uint64_t)restored);
+    /* An unavailable counter is optional. Once written, the selector must
+     * be restored before continuing to sample receive traffic. */
+    return gated && (!selected || restored);
+}
+
 static bool bu_rx_observe(const struct bu_rx *rx,const char *sample) {
     struct xhci_device *d=rx->device;
     uint32_t cck_cca,ofdm_cca,cck_crc,ofdm_crc,ht_crc,vht_crc;
@@ -250,6 +281,7 @@ static bool bu_rx_observe(const struct bu_rx *rx,const char *sample) {
 }
 
 static const char *bu_rx_window(struct bu_rx *rx) {
+    if(!bu_rx_mac_sample(rx,"before"))return "rx-mac-observe";
     if(!bu_rx_observe(rx,"before"))return "rx-observe";
     if(rx->failed)return "rx-event";
     unsigned starting_completed=rx->completed;
@@ -276,7 +308,7 @@ static const char *bu_rx_window(struct bu_rx *rx) {
     }
     uint64_t elapsed=timer_monotonic_us()-start;
     unsigned in_window=rx->completed;
-    bool observed=!device_removed(rx->device) && bu_rx_observe(rx,"after");
+    bool observed=!device_removed(rx->device) && bu_rx_observe(rx,"after") && bu_rx_mac_sample(rx,"after");
     console_printf("rtl8822bu-rx-window: elapsed_us=%u completed=%u closing=%u startup=%u observed=%u\n",
         elapsed,(uint64_t)(in_window-starting_completed),(uint64_t)(rx->completed-in_window),
         (uint64_t)starting_completed,(uint64_t)observed);

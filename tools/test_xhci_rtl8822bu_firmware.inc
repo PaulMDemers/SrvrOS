@@ -10,6 +10,7 @@ enum bu_firmware_fault {
     BU_RX_DEPTH_OK,BU_RX_DEPTH_TIMEOUT,BU_RX_DEPTH_TRANSITION,BU_RX_EARLY_VALID,BU_RX_SEC_RESTORE_DRIFT,BU_RX_SEC_SETUP_DRIFT,
     BU_RX_FIFO_BOUNDARY_DRIFT,BU_RX_FIFO_RESTORE_DRIFT,BU_RX_EP_AVG_DRIFT,BU_RX_DEPTH_DUPLICATE,BU_RX_EARLY_STALE,BU_RX_EARLY_FW_SHORT,
     BU_RX_PAUSE_RESET,BU_RX_PAUSE_REFUSED,
+    BU_RX_MAC_SELECTOR_DRIFT,BU_RX_MAC_RESET_BUSY,BU_RX_MAC_RESTORE_DRIFT,
     BU_H2C_BAD_LIMIT,BU_H2C_INIT_STUCK,BU_H2C_BAD_ENTRY,BU_H2C_OUT_SHORT,BU_H2C_OUT_MISSING,
     BU_H2C_OUT_WRONG_TRB,BU_H2C_UNDRAINED,BU_H2C_RESTORE_DRIFT,
 };
@@ -27,6 +28,7 @@ static struct {
     unsigned out_state_logs,out_event_logs,out_device_logs;
     unsigned h2c_status_writes,h2c_status_reads;
     unsigned rx_security_policy_writes,rx_fifo_writes;
+    unsigned rx_mac_writes,rx_mac_reads;
     bool rx_security_rcr_reloaded,rx_security_cr_restored,rx_dma_written;
     bool rx_queue_mapped,rx_llt_requested,rx_filters_written,rx_security_written,rx_depth_event;
     enum bu_firmware_fault fault;
@@ -219,7 +221,18 @@ static void bu_model_control(void) {
         if(bu_model.rx_llt_requested && reg==BU_RX_LLT && width==4)bu_model.rx_llt_polls++;
         if(reg==0x11c && cr==0xbf && bu_model.fault==BU_RX_FIFO_BOUNDARY_DRIFT)
             bu_model_store(reg,width,0x6000);
+        if(reg==BU_RX_MAC_REPORT) {
+            unsigned count=bu_model.rx_mac_reads++;
+            assert(count<8 && width==4 && cr==0xbf && bu_model_read(BU_TXPAUSE,1)==0xff);
+            if(bu_model.fault==BU_RX_MAC_SELECTOR_DRIFT)
+                assert(bu_model.rx_mac_writes==2*count+1);
+            else
+                assert(bu_model.rx_mac_writes==5*(count/4)+count%4+1);
+            bu_model_store(reg,2,0x1200+count);
+        }
         memcpy(d->descriptor_buffer,bu_model.reg+reg,width);
+        if(reg==BU_RX_MAC_REPORT && bu_model.fault==BU_RX_MAC_SELECTOR_DRIFT)
+            d->descriptor_buffer[3]^=0x10;
     } else {
         bu_model.register_writes++;
         uint32_t value=0;
@@ -233,6 +246,16 @@ static void bu_model_control(void) {
             bu_model.pause_writes++;
             if(bu_model.fault==BU_RX_PAUSE_REFUSED && bu_model.pause_writes>1)value=0;
             bu_model.phy_started=true;
+        }
+        if(reg==BU_RX_MAC_REPORT+3) {
+            static const uint8_t expected[]={0x32,0x02,0x42,0x12,0x56};
+            unsigned count=bu_model.rx_mac_writes++;
+            assert(count<10 && width==1 && !(value&8) && bu_model_read(BU_CR,1)==0xbf &&
+                   bu_model_read(BU_TXPAUSE,1)==0xff && bu_model.rx_posts>=4);
+            unsigned step=count%5;
+            if(bu_model.fault==BU_RX_MAC_SELECTOR_DRIFT)step=count%2?4:0;
+            assert(value==expected[step]);
+            if(bu_model.fault==BU_RX_MAC_RESTORE_DRIFT && step==4)value^=0x10;
         }
         if(reg==2 && (value&3))assert(bu_model.phy_started && (value&3)==3);
         if(reg==0x1f && (value&7))assert(bu_model.phy_started && (value&7)==7);
@@ -558,6 +581,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
         bu_model_store(0x3,1,0xd8);bu_model_store(0x550,1,0x14);
         bu_model_store(0x254,1,8);
         bu_model_store(BU_RX_SECCFG,2,0x3100);
+        bu_model_store(BU_RX_MAC_REPORT+3,1,fault==BU_RX_MAC_RESET_BUSY?0x5e:0x56);
         bu_model_store(0x280,4,0x80001234u);
         bu_model_store(0x1700,4,0x20000000);
         bu_model_store(0x1708,4,0xdd03);
@@ -606,7 +630,14 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
             assert(bu_model.rx_filters_written==(queue_setup && fault!=BU_RX_LLT_STUCK &&
                 fault!=BU_H2C_BAD_LIMIT && fault!=BU_H2C_INIT_STUCK));
             assert(bu_model.rx_stops==1);
-            assert(bu_model.rx_samples==(admitted?20:0));
+            assert(bu_model.rx_samples==(admitted && fault!=BU_RX_MAC_RESTORE_DRIFT?20:0));
+            unsigned mac_writes=admitted?10u:0u,mac_reads=admitted?8u:0u;
+            if(fault==BU_RX_MAC_SELECTOR_DRIFT){mac_writes=4;mac_reads=2;}
+            if(fault==BU_RX_MAC_RESET_BUSY){mac_writes=0;mac_reads=0;}
+            if(fault==BU_RX_MAC_RESTORE_DRIFT){mac_writes=5;mac_reads=4;}
+            assert(bu_model.rx_mac_writes==mac_writes && bu_model.rx_mac_reads==mac_reads);
+            unsigned mac_selector=fault==BU_RX_MAC_RESET_BUSY?0x5e:fault==BU_RX_MAC_RESTORE_DRIFT?0x46:0x56;
+            assert(bu_model_read(BU_RX_MAC_REPORT+3,1)==mac_selector);
             assert(bu_model.rx_security_written==firmware_ready);
             assert(bu_model.rx_dma_written==dma_ready);
             unsigned fifo_writes=admitted?6u:0u;
@@ -675,6 +706,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
     if(passive)puts("rtl8822bu: PASS native tuning, 32 KiB bulk IN, beacon parsing, stale/timeout and retirement refusal");
     if(passive)puts("rtl8822bu: PASS read-only pre/post PHY and DMA counters and closing completion excluded from discovery");
     if(passive)puts("rtl8822bu: PASS restoring TX pause after MCU startup and refusing unverified pause");
+    if(passive)puts("rtl8822bu: PASS MAC counters, unavailable and mismatched samples, selector restoration and restore refusal");
     if(passive)puts("rtl8822bu: PASS Linux RX admission order, MAC TX disabled, LLT completion, and filter readback refusal");
     if(passive)puts("rtl8822bu: PASS Netgear four bulk-IN owners before firmware, startup discard, stale event refusal, and early cleanup");
     if(passive)puts("rtl8822bu: PASS native firmware commands, Linux USB bytes, queue entry/drain, short/missing OUT and RX-only restoration");
