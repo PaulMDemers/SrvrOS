@@ -817,6 +817,20 @@ workspace and matched the recovery archives by SHA-256. All prior files
 were preserved and each offline allocation check passed. Each one-shot was
 consumed, Ubuntu returned, and the temporary private payload was removed.
 
+#### Cold-start PCI admission correction
+
+Work on `device/macbookpro8-1/bringup` from merged `main` at `117a0294`
+is limited to BCM4331 PCI identity admission and its host fixture. All
+three cold reports matched this board's `03:00.0` endpoint, class `0280`,
+and revision `02`. The local PCI ID registry lists `106b:00d6` under
+`14e4:4331` as AirPort Extreme, and [Linux's BCMA board table](https://github.com/torvalds/linux/blob/master/include/linux/bcma/bcma.h)
+identifies `00d6` as BCM94331X19. Admit that exact subsystem in the
+existing MacBookPro8,1 probe alongside its observed warm-boot value.
+The qualified station profile, firmware, clock, MMIO, SPROM and DMA
+checks, EHCI workspace and Ubuntu recovery remain dependencies. The
+next checkpoint is the exact-stage VM and three native cold starts on
+Demers2.4 with the matched subsystem and both reports verified.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
