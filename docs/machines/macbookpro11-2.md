@@ -939,6 +939,21 @@ existing files matched. This accepts cold native passive Demers2.4
 discovery on this Netgear. Association, WPA2 and data transfer are open.
 The payload and evidence are archived as `evidence-7d0941a5138371ea`.
 
+#### RTL8822BU Demers2.4 station bring-up
+
+Device scope from `16bbf9b8`, with main inspected at `b062ba18` and
+Pro8,1 work in PR #569 outside this scope. Preserve the passive
+Netgear path as the receive baseline. The Linux control used the
+same Netgear on hub port 4 and joined Demers2.4 on channel 10 with
+WPA2-PSK and CCMP. The Edimax retained Ubuntu's default route and all
+three adapters remained attached. The isolated trace identifies the
+48-byte management descriptor on bulk OUT `0x05` and the EAPOL
+data queue on `0x06`. Linux used 32 KiB bulk IN throughout.
+Use the verified 802.11 station frame and WPA2 implementations and
+qualify the Netgear-specific descriptor, endpoint and RF ownership in
+the native xHCI path before scheduling a cold association run. Keep
+private credentials out of logs and source control.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
