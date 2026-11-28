@@ -387,6 +387,24 @@ existing 32 KiB request, receive window, parser and EFI journal checks.
 The native fixture must exercise enable ordering, LLT completion, actual
 bulk IN handling and safe retirement when admission fails.
 
+The Linux USB capture had the same register state when both Demers
+beacons arrived. It used `RCR=0xf410400e`, `RXFLTMAP0=0xffffffff`,
+`RXFLTMAP2=0xffff`, queue map `0xf5a1`, RX boundary `0x5eff`, and
+high-speed DMA mode `0x1e`. Linux writes the queue map and enables CR
+before loading the shared page table and polling for LLT completion.
+See [Linux rtw88 MAC initialization](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/mac.c)
+and [USB setup](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/usb.c).
+
+Release `5c9a82d1e9c3718a` on `48ed3212` uses the captured filter
+values and orders the MAC sequence the same way after tuning. It uses
+`CR=0x9a` for protocol and receive with TX bits clear and `TXPAUSE=0xff`.
+The trial evaluates the filter and DMA adjustments together and saves
+their readback before posting IN. The native fixture proves a stuck LLT
+or mismatched filter blocks the request and permits safe retirement.
+Both sibling desktop regressions, 329 boot and trial tests, and all five
+exact-image VM rehearsals passed.
+Run record `build/bringup/pro112-rtl8822bu-rx-admission/run.json`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
