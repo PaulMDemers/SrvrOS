@@ -456,6 +456,21 @@ Stage with `--laptop-probe-volume UUID --haswell-backing-capture
 --haswell-tilectl --haswell-linux-fences --haswell-survey`. Decode the
 matched `exit.log` with `tools/hardware_haswell_survey.py`.
 
+#### Native GGTT survey result
+
+Source `8e120584` / release `e8cd36755ebbe4cf` saved session
+`session-0006614d796bfb16-00`. Both 4,096-entry passes agreed, with a
+20.002 ms inter-pass gap. All eight temporary aliases retired within
+the 22.119 ms survey. Pipe A advanced from frame 1002 to 1003 with
+the inherited surface preserved. The verified receipt records zero writes.
+
+Every sampled PTE was present. Slot 8192 and all 3,072 entries in the
+other three ranges mapped the first inherited framebuffer page at
+`0x8da00000`. The remaining 1,023 entries in the first range were
+populated and outside the captured stolen-memory range. The exact-zero
+shortlist was empty. Ubuntu returned with the one-shot consumed, and
+the exit snapshot, installed recovery and offline USB check verified.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

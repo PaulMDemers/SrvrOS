@@ -181,6 +181,14 @@ active and release every temporary alias. Air7,2 PR301 at `bb459b98` retains
 its independent boot-owner scope. The survey records candidate observations
 for follow-up and grants no range ownership.
 
+The [native GGTT survey](../intel-hsw-tearfree.md#native-ggtt-survey-result)
+passed on `8e120584` / `e8cd36755ebbe4cf`. Both 4,096-entry passes
+matched and all eight temporary aliases retired in 22.119 ms. Pipe A
+advanced one frame. Every sampled entry was present. Of those, 3,073
+aliased the first inherited framebuffer page. This survey found no
+exact-zero candidate. The exit snapshot, recovery and offline USB check
+verified after the one-shot returned.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
