@@ -64,7 +64,7 @@ struct bcm_packet {
     unsigned mapped, tx_post, tx_seen, rx_post, rx_seen;
     unsigned queued, sent, received, dropped;
     uint8_t mac[6];
-    bool programmed, active, fault;
+    bool programmed, active, carrier, fault;
 };
 
 struct bcm_register_setting { unsigned offset; uint32_t value; };
@@ -307,6 +307,7 @@ static bool packet_start(struct bcm_packet *nic) {
     nic->rx_post = RX_POSTED;
     mac_write(RX_POST_MAILBOX, nic->rx_post);
     nic->active = mac_read(RX_POST_MAILBOX) == RX_POSTED;
+    nic->carrier = nic->active;
     return nic->active;
 }
 
@@ -323,7 +324,7 @@ static void packet_tx_reap(struct bcm_packet *nic) {
 
 static bool packet_send(void *context, const uint8_t *frame, uint16_t size) {
     struct bcm_packet *nic = context;
-    if (!nic->active || nic->fault || size < 14 || size > NET_DEVICE_FRAME_MAX) return false;
+    if (!nic->active || !nic->carrier || nic->fault || size < 14 || size > NET_DEVICE_FRAME_MAX) return false;
     packet_tx_reap(nic);
     unsigned slot = nic->tx_post, next = (slot + 1) & RING_MASK;
     if (nic->fault || next == nic->tx_seen) return false;
@@ -379,7 +380,7 @@ static void packet_return(struct bcm_packet *nic) {
 static uint64_t packet_poll(void *context, uint64_t budget, bool verbose) {
     (void)verbose;
     struct bcm_packet *nic = context;
-    if (!nic->active || nic->fault) return 0;
+    if (!nic->active || !nic->carrier || nic->fault) return 0;
     packet_tx_reap(nic);
     uint64_t delivered = 0;
     for (uint64_t i = 0; i < budget && !nic->fault; i++) {
@@ -423,8 +424,9 @@ static bool packet_loopback(struct bcm_packet *nic) {
 
 static bool packet_link(void *context, struct net_device_link *link) {
     const struct bcm_packet *nic = context;
-    *link = (struct net_device_link){ .up = nic->active && !nic->fault,
-        .speed_mbps = 1000, .full_duplex = true, .duplex_known = true };
+    bool up = nic->active && nic->carrier && !nic->fault;
+    *link = (struct net_device_link){ .up = up, .speed_mbps = up ? 1000 : 0,
+        .full_duplex = up, .duplex_known = up };
     return true;
 }
 
@@ -504,52 +506,72 @@ static bool packet_stop(struct bcm_packet *nic, bool provider_retired, bool *can
     return true;
 }
 
-enum bcm57765_probe_result bcm57765_packet_trial(void) {
+static enum bcm57765_probe_result packet_open(struct bcm_packet *nic) {
     enum bcm57765_probe_result link = bcm57765_probe();
     if (link != BCM57765_LINK_UP) return link;
-    struct bcm_packet nic = { .pci = controller() };
-    if (!nic.pci || !net_device_registry_empty()) return BCM57765_REFUSED;
-    nic.original_command = pci_read_config16(nic.pci, PCI_COMMAND);
-    nic.bar = nic.pci->bar[0] & ~15ull;
-    if (!(nic.original_command & PCI_MEMORY) || (pci_read_config16(nic.pci, PCI_PM_CONTROL) & PM_STATE) ||
-        (pci_read_config16(nic.pci, 0x5a) & 1u) || (pci_read_config16(nic.pci, 0xa2) & 0x8000u) ||
-        (pci_read_config16(nic.pci, 0xac) & 0xff) != 0x10) {
+    nic->pci = controller();
+    if (!nic->pci || !net_device_registry_empty()) return BCM57765_REFUSED;
+    nic->original_command = pci_read_config16(nic->pci, PCI_COMMAND);
+    nic->bar = nic->pci->bar[0] & ~15ull;
+    if (!(nic->original_command & PCI_MEMORY) || (pci_read_config16(nic->pci, PCI_PM_CONTROL) & PM_STATE) ||
+        (pci_read_config16(nic->pci, 0x5a) & 1u) || (pci_read_config16(nic->pci, 0xa2) & 0x8000u) ||
+        (pci_read_config16(nic->pci, 0xac) & 0xff) != 0x10) {
         console_write("bcm57765-packet: refused PCI decode, power or interrupt state\n");
         return BCM57765_REFUSED;
     }
     bool pending = false;
     uint16_t aux;
-    bool mapped = packet_map(&nic);
-    bool firmware_idle = mapped && packet_firmware_idle(&nic);
+    bool mapped = packet_map(nic);
+    bool firmware_idle = mapped && packet_firmware_idle(nic);
     bool link_ready = firmware_idle && mdio_read(MII_AUX_STATUS, &aux, &pending) && (aux & 0x704) == 0x704;
     console_printf("bcm57765-packet: preflight mapped=%u firmware_idle=%u gigabit_full=%u\n",
         (uint64_t)mapped, (uint64_t)firmware_idle, (uint64_t)link_ready);
     if (!link_ready) {
-        return !packet_unmap(&nic) || pending ? BCM57765_UNSAFE : BCM57765_REFUSED;
+        return !packet_unmap(nic) || pending ? BCM57765_UNSAFE : BCM57765_REFUSED;
     }
-    uint16_t disabled = (nic.original_command | PCI_INT_DISABLE) & ~PCI_BUS_MASTER;
-    pci_write_config16(nic.pci, PCI_COMMAND, disabled);
-    if (pci_read_config16(nic.pci, PCI_COMMAND) != disabled || !packet_pci_idle(nic.pci)) {
+    uint16_t disabled = (nic->original_command | PCI_INT_DISABLE) & ~PCI_BUS_MASTER;
+    pci_write_config16(nic->pci, PCI_COMMAND, disabled);
+    if (pci_read_config16(nic->pci, PCI_COMMAND) != disabled || !packet_pci_idle(nic->pci)) {
         console_write("bcm57765-packet: could not fence prior PCI bus mastering\n");
         return BCM57765_UNSAFE;
     }
-    bool started = packet_alloc(&nic) && packet_start(&nic);
-    bool loopback = started && packet_loopback(&nic);
-    bool configured = false, provider_retired = true;
-    struct net_device_ops provider = { .name = "bcm57765", .context = &nic, .priority = 100,
+    if (packet_alloc(nic) && packet_start(nic)) return BCM57765_LINK_UP;
+    bool can_reboot;
+    bool clean = packet_stop(nic, true, &can_reboot);
+    console_printf("bcm57765-packet: start failed retirement=%s bus_master_off=%u\n",
+        clean ? "released" : "retained", (uint64_t)can_reboot);
+    return clean ? BCM57765_INCOMPLETE : BCM57765_UNSAFE;
+}
+
+static struct net_device_ops packet_provider(struct bcm_packet *nic) {
+    struct net_device_ops provider = { .name = "bcm57765", .context = nic, .priority = 100,
         .send = packet_send, .poll = packet_poll, .link = packet_link };
-    for (unsigned i = 0; i < 6; i++) provider.mac[i] = nic.mac[i];
+    for (unsigned i = 0; i < 6; i++) provider.mac[i] = nic->mac[i];
+    return provider;
+}
+
+static bool packet_wire(bool *pending) {
+    mac_write(MAC_MODE, MAC_DMA_PATH | MAC_GMII);
+    return wait_register(MAC_MODE, MAC_LOOPBACK, 0) && timer_delay_us(40) &&
+        read_link(pending) == BCM57765_LINK_UP;
+}
+
+enum bcm57765_probe_result bcm57765_packet_trial(void) {
+    struct bcm_packet nic = {0};
+    enum bcm57765_probe_result open = packet_open(&nic);
+    if (open != BCM57765_LINK_UP) return open;
+    bool pending = false;
+    bool loopback = packet_loopback(&nic);
+    bool configured = false, provider_retired = true;
+    struct net_device_ops provider = packet_provider(&nic);
     if (loopback) {
-        mac_write(MAC_MODE, MAC_DMA_PATH | MAC_GMII);
-        if (wait_register(MAC_MODE, MAC_LOOPBACK, 0) && timer_delay_us(40) &&
-            read_link(&pending) == BCM57765_LINK_UP &&
-            net_device_register(&provider)) {
+        if (packet_wire(&pending) && net_device_register(&provider)) {
             configured = packet_dhcp(&nic, &provider);
             provider_retired = net_device_retire(&provider);
         }
     }
     console_printf("bcm57765-packet: started=%u queued=%u tx_completed=%u rx_completed=%u dropped=%u fault=%u tx_index=%u rx_index=%u rdma=%x wdma=%x\n",
-        (uint64_t)started, (uint64_t)nic.queued, (uint64_t)nic.sent, (uint64_t)nic.received,
+        (uint64_t)1, (uint64_t)nic.queued, (uint64_t)nic.sent, (uint64_t)nic.received,
         (uint64_t)nic.dropped, (uint64_t)nic.fault,
         (uint64_t)mac_read(HOST_TX_CONSUMER_INDEX), (uint64_t)mac_read(HOST_RX_RETURN_INDEX),
         (uint64_t)(mac_read(READ_DMA + 4) & DMA_ERROR_BITS), (uint64_t)(mac_read(WRITE_DMA + 4) & DMA_ERROR_BITS));

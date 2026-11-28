@@ -2421,9 +2421,10 @@ int main(int argc,char **argv) {
     int retina_trial=retina_screenshot || (argc==2 && !strcmp(argv[1],"--retina-trial"));
     int ehci_file_trial=argc==3 && !strcmp(argv[1],"--ehci-file-trial");
     int ehci_battery_trial=argc==2 && !strcmp(argv[1],"--ehci-battery-trial");
+    int ehci_ethernet_trial=argc==2 && !strcmp(argv[1],"--ehci-ethernet-trial");
     int ehci_telemetry_trial=argc==2 && !strcmp(argv[1],"--ehci-telemetry-trial");
     int ehci_settings_trial=argc==2 && (!strcmp(argv[1],"--ehci-brightness-trial") || !strcmp(argv[1],"--ehci-audio-trial"));
-    int ehci_topcase_trial=ehci_file_trial || ehci_settings_trial || ehci_telemetry_trial || ehci_battery_trial ||
+    int ehci_topcase_trial=ehci_file_trial || ehci_settings_trial || ehci_telemetry_trial || ehci_battery_trial || ehci_ethernet_trial ||
         (argc==2 && !strcmp(argv[1],"--ehci-topcase-trial"));
     int ehci_trial=ehci_topcase_trial || (argc==2 && !strcmp(argv[1],"--ehci-trackpad-trial"));
     int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
@@ -2522,12 +2523,14 @@ int main(int argc,char **argv) {
     else if(navigation_trial) spawn_app(&s,DESK_APP_HELP,"window-navigation-trial");
     else if(lifecycle_trial) spawn_app(&s,DESK_APP_HELP,"lifecycle-trial");
     else if(ehci_telemetry_trial || ehci_battery_trial) spawn_app(&s,DESK_APP_SYSTEM,"--sensors");
+    else if(ehci_ethernet_trial) spawn_app(&s,DESK_APP_TEXT,"/fat/share/Ethernet trial.txt");
     else if(ehci_trial) spawn_app(&s,DESK_APP_TEXT,ehci_file_trial?argv[2]:"/fat/share/Trackpad trial.txt");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(battery_work)strcpy(s.scene.notice,"5-minute test: type, save NEW file, reopen, use Files. Keep AC/USB connected.");
     if(battery_guided)strcpy(s.scene.notice,"1/3 Keep AC and USB connected. Waiting for three fresh battery readings.");
     if(ehci_battery_trial)strcpy(s.scene.notice,"1/3 Keep the charger and USB connected. Battery percentage is from the SMC.");
+    if(ehci_ethernet_trial)strcpy(s.scene.notice,"Keep Ethernet and USB connected. Checking DHCP and the gateway.");
     if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
     /* Diagnostic: no app menus, preferences, Home or screenshot jobs.
      * The study client exercises independent IPC/surface publication. Generated
@@ -2544,6 +2547,8 @@ int main(int argc,char **argv) {
     int coexist_complete=0,coexist_script_done=0;
     uint64_t coexist_keys=0,coexist_key_ack=0;
     struct desk_battery_trial battery_trial={.began=(uint64_t)srv_monotonic_us()};
+    unsigned ethernet_phase=0;
+    uint64_t ethernet_start=(uint64_t)srv_monotonic_us(), ethernet_next=0, ethernet_return=0;
     int battery_saving=0;unsigned battery_shot_serial=0;uint64_t battery_shot_due=0;
     uint64_t work_begin=(uint64_t)srv_monotonic_us(),work_keys=0,work_motion=0,work_due=0;
     unsigned work_shot=0;int work_phase=0;
@@ -3526,6 +3531,36 @@ int main(int argc,char **argv) {
                 }
             }
         }
+        if(ehci_ethernet_trial && !s.exiting && loop_now>=ethernet_next) {
+            struct srv_net_status_info network;
+            ethernet_next=loop_now+150000u;
+            if(srv_net_status_info(&network)==0 && network.abi_version==SRV_NET_ABI_VERSION &&
+               network.struct_size>=sizeof(network)) {
+                bool known=(network.link_flags&SRV_NET_LINK_KNOWN)!=0;
+                bool up=(network.link_flags&SRV_NET_LINK_UP)!=0;
+                bool ready=known && up && network.link_speed_mbps==1000 && network.worker_started &&
+                    network.dhcp_configured && network.local_ip && network.router_ip;
+                bool down=known && !up && !network.worker_started && !network.dhcp_configured &&
+                    !network.local_ip && !network.router_ip;
+                if((ethernet_phase==0 && ready) || (ethernet_phase==1 && down) ||
+                   (ethernet_phase==2 && ready)) {
+                    ethernet_phase++;
+                    desk_log("ehci-desktop-ethernet-ui: phase=%u link=%u dhcp=%u worker=%u\n",
+                        ethernet_phase,(unsigned)up,(unsigned)network.dhcp_configured,(unsigned)network.worker_started);
+                    strcpy(s.scene.notice,ethernet_phase==1?
+                        "Connected. Unplug only the Ethernet cable now. Leave the USB flash drive connected.":
+                        ethernet_phase==2?"Link down. Reconnect the Ethernet cable now.":
+                        "Ethernet reconnected. Saving reports and returning to Ubuntu.");
+                    desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
+                    if(ethernet_phase==3)ethernet_return=loop_now+2000000u;
+                } else if(!network.adapter_count && loop_now-ethernet_start>=6000000u) {
+                    desk_log("ehci-desktop-ethernet-ui: provider unavailable\n");
+                    failed=1;
+                    global_menu_action(&s,GLOBAL_EXIT);
+                }
+            }
+            if(ethernet_return && loop_now>=ethernet_return)global_menu_action(&s,GLOBAL_EXIT);
+        }
         if(idle_capture && !failed) {
             uint64_t now=srv_ticks();
             if(idle_phase && !session_client(&s,0)->generation) failed=1;
@@ -3762,7 +3797,10 @@ int main(int argc,char **argv) {
     }
     if(retina_screenshot)desk_log("retina-screenshot: result=%s scale=%u completed=%u\n",
         !failed && s.capture_success?"PASS":"FAIL",session_output_scale(&s),s.capture_finished);
-    if(ehci_battery_trial) {
+    if(ehci_ethernet_trial) {
+        if(ethernet_phase!=3 || ehci_timeout || s.child_errors)failed=1;
+        desk_log("ehci-desktop-ethernet-ui: result=%s phases=%u\n",failed?"INCOMPLETE":"PASS",ethernet_phase);
+    } else if(ehci_battery_trial) {
         if(battery_trial.phase!=3 || s.child_errors)failed=1;
         desk_log("ehci-desktop-battery-ui: result=%s phases=%u\n",failed?"INCOMPLETE":"PASS",battery_trial.phase);
     } else if(ehci_telemetry_trial) {

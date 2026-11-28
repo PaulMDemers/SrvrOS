@@ -5,6 +5,7 @@
 #include <srvros/net_device.h>
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
+#include <srvros/scheduler.h>
 #include <srvros/timer.h>
 #include <srvros/vmm.h>
 #include <stddef.h>
@@ -177,3 +178,4 @@ enum bcm57765_probe_result bcm57765_probe(void) {
 }
 
 #include "bcm57765_packet.inc"
+#include "bcm57765_desktop.inc"

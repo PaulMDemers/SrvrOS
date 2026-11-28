@@ -1,6 +1,8 @@
 #ifndef SRVROS_BCM57765_PROBE_H
 #define SRVROS_BCM57765_PROBE_H
 
+#include <stdbool.h>
+
 enum bcm57765_probe_result {
     BCM57765_REFUSED,
     BCM57765_INCOMPLETE,
@@ -14,5 +16,9 @@ enum bcm57765_probe_result {
 enum bcm57765_probe_result bcm57765_probe(void);
 /* Packet trial enters and returns with IRQs masked. No resident worker. */
 enum bcm57765_probe_result bcm57765_packet_trial(void);
+/* Start before the desktop with IRQs masked. Finish after the desktop exits
+ * with IRQs enabled. Reports whether both cable-connected rounds passed. */
+bool bcm57765_desktop_start(void);
+bool bcm57765_desktop_finish(bool *retired);
 
 #endif
