@@ -10,8 +10,8 @@ contacts, and click press and release. Ubuntu verified the release-matched
 USB report. The native desktop verified pointer movement, physical clicks,
 Ubuntu return, and the USB report. The instrumented retry passed with zero
 malformed frames. The earlier malformed frame remains unexplained. The
-BCM4331 native channel 10 trial verified radio initialization and three
-beacons from `Demers2.4`.**
+BCM4331 native trials verified channel 10 radio initialization, beacons,
+association, WPA2-PSK/CCMP and DHCP on `Demers2.4`.**
 
 ## Identity and baseline
 
@@ -611,6 +611,20 @@ was fenced. Both flash reports verified, and Ubuntu returned with both
 links up. The station radio profile includes the TX gain calibration from
 this unit's Linux trace. Ubuntu's sanitized b43 capture confirmed the
 1 Mb/s management header and the D11 transmit queue.
+
+Release `5ae54bef0deab874` from `00355005` passed the exact-stage VM
+rehearsal and the native association, WPA2 and DHCP trial. The AP
+acknowledged authentication and association. The four-way handshake
+verified M3 and the GTK, and the AP acknowledged M4. The bounded IPv4
+probe selected only `bcm4331` and observed one Discover, Offer, Request
+and ACK over CCMP. Linux supplied fresh per-trial entropy and the PMK
+from the active profile. The receipt verified software key retirement,
+acknowledged disassociation, stopped RX and TX, fenced PCI bus mastering,
+and zero retained DMA pages. Both flash reports and the offline allocation
+check passed with 204 files. Ubuntu returned with Ethernet and Wi-Fi up.
+The collector archived the reports and manifest, removed the temporary
+credential payload, and restored the credential-free association entry
+alongside the known-good recovery.
 
 ## Bring-up sequence
 
@@ -1629,7 +1643,7 @@ Offline allocation passed for 143 files with zero writes.
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
-| Wi-Fi | SrvrOS verified BCM4331 HT radio initialization and three `Demers2.4` beacons on channel 10 in `77845b0ad46fd3cb` | Qualify association, WPA2 and interface-bound DHCP and gateway traffic |
+| Wi-Fi | SrvrOS verified BCM4331 channel 10 beacons in `77845b0ad46fd3cb` and native `Demers2.4` association, WPA2-PSK/CCMP and DHCP in `5ae54bef0deab874` | Qualify gateway traffic and connection lifecycle |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native

@@ -1261,6 +1261,24 @@ The final report should show `BEACON_OK`, `receive_retired=1`,
 `bus_master_off=1`, and `dma_pages=0`. Leave Ethernet and the flash drive
 attached. Verify both release-specific Wi-Fi reports on return to Ubuntu.
 
+For Open System authentication and association, extract the local
+radio profile with `tools/bcm4331_radio_profile.py TRACE PROFILE --station`
+and stage with `--ehci-bcm4331-station UUID --bcm4331-radio-profile PROFILE`.
+The final report should show `ASSOCIATED`, status 0 for both exchanges,
+and an acknowledged disassociation. The station profile includes the
+captured transmit gain calibration.
+
+Use `--ehci-bcm4331-dhcp UUID --bcm4331-radio-profile PROFILE
+--bcm4331-station-key PATH` for the WPA2-PSK/CCMP and DHCP trial. The
+private key record contains a derived PMK and fresh entropy. Generate a
+new record for each one-shot with `tools/bcm4331_station_key.py`. Rehearse
+the exact payload in the network-disabled VM, then verify `DHCP_OK`, the
+four-way handshake, the DHCP offer and ACK, and key, provider, RX and TX
+retirement in the final flash report. After Ubuntu returns, archive the
+reports and manifest, restore a credential-free boot entry, and remove
+the private stage and installed payload. Keep credentials off the flash
+workspace and out of evidence archives.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal
