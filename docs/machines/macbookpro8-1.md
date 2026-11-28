@@ -687,6 +687,14 @@ and matching EHCI workspace. Next checkpoint is the exact-stage VM boot,
 followed by the native signal-loss and restoration capture. The Pro11,2
 USB Wi-Fi transport has a separate acceptance record.
 
+Signal-loss candidate `6c3a127638e660eb` (`ef27c918`) passed the
+exact-stage VM and brought up the native BCM4331 and both input queues.
+Text opened the checklist. The desktop reached its 180-second deadline
+with no recorded pointer or keyboard activity and no Connect request.
+The run is incomplete before the outage step. Both flash reports were
+verified, the offline allocation check passed with 210 files and no leaks,
+and Ubuntu return and private-payload cleanup were confirmed.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
