@@ -5,6 +5,9 @@ enum {
     BU_RX_CR=0x9a, BU_RX_SCHEDULE=1u<<5, BU_RX_DMA_IDLE=1u<<17,
     BU_RX_DMA_MAP=0xf5a0, BU_RX_ARB=1, BU_RX_LLT=0x0208,
     BU_RX_FILTER0=0xffffffffu, BU_RX_FILTER2=0xffff, BU_RX_RCR=0xf410400e,
+    BU_H2C_HOST_DMA=0x05, BU_H2C_HEAD=0x244, BU_H2C_TAIL=0x248, BU_H2C_READ=0x24c,
+    BU_H2C_INFO=0x254, BU_H2C_RP=0x10d0, BU_H2C_WP=0x10d4,
+    BU_H2C_MASK=0x3ffff, BU_H2C_START=0x3fa00, BU_H2C_END=0x3fe00,
     BU_RF_MASK=0xfffff, BU_RF18_TUNE=0x70fff,
 };
 
@@ -282,6 +285,71 @@ static const char *bu_rx_admit(struct xhci_device *d) {
            map0==BU_RX_FILTER0 && map2==BU_RX_FILTER2 && mode==0x1e?NULL:"rx-readback";
 }
 
+static bool bu_rx_cr_verified(struct xhci_device *d,uint32_t expected) {
+    uint32_t cr,pause;
+    return bu_read(d,BU_CR,1,&cr) && cr==expected && !(cr&0x40) &&
+           bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff;
+}
+
+static bool bu_h2c_cursor(struct xhci_device *d,uint32_t *wp,uint32_t *rp) {
+    if(!bu_read(d,BU_H2C_WP,4,wp) || !bu_read(d,BU_H2C_RP,4,rp))return false;
+    *wp&=BU_H2C_MASK;*rp&=BU_H2C_MASK;
+    return *wp>=BU_H2C_START && *wp<BU_H2C_END &&
+           *rp>=BU_H2C_START && *rp<BU_H2C_END && !((*wp|*rp)&3);
+}
+
+static const char *bu_h2c_commands(struct bu_upload *up) {
+    struct xhci_device *d=up->device;
+    uint32_t wp=0,rp=0;
+    const unsigned cr=BU_RX_CR|BU_H2C_HOST_DMA;
+    if(!bu_rx_cr_verified(d,cr) ||
+       !bu_update(d,BU_H2C_HEAD,4,BU_H2C_MASK,BU_H2C_START) ||
+       !bu_update(d,BU_H2C_READ,4,BU_H2C_MASK,BU_H2C_START) ||
+       !bu_update(d,BU_H2C_TAIL,4,BU_H2C_MASK,BU_H2C_END) ||
+       !bu_update(d,BU_H2C_INFO,1,3,1) || !bu_update(d,BU_H2C_INFO,1,0,4) ||
+       !bu_update(d,0x20d,1,0,0x80))return "queue-setup";
+    bool empty=bu_h2c_cursor(d,&wp,&rp) && wp==BU_H2C_START && rp==wp;
+    console_printf("rtl8822bu-h2c-queue: wp=%x rp=%x empty=%u\n",
+        (uint64_t)wp,(uint64_t)rp,(uint64_t)empty);
+    if(!empty)return "queue-entry";
+
+    /* Linux rtw88 USB trace on this firmware and RFE3 board. The zero-filled
+     * fixed-size payload carries the general reserved-page offset and PHYDM
+     * cut, antenna masks and 2T2R capability. */
+    static const uint8_t packets[][32]={
+        {1,0xff,0x0d,0,12,0,0,0,0,0,0x30,0},
+        {1,0xff,0x11,0,16,0,1,0,3,2,3,0x33},
+    };
+    for(unsigned i=0;i<sizeof packets/sizeof packets[0];i++) {
+        if(!bu_rx_cr_verified(d,cr))return "command-gate";
+        uint64_t start=timer_monotonic_us();
+        bool ok=bu_send(up,packets[i],sizeof packets[i],true);
+        console_printf("rtl8822bu-h2c-command: id=%x seq=%u out=%u elapsed_us=%u\n",
+            (uint64_t)packets[i][2],(uint64_t)i,(uint64_t)ok,timer_monotonic_us()-start);
+        if(!ok)return "command-out";
+    }
+    bool drained=false;
+    for(unsigned i=0;i<20;i++) {
+        if(!bu_h2c_cursor(d,&wp,&rp))break;
+        drained=wp==rp && wp!=BU_H2C_START;
+        if(drained || !timer_delay_us(1000))break;
+    }
+    console_printf("rtl8822bu-h2c-drain: wp=%x rp=%x advanced=%u drained=%u\n",
+        (uint64_t)wp,(uint64_t)rp,(uint64_t)(wp!=BU_H2C_START),(uint64_t)drained);
+    return drained?NULL:"queue-drain";
+}
+
+static bool bu_h2c_initialize(struct bu_upload *up) {
+    struct xhci_device *d=up->device;
+    const char *failure="entry-gate";
+    if(bu_rx_cr_verified(d,BU_RX_CR) && bu_write(d,BU_CR,1,BU_RX_CR|BU_H2C_HOST_DMA))
+        failure=bu_h2c_commands(up);
+    bool restored=bu_write(d,BU_CR,1,BU_RX_CR) && bu_rx_cr_verified(d,BU_RX_CR);
+    console_printf("rtl8822bu-h2c: result=%s rx_only_restored=%u\n",
+        failure?failure:restored?"ready":"restore",(uint64_t)restored);
+    return !failure && restored;
+}
+
 static const char *bu_receive(struct bu_upload *up,bool *retired) {
     struct xhci_device *d=up->device;
     struct bu_rx rx={.device=d};
@@ -289,6 +357,7 @@ static const char *bu_receive(struct bu_upload *up,bool *retired) {
     if(!bu_phy_tx_inhibited(d) || bu_rx_owner || !bu_rx_configure(&rx))return "endpoint";
     bu_rx_owner=&rx;
     const char *failure=bu_rx_admit(d);
+    if(!failure && !bu_h2c_initialize(up))failure="firmware-command";
     if(!failure) {
         console_write("rtl8822bu-rx-progress: sampling channel 10 with MAC transmit disabled\n");
         bool idle_pending;

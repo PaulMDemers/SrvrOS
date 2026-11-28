@@ -201,7 +201,7 @@ static bool bu_configure_out(struct bu_upload *up) {
     return up->endpoint_ready;
 }
 
-static bool bu_send(struct bu_upload *up,const uint8_t *bytes,unsigned count) {
+static bool bu_send(struct bu_upload *up,const uint8_t *bytes,unsigned count,bool command) {
     struct xhci_device *d=up->device;
     struct xhci_bulk_endpoint *ep=&up->out;
     if(d->bulk_pending || device_removed(d) || !count || count>BU_BLOCK_BYTES ||
@@ -209,7 +209,12 @@ static bool bu_send(struct bu_upload *up,const uint8_t *bytes,unsigned count) {
     unsigned padded=count+((count+BU_DESC_BYTES)%512==0),length=padded+BU_DESC_BYTES;
     uint8_t *p=up->packet;
     zero_bytes(p,length);
-    p[0]=(uint8_t)padded;p[1]=(uint8_t)(padded>>8);p[2]=BU_DESC_BYTES;p[3]=4;p[5]=0x10;
+    p[0]=(uint8_t)padded;p[1]=(uint8_t)(padded>>8);
+    if(command) {
+        p[5]=0x13; /* H2C, with no radio frame offset or last-segment flag. */
+    } else {
+        p[2]=BU_DESC_BYTES;p[3]=4;p[5]=0x10;
+    }
     uint16_t checksum=0;
     for(unsigned i=0;i<32;i+=2)checksum^=p[i]|(uint16_t)p[i+1]<<8;
     p[28]=(uint8_t)checksum;p[29]=(uint8_t)(checksum>>8);
@@ -231,7 +236,7 @@ static bool bu_send(struct bu_upload *up,const uint8_t *bytes,unsigned count) {
     if(!ok)console_printf("rtl8822bu-out: length=%u completion=%u residue=%u pending=%u trb=%x\n",
         (uint64_t)length,(uint64_t)d->bulk_completion,(uint64_t)d->bulk_remaining,
         (uint64_t)d->bulk_pending,d->bulk_trb);
-    if(ok)up->packets++;
+    if(ok && !command)up->packets++;
     return ok;
 }
 
@@ -241,7 +246,7 @@ static bool bu_load_block(struct bu_upload *up,const uint8_t *bytes,unsigned cou
     if(!bu_read(d,BU_BCN,1,&beacon) || !bu_write(d,BU_BCN_HEAD,2,0x8000) ||
        !bu_read(d,BU_CR+1,1,&sw) || !bu_write(d,BU_CR+1,1,sw|1) ||
        !bu_write(d,BU_BCN,1,(beacon&~8u)|0x10u))return false;
-    if(!bu_send(up,bytes,count) ||
+    if(!bu_send(up,bytes,count,false) ||
        !bu_poll(d,BU_BCN_HEAD,4,0x8000,0x8000,100,&observed) ||
        !bu_write(d,BU_BCN_HEAD,2,0x8000) || !bu_write(d,BU_BCN,1,beacon) ||
        !bu_write(d,BU_CR+1,1,sw))return false;
