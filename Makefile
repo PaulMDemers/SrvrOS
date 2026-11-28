@@ -5463,6 +5463,7 @@ test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing
 	build/tests/hsw-backing-adapter$(HOST_EXE) forcewake > build/tests/hsw-forcewake-receipt.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) engine-drain > build/tests/hsw-engine-drain-receipt.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) exclusion-audit > build/tests/hsw-exclusion-audit-receipt.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) handoff-audit > build/tests/hsw-handoff-audit-receipt.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) access > build/tests/hsw-access-receipt.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_access.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_live_vtd.py

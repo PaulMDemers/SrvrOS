@@ -6,10 +6,22 @@
 static const uint32_t hsw_drain_pages[] = {0x02000, 0x12000, 0x22000, 0x1a000};
 static const uint32_t hsw_drain_offsets[] = {0x34, 0x30, 0x3c, 0x9c, 0x74};
 enum { HSW_DRAIN_RINGS = 4, HSW_DRAIN_WORDS = 5 };
+#define HSW_OPREGION_BYTES 8192u
+enum hsw_opregion_carrier {
+    HSW_OPREGION_UNOBSERVED, HSW_OPREGION_NVS, HSW_OPREGION_RESERVED,
+    HSW_OPREGION_OTHER, HSW_OPREGION_AMBIGUOUS, HSW_OPREGION_UNDESCRIBED,
+};
 
 struct hsw_smi_route {
     uint32_t pmbase, acpi, pmcon, en, status;
     bool read, valid;
+};
+
+struct hsw_handoff_sample {
+    uint32_t asls;
+    uint16_t swsci;
+    enum hsw_opregion_carrier carrier;
+    bool stable;
 };
 
 struct hsw_drain_sample {
@@ -19,9 +31,10 @@ struct hsw_drain_sample {
     uint32_t pci[2][4];
     struct package_pci_af af[2];
     struct hsw_smi_route smi_route;
+    struct hsw_handoff_sample handoff;
 };
 
-static bool hsw_exclusion_audit;
+static bool hsw_exclusion_audit, hsw_handoff_audit;
 
 static struct {
     unsigned maps, retired, reads, samples;
@@ -128,6 +141,47 @@ static bool hsw_drain_wake(uint32_t *ack, uint32_t *thread) {
     return !(*thread & 7u) && hsw_drain_tick();
 }
 
+static bool hsw_classify_opregion(struct hsw_handoff_sample *sample) {
+    const struct limine_memmap_response *map = memmap_request.response;
+    uint64_t base = sample->asls, end = base + HSW_OPREGION_BYTES;
+    if (!base || (base & 3) || end > (1ull << 32) ||
+        !map || !map->entries || !map->entry_count || map->entry_count > 4096)
+        return true;
+    /* Classify the nominal extent from the boot memory map only. ASLS
+     * never authorizes a mapping, a memory read or a firmware message. */
+    enum hsw_opregion_carrier carrier = HSW_OPREGION_UNDESCRIBED;
+    for (unsigned i = 0; i < map->entry_count; i++) {
+        if (!(i % 32) && !hsw_drain_tick()) return false;
+        const struct limine_memmap_entry *entry = map->entries[i];
+        if (!entry || !entry->length || entry->base > UINT64_MAX - entry->length) return true;
+        uint64_t entry_end = entry->base + entry->length;
+        if (entry->base >= end || entry_end <= base) continue;
+        if (carrier != HSW_OPREGION_UNDESCRIBED || entry->base > base || entry_end < end) {
+            carrier = HSW_OPREGION_AMBIGUOUS;
+        } else if (entry->type == LIMINE_MEMMAP_ACPI_NVS) {
+            carrier = HSW_OPREGION_NVS;
+        } else if (entry->type == LIMINE_MEMMAP_RESERVED || entry->type == LIMINE_MEMMAP_RESERVED_MAPPED) {
+            carrier = HSW_OPREGION_RESERVED;
+        } else {
+            carrier = HSW_OPREGION_OTHER;
+        }
+    }
+    sample->carrier = carrier;
+    return true;
+}
+
+static bool hsw_sample_handoff(struct hsw_handoff_sample *sample) {
+    if (!hsw_drain_tick()) return false;
+    sample->asls = pci_read_config32(gpu, 0xfc);
+    sample->swsci = pci_read_config16(gpu, 0xe8);
+    if (!hsw_classify_opregion(sample)) return false;
+    sample->stable = sample->asls != UINT32_MAX && graphics_access_valid() &&
+                     pci_read_config32(gpu, 0xfc) == sample->asls &&
+                     pci_read_config16(gpu, 0xe8) == sample->swsci;
+    if (!sample->stable) sample->carrier = HSW_OPREGION_UNOBSERVED;
+    return hsw_drain_tick();
+}
+
 static bool hsw_drain_sample(unsigned phase) {
     struct hsw_drain_sample *sample = &hsw_engine_drain.sample[phase];
     if (!hsw_drain_tick()) return false;
@@ -141,6 +195,7 @@ static bool hsw_drain_sample(unsigned phase) {
         if (!hsw_drain_tick()) return false;
         hsw_sample_smi_route(&sample->smi_route);
     }
+    if (hsw_handoff_audit && !hsw_sample_handoff(&sample->handoff)) return false;
     uint64_t kernel = vmm_kernel_address_space();
     if (vmm_current_address_space() != kernel) return false;
     for (unsigned i = 0; i < HSW_DRAIN_RINGS; i++) {
@@ -239,6 +294,9 @@ static void hsw_drain_report(void) {
     if (hsw_exclusion_audit)
         console_printf("hsw-exclusion-audit: v=1 rows=%u firmware_exclusion=unverified requester_drain=unverified\n",
                        (uint64_t)hsw_engine_drain.samples);
+    if (hsw_handoff_audit)
+        console_printf("hsw-handoff-audit: v=1 rows=%u requester_hold=unavailable firmware_handoff=unavailable authority=none\n",
+                       (uint64_t)hsw_engine_drain.samples);
     for (unsigned phase = 0; phase < hsw_engine_drain.samples; phase++) {
         const struct hsw_drain_sample *s = &hsw_engine_drain.sample[phase];
         if (hsw_exclusion_audit) {
@@ -246,6 +304,12 @@ static void hsw_drain_report(void) {
             console_printf("hsw-exclusion-smi: phase=%u read=%u valid=%u pmbase=%u acpi=%u pmcon=%u en=%u sts=%u\n",
                            (uint64_t)phase, (uint64_t)r->read, (uint64_t)r->valid, (uint64_t)r->pmbase,
                            (uint64_t)r->acpi, (uint64_t)r->pmcon, (uint64_t)r->en, (uint64_t)r->status);
+        }
+        if (hsw_handoff_audit) {
+            const struct hsw_handoff_sample *h = &s->handoff;
+            console_printf("hsw-handoff-opregion: phase=%u stable=%u asls=%u swsci=%u carrier=%u\n",
+                           (uint64_t)phase, (uint64_t)h->stable, (uint64_t)h->asls,
+                           (uint64_t)h->swsci, (uint64_t)h->carrier);
         }
         console_printf("hsw-engine-drain-pass: phase=%u begin=%u end=%u ack=%u,%u thread=%u,%u smi=%u\n",
                        (uint64_t)phase, s->begin, s->end, (uint64_t)s->ack[0], (uint64_t)s->ack[1],

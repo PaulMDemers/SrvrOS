@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 import hardware_boot as boot
-from hardware_haswell_engine_drain import ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN
+from hardware_haswell_engine_drain import ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN
 from hardware_haswell_forcewake import forcewake_result
 
 
@@ -12,6 +12,7 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
     def setUpClass(cls):
         cls.text = Path("build/tests/hsw-engine-drain-receipt.log").read_text()
         cls.audit = Path("build/tests/hsw-exclusion-audit-receipt.log").read_text()
+        cls.handoff = Path("build/tests/hsw-handoff-audit-receipt.log").read_text()
 
     def result(self, text):
         wake = forcewake_result(text)
@@ -108,6 +109,41 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
         self.assertNotIn(ENGINE_DRAIN_TOKEN, config)
         with self.assertRaisesRegex(ValueError, "isolated automatic return"):
             boot.stage(haswell_engine_drain=True, haswell_exclusion_audit=True)
+
+    def test_handoff_audit_reports_interface_without_authority(self):
+        audit = forcewake_result(self.handoff)["handoff_audit"]
+        self.assertEqual(audit["opregion_state"], "present-at-samples")
+        self.assertEqual((audit["requester_hold"], audit["firmware_handoff"]), ("unavailable", "unavailable"))
+        self.assertTrue(all(r["asls"] == 0x8cd18190 and r["carrier"] == "acpi-nvs" for r in audit["samples"]))
+        self.assertTrue(all(r["sci_selected"] and not r["trigger_set"] for r in audit["samples"]))
+        changed = self.handoff.replace("swsci=32768 carrier=1", "swsci=32769 carrier=1", 1)
+        self.assertEqual(forcewake_result(changed)["handoff_audit"]["opregion_state"], "changed")
+        absent = self.handoff.replace(f"asls={0x8cd18190} swsci=32768 carrier=1", "asls=0 swsci=0 carrier=0")
+        self.assertEqual(forcewake_result(absent)["handoff_audit"]["opregion_state"], "absent-at-samples")
+
+    def test_handoff_receipt_rejects_unbound_carriers_and_grants(self):
+        for old, new in (
+            ("rows=2 requester_hold=unavailable", "rows=1 requester_hold=unavailable"),
+            ("firmware_handoff=unavailable", "firmware_handoff=verified"),
+            ("authority=none", "authority=owned"),
+            ("stable=1 asls=", "stable=0 asls="),
+            (f"asls={0x8cd18190}", "asls=0"),
+            (f"asls={0x8cd18190}", "asls=4294967292"),
+            (HANDOFF_AUDIT_TOKEN, EXCLUSION_AUDIT_TOKEN),
+        ):
+            with self.subTest(new=new):
+                self.assertIn(old, self.handoff)
+                self.assertIsNone(forcewake_result(self.handoff.replace(old, new, 1)))
+
+    def test_handoff_audit_recipe(self):
+        version = "ram-usb-v14-hsw-laptop-probe-6ada85bb"
+        with self.assertRaisesRegex(ValueError, "automatic return"):
+            boot.limine_config("1234567890abcdef", version)
+        config = boot.limine_config("1234567890abcdef", version + "-auto-return")
+        self.assertIn(HANDOFF_AUDIT_TOKEN, config)
+        self.assertNotIn(EXCLUSION_AUDIT_TOKEN, config)
+        with self.assertRaisesRegex(ValueError, "isolated automatic return"):
+            boot.stage(haswell_handoff_audit=True, haswell_exclusion_audit=True)
 
 
 if __name__ == "__main__":

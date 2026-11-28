@@ -36,6 +36,8 @@ static uint64_t drain_irq_ticks, drain_preemptions;
 static uint16_t exclusion_timer_port;
 static unsigned exclusion_reads;
 static bool exclusion_route_drift, exclusion_invalid_read;
+static bool handoff_config_drift;
+static unsigned handoff_asls_reads;
 static bool test_sweep, sweep_max_zeros;
 static unsigned sweep_reads, sweep_stop_at;
 static uint8_t sweep_visits[65536];
@@ -144,6 +146,10 @@ static void hda_after_read(void) {
 static void dependency_after_read(void) {if(dep_change_pch && dep_reads==8)pch_config[0]=0xffffffffu;}
 uint32_t pci_read_config32(const struct pci_device *p,uint8_t offset) {
     if(p==hsw_host)return hsw_host_config[offset/4];
+    if(p==gpu && hsw_handoff_audit && offset==0xfc) {
+        handoff_asls_reads++;
+        if(handoff_config_drift && handoff_asls_reads==2)return pci_config[offset/4]^4;
+    }
     assert((p==gpu || p==pch_device || p==hda_device) && !(offset&3));return p==gpu?pci_config[offset/4]:p==pch_device?pch_config[offset/4]:hda_config[offset/4];
 }
 uint64_t timer_monotonic_us(void) {
@@ -349,7 +355,7 @@ void console_printf(const char *fmt,...) {
        !strncmp(fmt,"hsw-live",8) || !strncmp(fmt,"hsw-survey",10) || !strncmp(fmt,"hsw-sweep",9) ||
        !strncmp(fmt,"hsw-ownership",13) || !strncmp(fmt,"hsw-engine-prereqs",18) ||
        !strncmp(fmt,"hsw-forcewake",13) || !strncmp(fmt,"hsw-engine-drain",16) ||
-       !strncmp(fmt,"hsw-exclusion-",14)) {
+       !strncmp(fmt,"hsw-exclusion-",14) || !strncmp(fmt,"hsw-handoff-",12)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {

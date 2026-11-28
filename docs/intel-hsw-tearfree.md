@@ -910,6 +910,55 @@ Forcewake released, all six aliases retired, and the protected slots
 4096 and 16385 stayed untouched. The exit snapshot, installed recovery
 and offline USB check verified after Ubuntu returned.
 
+#### Maintained requester hold and firmware handoff
+
+The next admission boundary needs a single owner for IGD, display HDA,
+the exact proposed GGTT range and the boot epoch. The owner pins
+Pipe A's inherited surface and any fetch padding, closes admission
+to new command and copy work, and waits for work already admitted
+to retire. It must also account for display HDA and any remaining
+readers. Completion evidence must cover outstanding requests and
+translations for the range, with admission kept closed until the
+operation and rollback state are retired. The Air6,1 endpoint
+receipts leave IGD and display HDA bus mastering enabled. A scoped
+hold that keeps the inherited scanout live needs its own native
+qualification before any range grant.
+[Intel VT-d drain scope](https://cdrdv2-public.intel.com/831418/vt-directed-io-spec.pdf)
+
+Firmware handoff needs an independently verified transfer for the
+same device, range and epoch. A provider must cover firmware and
+SMM readers and writers for the life of the requester hold and
+provide a checked release. An instrumented firmware implementation
+with a reviewed transfer contract is one way to establish that
+evidence. Air7,2 PR301's range work also keeps its firmware-transfer
+prerequisite separate. The original Apple firmware on this Air6,1
+has no validated transfer provider in SrvrOS. Boot-services exit
+ends boot services and leaves runtime firmware interfaces available.
+[Air7,2 ownership work](https://github.com/PaulMDemers/SrvrOS/pull/301)
+· [UEFI runtime services](https://uefi.org/specs/UEFI/2.11/08_Services_Runtime_Services.html)
+
+The v14 boot audit records IGD's ASLS pointer and SWSCI
+configuration in both held-engine passes, alongside the validated
+SMI route and requester observations. It classifies the nominal
+8 KiB OpRegion extent from the boot memory map and checks both
+PCI values again in each pass. The receipt records whether the
+pointer and SCI-select or trigger bits were stable and whether a
+single memory descriptor covered the extent. The OpRegion supplies
+a firmware-driver communication interface. A live pointer and stable
+configuration describe its availability. The recipe maps and reads
+no OpRegion payload, sends no firmware message, and grants no
+requester hold or firmware handoff.
+[i915 ASLS and SWSCI definitions](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_pci_config.h#L94-L99)
+· [i915 OpRegion discovery](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_opregion.c#L808-L880)
+
+Both protected GGTT slots and the inherited framebuffer stay outside
+any change. The established forcewake acquire and clear are the only
+hardware writes, with Pipe A continuity and the 4 ms, 20 ms and
+100 ms limits verified as before. Stage with
+`--laptop-probe-volume UUID --haswell-backing-capture --haswell-tilectl
+--haswell-linux-fences --haswell-handoff-audit`. Collect the matched
+`exit.log` and decode it with `tools/hardware_haswell_forcewake.py`.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

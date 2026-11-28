@@ -5,6 +5,7 @@ from hardware_haswell_survey import MASK32, MASK64, _record
 
 ENGINE_DRAIN_TOKEN = "srvros.hsw-forcewake=engine-drain"
 EXCLUSION_AUDIT_TOKEN = "srvros.hsw-forcewake=exclusion-audit"
+HANDOFF_AUDIT_TOKEN = "srvros.hsw-forcewake=handoff-audit"
 ENGINES = ("render", "video-decode", "blitter", "video-enhancement")
 REQUESTERS = ("igd", "display-hda")
 
@@ -169,3 +170,33 @@ def exclusion_audit_result(lines, drain):
                  "disabled-at-samples" if delivery == [False, False] else "unavailable")
     return dict(samples=samples, pch_smi_route=pch_route,
                 firmware_exclusion="unverified", requester_drain="unverified")
+
+
+def handoff_audit_result(lines, drain):
+    count = len(drain["samples"])
+    summary, = _records(lines, "hsw-handoff-audit:",
+        r"hsw-handoff-audit: v=1 rows=([0-2]) requester_hold=unavailable firmware_handoff=unavailable authority=none",
+        1)
+    if summary != (count,):
+        raise ValueError("unbound handoff audit")
+    rows = _records(lines, "hsw-handoff-opregion:",
+        r"hsw-handoff-opregion: phase=([01]) stable=([01]) asls=(\d+) swsci=(\d+) carrier=([0-5])", count)
+    carriers = ("unobserved", "acpi-nvs", "reserved", "other", "ambiguous", "undescribed")
+    samples = []
+    for index, (phase, stable, asls, swsci, carrier) in enumerate(rows):
+        extent_ok = asls and not asls & 3 and asls + 8192 <= MASK32 + 1
+        if (phase != index or asls > MASK32 or swsci > 0xffff or stable and asls == MASK32
+                or carrier and (not stable or not extent_ok)):
+            raise ValueError("invalid OpRegion observation")
+        sci_known = stable and swsci != 0xffff
+        samples.append(dict(stable=bool(stable), asls=asls, swsci=swsci, carrier=carriers[carrier],
+                            sci_selected=bool(swsci & 0x8000) if sci_known else None,
+                            trigger_set=bool(swsci & 1) if sci_known else None))
+    if len(samples) != 2 or not all(row["stable"] for row in samples):
+        state = "unavailable"
+    elif samples[0] != samples[1]:
+        state = "changed"
+    else:
+        state = "present-at-samples" if samples[0]["asls"] else "absent-at-samples"
+    return dict(samples=samples, opregion_state=state, requester_hold="unavailable",
+                firmware_handoff="unavailable")

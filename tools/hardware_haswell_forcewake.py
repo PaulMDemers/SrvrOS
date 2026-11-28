@@ -6,8 +6,10 @@ from pathlib import Path
 import re
 
 from hardware_haswell_backing import inherited_pipe_a_backing
-from hardware_haswell_engine_drain import (ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN,
-                                           engine_drain_result, exclusion_audit_result)
+from hardware_haswell_engine_drain import (
+    ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN,
+    engine_drain_result, exclusion_audit_result, handoff_audit_result,
+)
 from hardware_haswell_survey import MASK32, MASK64, _record
 
 TOKEN = "srvros.hsw-forcewake=acquire-release"
@@ -25,7 +27,8 @@ def _result(text):
                if line.startswith("laptop-capture: boot options=")]
     if not options:
         raise ValueError("missing forcewake profile")
-    mode = next((token for token in (EXCLUSION_AUDIT_TOKEN, ENGINE_DRAIN_TOKEN) if token in options[0]), TOKEN)
+    modes = (HANDOFF_AUDIT_TOKEN, EXCLUSION_AUDIT_TOKEN, ENGINE_DRAIN_TOKEN)
+    mode = next((token for token in modes if token in options[0]), TOKEN)
     with_engines = mode != TOKEN
     required = REQUIRED | {mode}
     for row in options:
@@ -61,10 +64,14 @@ def _result(text):
                   ring_reads=ring_reads, protected_reads=0, requester_hold="unverified")
     if with_engines:
         result["engine_drain"] = engine_drain_result(lines, result)
-    if mode == EXCLUSION_AUDIT_TOKEN:
+    if mode in (EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN):
         result["exclusion_audit"] = exclusion_audit_result(lines, result["engine_drain"])
     elif any(line.startswith("hsw-exclusion-") for line in lines):
         raise ValueError("unexpected exclusion observation")
+    if mode == HANDOFF_AUDIT_TOKEN:
+        result["handoff_audit"] = handoff_audit_result(lines, result["engine_drain"])
+    elif any(line.startswith("hsw-handoff-") for line in lines):
+        raise ValueError("unexpected handoff observation")
     complete = lines.count("laptop-capture: completed=yes")
     if complete and "laptop-capture: completed=NO" in lines:
         raise ValueError("conflicting completion markers")

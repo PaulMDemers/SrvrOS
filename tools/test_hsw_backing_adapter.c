@@ -20,6 +20,7 @@ static void setup_adapter(void) {
  pch_config[0]=0x9c438086;pch_config[2]=0x06010000;
  hsw_host_config[0]=0x0a048086;hsw_host_config[0x50/4]=0x209;hsw_host_config[0xb0/4]=0x8da00001;hsw_host_config[0xb4/4]=0x8d800001;hsw_host_config[0xbc/4]=0x8fa00001;
  framebuffer_request.response=&frames;memmap_request.response=&memory;frames.framebuffer_count=1;
+ memory.entries=entries;memory.entry_count=sizeof entries / sizeof entries[0];
  hsw_linux_fences=hsw_cpu_control=false;hsw_tile_reads=hsw_tile_change=hsw_upper_change=hsw_upper_ones=0;hsw_tile_value=8;
  hsw_firmware=true;mapped=true;resource_mapped=true;backing_mode=1;mapping_hole=mapping_disjoint=backing_change=backing_bad=0;
  const uint32_t v[]={0x98004400,5632,0,0,0,(1365u<<16)|767,0,0x98004400,0};memcpy(backing_values,v,sizeof(v));
@@ -258,6 +259,7 @@ static void forcewake_setup(void) {
  test_forcewake=false;
  test_engine_drain=false;
  hsw_exclusion_audit=false;
+ hsw_handoff_audit=false;
  engine_prereqs_setup();
  memset(&hsw_forcewake,0,sizeof(hsw_forcewake));
  test_forcewake=true;
@@ -397,8 +399,63 @@ static void exclusion_tests(void) {
  assert(!hsw_forcewake_run(true) && exclusion_reads==2 && hsw_forcewake.released && hsw_engine_drain.retired==4);
 }
 
+static struct limine_memmap_entry opregion, opregion_overlap;
+static struct limine_memmap_entry *handoff_entries[]={&framebuffer,&stolen,&ram,&opregion,&opregion_overlap};
+
+static void handoff_setup(void) {
+ exclusion_setup();
+ hsw_handoff_audit=true;
+ handoff_asls_reads=0;
+ handoff_config_drift=false;
+ pci_config[0xfc/4]=0x8cd18190;
+ pci_config[0xe8/4]=0x8000;
+ opregion=(struct limine_memmap_entry){.base=0x8cd18000,.length=0x3000,.type=LIMINE_MEMMAP_ACPI_NVS};
+ opregion_overlap=(struct limine_memmap_entry){.base=0x8cd19000,.length=0x1000,.type=LIMINE_MEMMAP_RESERVED};
+ memory.entries=handoff_entries;memory.entry_count=4;
+}
+
+static void handoff_tests(void) {
+ handoff_setup();memory.entry_count=5;
+ assert(hsw_forcewake_run(true) && hsw_engine_drain.sample[0].handoff.carrier==HSW_OPREGION_AMBIGUOUS);
+ handoff_setup();opregion.length=0x2000;
+ assert(hsw_forcewake_run(true) && hsw_engine_drain.sample[0].handoff.carrier==HSW_OPREGION_AMBIGUOUS);
+ handoff_setup();opregion.type=LIMINE_MEMMAP_RESERVED;
+ assert(hsw_forcewake_run(true) && hsw_engine_drain.sample[0].handoff.carrier==HSW_OPREGION_RESERVED);
+ handoff_setup();opregion.type=LIMINE_MEMMAP_USABLE;
+ assert(hsw_forcewake_run(true) && hsw_engine_drain.sample[0].handoff.carrier==HSW_OPREGION_OTHER);
+ handoff_setup();memory.entry_count=3;
+ assert(hsw_forcewake_run(true) && hsw_engine_drain.sample[0].handoff.carrier==HSW_OPREGION_UNDESCRIBED);
+ handoff_setup();pci_config[0xfc/4]=0xfffffffc;
+ assert(hsw_forcewake_run(true) && hsw_engine_drain.sample[0].handoff.carrier==HSW_OPREGION_UNOBSERVED);
+ handoff_setup();pci_config[0xfc/4]=UINT32_MAX;
+ assert(hsw_forcewake_run(true) && !hsw_engine_drain.sample[0].handoff.stable);
+ handoff_setup();pci_config[0xfc/4]=0;
+ assert(hsw_forcewake_run(true) && hsw_engine_drain.sample[0].handoff.stable &&
+        hsw_engine_drain.sample[0].handoff.carrier==HSW_OPREGION_UNOBSERVED);
+ handoff_setup();handoff_config_drift=true;
+ assert(hsw_forcewake_run(true) && !hsw_engine_drain.sample[0].handoff.stable &&
+        hsw_engine_drain.sample[0].handoff.carrier==HSW_OPREGION_UNOBSERVED);
+ assert(hsw_engine_drain.sample[1].handoff.stable && hsw_forcewake.released);
+}
+
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"handoff-audit")) {
+  handoff_tests();
+  handoff_setup();
+  assert(hsw_forcewake_run(true) && handoff_asls_reads==4 && exclusion_reads==4 &&
+         !candidate_ptes && candidate_frames==2 && hsw_engine_drain.retired==4);
+  for(unsigned i=0;i<2;i++)
+   assert(hsw_engine_drain.sample[i].handoff.stable &&
+          hsw_engine_drain.sample[i].handoff.carrier==HSW_OPREGION_NVS);
+  hsw_emit=1;hsw_report();hsw_forcewake_report();hsw_drain_report();
+  puts("laptop-capture: boot options=srvros.storage=ram srvros.workspace-volume=6ada85bb "
+       "srvros.desktop-release=1234567890abcdef srvros.capture=haswell-backing "
+       "srvros.hsw-cpu-control=read-only srvros.hsw-fences=linux-model-32 "
+       "srvros.hsw-forcewake=handoff-audit srvros.capture-failure=reboot");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"exclusion-audit")) {
   exclusion_tests();
   exclusion_setup();
