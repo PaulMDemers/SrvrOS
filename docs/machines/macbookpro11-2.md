@@ -873,6 +873,29 @@ The exit snapshot matched the independent EFI journal, all seven
 checkpoints verified, and all 710 prior workspace files were preserved.
 The result and boot payload are archived as `evidence-4b5c976f8122b59b`.
 
+#### RTL8822BU Linux MAC gate reference
+
+On `2a9aedfd`, against inspected main `117a0294`, use the same Netgear
+at hub port 4 in Linux passive monitor mode on channel 10 at 20 MHz.
+Ubuntu's default route stays on the Edimax. Selector writes use the
+same single-byte sequence as SrvrOS and verify readback and restoration.
+An initial managed scan powered down during sampling and was discarded.
+
+With TXPAUSE fixed at `0xff` throughout the three measured windows,
+the reference at CR `0xff` gave 16 good CCK frames at the MAC and 16
+successful bulk-IN completions. Clearing only CR bit 6 to `0xbf` left
+at least 11 good CCK frames at the PHY, counted between counter
+decreases, with no MAC counts or USB completions. Restoring bit 6
+gave 10 good CCK frames at the MAC and 10 completions. The four
+32 KiB requests remained outstanding across the failed window. No
+bulk OUT was submitted in the three windows. The DMA snapshots stayed
+at the same values in all three windows. This establishes that the
+CR bit 6 gate blocks receive delivery on this Linux-initialized chip
+and reproduces the SrvrOS symptom. The USB trace does not measure
+autonomous radio transmissions. The Linux state was restored and the
+SrvrOS image and its passive transmit gate were untouched.
+Evidence is archived as `netgear-linux-mac-gate-reference`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
