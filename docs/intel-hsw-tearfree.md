@@ -318,6 +318,23 @@ are in the i915 forcewake range, so this trial leaves them unread.
 The receipt grants no requester drain or firmware exclusion authority.
 All VT-d, PCI and GPU controls and the slot 4096 entry remain unchanged.
 
+#### Native requester observation completed
+
+Source `d7ecead3` / release `1f1ba1d9afa3649c` passed the joined decoder on
+session `session-0006614b141c63d8-00`. Both VT-d passes retired in 99.819
+and 98.733 ms with 24 total reads and zero writes. The slot observation
+started 3.601 seconds after that sampler retired.
+
+IGD exposed Advanced Features capability `0xa4` with Transactions Pending
+support. Its pending bit was clear at both slot endpoints, with bus mastering
+enabled. Display HDA exposed no Advanced Features capability. CPU0's SMI
+count was 13 at both ends of the 20.129 ms slot bracket. Pipe A advanced two
+frames on the inherited surface. Slot 4096 still mapped `0x8ea00000`, and
+all temporary aliases retired. These observations leave requester drain
+and firmware exclusion open. Slot 4096 stays protected. Ubuntu returned
+with the one-shot consumed, and the saved receipt, recovery and offline
+USB check verified.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

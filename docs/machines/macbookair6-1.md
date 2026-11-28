@@ -125,6 +125,14 @@ same live Pipe A and protected slot 4096 observation. It uses the
 existing PCI capability walk and the verified Haswell CPU identity.
 Air7,2 PR301 at `efc06d12` supplies separate Broadwell ownership work.
 
+The [native requester observation](../intel-hsw-tearfree.md#native-requester-observation-completed)
+passed on `d7ecead3` / `1f1ba1d9afa3649c`. Both VT-d passes retired within
+100 ms. IGD's Advanced Features pending bit was clear at both slot
+endpoints. Display HDA lacked that capability and CPU0's SMI count stayed
+at 13 while Pipe A advanced two frames. The receipt, recovery and offline
+USB check verified after Ubuntu returned. Slot 4096 stays protected while
+requester drain and firmware exclusion remain open.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
