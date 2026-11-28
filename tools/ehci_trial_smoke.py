@@ -174,7 +174,7 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                     settings = wait_for(serial, lambda s: re.search(setting_frame, s), vm, 15)
                     x, y, width, _ = map(int, re.search(setting_frame, settings).groups())
                     time.sleep(.5)
-                    click(x + width - 62, y + 58, (790, 750))
+                    click(x + width - 62, y + 74, (790, 750))
                     wait_for(serial, lambda s: "desktools: settings-page=wifi" in s, vm, 15)
                     ui.call("screendump", {"filename": str(logs / "vm-screen.ppm")})
                     ui.call("human-monitor-command", {"command-line": "sendkey ctrl-alt-esc"})

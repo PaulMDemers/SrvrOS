@@ -2990,7 +2990,7 @@ int main(int argc,char **argv) {
                 (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_ESCAPE) {
                 if(ehci_topcase_trial) desk_log("ehci-desktop-ui: keyboard-exit=1\n");
                 ehci_wifi_exit=ehci_wifi_trial;
-                if(s.session_child)global_menu_action(&s,GLOBAL_EXIT);else quit=1;
+                if(s.session_child || ehci_wifi_trial)global_menu_action(&s,GLOBAL_EXIT);else quit=1;
                 break;
             }
             if(coexist_text) {
