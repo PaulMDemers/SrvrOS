@@ -699,6 +699,11 @@ The census recipe defers user init so the verifier can require the kernel
 to be the sole registered address space. The kernel workspace still mounts
 and saves the report. Version 3 records the last mapping's VMM refusal
 phase and reason, or the observed leaf size, cache selector and permissions.
+The pre-init Air run completed all 56,832 reads in 38.954 ms with no zero
+entries. 49,153 entries matched the first framebuffer PTE. All 111 aliases
+retired and both restored CRCs matched. The reversible PCI hold preserves
+the inherited translations, so the takeover still needs an explicit range
+handoff or a driver-owned range initialized after a qualified reset.
 
 The joined takeover holds the original display exclusion from before
 shutdown through the first GGTT round trip. After Pipe A and the panel

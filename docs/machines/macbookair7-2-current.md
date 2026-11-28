@@ -716,6 +716,19 @@ This retry touches the dedicated eDP boot recipe, alias receipt and collector.
 It uses main `24feebdd`. Air6,1 PR 567 at `654ad9d9` records a separate
 Haswell census and supplies no Broadwell ownership evidence.
 
+Release `a73eb19a306f716e` completed the native read-only census in
+`session-0006614fc04615c1-00`. Before user init, PCI Command `0x0402` kept
+memory decode enabled and bus mastering off while the panel was dark. The
+driver read all 56,832 entries in `[8704, 65536)` in 38.954 ms. Every entry
+was nonzero, and 49,153 matched the first framebuffer PTE exactly. All
+111 CPU mappings were verified and retired, with zero GGTT writes. The
+original framebuffer digests and restored CRCs matched, slot 12292 was
+unchanged, and the USB save, offline checks and return to Ubuntu passed.
+A reversible PCI decode hold therefore leaves the entire surveyed aperture
+populated. The next ownership test must establish an explicit handoff for a
+specific occupied entry or initialize a driver-owned range after a qualified
+reset. The existing occupied-entry refusal remains in effect.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
