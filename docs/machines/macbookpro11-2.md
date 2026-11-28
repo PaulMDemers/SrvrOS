@@ -1020,9 +1020,12 @@ authentication timeout, and captures the final completion code and cursor
 across Stop. The xHCI host fixture withholds the first authentication
 completion and checks single submission and cleanup. The lifecycle fixture
 and all five exact-image VM rehearsals passed. The private candidate and
-qualification receipt are archived. The physical journal still contains the
-previous return and the candidate awaits its first cold run. Local results
-are under `build/bringup/pro112-rtl8822bu-auth-trace/`.
+qualification receipt are archived. The trace image is installed with
+verified recovery `74da74e0b57afbb8` and a fresh journal matching the VM
+descriptor. The pre-boot baseline covers 716 workspace files. The on-disk
+`build/bringup/pro112-rtl8822bu-auth-trace/run.json` tracks the one-shot.
+On return use that directory’s `collect-local.py` to compare the workspace
+and EFI journal records for the authentication transfer.
 
 #### RTL8188CUS identity checkpoint
 
