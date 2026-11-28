@@ -419,6 +419,17 @@ safely, all 690 workspace files matched, and Ubuntu returned
 automatically. The verified payload and logs are in
 `evidence-5c9a82d1e9c3718a` in the recovery archive.
 
+#### Netgear A6150 scheduler comparison
+
+Continue from `4226e6f2` with main `24feebdd`. Linux had `CR=0xff`
+when the two target beacons arrived. First compare its scheduler bit
+in one boot. Run the existing `CR=0x9a` window, then test `CR=0xba`
+only when the first IN remains pending at its original dequeue and
+RX DMA reports idle with an empty queue. Keep TX engines and DMA
+disabled, queues paused, and the 32 KiB request and PHY tune fixed.
+Record each window separately and exclude completions received during
+the switch from the scheduler window's frame counts.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
