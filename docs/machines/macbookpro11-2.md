@@ -520,6 +520,18 @@ publication and doorbell flush for these firmware commands.
 [Linux xHCI tracepoints](https://github.com/torvalds/linux/blob/v7.0/drivers/usb/host/xhci-trace.h)
 and [transfer ring implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/usb/host/xhci-ring.c).
 
+Release `6bdef8c70130ba12` on `4e660c90` traces the final firmware OUT,
+the addition of bulk IN, each initialization OUT and OUT endpoint Stop.
+If a command fails, it also samples the Netgear H2C pointers, TXDMA
+status and H2C queue status before restoring RX-only control. Linux
+writes the queue-full bit at `0x1330` before its queue setup and uses
+`CR=0xff`. This trial keeps SrvrOS's prior MAC transmit gate and
+samples the status without writing it. The native fixture checks Linux
+TRB flags, stale runtime context, a wrong event pointer, timeout and
+safe stopped ownership. Both sibling regressions, 329 boot and trial
+tests, and all five exact-image rehearsals passed. The one-shot run and
+automatic log collection use `build/bringup/pro112-rtl8822bu-h2c-out/run.json`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
