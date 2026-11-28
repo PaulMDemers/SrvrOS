@@ -295,6 +295,13 @@ untouched. The exit snapshot, recovery and offline USB check verified after
 Ubuntu returned. Native hardware requester hold and firmware exclusion
 still require independent evidence.
 
+The next PR567 checkpoint audits Haswell's documented ring-stop and
+synchronizing-flush prerequisites while forcewake is held and Pipe A scans.
+Scope is the isolated engine observation and its receipt verifier, starting
+at `bd3d36cc`. It keeps slots 4096 and 16385 protected and issues no ring-stop,
+flush or reset requests. Main `b062ba18` and PR301 at `4158764d` were reviewed.
+The Broadwell traffic-hold provider work remains independent.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
