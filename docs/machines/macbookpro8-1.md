@@ -592,6 +592,17 @@ mismatches. Ubuntu returned with Ethernet and Wi-Fi connected. The exact
 payload and reports are archived in the local recovery directory under
 `77845b0ad46fd3cb`. Association and wireless IP remain subsequent tests.
 
+The station trial starts from `f50c74bf` with fetched integration baseline
+`24feebdd`. It owns BCM4331 D11 transmit and station lifecycle, a bounded
+Demers2.4 connection recipe, and the two existing EHCI receipts. The
+first checkpoint is Open System authentication and association with
+verified wireless transmit status. Then use the existing WPA2 handshake
+and software CCMP code, and qualify an interface-bound DHCP exchange.
+The USB MediaTek driver from merged PR #19 and the Pro11,2 USB trials
+are independent transports. PR #568 tracks this device branch. The open
+graphics and runtime PRs have no overlapping D11 work. Keep the accepted
+passive release and Ubuntu recovery available throughout.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
