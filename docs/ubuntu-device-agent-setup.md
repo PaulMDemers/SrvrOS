@@ -1208,6 +1208,16 @@ completions, the accepted DHCP Offer and ACK, the configured address
 and router, and verified DMA retirement in the final report. Both
 reports use the same release-specific filenames as the link probe.
 
+For the attended MacBookPro8,1 desktop cable trial, stage
+`hardware_boot.py stage --ehci-desktop-trial UUID --ehci-desktop-ethernet`,
+then run `ehci_trial_smoke.py RELEASE`. Text opens the complete
+checklist. Start with Ethernet and USB connected, unplug only Ethernet
+at the Connected prompt, and reconnect at the Link down prompt. The
+trial verifies a fresh lease and gateway reply at both connected
+checkpoints and confirms deconfiguration when the cable is out.
+Ctrl-Alt-Esc ends the trial early. The startup and final Ethernet
+reports are saved under `srvros-work` before returning to Ubuntu.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal

@@ -409,6 +409,25 @@ and DMA retirement and Ubuntu return succeeded. The next candidate
 keeps the prompt visible across app launches and paces DHCP polling so
 the existing elapsed-time retry can run.
 
+Source `4a60c26d`, release `fd24bb312a64131f`, passed the attended
+desktop cable cycle. Text opened the checklist and the compositor
+recorded all three phases. The initial connection and reconnect each
+accepted a DHCP Offer and ACK, received a gateway echo and started
+the same resident polling worker. Unplugging cleared IPv4 and the
+default router and parked the worker. The paced DHCP rounds took
+15,311 µs and 19,492 µs and needed one Discover each. The host fixture
+separately proved the elapsed-time retry when the first Discover
+was lost. The VM exercised the checklist, foreign-platform refusal,
+both reports and one-shot return.
+
+The native controller completed ten TX and fourteen RX descriptors
+with zero drops, then stopped bus mastering and released DMA. Topcase
+and flash retirement succeeded. Ubuntu verified both reports and all
+previous workspace files. The offline exFAT check passed with 170
+files and 178 clusters. The payload and reports are archived outside
+`build`. The desktop cable recipe remains explicit. Ordinary boot
+and sustained multi-cycle networking have separate acceptance.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
@@ -1425,7 +1444,7 @@ Offline allocation passed for 143 files with zero writes.
 | Audio | Built-in right speaker and stream teardown verified on `024a87e1e8d4bf42`. This unit has a broken left speaker | Qualify audible left-channel output with working hardware |
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
-| Wired Ethernet | BCM57765 1 Gb/s full-duplex carrier, exact TX/RX loopback, cable DHCP and DMA retirement verified on `4236ecafdcb7e339` | Qualify sustained desktop networking and cable reconnect |
+| Wired Ethernet | BCM57765 1 Gb/s full-duplex TX/RX and DHCP accepted. The desktop unplug and reconnect trial passed with fresh DHCP, gateway replies, and safe retirement on `fd24bb312a64131f` | Qualify ordinary startup and sustained use |
 | Wi-Fi | Linux inventory captured | Qualify the native BCM4331 provider |
 
 The local host checkpoint, exact VM evidence and first console return are in
