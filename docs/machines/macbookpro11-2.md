@@ -267,6 +267,17 @@ Both sibling desktop regressions, 329 boot and trial tests and all five
 exact-image VM rehearsals passed. Collect native board acceptance from
 `build/bringup/pro112-rtl8822bu-board/run.json` before applying PHY tables.
 
+Physical session `session-0006614c896e4b0c-00` completed all 40 firmware
+transfers and read all 928 unprotected eFuse bytes. The board ID, RFE
+type, crystal trim, channel plan and firmware feature fields matched
+the Ubuntu USB trace. The adapter parked safely with the radio gated
+and all three adapters still on the hub. The EFI journal and final
+workspace log agree, all 682 prior workspace files matched, and the
+machine returned automatically to Ubuntu. The exact payload and logs
+are in `evidence-cb159e6b83f08752` in the recovery archive. Radio
+initialization using the RFE type 3 settings and passive discovery
+remain open.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
