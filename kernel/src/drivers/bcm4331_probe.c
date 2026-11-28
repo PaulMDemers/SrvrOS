@@ -13,6 +13,7 @@ enum {
     PAGE_BYTES = 4096, BAR_BYTES = 4 * PAGE_BYTES, CHIPCOMMON_PAGE = 3 * PAGE_BYTES,
     CHIP_ID = 0x00, CHIP_CAP = 0x04, CHIP_EROM = 0xfc, CHIP_SROM_CONTROL = 0x190,
     CHIP_SROM = 0x800, CHIP_CAP_SROM = 1u << 30,
+    CORE_IO_CONTROL = 0x408, CORE_IO_STATUS = 0x500, CORE_RESET_CONTROL = 0x800, CORE_RESET_STATUS = 0x804,
     EROM_VALID = 1, EROM_ADDR_TAG = 0x06, EROM_END = 0x0f,
     EROM_MASTER_PORT = 3, EROM_ADDRESS = 5, EROM_ADDR_SIZE = 0x30,
     EROM_SIZE_DESCRIPTOR = 0x30, EROM_ADDR_64 = 8,
@@ -37,8 +38,8 @@ static bool read_erom(const volatile uint32_t *words, unsigned count, struct bcm
     while (index < count) {
         uint32_t cia = words[index++];
         if (cia == EROM_END) return found == 7 && cores[0].address == 0x18000000 &&
-            cores[1].address == 0x18001000 && cores[2].address != cores[0].address &&
-            cores[2].address != cores[1].address;
+            cores[1].address == 0x18001000 && cores[2].address == 0x18002000 &&
+            cores[1].wrapper == 0x18101000;
         if ((cia & 0xf) != EROM_VALID || index == count) return false;
         uint32_t cib = words[index++];
         if ((cib & 0xf) != EROM_VALID) return false;
@@ -46,6 +47,7 @@ static bool read_erom(const volatile uint32_t *words, unsigned count, struct bcm
         unsigned id = (cia >> 8) & 0xfff, revision = cib >> 24;
         struct bcma_core core = {0};
         uint32_t slave_wrapper = 0;
+        bool primary_seen = false;
         while (index < count) {
             uint32_t word = words[index];
             if ((word & 0xf) == EROM_VALID || word == EROM_END) break;
@@ -53,23 +55,32 @@ static bool read_erom(const volatile uint32_t *words, unsigned count, struct bcm
             index++;
             if ((word & 0xf) == EROM_MASTER_PORT) continue;
             if ((word & (EROM_ADDR_TAG | EROM_VALID)) != EROM_ADDRESS) return false;
-            /* This 32-bit backplane may still encode extended size records.
-             * Consume their operand words before inspecting another tag. */
+            /* The PCIe core also advertises wider bridge apertures. Consume
+             * all operands, but admit only 32-bit 4 KiB register windows. */
             bool four_kib = !(word & EROM_ADDR_SIZE);
+            uint32_t upper_address = 0;
             if (word & EROM_ADDR_64) {
-                if (index == count || words[index++] != 0) return false;
+                if (index == count) return false;
+                upper_address = words[index++];
             }
             if ((word & EROM_ADDR_SIZE) == EROM_SIZE_DESCRIPTOR) {
                 if (index == count) return false;
                 uint32_t size = words[index++];
                 four_kib = (size & 0xfffff000) == PAGE_BYTES;
-                if ((size & EROM_ADDR_64) && (index == count || words[index++] != 0)) return false;
+                if (size & EROM_ADDR_64) {
+                    if (index == count) return false;
+                    if (words[index++] != 0) four_kib = false;
+                }
             }
             uint32_t address = word & 0xfffff000;
             unsigned type = word & EROM_ADDR_TYPE;
-            if (type == 0 && !core.address && !(word & EROM_ADDR_PORT) && four_kib) core.address = address;
-            if (type == EROM_MASTER_WRAP && !core.wrapper && four_kib) core.wrapper = address;
-            if (type == EROM_SLAVE_WRAP && !slave_wrapper && four_kib) slave_wrapper = address;
+            bool usable = !upper_address && four_kib;
+            if (type == 0 && !primary_seen && !(word & EROM_ADDR_PORT)) {
+                primary_seen = true;
+                if (usable) core.address = address;
+            }
+            if (type == EROM_MASTER_WRAP && !core.wrapper && usable) core.wrapper = address;
+            if (type == EROM_SLAVE_WRAP && !slave_wrapper && usable) slave_wrapper = address;
         }
         if (!core.wrapper) core.wrapper = slave_wrapper;
         for (unsigned i = 0; i < sizeof captured_cores / sizeof captured_cores[0]; i++) {
@@ -194,9 +205,14 @@ enum bcm4331_probe_result bcm4331_probe(void) {
                         console_printf("bcm4331: core=%x revision=%x address=%x wrapper=%x\n",
                             (uint64_t)captured_cores[i].id, (uint64_t)captured_cores[i].revision,
                             (uint64_t)cores[i].address, (uint64_t)cores[i].wrapper);
+                    pci_write_config32(p, PCI_BAR0_WINDOW, cores[1].wrapper);
+                    if (pci_read_config32(p, PCI_BAR0_WINDOW) == cores[1].wrapper)
+                        console_printf("bcm4331: d11_wrapper ioctl=%x iost=%x reset=%x reset_status=%x\n",
+                            (uint64_t)words[CORE_IO_CONTROL / 4], (uint64_t)words[CORE_IO_STATUS / 4],
+                            (uint64_t)words[CORE_RESET_CONTROL / 4], (uint64_t)words[CORE_RESET_STATUS / 4]);
                 } else if (selected) {
                     console_write("bcm4331: enumeration ROM did not match the captured topology\n");
-                    for (unsigned i = 0; i < 24; i++)
+                    for (unsigned i = 0; i < 48; i++)
                         console_printf("bcm4331: erom[%u]=%x\n", (uint64_t)i, (uint64_t)words[i]);
                 }
             }
