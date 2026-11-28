@@ -168,6 +168,12 @@ Haswell backing adapter and the existing bounded candidate lifetime.
 PR301 at `2a208ea1` supplies the comparison point. Its Broadwell reset
 owner and range authority remain specific to that machine.
 
+The [native slot 16385 observation](../intel-hsw-tearfree.md#native-slot-16385-observation)
+passed on `2e02607c` / `0b596a06d71138d6`. Pipe A advanced two frames
+in 20.063 ms and the read-only alias retired. Both samples decoded to
+`0x8da00000`, the backing address of Pipe A's first framebuffer page in
+both complete backing vectors. Keep the populated slot protected.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

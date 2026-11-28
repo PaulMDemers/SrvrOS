@@ -416,6 +416,21 @@ Stage with `--laptop-probe-volume UUID --haswell-backing-capture
 --haswell-boot-slot`. Decode the matched `exit.log` with
 `tools/hardware_haswell_candidate.py --boot-slot`.
 
+#### Native slot 16385 observation
+
+Source `2e02607c` / release `0b596a06d71138d6` saved session
+`session-0006614d04e5536b-00`. The read-only alias retired in the
+20.063 ms bracket with zero writes. Pipe A advanced from frame 1091
+to 1093 while the programmed and live surface stayed at GPU address
+zero.
+
+Both slot 16385 reads returned `0x8da00001`. The decoded backing
+address, `0x8da00000`, is the start of reserved stolen memory and
+matches page zero of both inherited Pipe A backing vectors. Slot
+16385 is populated with an alias of an active framebuffer page.
+Keep it protected. Ubuntu returned with the one-shot consumed,
+and the exit snapshot, installed recovery and offline USB check verified.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from
