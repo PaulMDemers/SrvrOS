@@ -626,6 +626,12 @@ diagnostic evidence. The one-page hardware test remains unarmed and Ubuntu
 is running at 1% volume.
 [IDI register scope and comparison](../intel-tearfree-roadmap.md#native-rollback-admission-after-the-air-checkpoint)
 
+The boot-owned range work starts at `5b34e270` with main `24feebdd`
+reviewed. The first target is GGTT slot 16385, disjoint from the
+inherited display fence and known firmware command reservations. Scope
+is a read-only pre-reopen sample under the original native reset owner,
+the collector and its fixtures. A stable zero is vacancy evidence only.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
