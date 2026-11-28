@@ -11,6 +11,7 @@ enum {
     BU_MCU_DOWNLOAD=1u, BU_MCU_BUSY=0xc001, BU_MCU_FLASH=1u<<20,
     BU_MCU_COLD_LATCH=0x00600001, BU_MCU_PLATFORM_STATUS=1u<<31, BU_GPIO_FLASH=1u<<19,
     BU_WLRF1=0x00ec, BU_WLRF1_BBRF=7u<<24,
+    BU_H2C_STATUS=0x1330, BU_H2C_FULL=1u<<31,
 };
 
 struct bu_upload {
@@ -331,7 +332,7 @@ static const char *bu_download(struct bu_upload *up,const uint8_t *image) {
        !bu_update(d,3,1,4,0) || !bu_update(d,0x1d,1,1,0))return "mcu-stop";
     if(!bu_read(d,0x010d,1,&hpq) || !bu_read(d,BU_CR,1,&cr) || cr ||
        !bu_read(d,0x0230,2,&pages) || !bu_read(d,0x022c,4,&rqpn) || !bu_read(d,BU_BCN,1,&beacon) ||
-       !bu_write(d,0x010d,1,0xc0) || !bu_write(d,BU_CR,1,5) || !bu_write(d,0x1330,4,0x80000000u) ||
+       !bu_write(d,0x010d,1,0xc0) || !bu_write(d,BU_CR,1,5) || !bu_write(d,BU_H2C_STATUS,4,BU_H2C_FULL) ||
        !bu_write(d,0x0230,2,0x0200) || !bu_write(d,0x022c,4,rqpn|0x80000000u) ||
        !bu_write(d,BU_BCN,1,(beacon&~8u)|0x10u))return "download-queue";
     if(!bu_update(d,0x1082,1,1,0) || !bu_update(d,9,1,0x40,0) ||
@@ -339,7 +340,7 @@ static const char *bu_download(struct bu_upload *up,const uint8_t *image) {
        !bu_read(d,BU_MCU,2,&mcu) || !bu_write(d,BU_MCU,2,(mcu&0x3800)|1))return "download-enable";
     if(!bu_load_section(up,image+BU_FW_HEADER,BU_DMEM_BYTES,0x00200000,0x60))return "dmem";
     if(!bu_load_section(up,image+BU_FW_HEADER+BU_DMEM_BYTES,BU_IMEM_BYTES,0,0x18))return "imem";
-    if(!bu_write(d,0x010d,1,hpq) || !bu_write(d,BU_CR,1,cr) || !bu_write(d,0x1330,4,0x80000000u) ||
+    if(!bu_write(d,0x010d,1,hpq) || !bu_write(d,BU_CR,1,cr) || !bu_write(d,BU_H2C_STATUS,4,BU_H2C_FULL) ||
        !bu_write(d,0x0230,2,pages) || !bu_write(d,0x022c,4,rqpn|0x80000000u) || !bu_write(d,BU_BCN,1,beacon) ||
        !bu_write(d,0x0210,4,4) || !bu_read(d,BU_MCU,2,&mcu) || (mcu&0x58)!=0x58 ||
        !bu_write(d,BU_MCU,2,(mcu|0x4000u)&~1u) || !bu_update(d,0x1d,1,1,1) ||

@@ -5,8 +5,9 @@ enum {
     BU_RX_CR=0x9a, BU_RX_SCHEDULE=1u<<5, BU_RX_DMA_IDLE=1u<<17,
     BU_RX_DMA_MAP=0xf5a0, BU_RX_ARB=1, BU_RX_LLT=0x0208,
     BU_RX_FILTER0=0xffffffffu, BU_RX_FILTER2=0xffff, BU_RX_RCR=0xf410400e,
-    BU_H2C_HOST_DMA=0x05, BU_H2C_HEAD=0x244, BU_H2C_TAIL=0x248, BU_H2C_READ=0x24c,
+    BU_H2C_CR=BU_RX_CR|0x05, BU_H2C_HEAD=0x244, BU_H2C_TAIL=0x248, BU_H2C_READ=0x24c,
     BU_H2C_INFO=0x254, BU_H2C_RP=0x10d0, BU_H2C_WP=0x10d4,
+    BU_H2C_OFFSET=0x20d, BU_H2C_INFO_MODE=1, BU_H2C_INFO_INIT=4,
     BU_H2C_MASK=0x3ffff, BU_H2C_START=0x3fa00, BU_H2C_END=0x3fe00,
     BU_RF_MASK=0xfffff, BU_RF18_TUNE=0x70fff,
 };
@@ -250,13 +251,57 @@ static bool bu_rx_stop(struct bu_rx *rx) {
            (cursor==(next|1u) || (rx->pending && cursor==(rx->trb|1u)));
 }
 
+static bool bu_rx_cr_verified(struct xhci_device *d,uint32_t expected) {
+    uint32_t cr,pause;
+    return bu_read(d,BU_CR,1,&cr) && cr==expected && !(cr&0x40) &&
+           bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff;
+}
+
+static const char *bu_h2c_status(struct xhci_device *d,uint32_t *raw) {
+    if(!bu_read(d,BU_H2C_STATUS,4,raw))return "io-error";
+    /* Linux reads 0xea in all four lanes even during successful RX.
+     * The high bit of that USB readback is not queue-full evidence. */
+    return *raw==0xeaeaeaeau || *raw==UINT32_MAX?"unavailable":"data";
+}
+
+static bool bu_h2c_reset_status(struct xhci_device *d) {
+    uint32_t before=0,after=0;
+    const char *pre=bu_h2c_status(d,&before);
+    /* Match Linux's constant write without feeding the read value back. */
+    bool written=bu_write(d,BU_H2C_STATUS,4,BU_H2C_FULL);
+    const char *post=bu_h2c_status(d,&after);
+    console_printf("rtl8822bu-h2c-reset: before=%x pre=%s written=%u after=%x post=%s\n",
+        (uint64_t)before,pre,(uint64_t)written,(uint64_t)after,post);
+    return written;
+}
+
+static bool bu_h2c_configure(struct xhci_device *d) {
+    if(!bu_update(d,BU_H2C_HEAD,4,BU_H2C_MASK,BU_H2C_START) ||
+       !bu_update(d,BU_H2C_READ,4,BU_H2C_MASK,BU_H2C_START) ||
+       !bu_update(d,BU_H2C_TAIL,4,BU_H2C_MASK,BU_H2C_END) ||
+       !bu_update(d,BU_H2C_INFO,1,3,BU_H2C_INFO_MODE) ||
+       !bu_update(d,BU_H2C_INFO,1,0,BU_H2C_INFO_INIT) ||
+       !bu_update(d,BU_H2C_OFFSET,1,0,0x80))return false;
+
+    uint32_t head=0,read=0,tail=0,info=0,offset=0;
+    bool ready=bu_read(d,BU_H2C_HEAD,4,&head) && bu_read(d,BU_H2C_READ,4,&read) &&
+        bu_read(d,BU_H2C_TAIL,4,&tail) && bu_read(d,BU_H2C_OFFSET,1,&offset) &&
+        bu_poll(d,BU_H2C_INFO,1,3|BU_H2C_INFO_INIT,BU_H2C_INFO_MODE,100,&info) &&
+        (head&BU_H2C_MASK)==BU_H2C_START && (read&BU_H2C_MASK)==BU_H2C_START &&
+        (tail&BU_H2C_MASK)==BU_H2C_END && (offset&0x82)==0x82;
+    console_printf("rtl8822bu-h2c-config: head=%x read=%x tail=%x info=%x offset=%x verified=%u\n",
+        (uint64_t)head,(uint64_t)read,(uint64_t)tail,(uint64_t)info,(uint64_t)offset,(uint64_t)ready);
+    return ready;
+}
+
 static const char *bu_rx_admit(struct xhci_device *d) {
     uint32_t cr,llt;
-    /* Linux programs the USB queue map and transitions CR before loading
-     * the shared page table. Enable the receive and protocol bits only. */
+    /* Match queue setup order while MAC TX is disabled and TXPAUSE is held. */
     if(!bu_phy_tx_inhibited(d) || !bu_write(d,0x10c,2,BU_RX_DMA_MAP) ||
-       !bu_write(d,BU_CR,1,0) || !bu_write(d,BU_CR,1,BU_RX_CR) ||
-       !bu_read(d,BU_CR,1,&cr) || cr!=BU_RX_CR || !bu_update(d,0x10c,1,0,BU_RX_ARB))return "rx-enable";
+       !bu_write(d,BU_CR,1,0) || !bu_write(d,BU_CR,1,BU_H2C_CR) ||
+       !bu_rx_cr_verified(d,BU_H2C_CR))return "rx-enable";
+    if(!bu_h2c_reset_status(d))return "h2c-status-write";
+    if(!bu_update(d,0x10c,1,0,BU_RX_ARB))return "rx-enable";
     static const uint16_t pages[]={0x40,0x40,0x40,0,0x70b};
     for(unsigned i=0;i<sizeof pages/sizeof pages[0];i++)
         if(!bu_write(d,0x230+4*i,2,pages[i]))return "rx-pages";
@@ -265,8 +310,9 @@ static const char *bu_rx_admit(struct xhci_device *d) {
        !bu_write(d,0x206,2,0x7cc) || !bu_write(d,0x456,2,0x7cc) ||
        !bu_write(d,0x11c,4,0x5eff))return "rx-pages";
     if(!bu_update(d,BU_RX_LLT,1,0xf0,0x30) || !bu_write(d,BU_RX_LLT+3,1,3) ||
-       !bu_update(d,0x20d,1,0,2) || !bu_update(d,BU_RX_LLT,1,0,1) ||
+       !bu_update(d,BU_H2C_OFFSET,1,0,2) || !bu_update(d,BU_RX_LLT,1,0,1) ||
        !bu_poll(d,BU_RX_LLT,4,1,0,100,&llt) || !bu_write(d,BU_CR+3,1,0))return "rx-llt";
+    if(!bu_h2c_configure(d))return "h2c-config";
 
     /* Use the measured Linux MAC filter with PHY status and FCS appended.
      * The parser still counts only the selected channel's target beacon. */
@@ -281,14 +327,8 @@ static const char *bu_rx_admit(struct xhci_device *d) {
        !bu_read(d,0x290,1,&mode))return "rx-readback";
     console_printf("rtl8822bu-rx-admission: cr=%x pause=%x map=%x llt=%x rcr=%x map0=%x map2=%x mode=%x\n",
         (uint64_t)cr,(uint64_t)pause,(uint64_t)map,(uint64_t)llt,(uint64_t)rcr,(uint64_t)map0,(uint64_t)map2,(uint64_t)mode);
-    return cr==BU_RX_CR && pause==0xff && map==(BU_RX_DMA_MAP|BU_RX_ARB) && rcr==BU_RX_RCR &&
+    return cr==BU_H2C_CR && pause==0xff && map==(BU_RX_DMA_MAP|BU_RX_ARB) && rcr==BU_RX_RCR &&
            map0==BU_RX_FILTER0 && map2==BU_RX_FILTER2 && mode==0x1e?NULL:"rx-readback";
-}
-
-static bool bu_rx_cr_verified(struct xhci_device *d,uint32_t expected) {
-    uint32_t cr,pause;
-    return bu_read(d,BU_CR,1,&cr) && cr==expected && !(cr&0x40) &&
-           bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff;
 }
 
 static bool bu_h2c_cursor(struct xhci_device *d,uint32_t *wp,uint32_t *rp) {
@@ -301,13 +341,6 @@ static bool bu_h2c_cursor(struct xhci_device *d,uint32_t *wp,uint32_t *rp) {
 static const char *bu_h2c_commands(struct bu_upload *up) {
     struct xhci_device *d=up->device;
     uint32_t wp=0,rp=0;
-    const unsigned cr=BU_RX_CR|BU_H2C_HOST_DMA;
-    if(!bu_rx_cr_verified(d,cr) ||
-       !bu_update(d,BU_H2C_HEAD,4,BU_H2C_MASK,BU_H2C_START) ||
-       !bu_update(d,BU_H2C_READ,4,BU_H2C_MASK,BU_H2C_START) ||
-       !bu_update(d,BU_H2C_TAIL,4,BU_H2C_MASK,BU_H2C_END) ||
-       !bu_update(d,BU_H2C_INFO,1,3,1) || !bu_update(d,BU_H2C_INFO,1,0,4) ||
-       !bu_update(d,0x20d,1,0,0x80))return "queue-setup";
     bool empty=bu_h2c_cursor(d,&wp,&rp) && wp==BU_H2C_START && rp==wp;
     console_printf("rtl8822bu-h2c-queue: wp=%x rp=%x empty=%u\n",
         (uint64_t)wp,(uint64_t)rp,(uint64_t)empty);
@@ -321,7 +354,7 @@ static const char *bu_h2c_commands(struct bu_upload *up) {
         {1,0xff,0x11,0,16,0,1,0,3,2,3,0x33},
     };
     for(unsigned i=0;i<sizeof packets/sizeof packets[0];i++) {
-        if(!bu_rx_cr_verified(d,cr))return "command-gate";
+        if(!bu_rx_cr_verified(d,BU_H2C_CR))return "command-gate";
         uint64_t start=timer_monotonic_us();
         bool ok=bu_send(up,packets[i],sizeof packets[i],true);
         console_printf("rtl8822bu-h2c-command: id=%x seq=%u out=%u elapsed_us=%u\n",
@@ -330,10 +363,10 @@ static const char *bu_h2c_commands(struct bu_upload *up) {
             uint32_t txdma=0,h2cq=0;
             bool cursors=bu_h2c_cursor(d,&wp,&rp);
             bool dma_valid=bu_read(d,0x210,4,&txdma);
-            bool queue_valid=bu_read(d,0x1330,4,&h2cq);
-            console_printf("rtl8822bu-h2c-out-device: wp=%x rp=%x valid=%u dma=%x dv=%u h2cq=%x qv=%u\n",
+            const char *status=bu_h2c_status(d,&h2cq);
+            console_printf("rtl8822bu-h2c-out-device: wp=%x rp=%x valid=%u dma=%x dv=%u h2cq=%x status=%s\n",
                 (uint64_t)wp,(uint64_t)rp,(uint64_t)cursors,(uint64_t)txdma,(uint64_t)dma_valid,
-                (uint64_t)h2cq,(uint64_t)queue_valid);
+                (uint64_t)h2cq,status);
             return "command-out";
         }
     }
@@ -350,9 +383,7 @@ static const char *bu_h2c_commands(struct bu_upload *up) {
 
 static bool bu_h2c_initialize(struct bu_upload *up) {
     struct xhci_device *d=up->device;
-    const char *failure="entry-gate";
-    if(bu_rx_cr_verified(d,BU_RX_CR) && bu_write(d,BU_CR,1,BU_RX_CR|BU_H2C_HOST_DMA))
-        failure=bu_h2c_commands(up);
+    const char *failure=bu_h2c_commands(up);
     bool restored=bu_write(d,BU_CR,1,BU_RX_CR) && bu_rx_cr_verified(d,BU_RX_CR);
     console_printf("rtl8822bu-h2c: result=%s rx_only_restored=%u\n",
         failure?failure:restored?"ready":"restore",(uint64_t)restored);

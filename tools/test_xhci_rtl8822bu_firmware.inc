@@ -8,7 +8,8 @@ enum bu_firmware_fault {
     BU_RX_OK,BU_RX_TIMEOUT,BU_RX_WRONG_EVENT,BU_RX_BAD_STOP,BU_RX_TUNE_FAIL,BU_RX_CLOSING,
     BU_RX_LLT_STUCK,BU_RX_FILTER_DRIFT,
     BU_RX_SCHEDULER,BU_RX_SCHED_TIMEOUT,BU_RX_SCHED_TRANSITION,BU_RX_SCHED_DRIFT,
-    BU_H2C_BAD_ENTRY,BU_H2C_OUT_SHORT,BU_H2C_OUT_MISSING,BU_H2C_OUT_WRONG_TRB,BU_H2C_UNDRAINED,BU_H2C_RESTORE_DRIFT,
+    BU_H2C_BAD_LIMIT,BU_H2C_INIT_STUCK,BU_H2C_BAD_ENTRY,BU_H2C_OUT_SHORT,BU_H2C_OUT_MISSING,
+    BU_H2C_OUT_WRONG_TRB,BU_H2C_UNDRAINED,BU_H2C_RESTORE_DRIFT,
 };
 
 static struct {
@@ -22,6 +23,7 @@ static struct {
     unsigned phy_writes,phy_delays;
     unsigned rx_posts,rx_stops,channel_writes,rx_samples,rx_page_writes,rx_llt_polls,h2c_setup,h2c_posts;
     unsigned out_state_logs,out_event_logs,out_device_logs;
+    unsigned h2c_status_writes,h2c_status_reads;
     bool rx_queue_mapped,rx_llt_requested,rx_filters_written,rx_scheduler_written,rx_scheduler_event;
     enum bu_firmware_fault fault;
 } bu_model;
@@ -130,6 +132,8 @@ static void bu_model_h2c(struct xhci_device *d) {
     unsigned seq=bu_model.h2c_posts++;
     assert(seq<2 && !bu_model.rx_posts && bu_model.ddma==40 && bu_model.configure==2 && bu_model.h2c_setup==6);
     assert(bu_model_read(BU_CR,1)==0x9f && bu_model_read(BU_TXPAUSE,1)==0xff && d->bulk_pending);
+    assert(bu_model.h2c_status_writes==1 && bu_model.h2c_status_reads==2 &&
+           bu_model_read(BU_H2C_INFO,1)==0x09 && bu_model_read(BU_H2C_TAIL,4)==0x3fe00);
     assert(d->bulk_trb==(bu_model.cursor&~1ull) && bu_out_dequeue(d)==bu_model.ring);
     const struct xhci_trb *trb=(const void *)(uintptr_t)d->bulk_trb;
     uint64_t phys=trb->parameter_low|(uint64_t)trb->parameter_high<<32;
@@ -176,6 +180,11 @@ static void bu_model_control(void) {
         bu_model.echo_expected=false;bu_model.echoes++;
     } else if(in) {
         unsigned cr=bu_model_read(BU_CR,1);
+        if(reg==BU_H2C_STATUS) {
+            assert(cr==0x9f && width==4 && bu_model_read(BU_TXPAUSE,1)==0xff);
+            bu_model.h2c_status_reads++;
+            bu_model_store(reg,width,0xeaeaeaea);
+        }
         if(bu_rx_owner && (cr&~BU_RX_SCHEDULE)==BU_RX_CR && (reg==0xfcc || bu_model.rx_samples%10)) {
             static const unsigned registers[]={0xfcc,0xf08,0xf04,0xf14,0xf10,0xf0c,0x284,0x288,0x28c,0x2b0};
             unsigned i=bu_model.rx_samples++;
@@ -220,23 +229,29 @@ static void bu_model_control(void) {
                 bu_model.rx_scheduler_written=true;
                 if(bu_model.fault==BU_RX_SCHED_DRIFT)value=BU_RX_CR;
             } else if(value==0x9f) {
-                assert(previous==0x9a && bu_model.rx_filters_written && bu_model_read(BU_TXPAUSE,1)==0xff &&
-                    !bu_model.h2c_setup && !bu_model.rx_posts);
+                assert(previous==0 && bu_model.rx_queue_mapped && !bu_model.rx_page_writes &&
+                    bu_model_read(BU_TXPAUSE,1)==0xff && !bu_model.h2c_setup && !bu_model.rx_posts);
             } else if(value==0x9a && previous==0x9f) {
                 assert(bu_model.h2c_setup==6 && !bu_model.rx_posts);
                 if(bu_model.fault==BU_H2C_RESTORE_DRIFT)value=0x9f;
-            } else assert(value==0 || value==5 || (value==BU_RX_CR && bu_model.fault>=BU_RX_OK &&
-                bu_model.channel_writes==4 && bu_model_read(BU_TXPAUSE,1)==0xff && bu_model.configure==2 &&
-                bu_model.rx_queue_mapped && !bu_model_read(BU_CR,1)));
+            } else assert(value==0 || value==5);
         }
-        if(bu_model_read(BU_CR,1)==0x9f && (reg==0x244 || reg==0x24c || reg==0x248 || reg==0x254 || reg==0x20d)) {
+        if(reg==BU_H2C_STATUS && bu_model_read(BU_CR,1)==0x9f) {
+            assert(width==4 && value==0x80000000u && bu_model.rx_queue_mapped &&
+                !bu_model.rx_page_writes && !bu_model.h2c_status_writes++ && bu_model.h2c_status_reads==1);
+        }
+        if(bu_model_read(BU_CR,1)==0x9f &&
+           (reg==0x244 || reg==0x24c || reg==0x248 || reg==0x254 || (reg==0x20d && (value&0x80)))) {
             static const unsigned registers[]={0x244,0x24c,0x248,0x254,0x254,0x20d};
             static const unsigned values[]={0x3fa00,0x3fa00,0x3fe00,0x09,0x0d,0x82};
             unsigned i=bu_model.h2c_setup++;
             assert(i<6 && reg==registers[i] && width==(i<3?4:1) && value==values[i]);
+            assert(bu_model.h2c_status_writes==1 && bu_model.rx_llt_polls==1 && !bu_model.rx_filters_written);
+            if(reg==BU_H2C_TAIL && bu_model.fault==BU_H2C_BAD_LIMIT)value^=0x80;
             if(i==5) {
                 bu_model_store(BU_H2C_WP,4,BU_H2C_START);
                 bu_model_store(BU_H2C_RP,4,BU_H2C_START+(bu_model.fault==BU_H2C_BAD_ENTRY?4:0));
+                if(bu_model.fault!=BU_H2C_INIT_STUCK)bu_model_store(BU_H2C_INFO,1,0x09);
             }
         }
         if(bu_rx_owner && reg==0x10c && width==2) {
@@ -247,7 +262,8 @@ static void bu_model_control(void) {
             static const unsigned pages[]={0x40,0x40,0x40,0,0x70b};
             unsigned i=bu_model.rx_page_writes++;
             assert(i<5 && reg==0x230+4*i && width==2 && value==pages[i]);
-            assert(bu_model_read(BU_CR,1)==0x9a && bu_model_read(0x10c,2)==0xf5a1);
+            assert(bu_model_read(BU_CR,1)==0x9f && bu_model_read(0x10c,2)==0xf5a1 &&
+                   bu_model.h2c_status_writes==1 && bu_model.h2c_status_reads==2);
         }
         if(bu_rx_owner && reg==BU_RX_LLT && (value&1)) {
             assert(width==1 && !bu_model.rx_llt_requested && bu_model.rx_page_writes==5 &&
@@ -257,7 +273,8 @@ static void bu_model_control(void) {
         }
         if(bu_rx_owner && reg==0x608) {
             assert(width==4 && value==0xf410400e && bu_model.rx_llt_polls==1 && !(bu_model_read(BU_RX_LLT,1)&1) &&
-                bu_model_read(0x6a0,4)==0xffffffffu && bu_model_read(0x6a4,2)==0xffff);
+                bu_model_read(0x6a0,4)==0xffffffffu && bu_model_read(0x6a4,2)==0xffff &&
+                bu_model.h2c_setup==6 && bu_model_read(BU_H2C_INFO,1)==0x09);
             bu_model.rx_filters_written=true;
             if(bu_model.fault==BU_RX_FILTER_DRIFT)value^=8;
         }
@@ -471,7 +488,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
             assert(!bu_rx_owner && !bu_model_read(BU_CR,1) && (bu_model_read(0x1f,1)&7)==0);
             assert(bu_model.channel_writes==(fault==BU_RX_TUNE_FAIL?2:4));
             bool admitted=fault!=BU_RX_TUNE_FAIL && fault!=BU_RX_LLT_STUCK && fault!=BU_RX_FILTER_DRIFT &&
-                fault<BU_H2C_BAD_ENTRY;
+                fault<BU_H2C_BAD_LIMIT;
             unsigned posts=fault==BU_RX_OK?3:fault==BU_RX_SCHED_TRANSITION?2:admitted?1:0;
             assert(bu_model.rx_posts==posts);
             unsigned commands=admitted || fault>=BU_H2C_UNDRAINED?2:
@@ -480,6 +497,10 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
             assert(bu_model.out_event_logs==1+commands);
             assert(bu_model.out_state_logs==(fault==BU_RX_TUNE_FAIL?2:4)+2*commands);
             assert(bu_model.out_device_logs==(fault>=BU_H2C_OUT_SHORT && fault<=BU_H2C_OUT_WRONG_TRB));
+            assert(bu_model.h2c_status_writes==(fault!=BU_RX_TUNE_FAIL));
+            assert(bu_model.h2c_status_reads==2*bu_model.h2c_status_writes+bu_model.out_device_logs);
+            assert(bu_model.rx_filters_written==(fault!=BU_RX_TUNE_FAIL && fault!=BU_RX_LLT_STUCK &&
+                fault!=BU_H2C_BAD_LIMIT && fault!=BU_H2C_INIT_STUCK));
             assert(bu_model.rx_stops==(fault==BU_RX_TUNE_FAIL?0:1));
             bool compared=fault>=BU_RX_SCHEDULER && fault<BU_RX_SCHED_DRIFT;
             assert(bu_model.rx_samples==(compared?40:admitted?20:0));
@@ -539,4 +560,5 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
     if(passive)puts("rtl8822bu: PASS same-boot scheduler comparison, retained IN owner, transition discard, and readback refusal");
     if(passive)puts("rtl8822bu: PASS native firmware commands, Linux USB bytes, queue entry/drain, short/missing OUT and RX-only restoration");
     if(passive)puts("rtl8822bu: PASS Netgear OUT ring and completion tracing, stale running context, and wrong-TRB refusal");
+    if(passive)puts("rtl8822bu: PASS Netgear queue setup order, unavailable status, boundary drift and stuck initialization");
 }
