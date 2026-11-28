@@ -621,6 +621,20 @@ Stage with `--laptop-probe-volume UUID --haswell-backing-capture
 --haswell-tilectl --haswell-linux-fences --haswell-ownership-refusal`.
 Decode the matched `exit.log` with `tools/hardware_haswell_ownership.py`.
 
+##### Native ownership refusal result
+
+Source `4b8fcf94` / release `a725799216dbd870` saved session
+`session-0006615005417a06-00`. Both passes read all sixteen entries
+and returned the same raw word, `0x8da00001`, for every entry. All
+sixteen decoded addresses matched the first inherited framebuffer page.
+Pipe A advanced from frame 1074 to 1076 in 25.836 ms on the inherited
+surface. Both temporary aliases retired, with zero hardware writes.
+
+The receipt verified refusal. The range grant, requester hold and awake
+engine state were unavailable, and DMA drain and firmware exclusion
+remain unverified. Ubuntu returned with the one-shot consumed. The
+exit snapshot, installed recovery and offline USB check verified.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

@@ -218,6 +218,13 @@ checks while Pipe A scans. The receipt will bind the sampled entries to
 the inherited framebuffer and record missing ownership evidence.
 Air7,2 PR301 at `bd3272d2` retains its separate panel-dark scope.
 
+The [native ownership refusal](../intel-hsw-tearfree.md#native-ownership-refusal-result)
+verified on `4b8fcf94` / `a725799216dbd870`. All sixteen entries
+aliased the first inherited framebuffer page in both samples. Pipe A
+advanced two frames, both temporary mappings retired in 25.836 ms,
+and ownership stayed refused. The exit snapshot, installed recovery
+and offline USB check verified after the one-shot returned.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
