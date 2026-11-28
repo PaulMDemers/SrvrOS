@@ -8,7 +8,7 @@ enum bu_firmware_fault {
     BU_RX_OK,BU_RX_TIMEOUT,BU_RX_WRONG_EVENT,BU_RX_BAD_STOP,BU_RX_TUNE_FAIL,BU_RX_CLOSING,
     BU_RX_LLT_STUCK,BU_RX_FILTER_DRIFT,
     BU_RX_SCHEDULER,BU_RX_SCHED_TIMEOUT,BU_RX_SCHED_TRANSITION,BU_RX_SCHED_DRIFT,
-    BU_H2C_BAD_ENTRY,BU_H2C_OUT_SHORT,BU_H2C_OUT_MISSING,BU_H2C_UNDRAINED,BU_H2C_RESTORE_DRIFT,
+    BU_H2C_BAD_ENTRY,BU_H2C_OUT_SHORT,BU_H2C_OUT_MISSING,BU_H2C_OUT_WRONG_TRB,BU_H2C_UNDRAINED,BU_H2C_RESTORE_DRIFT,
 };
 
 static struct {
@@ -21,6 +21,7 @@ static struct {
     bool echo_expected,phy_started;
     unsigned phy_writes,phy_delays;
     unsigned rx_posts,rx_stops,channel_writes,rx_samples,rx_page_writes,rx_llt_polls,h2c_setup,h2c_posts;
+    unsigned out_state_logs,out_event_logs,out_device_logs;
     bool rx_queue_mapped,rx_llt_requested,rx_filters_written,rx_scheduler_written,rx_scheduler_event;
     enum bu_firmware_fault fault;
 } bu_model;
@@ -52,6 +53,7 @@ static void bu_model_command(struct xhci_device *d) {
         assert((ring&4095)==1);
         if(dci==BU_RX_DCI) {
             assert(bu_model.configure==2 && bu_model.channel_writes==4 && !bu_model_read(BU_CR,1));
+            assert(bu_model.cursor==bu_model.ring+40*16 && bu_out_dequeue(d)==bu_model.ring);
             bu_model.rx_ring=bu_model.rx_cursor=ring;
             context_write32(d->output_context,dci,0,1);
             context_write32(d->output_context,dci,2,(uint32_t)ring);
@@ -59,6 +61,10 @@ static void bu_model_command(struct xhci_device *d) {
         } else {
             bu_model.ring=bu_model.cursor=ring;
             context_write32(d->output_context,0,0,10u<<27);
+            context_write32(d->output_context,dci,0,1);
+            context_write32(d->output_context,dci,1,0x02000016);
+            context_write32(d->output_context,dci,2,(uint32_t)ring);
+            context_write32(d->output_context,dci,3,ring>>32);
         }
     } else {
         unsigned dci=(command->control>>16)&31;
@@ -124,24 +130,34 @@ static void bu_model_h2c(struct xhci_device *d) {
     unsigned seq=bu_model.h2c_posts++;
     assert(seq<2 && !bu_model.rx_posts && bu_model.ddma==40 && bu_model.configure==2 && bu_model.h2c_setup==6);
     assert(bu_model_read(BU_CR,1)==0x9f && bu_model_read(BU_TXPAUSE,1)==0xff && d->bulk_pending);
-    assert(d->bulk_trb==(bu_model.cursor&~1ull));
+    assert(d->bulk_trb==(bu_model.cursor&~1ull) && bu_out_dequeue(d)==bu_model.ring);
     const struct xhci_trb *trb=(const void *)(uintptr_t)d->bulk_trb;
     uint64_t phys=trb->parameter_low|(uint64_t)trb->parameter_high<<32;
-    assert(trb->status==80 && (trb->control&1) && (phys&0xffff)+80<=0x10000);
+    assert(trb->status==80 && trb->control==0x421 && (phys&0xffff)+80<=0x10000);
     assert(!memcmp((const void *)(uintptr_t)phys,expected[seq],sizeof expected[seq]));
     if(bu_model.fault==BU_H2C_OUT_MISSING) {
         test_time_step=10000;
         return;
     }
-    bu_model.cursor+=16;
+    uint64_t ptr=d->bulk_trb;
+    if(bu_model.fault==BU_H2C_OUT_WRONG_TRB) {
+        ptr-=16;
+        test_time_step=10000;
+    } else bu_model.cursor+=16;
     unsigned cc=bu_model.fault==BU_H2C_OUT_SHORT?13:1;
     xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){
-        .parameter_low=(uint32_t)d->bulk_trb,.parameter_high=d->bulk_trb>>32,
+        .parameter_low=(uint32_t)ptr,.parameter_high=ptr>>32,
         .status=(cc<<24)|(cc==13?1:0),.control=(32u<<10)|(4u<<24)|(10u<<16)|xhci.event_cycle};
-    if(cc==1) {
+    if(cc==1 && ptr==d->bulk_trb) {
         bu_model_store(BU_H2C_WP,4,BU_H2C_START+32*(seq+1));
         if(bu_model.fault!=BU_H2C_UNDRAINED)bu_model_store(BU_H2C_RP,4,BU_H2C_START+32*(seq+1));
     }
+}
+
+static void bu_model_out_log(const char *fmt) {
+    if(!strncmp(fmt,"rtl8822bu-out-state:",20))bu_model.out_state_logs++;
+    if(!strncmp(fmt,"rtl8822bu-out-event:",20))bu_model.out_event_logs++;
+    if(!strncmp(fmt,"rtl8822bu-h2c-out-device:",25))bu_model.out_device_logs++;
 }
 
 static void bu_model_receive_completion(bool closing);
@@ -449,7 +465,9 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
         bool success=fault==BU_FW_OK || fault==BU_FW_FLASH || fault==BU_FW_COLD_LATCH ||
             fault==BU_BOARD_OK || fault==BU_PHY_OK || fault==BU_RX_OK || fault==BU_RX_SCHEDULER;
         if(fault>=BU_RX_OK) {
+            test_console_printf_hook=bu_model_out_log;
             assert(xhci_rtl8822bu_capture_passive(image,sizeof image,phy,sizeof phy,&safe)==success);
+            test_console_printf_hook=NULL;
             assert(!bu_rx_owner && !bu_model_read(BU_CR,1) && (bu_model_read(0x1f,1)&7)==0);
             assert(bu_model.channel_writes==(fault==BU_RX_TUNE_FAIL?2:4));
             bool admitted=fault!=BU_RX_TUNE_FAIL && fault!=BU_RX_LLT_STUCK && fault!=BU_RX_FILTER_DRIFT &&
@@ -457,8 +475,11 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
             unsigned posts=fault==BU_RX_OK?3:fault==BU_RX_SCHED_TRANSITION?2:admitted?1:0;
             assert(bu_model.rx_posts==posts);
             unsigned commands=admitted || fault>=BU_H2C_UNDRAINED?2:
-                fault==BU_H2C_OUT_SHORT || fault==BU_H2C_OUT_MISSING?1:0;
+                fault>=BU_H2C_OUT_SHORT && fault<=BU_H2C_OUT_WRONG_TRB?1:0;
             assert(bu_model.h2c_posts==commands && !d->bulk_pending);
+            assert(bu_model.out_event_logs==1+commands);
+            assert(bu_model.out_state_logs==(fault==BU_RX_TUNE_FAIL?2:4)+2*commands);
+            assert(bu_model.out_device_logs==(fault>=BU_H2C_OUT_SHORT && fault<=BU_H2C_OUT_WRONG_TRB));
             assert(bu_model.rx_stops==(fault==BU_RX_TUNE_FAIL?0:1));
             bool compared=fault>=BU_RX_SCHEDULER && fault<BU_RX_SCHED_DRIFT;
             assert(bu_model.rx_samples==(compared?40:admitted?20:0));
@@ -517,4 +538,5 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
     if(passive)puts("rtl8822bu: PASS Linux RX admission order, MAC TX disabled, LLT completion, and filter readback refusal");
     if(passive)puts("rtl8822bu: PASS same-boot scheduler comparison, retained IN owner, transition discard, and readback refusal");
     if(passive)puts("rtl8822bu: PASS native firmware commands, Linux USB bytes, queue entry/drain, short/missing OUT and RX-only restoration");
+    if(passive)puts("rtl8822bu: PASS Netgear OUT ring and completion tracing, stale running context, and wrong-TRB refusal");
 }

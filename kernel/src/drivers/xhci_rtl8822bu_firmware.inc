@@ -20,7 +20,7 @@ struct bu_upload {
     uint64_t packet_phys;
     unsigned bytes,packets;
     uint32_t mcu;
-    bool power_touched,unexpected_mcu,endpoint_ready,stopped,parked;
+    bool power_touched,unexpected_mcu,endpoint_ready,stopped,parked,trace_out;
 };
 
 static bool bu_image_valid(const uint8_t *data,uint64_t size) {
@@ -201,6 +201,22 @@ static bool bu_configure_out(struct bu_upload *up) {
     return up->endpoint_ready;
 }
 
+static uint64_t bu_out_dequeue(const struct xhci_device *d) {
+    return context_read32(d->output_context,BU_OUT_DCI,2) |
+           (uint64_t)context_read32(d->output_context,BU_OUT_DCI,3)<<32;
+}
+
+static void bu_out_state(struct bu_upload *up,const char *phase) {
+    struct xhci_device *d=up->device;
+    const struct xhci_bulk_endpoint *ep=&up->out;
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
+    console_printf("rtl8822bu-out-state: phase=%s state=%u cfg=%x entries=%u deq=%x next=%x owner=%x cycle=%u pending=%u\n",
+        phase,(uint64_t)(context_read32(d->output_context,BU_OUT_DCI,0)&7),
+        (uint64_t)context_read32(d->output_context,BU_OUT_DCI,1),
+        (uint64_t)(context_read32(d->output_context,0,0)>>27),bu_out_dequeue(d),
+        ep->ring_phys+ep->enqueue*sizeof(struct xhci_trb),d->bulk_trb,(uint64_t)ep->cycle,(uint64_t)d->bulk_pending);
+}
+
 static bool bu_send(struct bu_upload *up,const uint8_t *bytes,unsigned count,bool command) {
     struct xhci_device *d=up->device;
     struct xhci_bulk_endpoint *ep=&up->out;
@@ -219,20 +235,47 @@ static bool bu_send(struct bu_upload *up,const uint8_t *bytes,unsigned count,boo
     for(unsigned i=0;i<32;i+=2)checksum^=p[i]|(uint16_t)p[i+1]<<8;
     p[28]=(uint8_t)checksum;p[29]=(uint8_t)(checksum>>8);
     copy_bytes(p+BU_DESC_BYTES,bytes,count);
+    bool trace=command || (up->trace_out && up->packets==39);
+    if(command)bu_out_state(up,"h2c-before");
     const struct xhci_trb trb={.parameter_low=(uint32_t)up->packet_phys,.parameter_high=up->packet_phys>>32,
-        .status=length,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
-    d->bulk_trb=ring_push(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&trb);
+        .status=length,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|(command?0:XHCI_TRB_ISP)};
+    struct xhci_trb *entry=&ep->ring[ep->enqueue];
+    bool cycle=ep->cycle;
+    d->bulk_trb=ring_push_owned(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&trb,command);
     d->bulk_dci=ep->dci;d->bulk_done=false;d->bulk_pending=true;
     d->bulk_completion=0;d->bulk_remaining=0;
+    if(command) {
+        /* Publish H2C data and ownership before exposing the cycle bit. */
+        __atomic_thread_fence(__ATOMIC_RELEASE);
+        ((volatile struct xhci_trb *)entry)->control=trb.control|cycle;
+    }
     db_write32(d->slot_id,ep->dci);
+    if(command)(void)mmio_read32(xhci.db_base+4u*d->slot_id);
     uint64_t start=timer_monotonic_us();
+    struct xhci_trb observed={0};
+    unsigned events=0;
     for(unsigned i=0;i<XHCI_TRANSFER_TIMEOUT && d->bulk_pending;i++) {
         struct xhci_trb event;
-        if(poll_event(&event))dispatch_transfer_event(&event);
+        if(poll_event(&event)) {
+            if(trace && (event.control>>24)==d->slot_id && ((event.control>>16)&31)==BU_OUT_DCI &&
+               ((event.control>>10)&63)==XHCI_TRB_TYPE_TRANSFER_EVENT) {
+                observed=event;
+                events++;
+            }
+            dispatch_transfer_event(&event);
+        }
         if((i&255u)==0 && timer_monotonic_us()-start>=250000u)break;
         __asm__ volatile("pause");
     }
     bool ok=d->bulk_done && !d->bulk_pending && d->bulk_completion==1 && !d->bulk_remaining;
+    uint64_t event_trb=observed.parameter_low|(uint64_t)observed.parameter_high<<32;
+    if(command)ok=ok && events && event_trb==d->bulk_trb && !(observed.control&4);
+    if(trace) {
+        console_printf("rtl8822bu-out-event: length=%u control=%x count=%u ptr=%x cc=%u residue=%u ed=%u\n",
+            (uint64_t)length,(uint64_t)(trb.control|cycle),(uint64_t)events,event_trb,
+            (uint64_t)(observed.status>>24),(uint64_t)(observed.status&0xffffff),(uint64_t)((observed.control>>2)&1));
+        bu_out_state(up,command?"h2c-after":"firmware-last");
+    }
     if(!ok)console_printf("rtl8822bu-out: length=%u completion=%u residue=%u pending=%u trb=%x\n",
         (uint64_t)length,(uint64_t)d->bulk_completion,(uint64_t)d->bulk_remaining,
         (uint64_t)d->bulk_pending,d->bulk_trb);
@@ -315,8 +358,8 @@ static bool bu_stop(struct bu_upload *up) {
     uint64_t pending=d->bulk_pending?d->bulk_trb:end;
     if(!submit_command(XHCI_TRB_TYPE_STOP_ENDPOINT,((uint32_t)d->slot_id<<24)|(BU_OUT_DCI<<16),&slot) ||
        slot!=d->slot_id)return false;
-    uint64_t cursor=context_read32(d->output_context,BU_OUT_DCI,2) |
-                    (uint64_t)context_read32(d->output_context,BU_OUT_DCI,3)<<32;
+    if(up->trace_out)bu_out_state(up,"stopped");
+    uint64_t cursor=bu_out_dequeue(d);
     if((context_read32(d->output_context,BU_OUT_DCI,0)&7)!=3 ||
        (cursor!=(pending|1) && cursor!=(end|1)))return false;
     d->bulk_pending=false;
@@ -423,7 +466,7 @@ enum bu_mode { BU_FIRMWARE_ONLY, BU_BOARD_ONLY, BU_PHY_INIT, BU_PASSIVE };
 
 static bool bu_capture(const uint8_t *image,uint64_t size,enum bu_mode mode,
                        const uint8_t *phy,uint64_t phy_size,bool *return_safe) {
-    struct bu_upload up={0};
+    struct bu_upload up={.trace_out=mode==BU_PASSIVE};
     const char *failure="identity";
     const char *board_failure="not-run";
     const char *phy_failure="not-run";

@@ -326,7 +326,16 @@ static const char *bu_h2c_commands(struct bu_upload *up) {
         bool ok=bu_send(up,packets[i],sizeof packets[i],true);
         console_printf("rtl8822bu-h2c-command: id=%x seq=%u out=%u elapsed_us=%u\n",
             (uint64_t)packets[i][2],(uint64_t)i,(uint64_t)ok,timer_monotonic_us()-start);
-        if(!ok)return "command-out";
+        if(!ok) {
+            uint32_t txdma=0,h2cq=0;
+            bool cursors=bu_h2c_cursor(d,&wp,&rp);
+            bool dma_valid=bu_read(d,0x210,4,&txdma);
+            bool queue_valid=bu_read(d,0x1330,4,&h2cq);
+            console_printf("rtl8822bu-h2c-out-device: wp=%x rp=%x valid=%u dma=%x dv=%u h2cq=%x qv=%u\n",
+                (uint64_t)wp,(uint64_t)rp,(uint64_t)cursors,(uint64_t)txdma,(uint64_t)dma_valid,
+                (uint64_t)h2cq,(uint64_t)queue_valid);
+            return "command-out";
+        }
     }
     bool drained=false;
     for(unsigned i=0;i<20;i++) {
@@ -354,7 +363,11 @@ static const char *bu_receive(struct bu_upload *up,bool *retired) {
     struct xhci_device *d=up->device;
     struct bu_rx rx={.device=d};
     if(!bu_tune(up,161) || !bu_rx_baseband(d) || !bu_tune(up,10))return "channel";
-    if(!bu_phy_tx_inhibited(d) || bu_rx_owner || !bu_rx_configure(&rx))return "endpoint";
+    if(!bu_phy_tx_inhibited(d) || bu_rx_owner)return "endpoint";
+    bu_out_state(up,"rx-add-before");
+    bool configured=bu_rx_configure(&rx);
+    bu_out_state(up,"rx-add-after");
+    if(!configured)return "endpoint";
     bu_rx_owner=&rx;
     const char *failure=bu_rx_admit(d);
     if(!failure && !bu_h2c_initialize(up))failure="firmware-command";
