@@ -1107,6 +1107,16 @@ Keep the Auth descriptor, early endpoint setup, DCI 12 context, and four
 32 KiB receive requests as in `aa87147f444c7fae`. Verify the field before
 firmware upload and again before enabling the station's transmit path.
 
+Candidate `0c65873e92283b28` (`419fab7a`) passed the production xHCI
+fixture. It checked all 48 Auth descriptor bytes, preserved the four
+receive submissions and refused Auth when the output context drifted.
+The exact GPT workspace rehearsal and all four journal rehearsals passed.
+The protected archive includes fresh Linux context readback for DCI 10.
+The cold return decoder checks the pre-firmware and pre-Auth readbacks
+alongside the Auth USB completion and AP reply. The trial is staged
+under `build/bringup/pro112-rtl8822bu-auth-avg-trb/`. Ubuntu is running
+with recovery `74da74e0b57afbb8` verified and no one-shot armed.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
