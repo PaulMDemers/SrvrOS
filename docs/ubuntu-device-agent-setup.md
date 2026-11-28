@@ -1254,11 +1254,12 @@ For the receive trial, stage with `--ehci-bcm4331-channel10 UUID` and
 `--bcm4331-radio-profile PATH`. Use the pinned local profile extracted by
 `tools/bcm4331_radio_profile.py` from the MacBook's Ubuntu trace. The stage
 also verifies the Ubuntu HT register tables. Run the exact-stage smoke
-check before installing. The native trial uses a bounded programmed-I/O
-receive window. It checks the channel, SSID and frame checksum of any
-matching beacon, then stops the MAC and receive FIFO before returning to
-Ubuntu. Leave Ethernet and the flash drive attached. Both reports use
-the same release-specific Wi-Fi filenames.
+check before installing. The native trial initializes the HT radio and
+uses a bounded DMA64 receive ring. It qualifies `Demers2.4` on channel 10
+by checking the hardware channel, beacon information and frame checksum.
+The final report should show `BEACON_OK`, `receive_retired=1`,
+`bus_master_off=1`, and `dma_pages=0`. Leave Ethernet and the flash drive
+attached. Verify both release-specific Wi-Fi reports on return to Ubuntu.
 
 ### Prompted Ethernet cable checks
 

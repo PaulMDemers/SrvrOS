@@ -1,6 +1,6 @@
 # MacBookPro8,1 bring-up record
 
-Updated November 27, 2026. State **Native console output, EHCI enumeration
+Updated November 28, 2026. State **Native console output, EHCI enumeration
 of the built-in topcase and workspace flash drive, and return to Ubuntu
 verified. Both controllers completed their scans and released DMA in the
 enumeration trial. The operator verified built-in keyboard input, command
@@ -9,7 +9,9 @@ trackpad trial verified Wellspring mode recovery, one-finger motion, two
 contacts, and click press and release. Ubuntu verified the release-matched
 USB report. The native desktop verified pointer movement, physical clicks,
 Ubuntu return, and the USB report. The instrumented retry passed with zero
-malformed frames. The earlier malformed frame remains unexplained.**
+malformed frames. The earlier malformed frame remains unexplained. The
+BCM4331 native channel 10 trial verified radio initialization and three
+beacons from `Demers2.4`.**
 
 ## Identity and baseline
 
@@ -577,6 +579,18 @@ ring clearing with zero DMA pages retained. The active descriptor moved
 to `0x10`, but no frame completed. Both flash reports, workspace integrity
 and Ubuntu return verified. The next retry supplies the Linux driver's
 post-PHY MAC timing, capability and PHY information to the firmware.
+
+Release `77845b0ad46fd3cb` (`6c7ef299`) passed the exact-stage VM check
+and returned `BEACON_OK` on the MacBook. D11 firmware `784.2` reached
+active state after HT calibration and channel 10 tuning. Five DMA frames
+completed with no timeout. Three were checksum-valid `Demers2.4` beacons
+with channel 10 in the hardware receive header and beacon information.
+The MAC suspended, the RX ring stopped and cleared, PCI bus mastering
+was fenced, and all DMA pages were released. Both flash reports verified.
+The workspace allocation check passed with 200 files and zero leaks or
+mismatches. Ubuntu returned with Ethernet and Wi-Fi connected. The exact
+payload and reports are archived in the local recovery directory under
+`77845b0ad46fd3cb`. Association and wireless IP remain subsequent tests.
 
 ## Bring-up sequence
 
@@ -1595,7 +1609,7 @@ Offline allocation passed for 143 files with zero writes.
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
-| Wi-Fi | Ubuntu `b43` joined the 2.4 GHz test network. SrvrOS verified BCM4331 topology, HT PHY and board ROM, then started and halted D11 microcode `784.2` on `6a13ab07775b6428` | Qualify HT PHY and radio initialization, passive receive and network connection |
+| Wi-Fi | SrvrOS verified BCM4331 HT radio initialization and three `Demers2.4` beacons on channel 10 in `77845b0ad46fd3cb` | Qualify association, WPA2 and interface-bound DHCP and gateway traffic |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native
