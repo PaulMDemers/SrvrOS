@@ -444,8 +444,16 @@ seconds. The controller completed 51 TX and 51 RX descriptors with zero
 drops, then released DMA and stopped bus mastering. Ubuntu verified both
 flash reports and preserved the existing workspace files. The offline
 exFAT inspection passed with 172 files and 180 clusters. The same source
-was staged as `e0c0bff8e7ef17ae` for disconnected startup and three cable
-cycles. Its exact-stage VM check passed and the native run is pending.
+passed disconnected startup and three cable cycles on release
+`e0c0bff8e7ef17ae`. The desktop opened without carrier or an IPv4 lease.
+The first cable connection and all three reconnects negotiated 1 Gb/s
+full duplex and acquired DHCP. Each unplug cleared IPv4 and the default
+route while leaving the resident receive worker running. Each connected
+phase returned all 35 gateway echoes over 17.4 seconds, for 140 of 140
+across four phases. The controller completed 230 TX and 312 RX descriptors
+with zero drops and verified DMA retirement. Ubuntu verified the hashes
+of both reports and preserved the existing workspace files. The offline
+exFAT inspection passed with 174 files and 182 clusters.
 
 ## Bring-up sequence
 
@@ -1463,7 +1471,7 @@ Offline allocation passed for 143 files with zero writes.
 | Audio | Built-in right speaker and stream teardown verified on `024a87e1e8d4bf42`. This unit has a broken left speaker | Qualify audible left-channel output with working hardware |
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
-| Wired Ethernet | BCM57765 1 Gb/s full-duplex TX/RX and DHCP accepted. The opt-in desktop passed one cable cycle on `fd24bb312a64131f`. The production provider passed connected startup and sustained gateway traffic on `657931e51d2152c8` | Qualify disconnected startup and three cable cycles |
+| Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
 | Wi-Fi | Linux inventory captured | Qualify the native BCM4331 provider |
 
 The local host checkpoint, exact VM evidence and first console return are in
