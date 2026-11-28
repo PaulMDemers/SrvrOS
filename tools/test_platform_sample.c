@@ -381,7 +381,8 @@ void console_printf(const char *fmt,...) {
        !strncmp(fmt,"hsw-engine-prereqs",18) ||
        !strncmp(fmt,"hsw-forcewake",13) || !strncmp(fmt,"hsw-engine-drain",16) ||
        !strncmp(fmt,"hsw-exclusion-",14) || !strncmp(fmt,"hsw-handoff-",12) || !strncmp(fmt,"hsw-reset-free-",15) ||
-       !strncmp(fmt,"hsw-engine-hold:",16) || !strncmp(fmt,"hsw-blitter-",12)) {
+       !strncmp(fmt,"hsw-engine-hold:",16) || !strncmp(fmt,"hsw-blitter-",12) ||
+       !strncmp(fmt,"hsw-completion-page:",20)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {

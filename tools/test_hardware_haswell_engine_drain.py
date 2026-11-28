@@ -6,7 +6,7 @@ import hardware_boot as boot
 from hardware_haswell_engine_drain import (
     BLITTER_PROVIDER_TOKEN, ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN,
 )
-from hardware_haswell_forcewake import ENGINE_HOLD_TOKEN, forcewake_result
+from hardware_haswell_forcewake import COMPLETION_PAGE_TOKEN, ENGINE_HOLD_TOKEN, forcewake_result
 
 
 class HaswellEngineDrainReceipt(unittest.TestCase):
@@ -18,6 +18,7 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
         cls.reset_free = Path("build/tests/hsw-reset-free-audit-receipt.log").read_text()
         cls.hold = Path("build/tests/hsw-engine-hold-receipt.log").read_text()
         cls.provider = Path("build/tests/hsw-blitter-provider-receipt.log").read_text()
+        cls.completion = Path("build/tests/hsw-completion-page-receipt.log").read_text()
 
     def result(self, text):
         wake = forcewake_result(text)
@@ -255,6 +256,29 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
         self.assertNotIn(ENGINE_HOLD_TOKEN, config)
         with self.assertRaisesRegex(ValueError, "isolated automatic return"):
             boot.stage(haswell_blitter_provider=True, haswell_engine_hold=True, haswell_linux_fences=True)
+
+    def test_completion_page_refuses_before_any_page_or_route_operation(self):
+        wake = forcewake_result(self.completion)
+        self.assertEqual(wake["status"], "VERIFIED")
+        self.assertEqual(wake["completion_page"], dict(state="refused", reason="firmware-exclusion",
+                                                       zero_attempts=0, pte_attempts=0, pga_attempts=0))
+        self.assertEqual(wake["protected_reads"], 0)
+        for old, new in (("zero=0", "zero=1"), ("pte=0", "pte=1"), ("pga=0 authority=", "pga=1 authority="),
+                         ("reason=firmware-exclusion", "reason=baseline"),
+                         ("hsw-completion-page:", "missing:"), (COMPLETION_PAGE_TOKEN, BLITTER_PROVIDER_TOKEN)):
+            with self.subTest(old=old):
+                self.assertIn(old, self.completion)
+                self.assertIsNone(forcewake_result(self.completion.replace(old, new, 1)))
+
+    def test_completion_page_recipe(self):
+        version = "ram-usb-v19-hsw-laptop-probe-6ada85bb"
+        with self.assertRaisesRegex(ValueError, "automatic return"):
+            boot.limine_config("1234567890abcdef", version)
+        config = boot.limine_config("1234567890abcdef", version + "-auto-return")
+        self.assertIn(COMPLETION_PAGE_TOKEN, config)
+        self.assertNotIn(BLITTER_PROVIDER_TOKEN, config)
+        with self.assertRaisesRegex(ValueError, "isolated automatic return"):
+            boot.stage(haswell_completion_page=True, haswell_blitter_provider=True, haswell_linux_fences=True)
 
 
 if __name__ == "__main__":

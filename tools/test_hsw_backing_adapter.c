@@ -479,6 +479,20 @@ static void reset_free_tests(void) {
 
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"completion-page")) {
+  handoff_setup();
+  extern void test_hsw_completion_page(const struct hwb_result *);
+  test_hsw_completion_page(&hsw_result);
+  hsw_emit=1;hsw_report();
+  assert(hsw_range_run(HSW_RANGE_COMPLETION_PAGE,true));
+  assert(forcewake_stores==2 && !candidate_ptes && candidate_frames==2 && !drain_mapped);
+  puts("laptop-capture: boot options=srvros.storage=ram srvros.workspace-volume=6ada85bb "
+       "srvros.desktop-release=1234567890abcdef srvros.capture=haswell-backing "
+       "srvros.hsw-cpu-control=read-only srvros.hsw-fences=linux-model-32 "
+       "srvros.hsw-forcewake=completion-page srvros.capture-failure=reboot");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"blitter-provider")) {
   handoff_setup();drain_map_fail=5;
   assert(!hsw_range_run(HSW_RANGE_BLITTER_PROVIDER,true) && !forcewake_stores && !drain_mapped);

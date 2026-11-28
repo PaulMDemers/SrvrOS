@@ -4,6 +4,7 @@
  * through the global mapping registry. Uncertain retirement lasts until reset. */
 #include <srvros/haswell_backing.h>
 #include <srvros/haswell_firmware.h>
+#include <srvros/intel_hsw_completion_page.h>
 #include <srvros/intel_hsw_engine_hold.h>
 #include <srvros/intel_hsw_ggtt.h>
 #define HWB_VA 0xffffc001f3240000ull
@@ -224,8 +225,9 @@ static bool hsw_range_run(enum hsw_range_trial range, bool backing_captured) {
  case HSW_RANGE_HANDOFF_AUDIT:
  case HSW_RANGE_RESET_FREE_AUDIT:
  case HSW_RANGE_ENGINE_HOLD:
- case HSW_RANGE_BLITTER_PROVIDER: {
-  hsw_blitter_provider=range==HSW_RANGE_BLITTER_PROVIDER;
+ case HSW_RANGE_BLITTER_PROVIDER:
+ case HSW_RANGE_COMPLETION_PAGE: {
+  hsw_blitter_provider=range==HSW_RANGE_BLITTER_PROVIDER || range==HSW_RANGE_COMPLETION_PAGE;
   hsw_reset_free_audit=hsw_blitter_provider || range==HSW_RANGE_RESET_FREE_AUDIT || range==HSW_RANGE_ENGINE_HOLD;
   hsw_handoff_audit=hsw_reset_free_audit || range==HSW_RANGE_HANDOFF_AUDIT;
   hsw_exclusion_audit=hsw_handoff_audit || range==HSW_RANGE_EXCLUSION_AUDIT;
@@ -241,7 +243,18 @@ static bool hsw_range_run(enum hsw_range_trial range, bool backing_captured) {
                   hold.state==HSW_ENGINE_HOLD_REFUSED?"refused":"unavailable",
                   hold.reason?hold.reason:"baseline", (uint64_t)hold.polls,
                   (uint64_t)hold.attempted,hold.completed_at);
-   return verified && hold.state==HSW_ENGINE_HOLD_REFUSED && !hold.attempted;
+   verified=verified && hold.state==HSW_ENGINE_HOLD_REFUSED && !hold.attempted;
+  }
+  if(range==HSW_RANGE_COMPLETION_PAGE) {
+   struct hsw_completion_page page={0};
+   /* The observed firmware routes provide no exclusion ticket. */
+   if(verified)(void)intel_hsw_completion_page_run(&page,&hsw_result,NULL,NULL,0);
+   console_printf("hsw-completion-page: v=1 state=%s reason=%s zero=%u pte=%u pga=%u authority=none\n",
+                  page.state==HSW_COMPLETION_REFUSED?"refused":"unavailable",
+                  page.reason?page.reason:"baseline", (uint64_t)page.zero_attempts,
+                  (uint64_t)page.pte_attempts,(uint64_t)page.pga_attempts);
+   verified=verified && page.state==HSW_COMPLETION_REFUSED && !page.zero_attempts &&
+            !page.pte_attempts && !page.pga_attempts;
   }
   return verified;
  }
@@ -264,7 +277,8 @@ static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_sl
  hsw_forcewake_backing=range==HSW_RANGE_FORCEWAKE || range==HSW_RANGE_ENGINE_DRAIN ||
                        range==HSW_RANGE_EXCLUSION_AUDIT || range==HSW_RANGE_HANDOFF_AUDIT ||
                        range==HSW_RANGE_REQUESTER_HOLD || range==HSW_RANGE_RESET_FREE_AUDIT ||
-                       range==HSW_RANGE_ENGINE_HOLD || range==HSW_RANGE_BLITTER_PROVIDER;
+                       range==HSW_RANGE_ENGINE_HOLD || range==HSW_RANGE_BLITTER_PROVIDER ||
+                       range==HSW_RANGE_COMPLETION_PAGE;
  hsw_result=(struct hwb_result){.status=2,.version=linux_fences?3:cpu_control?2:1,.fences=linux_fences?32:HWB_FENCES};
  console_write("hsw-backing-progress: exact Air6,1 read-only identity/config preflight\n");
  const struct pci_device *candidate=NULL;

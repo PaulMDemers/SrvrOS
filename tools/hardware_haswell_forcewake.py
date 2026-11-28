@@ -14,6 +14,7 @@ from hardware_haswell_survey import MASK32, MASK64, _record
 
 TOKEN = "srvros.hsw-forcewake=acquire-release"
 ENGINE_HOLD_TOKEN = "srvros.hsw-forcewake=engine-hold"
+COMPLETION_PAGE_TOKEN = "srvros.hsw-forcewake=completion-page"
 REQUIRED = {"srvros.storage=ram", "srvros.capture=haswell-backing",
             "srvros.hsw-cpu-control=read-only", "srvros.hsw-fences=linux-model-32",
             "srvros.capture-failure=reboot"}
@@ -28,7 +29,8 @@ def _result(text):
                if line.startswith("laptop-capture: boot options=")]
     if not options:
         raise ValueError("missing forcewake profile")
-    hold_modes = (ENGINE_HOLD_TOKEN, BLITTER_PROVIDER_TOKEN)
+    provider_modes = (BLITTER_PROVIDER_TOKEN, COMPLETION_PAGE_TOKEN)
+    hold_modes = (ENGINE_HOLD_TOKEN, *provider_modes)
     reset_free_modes = (*hold_modes, RESET_FREE_AUDIT_TOKEN)
     handoff_modes = (*reset_free_modes, HANDOFF_AUDIT_TOKEN)
     exclusion_modes = (*handoff_modes, EXCLUSION_AUDIT_TOKEN)
@@ -94,10 +96,23 @@ def _result(text):
                                      attempted=0, completion_us=0)
     elif hold_rows:
         raise ValueError("unexpected Haswell hold receipt")
-    if mode == BLITTER_PROVIDER_TOKEN:
+    if mode in provider_modes:
         result["blitter_provider"] = blitter_provider_result(lines, result)
     elif any(line.startswith(("hsw-blitter-provider:", "hsw-blitter-status-route:")) for line in lines):
         raise ValueError("unexpected blitter provider observation")
+    completion_rows = [line for line in lines if line.startswith("hsw-completion-page:")]
+    if mode == COMPLETION_PAGE_TOKEN:
+        (row,) = completion_rows
+        completion_state, completion_reason = _record(row,
+            r"hsw-completion-page: v=1 state=(refused|unavailable) reason=(firmware-exclusion|baseline) "
+            r"zero=0 pte=0 pga=0 authority=none")
+        expected = ("refused", "firmware-exclusion") if state == 1 else ("unavailable", "baseline")
+        if (completion_state, completion_reason) != expected:
+            raise ValueError("unbound completion page refusal")
+        result["completion_page"] = dict(state=completion_state, reason=completion_reason,
+                                         zero_attempts=0, pte_attempts=0, pga_attempts=0)
+    elif completion_rows:
+        raise ValueError("unexpected completion page observation")
     complete = lines.count("laptop-capture: completed=yes")
     if complete and "laptop-capture: completed=NO" in lines:
         raise ValueError("conflicting completion markers")

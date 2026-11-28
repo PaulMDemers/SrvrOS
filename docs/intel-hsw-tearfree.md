@@ -1183,6 +1183,36 @@ after release and all seven aliases retired. The installed release, exit
 snapshot, archived replay, recovery and offline USB check verified after
 the one-shot returned to Ubuntu.
 
+#### Owned blitter completion page prototype
+
+The host fixture models a vacant single-slot lease with a pinned private
+page. The firmware exclusion ticket must cover the exact device, boot
+epoch, slot, DMA address and inherited Pipe A pin. It must exclude
+competing firmware and blitter commands for the full transaction. The
+verifier checks the ticket before any read or page initialization and
+around each hardware-facing operation. A protected or inherited slot, an
+occupied entry, a nonzero original PGA or either open mask refuses binding.
+
+The fixture zeros and verifies the private page, publishes its GGTT
+entry, verifies translation visibility and selects it with the blitter
+PGA. HWSTAM and IMR stay fully masked. Cleanup restores the original
+PGA first, requires reader retirement, then restores and verifies the
+original GGTT word. Once publication may have started, an unverified
+result retains the page, slot and provider ticket. The prototype uses a
+4 ms bound and exercises neither engine commands nor active flush
+completion. [i915 status-page setup](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ring_submission.c#L2283-L2398)
+
+The isolated v19 native test repeats the v18 register survey and exercises
+the same admission check. Apple firmware still supplies no verified
+exclusion ticket. The expected receipt is `firmware-exclusion` refusal
+with zero page initialization, PTE writes and PGA writes. Only the
+qualified forcewake acquire and clear stores run. Pipe A stays active,
+slots 4096 and 16385 stay untouched and the existing sampling bounds apply.
+
+Stage with `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-completion-page`.
+Decode the matching `exit.log` with `tools/hardware_haswell_forcewake.py`.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two
