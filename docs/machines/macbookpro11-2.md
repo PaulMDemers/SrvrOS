@@ -500,6 +500,26 @@ agree, all seven journal phases verified, all three dongles enumerated,
 all 694 workspace files matched, and SrvrOS requested return to Ubuntu.
 The payload and logs are preserved under `evidence-5ba5ed4e7dede568`.
 
+#### RTL8822BU General Info OUT and dequeue
+
+Device-only scope from `ef818832` with main reviewed at `24feebdd` and
+the Pro8,1 wired Ethernet change in PR #568. Compare the same Netgear
+port and hardware controller on Ubuntu and SrvrOS. Changes are limited
+to the Netgear OUT diagnostic and native xHCI fixture. Keep firmware,
+RF, TX pause, 32 KiB IN and all three adapters on the Genesys hub.
+
+Linux tracepoints on MacBookPro11,2 show one IOC Normal TRB per 80-byte
+command, with EP5 OUT (DCI 10), matching transfer event and full URB
+completion. The first TRB completed about 28 microseconds after its
+doorbell. The raw output-context dequeue stayed at its original value
+across the scan while Linux's software cursor moved, so a running
+context snapshot alone cannot show which TD the controller consumed.
+Capture SrvrOS's software ring, output context, transfer-event pointer
+and stopped-context cursor separately. Match Linux's OUT TRB ownership
+publication and doorbell flush for these firmware commands.
+[Linux xHCI tracepoints](https://github.com/torvalds/linux/blob/v7.0/drivers/usb/host/xhci-trace.h)
+and [transfer ring implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/usb/host/xhci-ring.c).
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
