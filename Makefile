@@ -7485,6 +7485,8 @@ test-intel-bdw-blitter: build/tests/intel-bdw-blitter$(HOST_EXE)
 	$< widi-go-reopens
 	$< widi-go-before-trigger
 	$< widi-go-during-rollback
+	$< widi-go-at-reclose
+	$< widi-go-in-drain-packet
 test-core: test-intel-bdw-blitter
 
 BDW_BLITTER_GUEST := build/tests/blitter-guest

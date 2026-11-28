@@ -20,8 +20,11 @@ static bool identity(struct bdw_command_hold *h)
 static bool sample_read(void *ctx,uint32_t offset,uint32_t *word)
 {
     struct bdw_command_hold *h=ctx;
+    /* After the independent lease starts, even a single open WIN sample
+     * breaks ownership while the rest of GAM transitions. */
     return identity(h) && h->io.traffic.read(h->transfer,offset,word) && *word!=UINT32_MAX &&
-        (offset!=0x40d0 || !(*word&0xff00u)) && identity(h);
+        (offset!=0x40d0 || !(*word&0xff00u)) &&
+        (offset!=MSG_IDLE_WIN || !h->widi_epoch || !(*word&WIN_GO_OR_IDLE)) && identity(h);
 }
 
 static bool select_bank(void *ctx,uint32_t from,uint32_t to)
@@ -61,11 +64,11 @@ static bool widi_clock_gated(struct bdw_command_hold *h)
 
 static bool widi_excluded(struct bdw_command_hold *h)
 {
-    uint32_t before,after;
+    uint32_t word;
     /* Global GAM reopens while BCS runs. Require the independent WIN
      * response to stay closed and busy across its clock acknowledgement. */
-    return h->widi_epoch && sample_read(h,MSG_IDLE_WIN,&before) && !(before&WIN_GO_OR_IDLE) &&
-        widi_clock_gated(h) && sample_read(h,MSG_IDLE_WIN,&after) && !(after&WIN_GO_OR_IDLE);
+    return h->widi_epoch && sample_read(h,MSG_IDLE_WIN,&word) &&
+        widi_clock_gated(h) && sample_read(h,MSG_IDLE_WIN,&word);
 }
 
 bool intel_bdw_command_submission_owned(struct bdw_command_hold *h)
@@ -107,13 +110,13 @@ static bool executing(struct bdw_command_hold *h)
 static bool finish_drain(struct bdw_command_hold *h,uint64_t begin,bool after_execution)
 {
     struct bdw_traffic_sample s={.ctx=h,.read=sample_read};
-    if (after_execution && (!h->widi_epoch || !widi_clock_gated(h))) goto retained;
+    if (after_execution && !widi_excluded(h)) goto retained;
     for (unsigned i=0;i<GT_ACCESS_POLL_CAP;i++) {
         bool drained=false;
         if (!clock_ok(h,begin) || !intel_bdw_traffic_poll(&s,&drained)) break;
         if (!drained) continue;
-        if ((after_execution && !widi_clock_gated(h)) || !intel_bdw_traffic_still_blocked(h,sample_read) || !plane_held(h) ||
-            !clock_ok(h,begin) || h->last==begin) break;
+        if (!intel_bdw_traffic_still_blocked(h,sample_read) || !plane_held(h) ||
+            !clock_ok(h,begin) || h->last==begin || (after_execution && !widi_excluded(h))) break;
         ++h->drains;
         h->phase=BDW_CMD_BLOCKED;
         return true;
@@ -199,7 +202,8 @@ bool intel_bdw_command_bcs(struct bdw_blitter_mapping *m,bool enable)
         if (!intel_bdw_traffic_l3_policy(&s,select_bank) || !executing(h) ||
             !plane_held(h) || !clock_ok(h,begin)) goto retained;
     }
-    if (h->io.set_execution(h->transfer,&m->pages,h->epoch,enable)!=GT_WRITE_DONE) goto retained;
+    if (!widi_excluded(h) || h->io.set_execution(h->transfer,&m->pages,h->epoch,enable)!=GT_WRITE_DONE)
+        goto retained;
     if (!enable) return finish_drain(h,begin,true);
     /* The owner returned from the transition. Verify the actual GO replies. */
     if (!executing(h) || !plane_held(h) || !clock_ok(h,begin)) goto retained;

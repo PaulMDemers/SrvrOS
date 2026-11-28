@@ -489,6 +489,13 @@ The rollback path keeps the global drain and WiDi guard active through
 restoration. If WiDi reopens after the first restored entry, the next
 store is refused and the publication and framebuffer pin are retained.
 
+After the independent WiDi lease is acquired, any observed open or idle
+WIN sample invalidates the proof, including the first status read after
+requesting the rollback drain and the WIN reads inside a later drain
+packet. Other engines can still take time to acknowledge the reclose.
+The existing deadline stays in force. A failed reclose retains the
+publication before any original PTE is restored.
+
 The fourth descriptor store also requires the original CSB cursors and
 zero data and completion words in the private result page. The completion
 check verifies both CSB events and the complete result page, then rechecks

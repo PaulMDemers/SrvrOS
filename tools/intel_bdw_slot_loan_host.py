@@ -116,6 +116,8 @@ def command_traffic_reader(mmio_page):
             return control, live
         original = panel()
         values = {'gam_req': read(power, 0xd0), 'gam_reply': read(messages, 0x28),
+                  'garb_mbc': read(messages, 0x1c), 'garb_gcp': read(messages, 0x24),
+                  'reset_prepare': read(messages, 0x30),
                   'clk_req': read(messages, 0x104), 'clk_reply': read(messages, 0x2c),
                   'widi': read(messages, 0x14), 'l3': read(messages, 0x38),
                   'rcs': read(messages, 0), 'vcs0': read(messages, 4), 'vcs1': read(messages, 8),

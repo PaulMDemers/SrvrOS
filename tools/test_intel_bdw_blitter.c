@@ -225,7 +225,8 @@ static void reset_epoch(unsigned n,const struct display_access_token *exclusion,
 enum traffic_fault { TRAFFIC_OK, LOST_ENGINE_ACK, EARLY_L3, NO_NEW_L3, WIDI_ESCAPES,
                      LOST_BLOCK_EPOCH, MOVED_PLANE, STALE_SECOND_DRAIN, AIR_RESET_REASONS, PARTIAL_GO,
                      UNOWNED_CLOCK, AUDIO_REOPEN, LOST_RELEASE, PEER_MISSING, PEER_OPEN, PEER_ROLLBACK, PEER_DURING_SUBMIT, WRITER_ALIAS, WRITER_RETURN, FINAL_DEVICE_LEASE, FINAL_WIDI_LEASE, WIDI_CACHED, WIDI_INVALIDATING, WIDI_CACHED_ROLLBACK, EARLY_ENGINE_GO, EARLY_ENGINE_REPLY,
-                     WIDI_GO_WHEN_REOPENED, WIDI_GO_BEFORE_TRIGGER, WIDI_GO_DURING_ROLLBACK };
+                     WIDI_GO_WHEN_REOPENED, WIDI_GO_BEFORE_TRIGGER, WIDI_GO_DURING_ROLLBACK,
+                     WIDI_GO_AT_RECLOSE, WIDI_GO_IN_DRAIN_PACKET };
 static enum traffic_fault traffic_fault;
 static struct {
     const struct scanout_transfer *transfer;
@@ -233,7 +234,7 @@ static struct {
     uint64_t epoch,widi_epoch;
     uint32_t selector;
     bool bcs;
-    unsigned drains,tlb_controls,l3_reads;
+    unsigned drains,tlb_controls,l3_reads,widi_reclose_reads;
     bool injected_early;
 } controller;
 
@@ -246,6 +247,7 @@ static bool traffic_read(const struct scanout_transfer *t,uint32_t offset,uint32
 {
     assert(t==controller.transfer);
     bool blocked=controller.epoch!=0, bcs=controller.bcs;
+    bool reclose_fault=traffic_fault==WIDI_GO_AT_RECLOSE || traffic_fault==WIDI_GO_IN_DRAIN_PACKET;
     uint32_t allowed=blocked && !bcs?0:0x5f;
     switch (offset) {
     case 0x40d0: case 0x8028:
@@ -273,6 +275,9 @@ static bool traffic_read(const struct scanout_transfer *t,uint32_t offset,uint32
             *out|=0x10;
         if (traffic_fault==WIDI_GO_DURING_ROLLBACK && controller.drains==2 && entries[0]==originals[0])
             *out|=0x10;
+        if (reclose_fault && controller.drains==2 &&
+            ++controller.widi_reclose_reads==(traffic_fault==WIDI_GO_AT_RECLOSE?1u:3u))
+            *out|=0x10;
         break;
     case 0x4278:
         *out=++controller.tlb_controls==2 && traffic_fault==WIDI_INVALIDATING;
@@ -280,7 +285,8 @@ static bool traffic_read(const struct scanout_transfer *t,uint32_t offset,uint32
     case 0x4dc0: *out=!invalidates || traffic_fault==WIDI_CACHED ? 0x40000000u : 0; break;
     case 0x4dc4: *out=traffic_fault==WIDI_CACHED_ROLLBACK && invalidates==2 ? 1 : 0; break;
     case 0x8038: *out=blocked && !bcs &&
-            (++controller.l3_reads==2 || traffic_fault==EARLY_L3) && traffic_fault!=NO_NEW_L3 &&
+            (++controller.l3_reads==(reclose_fault && controller.drains==2?3u:2u) || traffic_fault==EARLY_L3) &&
+            traffic_fault!=NO_NEW_L3 &&
             !(traffic_fault==STALE_SECOND_DRAIN && controller.drains==2); break;
     case 0x8040: *out=1; break;
     case 0x8108: case 0x12870: case 0x12878: case 0x1c870: case 0x1c878: case 0xb11c: *out=0; break;
@@ -529,6 +535,15 @@ static void run_transfer(enum mapping_case which)
                !scanout_transfer_close(&transfer,&grant));
         return;
     }
+    if (traffic_fault==WIDI_GO_AT_RECLOSE || traffic_fault==WIDI_GO_IN_DRAIN_PACKET) {
+        assert(!done && posted==4 && invalidates==1 && controller.drains==2 && mapping.traffic.drains==1);
+        assert(controller.widi_reclose_reads==(traffic_fault==WIDI_GO_AT_RECLOSE?1u:3u));
+        assert(mapping.traffic.phase==BDW_CMD_RETAINED && mapping.pages.state==PUB_PUBLISHED &&
+               mapping.pages.writes==PAGES && port_pin==&mapping && display_access_held(&exclusion));
+        for (unsigned i=0;i<PAGES;i++) assert(entries[i]==((BASE+i*4096u)|1u));
+        assert(transfer.device_publication==&mapping.pages && !scanout_transfer_close(&transfer,&grant));
+        return;
+    }
     if (traffic_fault==WIDI_CACHED || traffic_fault==WIDI_INVALIDATING || traffic_fault==WIDI_CACHED_ROLLBACK) {
         bool rollback=traffic_fault==WIDI_CACHED_ROLLBACK;
         assert(!done && posted==(rollback ? 4u : 0u) && invalidates==(rollback ? 2u : 1u));
@@ -648,7 +663,8 @@ int main(int argc,char **argv)
                                          "changed-traffic-epoch","moving-scanout","missing-rollback-ack",
                                          "air-reset-reasons","partial-gam-go","unowned-widi-clock","wireless-audio-reopens","uncertain-release",
                                          "peer-missing","peer-open","peer-rollback","peer-during-submit","writer-alias","writer-return","device-lease-before-trigger","widi-lease-before-trigger","widi-cached","widi-invalidate-race","widi-cached-rollback","flush-before-engine-go","flush-before-engine-reply",
-                                         "widi-go-reopens","widi-go-before-trigger","widi-go-during-rollback"};
+                                         "widi-go-reopens","widi-go-before-trigger","widi-go-during-rollback",
+                                         "widi-go-at-reclose","widi-go-in-drain-packet"};
     for (unsigned i=0;argc==2 && i<sizeof(traffic_failures)/sizeof(traffic_failures[0]);i++) {
         if (strcmp(argv[1],traffic_failures[i])) continue;
         if (i+1==FINAL_DEVICE_LEASE || i+1==FINAL_WIDI_LEASE || i+1==WIDI_GO_BEFORE_TRIGGER) {
@@ -660,7 +676,8 @@ int main(int argc,char **argv)
         traffic_fault=(enum traffic_fault)(i+1);
         run_transfer((traffic_fault==STALE_SECOND_DRAIN || traffic_fault==PEER_ROLLBACK ||
                       traffic_fault==LOST_RELEASE || traffic_fault==WRITER_RETURN ||
-                      traffic_fault==WIDI_CACHED_ROLLBACK || traffic_fault==WIDI_GO_DURING_ROLLBACK)?MAP_OK:COLD_OK);
+                      traffic_fault==WIDI_CACHED_ROLLBACK || traffic_fault==WIDI_GO_DURING_ROLLBACK ||
+                      traffic_fault==WIDI_GO_AT_RECLOSE || traffic_fault==WIDI_GO_IN_DRAIN_PACKET)?MAP_OK:COLD_OK);
         printf("PASS %s\n",traffic_failures[i]);
         return 0;
     }

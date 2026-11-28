@@ -67,7 +67,8 @@ def main():
                       'device-lease-before-trigger', 'widi-lease-before-trigger',
                       'widi-cached', 'widi-invalidate-race', 'widi-cached-rollback',
                       'flush-before-engine-go', 'flush-before-engine-reply',
-                      'widi-go-reopens', 'widi-go-before-trigger', 'widi-go-during-rollback'))
+                      'widi-go-reopens', 'widi-go-before-trigger', 'widi-go-during-rollback',
+                      'widi-go-at-reclose', 'widi-go-in-drain-packet'))
     if args.takeover:
         program = 'edptakeover'
         cases = [(mode, f'PASS {mode}') for mode in args.takeover]

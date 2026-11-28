@@ -1043,6 +1043,29 @@ before the fourth descriptor store, at completion, and after the first
 rollback store. The joined Q35 suite passed all 43 cases. The safe native
 reboot remains gated on a verified firmware and device handoff.
 
+The device-side WiDi follow-up starts at `e724caa2` with main
+`b062ba18` and the separate Air6,1 work in PR 567 reviewed. It covers
+GT arbitration interface review and the Broadwell command owner's
+transition from blitter execution back to the global drain. The original
+scanout pin and WiDi epoch must cover that transition and every rollback
+store. Native staging still depends on a verified hardware hold.
+
+The host and Q35 replay now cover a transient WiDi GO reopen immediately
+after the rollback block request and inside the first drain packet.
+Both faults stopped before any original PTE was restored and retained the
+command publication, BCS register loan and display exclusion. The clean
+Q35 path finished a fresh fence and verified all seven restored PTEs.
+All 45 Q35 scenarios passed.
+
+Three read-only arbitration comparisons under Ubuntu/i915 bracketed
+fresh blitter fences with the same enabled panel surface. Each verified
+4,096 result bytes. All six register samples showed
+`MSG_GARB_MBC=0x0c`, `MSG_GARB_GCP=0`, `MSG_RESET_GCP=0`,
+and WiDi GO open at `0x1f`. The documented GARB messages describe
+handshakes for the GT boot controller and clocking unit. The samples
+establish no native WiDi hold or host acquire/release sequence.
+[Broadwell register reference, pp. 544–546 and 1337–1338](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
