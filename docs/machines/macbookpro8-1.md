@@ -626,6 +626,16 @@ The collector archived the reports and manifest, removed the temporary
 credential payload, and restored the credential-free association entry
 alongside the known-good recovery.
 
+The gateway and reconnect trial starts from `76d2ee02` with integration
+baseline `24feebdd`. It extends the BCM4331 station trial and its existing
+flash receipts. It uses the shared bounded network connection scopes to
+verify gateway echo replies before and after an acknowledged disconnect,
+fresh association, WPA2 handshake and DHCP exchange in the same boot.
+The other Pro's external USB transport remains independent. PR #568
+carries the device branch. There is no overlap with the current graphics
+and runtime work. Keep the accepted passive and association payloads and
+Ubuntu recovery available.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
