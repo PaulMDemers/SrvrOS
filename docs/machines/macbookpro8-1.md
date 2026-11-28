@@ -390,6 +390,15 @@ archived outside `build`. This is an opt-in polled boot trial. Ordinary
 desktop networking and link loss/reconnect remain separate acceptance
 work.
 
+The desktop cable block continues PR #568 from `35c8456e` on
+`24feebdd`. It extends the BCM57765 lifetime across the existing EHCI
+desktop and adds an attended checklist to the compositor. The open
+graphics, login, shared-memory and export PRs do not touch this provider
+or the cable state machine. The checkpoint is connected DHCP and
+gateway traffic, observed cable loss and address retirement, renewed
+DHCP and gateway traffic after reconnect, and both USB reports with
+clean topcase, network and flash retirement.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
