@@ -21,6 +21,13 @@ static uint32_t hsw_survey_window, hsw_survey_window_end;
 static bool hsw_access_window, hsw_wake_ack_window;
 static bool hsw_forcewake_backing;
 static bool hsw_window_live,hsw_window_poison,hsw_firmware,hsw_cpu_control,hsw_linux_fences;
+static struct {
+ enum { HSW_HOLD_OFF, HSW_HOLD_ACTIVE, HSW_HOLD_RETIRED, HSW_HOLD_RETAINED } state;
+ const struct pci_device *igd, *hda;
+ uint32_t first, end;
+ uint64_t begin, denied[2], finish;
+ unsigned refusals;
+} hsw_requester_hold;
 static bool hsw_safe_range(uint64_t base,uint64_t size,bool reserved) {
  const struct limine_memmap_response *m=memmap_request.response;
  if(!m || !m->entries || !m->entry_count || m->entry_count>4096 || !size || base>UINT64_MAX-size)return false;
@@ -88,6 +95,9 @@ static bool hsw_map(void *ctx,uint32_t off) {
  uint64_t first=(0x200000+(hsw_result.offset/4096)*4)&~4095ull;
  uint64_t last=(0x200000+(hsw_result.offset/4096+hsw_result.count)*4-1)&~4095ull;
  if(hsw_window_live || hsw_window_poison || !kernel || vmm_current_address_space()!=kernel ||
+    (hsw_requester_hold.state!=HSW_HOLD_OFF &&
+     (hsw_requester_hold.state!=HSW_HOLD_ACTIVE || off!=hsw_requester_hold.first ||
+      hsw_survey_window!=off || hsw_survey_window_end!=hsw_requester_hold.end)) ||
     (off&4095) || (hsw_wake_ack_window ? off!=HSW_WAKE_ACK_PAGE :
       hsw_survey_window ? off!=hsw_survey_window :
       hsw_candidate_window ? off!=(hsw_candidate_window&~4095u) &&
@@ -126,6 +136,8 @@ static bool hsw_read(void *ctx,uint32_t off,uint32_t *v) {
     gpu_base+(off&~4095u)!=hsw_window_pa || (off&3) ||
     (hsw_wake_ack_window && off!=HSW_WAKE_ACK) ||
     (hsw_forcewake_backing && hsw_survey_protected(off)) ||
+    (hsw_requester_hold.state!=HSW_HOLD_OFF &&
+     (hsw_requester_hold.state!=HSW_HOLD_ACTIVE || off<hsw_requester_hold.first || off>=hsw_requester_hold.end)) ||
     (hsw_survey_window && (off>=hsw_survey_window_end || hsw_survey_protected(off))) ||
     (hsw_candidate_window && !hsw_candidate_read_allowed(off)) ||
     (hsw_window_pa==gpu_base+0x101000 && (!hsw_cpu_control || off!=0x101000)) ||
@@ -194,6 +206,12 @@ static bool hsw_range_run(enum hsw_range_trial range, bool backing_captured) {
   hsw_ownership_report();
   return observed;
  }
+ case HSW_RANGE_REQUESTER_HOLD: {
+  bool observed=backing_captured && hsw_requester_hold_run();
+  hsw_ownership_report();
+  hsw_requester_hold_report();
+  return observed;
+ }
  case HSW_RANGE_ENGINE_PREREQS: {
   bool observed=backing_captured && hsw_engine_prereqs_run();
   hsw_engine_prereqs_report();
@@ -228,7 +246,8 @@ static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_sl
                             bool boot_slot,enum hsw_range_trial range) {
  hsw_cpu_control=cpu_control;hsw_linux_fences=linux_fences;
  hsw_forcewake_backing=range==HSW_RANGE_FORCEWAKE || range==HSW_RANGE_ENGINE_DRAIN ||
-                       range==HSW_RANGE_EXCLUSION_AUDIT || range==HSW_RANGE_HANDOFF_AUDIT;
+                       range==HSW_RANGE_EXCLUSION_AUDIT || range==HSW_RANGE_HANDOFF_AUDIT ||
+                       range==HSW_RANGE_REQUESTER_HOLD;
  hsw_result=(struct hwb_result){.status=2,.version=linux_fences?3:cpu_control?2:1,.fences=linux_fences?32:HWB_FENCES};
  console_write("hsw-backing-progress: exact Air6,1 read-only identity/config preflight\n");
  const struct pci_device *candidate=NULL;

@@ -980,6 +980,31 @@ in 4 µs after release and all six temporary aliases retired. The
 installed release, final snapshot, archived replay, installed recovery
 and offline USB check verified after the one-shot returned to Ubuntu.
 
+#### Requester admission hold prototype
+
+The isolated v15 boot binds one software owner to the exact IGD and display
+HDA functions and populated GGTT slots 24576–24591. The owner exists before
+the first admission check and stays active through both bounded read-only
+passes and verified alias retirement. The probe checks admission again after
+retirement, while the hold is still active. Both checks refuse authority
+because the Air6,1 has no verified firmware handoff provider. Retirement
+failure retains the guard until reset. Reentry and out-of-range mappings
+remain blocked.
+
+The inherited Pipe A route and surface stay live. Both passes must preserve
+the populated words, verify a frame advance and finish under the existing
+100 ms limit. The guard covers SrvrOS diagnostic admission. Hardware drain
+and firmware exclusion still need independent evidence. The profile issues
+zero GPU or PCI configuration stores and leaves slots 4096 and 16385
+untouched. It saves a receipt and returns to Ubuntu automatically.
+
+Stage using `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-requester-hold`. Collect
+the matching `exit.log` and decode it with `tools/hardware_haswell_ownership.py`.
+Require a verified refusal, two retirement proofs, positive Pipe A frame
+advance, and two admission refusals bracketing the reads. The receipt must
+show `firmware_handoff=unavailable`, `hardware_hold=unverified` and no authority.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

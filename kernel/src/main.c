@@ -274,8 +274,8 @@ static bool cmdline_tokens_unique(const char *text) {
 }
 
 /* Six fixed tokens are checked by the caller. The two remaining tokens
- * identify the release and evidence volume. Any extra option refuses writes. */
-static bool hsw_forcewake_identity(const char *text) {
+ * identify the release and evidence volume. Any extra option refuses admission. */
+static bool hsw_probe_identity(const char *text) {
     static const struct { const char *prefix; unsigned digits; } identity[] = {
         {"srvros.workspace-volume=", 8}, {"srvros.desktop-release=", 16},
     };
@@ -1544,14 +1544,15 @@ void kmain(void) {
     bool hsw_survey = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-survey=read-only");
     bool hsw_sweep = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-sweep=read-only");
     bool hsw_ownership = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-ownership=read-only");
+    bool hsw_requester_hold = cmdline_has_token(cmdline,"srvros.hsw-ownership=requester-hold");
     bool hsw_engine_prereqs = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-engine-prereqs=read-only");
     bool hsw_handoff_audit = cmdline_has_token(cmdline,"srvros.hsw-forcewake=handoff-audit");
     bool hsw_exclusion_audit = hsw_handoff_audit || cmdline_has_token(cmdline,"srvros.hsw-forcewake=exclusion-audit");
     bool hsw_engine_drain = hsw_exclusion_audit || cmdline_has_token(cmdline,"srvros.hsw-forcewake=engine-drain");
     bool hsw_forcewake_requested = hsw_engine_drain || cmdline_has_token(cmdline,"srvros.hsw-forcewake=acquire-release");
-    bool hsw_forcewake = hsw_forcewake_requested && hsw_isolated && hsw_forcewake_identity(cmdline);
+    bool hsw_forcewake = hsw_forcewake_requested && hsw_isolated && hsw_probe_identity(cmdline);
     bool hsw_preinit = hsw_candidate || hsw_survey || hsw_sweep || hsw_ownership ||
-                       hsw_engine_prereqs || hsw_forcewake_requested;
+                       hsw_engine_prereqs || hsw_forcewake_requested || hsw_requester_hold;
     bool init_ready = false;
     int64_t init_pid = (hsw_preinit || live_vtd) ? -1 : process_spawn_background_elf_args_quiet("/init", (http_child_trial || wifi_http5_trial || wifi_http_reconnect5_trial || wifi_desktop_owner_trial)?"--network-probe":"--system");
     if (init_pid >= 0) {
@@ -1927,10 +1928,12 @@ void kmain(void) {
                                        hsw_exclusion_audit ? HSW_RANGE_EXCLUSION_AUDIT :
                                        hsw_engine_drain ? HSW_RANGE_ENGINE_DRAIN : HSW_RANGE_FORCEWAKE) :
                                        hsw_engine_prereqs ? HSW_RANGE_ENGINE_PREREQS :
+                                       hsw_requester_hold ? HSW_RANGE_REQUESTER_HOLD :
                                        hsw_ownership ? HSW_RANGE_OWNERSHIP : hsw_sweep ? HSW_RANGE_SWEEP :
                                        hsw_survey ? HSW_RANGE_SURVEY : HSW_RANGE_NONE;
             sampled=(!hsw_forcewake_requested || hsw_forcewake) &&
-                hsw_candidate+hsw_survey+hsw_sweep+hsw_ownership+hsw_engine_prereqs+hsw_forcewake<=1 &&
+                (!hsw_requester_hold || (hsw_isolated && hsw_probe_identity(cmdline))) &&
+                hsw_candidate+hsw_survey+hsw_sweep+hsw_ownership+hsw_engine_prereqs+hsw_forcewake+hsw_requester_hold<=1 &&
                 platform_haswell_backing_run(cmdline_has_token(cmdline,"srvros.hsw-cpu-control=read-only"),cmdline_has_token(cmdline,"srvros.hsw-fences=linux-model-32"),hsw_candidate,
                 hsw_preinit && cmdline_has_token(cmdline,"srvros.hsw-access=read-only"),
                 hsw_preinit && cmdline_has_token(cmdline,"srvros.hsw-boot-slot=read-only"),range);

@@ -101,7 +101,8 @@ static bool hsw_survey_batch(const uint32_t *first, unsigned pages, unsigned wor
             !intel_hsw_ggtt_candidate(&hsw_result, (start + words - 1) * 4096u, &last) ||
             (mmio[i] & 4095u) || last != mmio[i] + (words - 1) * 4u) return false;
     }
-    hsw_survey.begin = hsw_survey.end = timer_monotonic_us();
+    if (hsw_requester_hold.state != HSW_HOLD_ACTIVE)
+        hsw_survey.begin = hsw_survey.end = timer_monotonic_us();
     hsw_survey.status = HSW_SURVEY_ACCESS;
     if (!hsw_survey.begin || !hsw_survey_display()) return false;
     hsw_survey.frames[0] = resource_read(0x70040);
@@ -267,6 +268,57 @@ static bool hsw_ownership_run(void) {
             }
     }
     return true;
+}
+
+static bool hsw_requester_refuse(void) {
+    if (hsw_requester_hold.state != HSW_HOLD_ACTIVE || hsw_requester_hold.refusals >= 2 ||
+        hsw_requester_hold.igd != gpu || hsw_requester_hold.hda != hsw_display_hda() ||
+        pci_read_config32(hsw_requester_hold.hda, 0) != 0x0a0c8086 || !hsw_survey_display())
+        return false;
+
+    /* Admission has no trusted firmware handoff provider on this platform.
+     * The boot-local guard and read-only endpoints cannot grant a GGTT loan. */
+    hsw_requester_hold.denied[hsw_requester_hold.refusals++] = hsw_survey.end;
+    return true;
+}
+
+static bool hsw_requester_hold_run(void) {
+    uint32_t first, last;
+    const struct pci_device *hda = hsw_display_hda();
+    if (hsw_requester_hold.state != HSW_HOLD_OFF || hsw_window_live || hsw_window_poison ||
+        !display_profile_is_air61() || !hda || pci_read_config32(hda, 0) != 0x0a0c8086 ||
+        !intel_hsw_ggtt_candidate(&hsw_result, HSW_OWNERSHIP_FIRST * 4096u, &first) ||
+        !intel_hsw_ggtt_candidate(&hsw_result, (HSW_OWNERSHIP_FIRST + HSW_OWNERSHIP_WORDS - 1) * 4096u, &last) ||
+        last - first != (HSW_OWNERSHIP_WORDS - 1) * 4u) return false;
+    uint64_t begin = timer_monotonic_us();
+    if (!begin) return false;
+
+    /* The isolated boot has no graphics clients. Keep one scoped read-only
+     * owner from before the first admission attempt through alias retirement. */
+    hsw_requester_hold.state = HSW_HOLD_ACTIVE;
+    hsw_requester_hold.igd = gpu;
+    hsw_requester_hold.hda = hda;
+    hsw_requester_hold.first = first;
+    hsw_requester_hold.end = last + 4;
+    hsw_requester_hold.begin = hsw_survey.begin = hsw_survey.end = begin;
+    hsw_survey.status = HSW_SURVEY_ACCESS;
+    bool observed = hsw_requester_refuse() && hsw_ownership_run();
+    bool retired = !hsw_window_live && !hsw_window_poison;
+    if (observed && (!retired || !hsw_requester_refuse())) {
+        if (hsw_survey.status == HSW_SURVEY_OBSERVED) hsw_survey.status = HSW_SURVEY_ACCESS;
+        observed = false;
+    }
+    hsw_requester_hold.finish = hsw_survey.end;
+    hsw_requester_hold.state = retired ? HSW_HOLD_RETIRED : HSW_HOLD_RETAINED;
+    return observed;
+}
+
+static void hsw_requester_hold_report(void) {
+    const char *state = hsw_requester_hold.state == HSW_HOLD_RETIRED ? "retired" :
+                        hsw_requester_hold.state == HSW_HOLD_RETAINED ? "retained" : "unavailable";
+    console_printf("hsw-requester-hold: v=1 state=%s begin=%u denied=%u,%u end=%u refusals=%u firmware_handoff=unavailable hardware_hold=unverified protected_reads=0 authority=none\n",
+                   state, hsw_requester_hold.begin, hsw_requester_hold.denied[0], hsw_requester_hold.denied[1],
+                   hsw_requester_hold.finish, (uint64_t)hsw_requester_hold.refusals);
 }
 
 static void hsw_ownership_report(void) {

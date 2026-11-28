@@ -5459,6 +5459,7 @@ test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing
 	build/tests/hsw-backing-adapter$(HOST_EXE) sweep-max > build/tests/hsw-sweep-max.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) sweep-failed > build/tests/hsw-sweep-failed.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) ownership > build/tests/hsw-ownership-receipt.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) requester-hold > build/tests/hsw-requester-hold-receipt.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) engine-prereqs > build/tests/hsw-engine-prereqs-receipt.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) forcewake > build/tests/hsw-forcewake-receipt.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) engine-drain > build/tests/hsw-engine-drain-receipt.log

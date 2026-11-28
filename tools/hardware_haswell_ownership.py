@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+import re
 import struct
 
 from hardware_haswell_backing import backing_result, canonical
@@ -10,16 +11,46 @@ from hardware_haswell_survey import MASK32, MASK64, _record
 from haswell_backing_audit import pte_fields
 
 TOKEN = "srvros.hsw-ownership=read-only"
+HOLD_TOKEN = "srvros.hsw-ownership=requester-hold"
 FIRST_SLOT, COUNT = 24576, 16
+
+
+def _software_hold(lines, result):
+    (line,) = [line for line in lines if line.startswith("hsw-requester-hold:")]
+    state, *raw = _record(line,
+        r"hsw-requester-hold: v=1 state=(unavailable|retired|retained) begin=(\d+) denied=(\d+),(\d+) "
+        r"end=(\d+) refusals=([0-2]) firmware_handoff=unavailable hardware_hold=unverified "
+        r"protected_reads=0 authority=none")
+    begin, first, last, end, refusals = map(int, raw)
+    a, b = result["passes"]
+    status = result["source_status"]
+    expected = "unavailable" if status == 0 else "retained" if status == 5 else "retired"
+    if (state != expected or (begin, end) != (result["begin"], result["end"])
+            or bool(begin) != (state != "unavailable") or not 0 <= end - begin <= 100000
+            or refusals != bool(first) + bool(last)
+            or first and not begin <= first <= (a["begin"] or end)
+            or last and (not first or not b["end"] or not b["end"] <= last == end)
+            or (refusals == 2) != (status == 1)):
+        raise ValueError("unverified software hold or admission ordering")
+    result["software_hold"] = dict(state=state, begin_us=begin, end_us=end,
+        refusals=[clock for clock in (first, last) if clock], firmware_handoff="unavailable",
+        hardware_hold="unverified", protected_reads=0)
 
 
 def _result(text):
     lines = text.splitlines()
     options = [line.split("boot options=", 1)[1].split() for line in lines
                if line.startswith("laptop-capture: boot options=")]
-    incompatible = ("srvros.hsw-candidate=", "srvros.hsw-boot-slot=", "srvros.hsw-access=",
-                    "srvros.hsw-survey=", "srvros.hsw-sweep=")
-    if not options or any(row.count(TOKEN) != 1 or any(t.startswith(incompatible) for t in row) for row in options):
+    hold = any(HOLD_TOKEN in row for row in options)
+    fixed = {HOLD_TOKEN, "srvros.storage=ram", "srvros.capture=haswell-backing", "srvros.capture-failure=reboot",
+             "srvros.hsw-cpu-control=read-only", "srvros.hsw-fences=linux-model-32"}
+    if hold and any(len(row) != 8 or not fixed.issubset(row)
+                    or sum(bool(re.fullmatch(r"srvros\.workspace-volume=[a-f0-9]{8}", t)) for t in row) != 1
+                    or sum(bool(re.fullmatch(r"srvros\.desktop-release=[a-f0-9]{16}", t)) for t in row) != 1 for row in options):
+        raise ValueError("isolated requester hold profile")
+    incompatible = ("srvros.hsw-candidate=", "srvros.hsw-boot-slot=", "srvros.hsw-access=", "srvros.hsw-survey=",
+                    "srvros.hsw-sweep=", "srvros.hsw-engine-prereqs=", "srvros.hsw-forcewake=")
+    if not options or not hold and any(row.count(TOKEN) != 1 or any(t.startswith(incompatible) for t in row) for row in options):
         raise ValueError("isolated ownership profile")
     summary, = [line for line in lines if line.startswith("hsw-ownership:")]
     state, first, count, begin, end, before, after = map(int, _record(summary,
@@ -43,6 +74,10 @@ def _result(text):
     result = dict(status=("REFUSAL_VERIFIED" if state == 1 else "UNAVAILABLE" if state == 0 else "FAILED"),
                   source_status=state, first_slot=first, count=count, begin=begin, end=end,
                   frames=[before, after], passes=passes, writes=0, hardware_authority=False)
+    if hold:
+        _software_hold(lines, result)
+    elif any(line.startswith("hsw-requester-hold:") for line in lines):
+        raise ValueError("unexpected requester hold receipt")
     if state != 1:
         if refusal_rows or data_rows or "laptop-capture: completed=yes" in lines:
             raise ValueError("incomplete observation claims a refusal")

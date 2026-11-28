@@ -195,6 +195,7 @@ static void sweep_tests(void) {
  assert(hsw_sweep.row[1].batch.pass[0].retired==1 && !hsw_sweep.row[1].shortlisted);
 }
 static void ownership_setup(void) {
+ memset(&hsw_requester_hold,0,sizeof(hsw_requester_hold));
  survey_setup();
  test_ownership=true;
  ownership_empty=false;
@@ -224,6 +225,31 @@ static void ownership_tests(void) {
  ownership_setup();hsw_vmm_unmap_fail=1;
  assert(!hsw_ownership_run() && hsw_survey.status==HSW_SURVEY_RETAINED && survey_reads==16);
  assert(hsw_window_poison && hsw_window_live && !hsw_survey.pass[0].retired);
+}
+static void requester_hold_tests(void) {
+ ownership_setup();hda_config[0]^=1;
+ assert(!hsw_requester_hold_run() && hsw_requester_hold.state==HSW_HOLD_OFF && !survey_reads);
+ ownership_setup();candidate_bad_route=true;
+ assert(!hsw_requester_hold_run() && hsw_requester_hold.state==HSW_HOLD_RETIRED);
+ assert(!hsw_requester_hold.refusals && !survey_reads && hsw_vmm_maps==10);
+ ownership_setup();candidate_late=true;
+ assert(!hsw_requester_hold_run() && hsw_survey.status==HSW_SURVEY_DEADLINE);
+ assert(hsw_requester_hold.state==HSW_HOLD_RETIRED && hsw_requester_hold.refusals==1 && !hsw_window_live);
+ ownership_setup();hsw_vmm_unmap_fail=1;
+ assert(!hsw_requester_hold_run() && hsw_survey.status==HSW_SURVEY_RETAINED);
+ assert(hsw_requester_hold.state==HSW_HOLD_RETAINED && hsw_requester_hold.refusals==1 && hsw_window_live);
+ assert(!hsw_requester_hold_run() && !hsw_map(NULL,0x218000) && survey_reads==16);
+
+ ownership_setup();
+ hsw_requester_hold.state=HSW_HOLD_ACTIVE;
+ hsw_requester_hold.first=0x218000;hsw_requester_hold.end=0x218040;
+ hsw_survey_window=0x200000;hsw_survey_window_end=0x200040;
+ assert(!hsw_map(NULL,0x200000));
+ hsw_survey_window=0x218000;hsw_survey_window_end=0x218040;
+ uint32_t word;
+ assert(hsw_map(NULL,0x218000) && !hsw_read(NULL,0x218040,&word) && hsw_unmap(NULL));
+ hsw_survey_window=hsw_survey_window_end=0;
+ assert(!survey_reads);
 }
 static void engine_prereqs_setup(void) {
  live_setup();
@@ -512,6 +538,20 @@ int main(int argc,char **argv) {
   assert(hsw_vmm_maps==12 && hsw_vmm_unmaps==12 && candidate_frames==2 && !hsw_window_live);
   hsw_emit=1;hsw_report();hsw_ownership_report();
   puts("laptop-capture: boot options=srvros.hsw-ownership=read-only");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
+ if(argc==2 && !strcmp(argv[1],"requester-hold")) {
+  requester_hold_tests();
+  ownership_setup();assert(hsw_requester_hold_run() && survey_reads==32 && hsw_ownership_image_aliases==15);
+  assert(hsw_requester_hold.state==HSW_HOLD_RETIRED && hsw_requester_hold.refusals==2);
+  assert(hsw_vmm_maps==12 && hsw_vmm_unmaps==12 && candidate_frames==2 && !hsw_window_live);
+  assert(!hsw_requester_hold_run() && !hsw_map(NULL,0x218000) && !forcewake_stores);
+  hsw_emit=1;hsw_report();hsw_ownership_report();hsw_requester_hold_report();
+  puts("laptop-capture: boot options=srvros.storage=ram srvros.workspace-volume=6ada85bb "
+       "srvros.desktop-release=1234567890abcdef srvros.capture=haswell-backing "
+       "srvros.hsw-cpu-control=read-only srvros.hsw-fences=linux-model-32 "
+       "srvros.hsw-ownership=requester-hold srvros.capture-failure=reboot");
   puts("laptop-capture: completed=yes");
   return 0;
  }
