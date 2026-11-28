@@ -395,6 +395,27 @@ endpoints and the CPU0 SMI count stayed at 13. Requester drain and firmware
 exclusion remain unproved. Ubuntu returned with the one-shot consumed, and
 the archived exit snapshot, installed recovery and offline USB check verified.
 
+### Read-only disjoint boot-slot observation
+
+The separate v6 Haswell backing profile samples slot 16385 at GPU address
+`0x04001000`, outside the inherited 16 MiB fence and distinct from slot
+4096. The Air7,2 branch chose the same GPU address for its own reset-held
+checkpoint. On Haswell, the 32-bit entry sits at BAR0+`0x210004`. The
+temporary alias permits that DWORD only. Two reads must match at least
+20 ms apart, with the inherited Pipe A surface unchanged, its frame
+counter advancing, and the alias retired inside the existing 100 ms
+limit. [i915 GGTT BAR layout](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L1063-L1097)
+
+The receipt records whether the entry is present. Even a stable zero
+grants no range, backing memory or authority to bind. A later bind needs
+a maintained requester and firmware exclusion contract. Both slot
+4096 and the original framebuffer stay protected in this trial.
+
+Stage with `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-candidate
+--haswell-boot-slot`. Decode the matched `exit.log` with
+`tools/hardware_haswell_candidate.py --boot-slot`.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

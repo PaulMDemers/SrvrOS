@@ -162,6 +162,12 @@ aliases as Pipe A advanced one frame on the inherited surface. The saved
 receipt, installed recovery and offline USB check verified. Slot 4096 stays
 protected pending requester drain and firmware exclusion evidence.
 
+The next PR567 checkpoint samples a separate GGTT address, slot 16385
+at GPU offset `0x04001000`, on the inherited Pipe A surface. It uses the
+Haswell backing adapter and the existing bounded candidate lifetime.
+PR301 at `2a208ea1` supplies the comparison point. Its Broadwell reset
+owner and range authority remain specific to that machine.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

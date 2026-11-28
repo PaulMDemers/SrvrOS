@@ -13,7 +13,8 @@ static uint64_t hsw_window_pa;
 #define HSW_FBC_CTL 0x43208u
 #define HSW_FBC_STATUS 0x43210u
 #define HSW_ACCESS_SLOTS 16u
-static bool hsw_candidate_window, hsw_access_window;
+static uint32_t hsw_candidate_window;
+static bool hsw_access_window;
 static bool hsw_window_live,hsw_window_poison,hsw_firmware,hsw_cpu_control,hsw_linux_fences;
 static bool hsw_safe_range(uint64_t base,uint64_t size,bool reserved) {
  const struct limine_memmap_response *m=memmap_request.response;
@@ -81,7 +82,7 @@ static bool hsw_map(void *ctx,uint32_t off) {
  uint64_t first=(0x200000+(hsw_result.offset/4096)*4)&~4095ull;
  uint64_t last=(0x200000+(hsw_result.offset/4096+hsw_result.count)*4-1)&~4095ull;
  if(hsw_window_live || hsw_window_poison || !kernel || vmm_current_address_space()!=kernel ||
-    (off&4095) || (hsw_candidate_window ? off!=HSW_CANDIDATE_MMIO &&
+    (off&4095) || (hsw_candidate_window ? off!=(hsw_candidate_window&~4095u) &&
         !(hsw_access_window && off==HSW_FBC_PAGE) :
         off!=0x100000 && !(hsw_cpu_control && off==0x101000) && (off<first || off>last || off>=0x400000)) ||
     !hsw_config_valid() || !hsw_safe_range(gpu_base,0x400000,false) ||
@@ -101,7 +102,7 @@ static bool hsw_unmap(void *ctx) {
  hsw_window_live=false;return true;
 }
 static bool hsw_candidate_read_allowed(uint32_t off) {
- if(off==HSW_CANDIDATE_MMIO)return true;
+ if(off==hsw_candidate_window)return true;
  return hsw_access_window && ((off>HSW_CANDIDATE_MMIO &&
          off<HSW_CANDIDATE_MMIO+HSW_ACCESS_SLOTS*4) ||
          off==HSW_FBC_BASE || off==HSW_FBC_CTL || off==HSW_FBC_STATUS);
@@ -158,13 +159,13 @@ static bool hsw_capture_bound(void) {
 }
 #include "haswell_candidate.inc"
 
-static void hsw_backing_refusal(bool candidate_slot, bool access) {
+static void hsw_backing_refusal(bool candidate_slot, bool access, bool boot_slot) {
  hsw_report();
- if(candidate_slot)hsw_candidate_report();
+ if(candidate_slot)hsw_candidate_report(boot_slot);
  if(access)hsw_access_report(false);
 }
 
-static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access) {
+static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access,bool boot_slot) {
  hsw_cpu_control=cpu_control;hsw_linux_fences=linux_fences;
  hsw_result=(struct hwb_result){.status=2,.version=linux_fences?3:cpu_control?2:1,.fences=linux_fences?32:HWB_FENCES};
  console_write("hsw-backing-progress: exact Air6,1 read-only identity/config preflight\n");
@@ -178,28 +179,30 @@ static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_sl
  uint64_t base;
  if(!candidate || !hsw_host || !timer_reference_ready() ||
     !package_graphics_bar(pci_read_config32(candidate,0x10),pci_read_config32(candidate,0x14),pci_read_config16(candidate,4),&base) ||
-    !hsw_safe_range(base,0x400000,false)) {hsw_backing_refusal(candidate_slot,access);return false;}
+    !hsw_safe_range(base,0x400000,false)) {hsw_backing_refusal(candidate_slot,access,boot_slot);return false;}
  gpu=candidate;gpu_base=base;
- if(!hsw_config_valid()){hsw_backing_refusal(candidate_slot,access);return false;}
+ if(!hsw_config_valid()){hsw_backing_refusal(candidate_slot,access,boot_slot);return false;}
  mapped=graphics_bind();hsw_firmware=mapped;
- if(!mapped){hsw_backing_refusal(candidate_slot,access);return false;}
+ if(!mapped){hsw_backing_refusal(candidate_slot,access,boot_slot);return false;}
  bool captured=hsw_capture_bound();
  if(!candidate_slot)return captured;
- bool observed=captured && (!access || hsw_live.slot_probe || haswell_firmware_run()) && hsw_candidate_observe_access(access);
- hsw_candidate_report();
+ bool observed=captured && (!access || hsw_live.slot_probe || haswell_firmware_run()) &&
+               hsw_candidate_observe_access(access,boot_slot);
+ hsw_candidate_report(boot_slot);
  if(access)hsw_access_report(observed);
  return observed;
 }
 
-bool platform_haswell_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access) {
- return hsw_backing_run(cpu_control,linux_fences,candidate_slot,access);
+bool platform_haswell_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access,bool boot_slot) {
+ if(boot_slot && (!candidate_slot || access))return false;
+ return hsw_backing_run(cpu_control,linux_fences,candidate_slot,access,boot_slot);
 }
 
 bool platform_haswell_live_slot(bool sampler_saved) {
  bool ok=false;
  if(sampler_saved && hsw_live.requester_rows==2) {
   hsw_live.slot_probe=true;
-  ok=hsw_backing_run(true,true,true,true) && hsw_live_match();
+  ok=hsw_backing_run(true,true,true,true,false) && hsw_live_match();
   hsw_live.slot_probe=false;
  }
  hsw_live_report(ok);

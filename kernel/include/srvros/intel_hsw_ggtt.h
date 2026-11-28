@@ -33,5 +33,7 @@ bool intel_hsw_ggtt_candidate(const struct hwb_result *backing, uint32_t gpu_off
 
 #define HSW_CANDIDATE_GPU 0x01000000u
 #define HSW_CANDIDATE_MMIO 0x204000u
+#define HSW_BOOT_SLOT_GPU 0x04001000u
+#define HSW_BOOT_SLOT_MMIO 0x210004u
 #define HSW_CANDIDATE_LIMIT_US 100000u
 #define HSW_CANDIDATE_GAP_US 20000u

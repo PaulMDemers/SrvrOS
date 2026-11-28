@@ -221,7 +221,7 @@ static bool hsw_candidate_sample(uint32_t *row) {
         !hsw_candidate_pci(hda, 0x0a0c8086, &row[HC_HDA_CMD], af ? &af[1] : NULL)) return false;
 
     row[HC_FRAME] = resource_read(0x70040);
-    if (!hsw_config_valid() || !hsw_read(NULL, HSW_CANDIDATE_MMIO, &row[HC_PTE]) ||
+    if (!hsw_config_valid() || !hsw_read(NULL, hsw_candidate_window, &row[HC_PTE]) ||
         row[HC_PTE] == UINT32_MAX ||
         (hsw_access_window && !hsw_access_entries(row[HC_PTE])) ||
         (hsw_live.slot_probe && !hsw_live_gt())) return false;
@@ -237,19 +237,20 @@ static bool hsw_candidate_in_budget(void) {
            now - hsw_candidate_result.begin <= HSW_CANDIDATE_LIMIT_US;
 }
 
-static bool hsw_candidate_observe_access(bool access) {
+static bool hsw_candidate_observe_access(bool access, bool boot_slot) {
     uint32_t mmio;
-    if (!intel_hsw_ggtt_candidate(&hsw_result, HSW_CANDIDATE_GPU, &mmio) ||
-        mmio != HSW_CANDIDATE_MMIO) return false;
+    if ((boot_slot && (access || hsw_live.slot_probe)) ||
+        !intel_hsw_ggtt_candidate(&hsw_result, boot_slot ? HSW_BOOT_SLOT_GPU : HSW_CANDIDATE_GPU, &mmio) ||
+        mmio != (boot_slot ? HSW_BOOT_SLOT_MMIO : HSW_CANDIDATE_MMIO)) return false;
 
     console_write("hsw-candidate-progress: sampling one read-only GGTT slot while Pipe A scans; no input needed\n");
     hsw_candidate_result.begin = timer_monotonic_us();
     hsw_candidate_result.status = 2; /* Access or sampling failure. */
-    hsw_candidate_window = true;
+    hsw_candidate_window = mmio;
     hsw_access_window = access;
     if (hsw_candidate_result.begin && (!hsw_live.slot_probe || hsw_smi_count(&hsw_live.smi_begin)) &&
         (!access || (hsw_fbc_sample() && hsw_candidate_in_budget())) &&
-        hsw_map(NULL, mmio)) {
+        hsw_map(NULL, mmio & ~4095u)) {
         hsw_candidate_result.mapped = true;
         uint32_t *before = hsw_candidate_result.sample[0], *after = hsw_candidate_result.sample[1];
         if (hsw_candidate_sample(before)) {
@@ -286,7 +287,7 @@ static bool hsw_candidate_observe_access(bool access) {
     if (hsw_live.slot_probe && hsw_candidate_result.status == 1 && !hsw_smi_count(&hsw_live.smi_end))
         hsw_candidate_result.status = 2;
     hsw_access_window = false;
-    hsw_candidate_window = false;
+    hsw_candidate_window = 0;
     hsw_candidate_result.end = timer_monotonic_us();
     if (hsw_candidate_result.status == 1 &&
         (hsw_candidate_result.end <= hsw_candidate_result.begin ||
@@ -296,9 +297,10 @@ static bool hsw_candidate_observe_access(bool access) {
     return hsw_candidate_result.status == 1;
 }
 
-static void hsw_candidate_report(void) {
-    console_printf("hsw-candidate: v=1 status=%u rows=%u slot=4096 mmio=0x204000 begin=%u end=%u mapped=%u retired=%u writes=0 authority=none\n",
+static void hsw_candidate_report(bool boot_slot) {
+    console_printf("hsw-candidate: v=1 status=%u rows=%u %s begin=%u end=%u mapped=%u retired=%u writes=0 authority=none\n",
                    (uint64_t)hsw_candidate_result.status, (uint64_t)hsw_candidate_result.rows,
+                   boot_slot ? "slot=16385 mmio=0x210004" : "slot=4096 mmio=0x204000",
                    hsw_candidate_result.begin, hsw_candidate_result.end,
                    (uint64_t)hsw_candidate_result.mapped, (uint64_t)hsw_candidate_result.retired);
     for (unsigned i = 0; i < hsw_candidate_result.rows; i++) {

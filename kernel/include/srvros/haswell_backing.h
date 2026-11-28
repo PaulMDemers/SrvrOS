@@ -43,7 +43,7 @@ struct hwb_io {
  void (*progress)(void *,unsigned);
 };
 bool hwb_capture(struct hwb_result *,const struct hwb_io *);
-bool platform_haswell_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access);
+bool platform_haswell_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access,bool boot_slot);
 /* Only the isolated VT-d audit calls these. No requester mutations. */
 bool platform_haswell_live_requester(void);
 bool platform_haswell_live_slot(bool sampler_saved);

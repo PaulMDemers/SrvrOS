@@ -29,12 +29,20 @@ def _requester(row, name):
             "transactions_pending": bool(status & 0x20) if cap else None}
 
 
-def _parse(text):
+def _parse(text, boot_slot):
+    slot, offset = (16385, 0x210004) if boot_slot else (4096, 0x204000)
+    if boot_slot:
+        options = [line.split("boot options=", 1)[1].split() for line in text.splitlines()
+                   if line.startswith("laptop-capture: boot options=")]
+        if not options or any(row.count("srvros.hsw-boot-slot=read-only") != 1 or
+                              row.count("srvros.hsw-candidate=read-only") != 1 or
+                              "srvros.hsw-access=read-only" in row for row in options):
+            return None
     summaries = [line for line in text.splitlines() if line.startswith("hsw-candidate:")]
     if len(summaries) != 1:
         return None
     match = re.fullmatch(
-        r"hsw-candidate: v=1 status=([0-5]) rows=([0-2]) slot=4096 mmio=0x204000 "
+        rf"hsw-candidate: v=1 status=([0-5]) rows=([0-2]) slot={slot} mmio={offset:#x} "
         r"begin=(\d+) end=(\d+) mapped=([01]) retired=([01]) writes=0 authority=none", summaries[0])
     if not match:
         return None
@@ -54,7 +62,7 @@ def _parse(text):
     backing = backing_result(text, require_completion=status == 1)
     if not backing:
         return None
-    result = dict(slot=4096, mmio_offset=0x204000, hardware_authority=False, writes=0,
+    result = dict(slot=slot, mmio_offset=offset, hardware_authority=False, writes=0,
                   status="OBSERVED" if status == 1 else "REFUSED" if status == 0 else "FAILED",
                   source_status=status, mapped=bool(mapped), retired=bool(retired),
                   samples=samples, elapsed_us=end-begin)
@@ -89,9 +97,9 @@ def _parse(text):
     return result
 
 
-def candidate_result(text):
+def candidate_result(text, *, boot_slot=False):
     try:
-        return _parse(text)
+        return _parse(text, boot_slot)
     except (ValueError, KeyError, struct.error):
         return None
 
@@ -99,8 +107,9 @@ def candidate_result(text):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("receipt", type=Path)
+    parser.add_argument("--boot-slot", action="store_true", help="Require the separate slot 16385 profile")
     args = parser.parse_args()
-    result = candidate_result(args.receipt.read_text())
+    result = candidate_result(args.receipt.read_text(), boot_slot=args.boot_slot)
     if not result:
         parser.exit(1, "Invalid or incomplete Haswell candidate receipt\n")
     print(json.dumps(result, indent=2))

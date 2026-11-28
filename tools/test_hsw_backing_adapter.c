@@ -59,26 +59,26 @@ static void access_setup(void) {
 
 static void access_tests(void) {
  access_setup();
- assert(hsw_candidate_observe_access(true) && hsw_vmm_maps==13 && hsw_vmm_unmaps==13);
+ assert(hsw_candidate_observe_access(true,false) && hsw_vmm_maps==13 && hsw_vmm_unmaps==13);
  assert(hsw_access_result.fbc_rows==2 && hsw_access_result.entries==2 &&
         access_fbc_controls==4 && access_entries==34);
  assert(!hsw_map(NULL,HSW_FBC_PAGE));
- hsw_candidate_window=hsw_access_window=true;
+ hsw_candidate_window=HSW_CANDIDATE_MMIO;hsw_access_window=true;
  uint32_t word;
  assert(hsw_map(NULL,HSW_FBC_PAGE) && !hsw_read(NULL,HSW_FBC_BASE+4,&word) && hsw_unmap(NULL));
  assert(hsw_map(NULL,HSW_CANDIDATE_MMIO) && !hsw_read(NULL,HSW_CANDIDATE_MMIO+64,&word) && hsw_unmap(NULL));
  hsw_candidate_window=hsw_access_window=false;
  access_setup();access_fbc_drift=true;
- assert(!hsw_candidate_observe_access(true) && hsw_candidate_result.status==3 && !hsw_window_live);
+ assert(!hsw_candidate_observe_access(true,false) && hsw_candidate_result.status==3 && !hsw_window_live);
  access_setup();access_entry_drift=true;
- assert(!hsw_candidate_observe_access(true) && hsw_candidate_result.status==3 && !hsw_window_live);
+ assert(!hsw_candidate_observe_access(true,false) && hsw_candidate_result.status==3 && !hsw_window_live);
  access_setup();access_fbc_ones=true;
- assert(!hsw_candidate_observe_access(true) && !access_entries && hsw_access_result.fbc_retired==1);
+ assert(!hsw_candidate_observe_access(true,false) && !access_entries && hsw_access_result.fbc_retired==1);
  access_setup();hsw_vmm_unmap_fail=1;
- assert(!hsw_candidate_observe_access(true) && hsw_window_poison && !access_entries &&
+ assert(!hsw_candidate_observe_access(true,false) && hsw_window_poison && !access_entries &&
         hsw_candidate_result.status==5 && !hsw_access_result.fbc_retired);
  access_setup();candidate_late=true;
- assert(!hsw_candidate_observe_access(true) && hsw_candidate_result.status==4 &&
+ assert(!hsw_candidate_observe_access(true,false) && hsw_candidate_result.status==4 &&
         hsw_access_result.fbc_retired==1 && hsw_access_result.entries==1 && !hsw_window_live);
 }
 static void live_setup(void) {
@@ -101,56 +101,80 @@ static void live_audit_tests(void) {
  live_setup();
  assert(hsw_live_snapshot(gpu) && hsw_live_snapshot(gpu) && !hsw_live_snapshot(gpu));
  hsw_live.slot_probe=true;
- assert(hsw_candidate_observe_access(true) && hsw_live_match());
+ assert(hsw_candidate_observe_access(true,false) && hsw_live_match());
  assert(hsw_live.af[0][0].offset==0x88 && hsw_live.af[1][0].control_status==0x100);
  assert(!hsw_live.af[0][1].offset && hsw_live.smi_begin==UINT32_MAX && hsw_live.smi_end==0);
  hsw_candidate_result.sample[1][HC_IGD_CMD]^=4;
  assert(!hsw_live_match());
  live_setup();hsw_live.slot_probe=true;test_smi_unavailable=true;
- assert(!hsw_candidate_observe_access(true) && !hsw_candidate_result.mapped && !hsw_window_live);
+ assert(!hsw_candidate_observe_access(true,false) && !hsw_candidate_result.mapped && !hsw_window_live);
 }
 static void candidate_tests(void) {
- candidate_setup();assert(hsw_candidate_observe_access(false) && candidate_ptes==2 && candidate_frames==2 &&
+ candidate_setup();assert(hsw_candidate_observe_access(false,false) && candidate_ptes==2 && candidate_frames==2 &&
                          hsw_vmm_maps==11 && hsw_vmm_unmaps==11 && !hsw_window_live);
  assert(hsw_candidate_result.sample[0][HC_IGD_DEVSTA]==0x20 &&
         hsw_candidate_result.sample[0][HC_HDA_DEVSTA]==UINT32_MAX);
  assert(!hsw_map(NULL,HSW_CANDIDATE_MMIO));
- candidate_setup();candidate_bad_route=true;assert(!hsw_candidate_observe_access(false) && !candidate_ptes && !hsw_window_live);
- candidate_setup();candidate_frozen=true;assert(!hsw_candidate_observe_access(false) && hsw_candidate_result.status==3);
- candidate_setup();candidate_drift=true;assert(!hsw_candidate_observe_access(false) && hsw_candidate_result.status==3);
- candidate_setup();candidate_late=true;assert(!hsw_candidate_observe_access(false) && hsw_candidate_result.status==4 &&
+ candidate_setup();candidate_bad_route=true;assert(!hsw_candidate_observe_access(false,false) && !candidate_ptes && !hsw_window_live);
+ candidate_setup();candidate_frozen=true;assert(!hsw_candidate_observe_access(false,false) && hsw_candidate_result.status==3);
+ candidate_setup();candidate_drift=true;assert(!hsw_candidate_observe_access(false,false) && hsw_candidate_result.status==3);
+ candidate_setup();candidate_late=true;assert(!hsw_candidate_observe_access(false,false) && hsw_candidate_result.status==4 &&
                                               candidate_ptes==1 && !hsw_window_live);
- candidate_setup();hda_config[0x2c/4]^=1;assert(!hsw_candidate_observe_access(false) && !candidate_ptes && !hsw_window_live);
- candidate_setup();hsw_vmm_map_fail=1;assert(!hsw_candidate_observe_access(false) && hsw_candidate_result.status==5 && !candidate_ptes);
- candidate_setup();hsw_vmm_unmap_fail=1;assert(!hsw_candidate_observe_access(false) && hsw_candidate_result.status==5 &&
+ candidate_setup();hda_config[0x2c/4]^=1;assert(!hsw_candidate_observe_access(false,false) && !candidate_ptes && !hsw_window_live);
+ candidate_setup();hsw_vmm_map_fail=1;assert(!hsw_candidate_observe_access(false,false) && hsw_candidate_result.status==5 && !candidate_ptes);
+ candidate_setup();hsw_vmm_unmap_fail=1;assert(!hsw_candidate_observe_access(false,false) && hsw_candidate_result.status==5 &&
                                               hsw_window_live && hsw_window_poison);
- candidate_setup();hsw_result.sample[1].fence[31]=1;assert(!hsw_candidate_observe_access(false) && hsw_vmm_maps==10);
+ candidate_setup();hsw_result.sample[1].fence[31]=1;assert(!hsw_candidate_observe_access(false,false) && hsw_vmm_maps==10);
+}
+static void boot_slot_tests(void) {
+ candidate_setup();
+ hsw_candidate_window=HSW_BOOT_SLOT_MMIO;
+ uint32_t word;
+ assert(!hsw_map(NULL,HSW_CANDIDATE_MMIO));
+ assert(hsw_map(NULL,HSW_BOOT_SLOT_MMIO&~4095u));
+ assert(!hsw_read(NULL,HSW_BOOT_SLOT_MMIO-4,&word) && !hsw_read(NULL,HSW_BOOT_SLOT_MMIO+4,&word));
+ assert(hsw_unmap(NULL));
+ hsw_candidate_window=0;
+ candidate_setup();assert(!hsw_candidate_observe_access(true,true) && !candidate_ptes);
+ candidate_setup();candidate_drift=true;
+ assert(!hsw_candidate_observe_access(false,true) && hsw_candidate_result.status==3 && !hsw_window_live);
+ candidate_setup();hsw_vmm_unmap_fail=1;
+ assert(!hsw_candidate_observe_access(false,true) && hsw_window_poison && hsw_window_live);
 }
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"boot-slot")) {
+  boot_slot_tests();
+  candidate_setup();assert(hsw_candidate_observe_access(false,true) && candidate_ptes==2);
+  assert(hsw_vmm_maps==11 && hsw_vmm_unmaps==11 && !hsw_window_live);
+  hsw_emit=1;hsw_report();hsw_candidate_report(true);
+  puts("laptop-capture: boot options=srvros.hsw-candidate=read-only srvros.hsw-boot-slot=read-only");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"live")) {
   live_audit_tests();
   live_setup();assert(hsw_live_snapshot(gpu));
   test_ticks+=200000; /* Simulated interval reserved for the separate VT-d sampler. */
   assert(hsw_live_snapshot(gpu));
   hsw_live.slot_probe=true;
-  assert(hsw_candidate_observe_access(true) && hsw_live_match());
-  hsw_emit=1;hsw_report();hsw_candidate_report();hsw_access_report(true);hsw_live_report(true);
+  assert(hsw_candidate_observe_access(true,false) && hsw_live_match());
+  hsw_emit=1;hsw_report();hsw_candidate_report(false);hsw_access_report(true);hsw_live_report(true);
   puts("laptop-capture: completed=yes");
   fprintf(stderr,"hsw-live: PASS PCI brackets, late candidate binding and GT capture\n");
   return 0;
  }
  if(argc==2 && !strcmp(argv[1],"access")) {
   access_tests();
-  access_setup();assert(hsw_candidate_observe_access(true));
-  hsw_emit=1;hsw_report();hsw_candidate_report();hsw_access_report(true);puts("laptop-capture: completed=yes");
+  access_setup();assert(hsw_candidate_observe_access(true,false));
+  hsw_emit=1;hsw_report();hsw_candidate_report(false);hsw_access_report(true);puts("laptop-capture: completed=yes");
   fprintf(stderr,"hsw-access: PASS bounded FBC/entry reads, drift, deadline and retirement\n");
   return 0;
  }
  if(argc==2 && !strcmp(argv[1],"candidate")) {
   candidate_tests();
-  candidate_setup();assert(hsw_candidate_observe_access(false));
-  hsw_emit=1;hsw_report();hsw_candidate_report();puts("laptop-capture: completed=yes");
+  candidate_setup();assert(hsw_candidate_observe_access(false,false));
+  hsw_emit=1;hsw_report();hsw_candidate_report(false);puts("laptop-capture: completed=yes");
   fprintf(stderr,"hsw-candidate: PASS exact reads, wrapped live frame progress, status, drift, and mapping faults\n");
   return 0;
  }

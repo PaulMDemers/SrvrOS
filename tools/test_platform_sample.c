@@ -159,8 +159,8 @@ uint32_t platform_test_hsw_read(unsigned off) {
         }
         assert(!"outside access audit allowlist");
     }
-    if(off==HSW_CANDIDATE_MMIO) {
-        assert(test_candidate && hsw_vmm_live && hsw_vmm_pa==gpu_base+HSW_CANDIDATE_MMIO);
+    if(off==HSW_CANDIDATE_MMIO || off==HSW_BOOT_SLOT_MMIO) {
+        assert(test_candidate && hsw_vmm_live && hsw_vmm_pa==gpu_base+(off&~4095u));
         return (candidate_ptes++ && candidate_drift) ? 0x1001 : 0;
     }
     if(off==0x101000){hsw_tile_reads++;return hsw_tile_value^(hsw_tile_change && hsw_tile_reads==2?1u:0u);}
