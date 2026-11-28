@@ -729,6 +729,14 @@ populated. The next ownership test must establish an explicit handoff for a
 specific occupied entry or initialize a driver-owned range after a qualified
 reset. The existing occupied-entry refusal remains in effect.
 
+The occupied-slot work starts at `6a4ebc43` with main `24feebdd` and Air6,1
+PR 567 at `4b8fcf94` reviewed. It joins the Broadwell traffic, interval
+and one-page writer cores for a single occupied-slot loan while Pipe A stays
+live. The physical prerequisite is a native provider that can exclude firmware
+and WiDi and hold fresh engine and L3 completion through both PTE stores.
+The native census establishes occupancy only. The Air's earlier request
+samples do not supply that provider.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
