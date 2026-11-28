@@ -632,6 +632,17 @@ inherited display fence and known firmware command reservations. Scope
 is a read-only pre-reopen sample under the original native reset owner,
 the collector and its fixtures. A stable zero is vacancy evidence only.
 
+Source `1fd41a81`, stage `41b5fe53adafdcee`, samples slot 16385 twice
+with bus mastering off after same-epoch memory maintenance and before PCI
+reopen. It verifies read-only alias retirement, the original Pipe A surface,
+and the closing SMI and owner guards within the existing phase deadline. The
+45-test host suite passed, including occupied and drifting entries and guarded
+refusal. Four exact-stage OVMF runs using the unit's Ubuntu shim and GRUB passed
+the save/return, missing workspace, missing ACPI protocol and missing ACPI
+protocol with EFI vector cases. The discovery stage is uninstalled. Hardware
+vacancy and exclusive native reader ownership through rollback remain pending.
+[Driver-owned range qualification](../intel-tearfree-roadmap.md#driver-owned-range-qualification)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
