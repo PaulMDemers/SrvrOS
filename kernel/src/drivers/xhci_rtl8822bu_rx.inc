@@ -1,13 +1,13 @@
 /* Receive-only validation for the measured A6150. The trial tunes both
  * synthesizers on 161 and 10, then samples channel 10 through bulk IN. */
 enum {
-    BU_RX_DCI=9, BU_RX_BYTES=32768, BU_RX_TDS=32,
+    BU_RX_DCI=9, BU_RX_BYTES=32768, BU_RX_TDS=32, BU_RX_DEPTH=4,
     BU_RX_CR=0x9a, BU_RX_DMA_IDLE=1u<<17,
     BU_RX_SCHEDULE=1u<<5, BU_RX_HOST_TXDMA=1u, BU_RX_TXDMA=1u<<2,
     BU_RX_SEC_ENABLE=1u<<9, BU_RX_SECCFG=0x680, BU_RX_SEC_POLICY=0xcf,
     BU_RX_DMA_MAP=0xf5a0, BU_RX_ARB=1, BU_RX_LLT=0x0208,
     BU_RX_FIFO_END=0x5eff, BU_RX_USB_MODE=0x1e, BU_RX_AGG_ENABLE=1u<<2,
-    BU_RX_AGG_TH=0x280, BU_RX_AGG_SCAN=0x2003, BU_RX_AGG_SHORT=0x100,
+    BU_RX_AGG_TH=0x280, BU_RX_AGG_SCAN=0x2003,
     BU_RX_FILTER0=0xffffffffu, BU_RX_FILTER2=0xffff, BU_RX_RCR=0xf410400e,
     BU_H2C_CR=BU_RX_CR|BU_RX_HOST_TXDMA|BU_RX_TXDMA,
     BU_RX_DMA_CR=BU_H2C_CR|BU_RX_SCHEDULE,
@@ -22,9 +22,9 @@ struct bu_rx {
     struct xhci_device *device;
     struct xhci_bulk_endpoint ep;
     uint8_t *buffer;
-    uint64_t phys,trb;
-    unsigned posted,completed,actual,records,beacons,target,bad;
-    bool configured,pending,failed,stopping;
+    uint64_t phys;
+    unsigned posted,completed,consumed,actual[BU_RX_DEPTH],records,beacons,target,bad;
+    bool configured,failed,stopping;
 };
 static struct bu_rx *bu_rx_owner;
 
@@ -99,15 +99,16 @@ static bool bu_rx_configure(struct bu_rx *rx) {
     ep->ring=page;ep->dci=BU_RX_DCI;ep->cycle=true;ep->packet=512;
     write_link_trb(ep->ring,ep->ring_phys,true);
     const unsigned pages=BU_RX_BYTES/PMM_FRAME_SIZE;
-    uint64_t phys=pmm_alloc_frames_tagged(2*pages-1,PMM_FRAME_DMA);
+    uint64_t phys=pmm_alloc_frames_tagged((BU_RX_DEPTH+1)*pages-1,PMM_FRAME_DMA);
     if(!phys)return false;
-    if((phys&0xffffu)+BU_RX_BYTES>0x10000u)phys=(phys+0xffffu)&~0xffffull;
+    /* Consecutive 32 KiB aligned buffers cannot cross an xHCI 64 KiB boundary. */
+    phys=(phys+BU_RX_BYTES-1)&~(uint64_t)(BU_RX_BYTES-1);
     rx->phys=phys;rx->buffer=pmm_phys_to_virt(phys);
     if(!rx->buffer)return false;
     zero_bytes(d->input_context,PMM_FRAME_SIZE);
     context_write32(d->input_context,0,1,1u|(1u<<BU_RX_DCI));
     for(unsigned i=0;i<3;i++)context_write32(d->input_context,1,i,context_read32(d->output_context,0,i));
-    rtl_cu_bulk_context(d,ep,6,BU_RX_BYTES);
+    rtl_cu_bulk_context(d,ep,6,0); /* Linux bulk Average TRB Length. */
     const struct xhci_trb command={.parameter_low=(uint32_t)d->input_context_phys,
         .parameter_high=d->input_context_phys>>32,
         .control=(XHCI_TRB_TYPE_CONFIGURE_ENDPOINT<<10)|((uint32_t)d->slot_id<<24)};
@@ -117,36 +118,62 @@ static bool bu_rx_configure(struct bu_rx *rx) {
     return rx->configured;
 }
 
+static uint64_t bu_rx_cursor(const struct bu_rx *rx) {
+    const void *context=rx->device->output_context;
+    return context_read32(context,BU_RX_DCI,2) |
+           (uint64_t)context_read32(context,BU_RX_DCI,3)<<32;
+}
+
+static uint64_t bu_rx_td(const struct bu_rx *rx,unsigned ordinal) {
+    return rx->ep.ring_phys+ordinal*sizeof(struct xhci_trb);
+}
+
+static bool bu_rx_endpoint_verified(const struct bu_rx *rx) {
+    const void *context=rx->device->output_context;
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
+    uint32_t state=context_read32(context,BU_RX_DCI,0),cfg=context_read32(context,BU_RX_DCI,1);
+    uint32_t average=context_read32(context,BU_RX_DCI,4);
+    uint64_t cursor=bu_rx_cursor(rx);
+    bool ok=state==1 && cfg==0x02000036 && average==0 && cursor==(rx->ep.ring_phys|1);
+    console_printf("rtl8822bu-rx-endpoint: dci=%u state=%x cfg=%x avg=%x deq=%x verified=%u\n",
+        (uint64_t)BU_RX_DCI,(uint64_t)state,(uint64_t)cfg,(uint64_t)average,cursor,(uint64_t)ok);
+    return ok;
+}
+
 static bool bu_rx_event(struct xhci_device *d,uint8_t dci,uint64_t pointer,uint8_t cc,uint32_t residue,bool ed) {
     struct bu_rx *rx=bu_rx_owner;
     if(!rx || d!=rx->device || dci!=BU_RX_DCI)return false;
-    if(rx->stopping && rx->pending && pointer==rx->trb && !ed && (cc==26 || cc==27 || cc==28))return true;
-    if(!rx->pending || pointer!=rx->trb || ed || (cc!=1 && cc!=13) || residue>BU_RX_BYTES ||
-       (cc==1 && residue)) {
+    bool owned=rx->completed<rx->posted && pointer==bu_rx_td(rx,rx->completed) && !ed;
+    if(rx->stopping && owned && (cc==26 || cc==27 || cc==28))return true;
+    if(!owned || (cc!=1 && cc!=13) || residue>BU_RX_BYTES || (cc==1 && residue)) {
         rx->failed=true;
         return true;
     }
-    rx->actual=BU_RX_BYTES-residue;
+    rx->actual[rx->completed%BU_RX_DEPTH]=BU_RX_BYTES-residue;
     rx->completed++;
-    rx->pending=false;
     return true;
 }
 
-static void bu_rx_post(struct bu_rx *rx) {
+static void bu_rx_fill(struct bu_rx *rx,unsigned depth) {
     struct xhci_bulk_endpoint *ep=&rx->ep;
-    const struct xhci_trb trb={.parameter_low=(uint32_t)rx->phys,.parameter_high=rx->phys>>32,
-        .status=BU_RX_BYTES,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
-    struct xhci_trb *entry=&ep->ring[ep->enqueue];
-    rx->trb=ring_push_owned(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&trb,true);
-    rx->pending=true;rx->posted++;
-    __atomic_thread_fence(__ATOMIC_RELEASE);
-    ((volatile struct xhci_trb *)entry)->control=(trb.control&~1u)|ep->cycle;
-    db_write32(rx->device->slot_id,BU_RX_DCI);
+    _Static_assert(BU_RX_TDS<XHCI_TRB_COUNT-1,"bounded RX ring never wraps");
+    while(rx->posted<BU_RX_TDS && rx->posted-rx->consumed<depth) {
+        uint64_t phys=rx->phys+(rx->posted%BU_RX_DEPTH)*BU_RX_BYTES;
+        const struct xhci_trb trb={.parameter_low=(uint32_t)phys,.parameter_high=phys>>32,
+            .status=BU_RX_BYTES,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
+        struct xhci_trb *entry=&ep->ring[ep->enqueue];
+        ring_push_owned(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&trb,true);
+        rx->posted++;
+        __atomic_thread_fence(__ATOMIC_RELEASE);
+        ((volatile struct xhci_trb *)entry)->control=trb.control|ep->cycle;
+        db_write32(rx->device->slot_id,BU_RX_DCI);
+        (void)mmio_read32(xhci.db_base+4u*rx->device->slot_id);
+    }
 }
 
-static void bu_rx_parse(struct bu_rx *rx) {
-    const uint8_t *data=rx->buffer;
-    size_t length=rx->actual;
+static void bu_rx_parse(struct bu_rx *rx,unsigned slot) {
+    const uint8_t *data=rx->buffer+slot*BU_RX_BYTES;
+    size_t length=rx->actual[slot];
     while(length>=24) {
         uint32_t desc=rtl_cu_le32(data),meta=rtl_cu_le32(data+8);
         unsigned prefix=24+8*((desc>>16)&15)+((desc>>24)&3),mpdu=desc&0x3fff;
@@ -186,9 +213,9 @@ static bool bu_rx_observe(const struct bu_rx *rx,const char *sample,bool *idle) 
     }
     __atomic_thread_fence(__ATOMIC_ACQUIRE);
     unsigned state=context_read32(d->output_context,BU_RX_DCI,0)&7;
-    uint64_t cursor=context_read32(d->output_context,BU_RX_DCI,2) |
-                    (uint64_t)context_read32(d->output_context,BU_RX_DCI,3)<<32;
-    uint64_t expected=rx->pending?rx->trb:rx->ep.ring_phys;
+    uint64_t cursor=bu_rx_cursor(rx);
+    unsigned pending=rx->posted-rx->completed;
+    uint64_t expected=bu_rx_td(rx,rx->completed);
     *idle=state==1 && cursor==(expected|1) && dma_queue==BU_RX_DMA_IDLE &&
           !dma_status && !dma_pointer && !packet_count;
     console_printf("rtl8822bu-rx-phy: sample=%s cca_cck=%u cca_ofdm=%u crc_cck=%x crc_ofdm=%x crc_ht=%x crc_vht=%x\n",
@@ -197,39 +224,46 @@ static bool bu_rx_observe(const struct bu_rx *rx,const char *sample,bool *idle) 
     console_printf("rtl8822bu-rx-dma: sample=%s queue=%x status=%x pointer=%x packets=%x\n",
         sample,(uint64_t)dma_queue,(uint64_t)dma_status,(uint64_t)dma_pointer,(uint64_t)packet_count);
     console_printf("rtl8822bu-rx-xhci: sample=%s state=%u dequeue=%x trb=%x pending=%u completed=%u\n",
-        sample,(uint64_t)state,cursor,rx->trb,(uint64_t)rx->pending,(uint64_t)rx->completed);
+        sample,(uint64_t)state,cursor,pending?expected:0,(uint64_t)pending,(uint64_t)rx->completed);
     return true;
 }
 
-static const char *bu_rx_window(struct bu_rx *rx,bool aggregate,bool *idle_pending) {
+static const char *bu_rx_window(struct bu_rx *rx,unsigned depth,bool *idle_pending) {
+    bool deep=depth>1;
     bool idle_before=false,idle_after=false;
     *idle_pending=false;
-    if(!bu_rx_observe(rx,aggregate?"agg-before":"before",&idle_before))return "rx-observe";
+    if(!bu_rx_observe(rx,deep?"depth-before":"before",&idle_before))return "rx-observe";
     if(rx->failed)return "rx-event";
     unsigned starting_completed=rx->completed;
     uint64_t start=timer_monotonic_us();
-    /* A transfer completed during the settings change or opening sample
-     * is excluded. Post again only after its original owner completes. */
-    if(!rx->pending)bu_rx_post(rx);
+    /* Exclude opening completions. Retain the buffers of every pending TD. */
+    rx->consumed=rx->completed;
+    bu_rx_fill(rx,depth);
+    if(deep)console_printf("rtl8822bu-rx-depth: request=%u posted=%u pending=%u owner=%x\n",
+        (uint64_t)BU_RX_BYTES,(uint64_t)rx->posted,(uint64_t)(rx->posted-rx->completed),
+        bu_rx_td(rx,rx->completed));
     for(unsigned spin=0;spin<XHCI_TRANSFER_TIMEOUT && !rx->failed;spin++) {
         struct xhci_trb event;
         if(poll_event(&event))dispatch_transfer_event(&event);
         if(rx->failed)break;
-        if(!rx->pending) {
+        if(rx->consumed<rx->completed) {
             __atomic_thread_fence(__ATOMIC_ACQUIRE);
-            bu_rx_parse(rx);
-            if(rx->target || rx->posted==BU_RX_TDS)break;
-            bu_rx_post(rx);
+            while(rx->consumed<rx->completed) {
+                bu_rx_parse(rx,rx->consumed%BU_RX_DEPTH);
+                rx->consumed++;
+            }
+            if(rx->target || rx->completed==BU_RX_TDS)break;
+            bu_rx_fill(rx,depth);
         }
         if((spin&255u)==0 && (timer_monotonic_us()-start>=600000u || device_removed(rx->device)))break;
         __asm__ volatile("pause");
     }
     uint64_t elapsed=timer_monotonic_us()-start;
     unsigned in_window=rx->completed;
-    bool observed=!device_removed(rx->device) && bu_rx_observe(rx,aggregate?"agg-after":"after",&idle_after);
-    *idle_pending=observed && idle_before && idle_after && rx->pending && rx->posted==1 && !rx->completed;
-    if(aggregate) {
-        console_printf("rtl8822bu-rx-agg-window: elapsed_us=%u completed=%u closing=%u transition=%u observed=%u\n",
+    bool observed=!device_removed(rx->device) && bu_rx_observe(rx,deep?"depth-after":"after",&idle_after);
+    *idle_pending=observed && idle_before && idle_after && rx->posted==1 && !rx->completed;
+    if(deep) {
+        console_printf("rtl8822bu-rx-depth-window: elapsed_us=%u completed=%u closing=%u transition=%u observed=%u\n",
             elapsed,(uint64_t)(in_window-starting_completed),(uint64_t)(rx->completed-in_window),
             (uint64_t)starting_completed,(uint64_t)observed);
     } else {
@@ -315,19 +349,13 @@ static bool bu_rx_fifo_control(struct xhci_device *d,struct bu_rx_fifo *saved) {
         bu_rx_fifo_match(&f,map,BU_RX_AGG_SCAN) && f.cr==saved->cr && f.pause==0xff;
 }
 
-static bool bu_rx_fifo_short(struct bu_upload *up,const struct bu_rx *rx,const struct bu_rx_fifo *saved) {
-    struct xhci_device *d=up->device;
-    const uint32_t map=BU_RX_DMA_MAP|BU_RX_ARB;
+static bool bu_rx_depth_ready(struct bu_upload *up,const struct bu_rx *rx,const struct bu_rx_fifo *saved) {
     struct bu_rx_fifo f={0};
-    uint64_t owner=rx->trb;
-    bool ok=wifi_hub_check_port(d,up->hub) && bu_rx_fifo_read(d,&f,"switch-entry") &&
-        bu_rx_fifo_match(&f,map,BU_RX_AGG_SCAN) && f.cr==saved->cr && f.pause==0xff &&
-        rx->pending && !rx->completed && !rx->failed &&
-        bu_rx_fifo_write(d,map|BU_RX_AGG_ENABLE,BU_RX_AGG_SHORT) && bu_rx_fifo_read(d,&f,"short") &&
-        bu_rx_fifo_match(&f,map|BU_RX_AGG_ENABLE,BU_RX_AGG_SHORT) &&
-        f.cr==saved->cr && f.pause==0xff && rx->trb==owner && !rx->failed;
-    console_printf("rtl8822bu-rx-agg-enable: eligible=1 owner=%x pending=%u verified=%u\n",
-        owner,(uint64_t)rx->pending,(uint64_t)ok);
+    bool ok=wifi_hub_check_port(rx->device,up->hub) && bu_rx_fifo_read(rx->device,&f,"depth") &&
+        bu_rx_fifo_match(&f,BU_RX_DMA_MAP|BU_RX_ARB,BU_RX_AGG_SCAN) && f.cr==saved->cr && f.pause==0xff &&
+        rx->posted==1 && !rx->completed && !rx->failed;
+    console_printf("rtl8822bu-rx-depth-enable: eligible=1 owner=%x verified=%u\n",
+        bu_rx_td(rx,rx->completed),(uint64_t)ok);
     return ok;
 }
 
@@ -362,11 +390,13 @@ static bool bu_rx_stop(struct bu_rx *rx) {
     rx->stopping=false;
     if(!ok || slot!=d->slot_id)return false;
     __atomic_thread_fence(__ATOMIC_ACQUIRE);
-    uint64_t cursor=context_read32(d->output_context,BU_RX_DCI,2) |
-                    (uint64_t)context_read32(d->output_context,BU_RX_DCI,3)<<32;
-    uint64_t next=rx->ep.ring_phys+rx->ep.enqueue*sizeof(struct xhci_trb);
-    return (context_read32(d->output_context,BU_RX_DCI,0)&7)==3 &&
-           (cursor==(next|1u) || (rx->pending && cursor==(rx->trb|1u)));
+    uint64_t cursor=bu_rx_cursor(rx);
+    uint64_t next=bu_rx_td(rx,rx->posted),oldest=bu_rx_td(rx,rx->completed);
+    bool verified=(context_read32(d->output_context,BU_RX_DCI,0)&7)==3 &&
+           (cursor==(next|1u) || cursor==(oldest|1u));
+    console_printf("rtl8822bu-rx-stop: deq=%x oldest=%x next=%x pending=%u verified=%u\n",
+        cursor,oldest,next,(uint64_t)(rx->posted-rx->completed),(uint64_t)verified);
+    return verified;
 }
 
 static bool bu_rx_cr_verified(struct xhci_device *d,uint32_t expected) {
@@ -520,7 +550,7 @@ static const char *bu_receive(struct bu_upload *up,bool *retired) {
     bu_out_state(up,"rx-add-after");
     if(!configured)return "endpoint";
     bu_rx_owner=&rx;
-    const char *failure=bu_rx_admit(d);
+    const char *failure=bu_rx_endpoint_verified(&rx)?bu_rx_admit(d):"endpoint-readback";
     if(!failure && !bu_h2c_initialize(up))failure="firmware-command";
     if(!failure && !bu_rx_enable_security(up,&rx,&security))failure="rx-security";
     if(!failure && !bu_rx_prepare_dma(up,&rx,&security))failure="rx-dma-enable";
@@ -528,13 +558,13 @@ static const char *bu_receive(struct bu_upload *up,bool *retired) {
     if(!failure) {
         console_write("rtl8822bu-rx-progress: sampling channel 10 with MAC transmit disabled\n");
         bool idle_pending;
-        failure=bu_rx_window(&rx,false,&idle_pending);
+        failure=bu_rx_window(&rx,1,&idle_pending);
         if(failure && !rx.failed && idle_pending) {
-            if(bu_rx_fifo_short(up,&rx,&fifo)) {
-                console_write("rtl8822bu-rx-progress: sampling the same channel with short-timeout USB aggregation\n");
-                failure=bu_rx_window(&rx,true,&idle_pending);
-            } else failure="rx-agg-enable";
-        } else console_write("rtl8822bu-rx-agg-enable: eligible=0\n");
+            if(bu_rx_depth_ready(up,&rx,&fifo)) {
+                console_write("rtl8822bu-rx-progress: sampling the same channel with four bulk-IN requests\n");
+                failure=bu_rx_window(&rx,BU_RX_DEPTH,&idle_pending);
+            } else failure="rx-depth-enable";
+        } else console_write("rtl8822bu-rx-depth-enable: eligible=0\n");
     }
     bool gated=bu_write(d,BU_CR,1,0) && bu_phy_tx_inhibited(d);
     bool stopped=bu_rx_stop(&rx);
