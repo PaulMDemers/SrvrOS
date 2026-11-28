@@ -431,6 +431,31 @@ matches page zero of both inherited Pipe A backing vectors. Slot
 Keep it protected. Ubuntu returned with the one-shot consumed,
 and the exit snapshot, installed recovery and offline USB check verified.
 
+### Bounded GGTT candidate survey
+
+The v7 Haswell backing profile surveys four fixed 1,024-entry ranges at
+GGTT slots 8192–9215, 24576–25599, 40960–41983 and 57344–58367. These
+cover four 4 MiB regions of GPU address space starting at 32, 96, 160 and
+224 MiB. The inherited fence and slots 4096 and 16385 stay outside the
+survey. The temporary CPU alias only maps the current GGTT table page
+read-only and uncached. The survey never dereferences a PTE's backing
+address. [i915 GGTT BAR layout](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L1063-L1097)
+
+Both passes read the same 4,096 DWORDs, separated by at least 20 ms and
+bounded together by 100 ms. The adapter checks the inherited Pipe A
+route, surface, display wells and other plane controls at each table
+page. The frame counter must advance, all eight temporary mappings must
+retire, and the second pass must match every raw word. Drift, unavailable
+reads, timeout or uncertain retirement leave no candidate shortlist.
+The receipt contains one verified vector and the accounting and hashes
+from both passes. The host reports exact-zero slots, present entries and
+aliases of the captured Pipe A image and reserved stolen memory. An
+exact-zero slot is only a candidate for a separate ownership check.
+
+Stage with `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-survey`. Decode the
+matched `exit.log` with `tools/hardware_haswell_survey.py`.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from

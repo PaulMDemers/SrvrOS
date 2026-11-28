@@ -18,6 +18,8 @@ static uint64_t occupied;
 static uint32_t well_value;
 static bool test_candidate;
 static unsigned candidate_frames, candidate_ptes;
+static unsigned survey_reads, survey_route_drop_at;
+static bool survey_drift, survey_ones;
 static unsigned access_fbc_controls, access_entries;
 static bool access_fbc_drift, access_entry_drift, access_fbc_ones;
 static bool candidate_frozen, candidate_drift, candidate_late, candidate_bad_route;
@@ -143,6 +145,17 @@ bool vmm_unmap_page_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
 }
 void platform_test_hsw_endpoint_start(void) {backing_reads=0;map_walks=0;}
 uint32_t platform_test_hsw_read(unsigned off) {
+    if(hsw_survey_window) {
+        assert(test_candidate && hsw_vmm_live && hsw_vmm_pa==gpu_base+hsw_survey_window);
+        const unsigned pages[]={0x208000,0x218000,0x228000,0x238000};
+        assert(survey_reads<8192 && off==pages[survey_reads/1024%4]+4*(survey_reads%1024));
+        unsigned index=survey_reads++;
+        if(survey_route_drop_at==survey_reads)candidate_bad_route=true;
+        if(survey_ones || (survey_drift && index==4096))return survey_ones ? UINT32_MAX : 1;
+        if(off==0x208000 || off==0x218004)return 0;
+        if(off==0x228008)return 2;
+        return off==0x238000 ? 0x8ea00001 : 0x8da00001;
+    }
     if(hsw_access_window) {
         assert(test_candidate && hsw_vmm_live && hsw_vmm_pa==gpu_base+(off&~4095u));
         if(off==HSW_FBC_CTL) {
@@ -171,7 +184,8 @@ uint32_t platform_test_hsw_read(unsigned off) {
 }
 static unsigned dependency_reports,hda_reports,dry_reports;
 void console_printf(const char *fmt,...) {
-    if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13) || !strncmp(fmt,"hsw-access",10) || !strncmp(fmt,"hsw-live",8)) {
+    if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13) || !strncmp(fmt,"hsw-access",10) ||
+       !strncmp(fmt,"hsw-live",8) || !strncmp(fmt,"hsw-survey",10)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {

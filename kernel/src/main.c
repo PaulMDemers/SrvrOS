@@ -1511,13 +1511,15 @@ void kmain(void) {
         }
     }
 #endif
-    bool hsw_candidate = cmdline_has_token(cmdline,"srvros.hsw-candidate=read-only") &&
-        cmdline_tokens_unique(cmdline) && cmdline_has_token(cmdline,"srvros.capture=haswell-backing") &&
+    bool hsw_isolated = cmdline_tokens_unique(cmdline) && cmdline_has_token(cmdline,"srvros.capture=haswell-backing") &&
         cmdline_has_token(cmdline,"srvros.storage=ram") && cmdline_has_token(cmdline,"srvros.capture-failure=reboot") &&
         cmdline_has_token(cmdline,"srvros.hsw-cpu-control=read-only") &&
         cmdline_has_token(cmdline,"srvros.hsw-fences=linux-model-32");
+    bool hsw_candidate = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-candidate=read-only");
+    bool hsw_survey = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-survey=read-only");
+    bool hsw_preinit = hsw_candidate || hsw_survey;
     bool init_ready = false;
-    int64_t init_pid = (hsw_candidate || live_vtd) ? -1 : process_spawn_background_elf_args_quiet("/init", (http_child_trial || wifi_http5_trial || wifi_http_reconnect5_trial || wifi_desktop_owner_trial)?"--network-probe":"--system");
+    int64_t init_pid = (hsw_preinit || live_vtd) ? -1 : process_spawn_background_elf_args_quiet("/init", (http_child_trial || wifi_http5_trial || wifi_http_reconnect5_trial || wifi_desktop_owner_trial)?"--network-probe":"--system");
     if (init_pid >= 0) {
         (void)process_set_reaper((uint64_t)init_pid);
         console_printf("init: started pid=%u\n", (uint64_t)init_pid);
@@ -1526,7 +1528,7 @@ void kmain(void) {
         init_ready = ready;
         console_printf("init: readiness=%s elapsed_us=%u\n", ready ? "ready" : (timer_running ? "timeout-or-exit" : "clock-unavailable"),
             timer_monotonic_us() - init_start);
-    } else if (!(hsw_candidate || live_vtd)) {
+    } else if (!(hsw_preinit || live_vtd)) {
         console_write("init: start failed\n");
     }
     http_child_preflight_enable(http_child_trial && init_ready && timer_running);
@@ -1885,11 +1887,11 @@ void kmain(void) {
             console_write("hsw-firmware: ordinary-kernel refused\n");sampled=false;
 #endif
         }
-        if(automatic_hsw && started && (init_ready || hsw_candidate) && timer_running) {
+        if(automatic_hsw && started && (init_ready || hsw_preinit) && timer_running) {
 #ifdef SRVROS_AP_PROBE
             sampled=platform_haswell_backing_run(cmdline_has_token(cmdline,"srvros.hsw-cpu-control=read-only"),cmdline_has_token(cmdline,"srvros.hsw-fences=linux-model-32"),hsw_candidate,
-                hsw_candidate && cmdline_has_token(cmdline,"srvros.hsw-access=read-only"),
-                hsw_candidate && cmdline_has_token(cmdline,"srvros.hsw-boot-slot=read-only"));
+                hsw_preinit && cmdline_has_token(cmdline,"srvros.hsw-access=read-only"),
+                hsw_preinit && cmdline_has_token(cmdline,"srvros.hsw-boot-slot=read-only"),hsw_survey);
 #else
             console_write("hsw-backing: ordinary-kernel refused\n");sampled=false;
 #endif

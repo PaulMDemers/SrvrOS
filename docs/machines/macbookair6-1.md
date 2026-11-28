@@ -174,6 +174,13 @@ in 20.063 ms and the read-only alias retired. Both samples decoded to
 `0x8da00000`, the backing address of Pipe A's first framebuffer page in
 both complete backing vectors. Keep the populated slot protected.
 
+The next PR567 checkpoint surveys four fixed GGTT table pages outside the
+inherited fence and protected slots 4096 and 16385. The Haswell backing
+adapter will compare two read-only passes with the inherited Pipe A surface
+active and release every temporary alias. Air7,2 PR301 at `bb459b98` retains
+its independent boot-owner scope. The survey records candidate observations
+for follow-up and grants no range ownership.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

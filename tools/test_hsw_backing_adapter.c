@@ -141,8 +141,47 @@ static void boot_slot_tests(void) {
  candidate_setup();hsw_vmm_unmap_fail=1;
  assert(!hsw_candidate_observe_access(false,true) && hsw_window_poison && hsw_window_live);
 }
+static void survey_setup(void) {
+ candidate_setup();
+ memset(&hsw_survey,0,sizeof(hsw_survey));
+ survey_reads=survey_route_drop_at=0;
+ survey_drift=survey_ones=false;
+}
+static void survey_tests(void) {
+ survey_setup();
+ hsw_survey_window=0x208000;
+ uint32_t word;
+ assert(!hsw_map(NULL,0x204000) && !hsw_map(NULL,0x210000));
+ assert(hsw_map(NULL,0x208000));
+ assert(!hsw_read(NULL,0x207ffc,&word) && !hsw_read(NULL,0x209000,&word) && hsw_unmap(NULL));
+ hsw_survey_window=0;
+ survey_setup();survey_drift=true;
+ assert(!hsw_survey_run() && hsw_survey.status==HSW_SURVEY_CHANGED && survey_reads==4097);
+ assert(hsw_survey.pass[1].retired==1 && !hsw_window_live);
+ survey_setup();survey_ones=true;
+ assert(!hsw_survey_run() && hsw_survey.status==HSW_SURVEY_ACCESS && survey_reads==1 && !hsw_window_live);
+ survey_setup();candidate_late=true;
+ assert(!hsw_survey_run() && hsw_survey.status==HSW_SURVEY_DEADLINE && survey_reads==4096);
+ survey_setup();survey_route_drop_at=1024;
+ assert(!hsw_survey_run() && hsw_survey.status==HSW_SURVEY_ACCESS && survey_reads==1024);
+ assert(hsw_survey.pass[0].retired==1 && !hsw_window_live);
+ survey_setup();candidate_frozen=true;
+ assert(!hsw_survey_run() && hsw_survey.status==HSW_SURVEY_CHANGED && survey_reads==8192 && !hsw_window_live);
+ survey_setup();hsw_vmm_unmap_fail=1;
+ assert(!hsw_survey_run() && hsw_survey.status==HSW_SURVEY_RETAINED && survey_reads==1024);
+ assert(hsw_window_poison && hsw_window_live && !hsw_survey.pass[0].retired);
+}
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"survey")) {
+  survey_tests();
+  survey_setup();assert(hsw_survey_run() && survey_reads==8192 && candidate_frames==2);
+  assert(hsw_vmm_maps==18 && hsw_vmm_unmaps==18 && !hsw_window_live);
+  hsw_emit=1;hsw_report();hsw_survey_report();
+  puts("laptop-capture: boot options=srvros.hsw-survey=read-only");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"boot-slot")) {
   boot_slot_tests();
   candidate_setup();assert(hsw_candidate_observe_access(false,true) && candidate_ptes==2);

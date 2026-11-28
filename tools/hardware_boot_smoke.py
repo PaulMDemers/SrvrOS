@@ -308,7 +308,7 @@ def main():
         assert not any(t in config for t in ("srvros.wifi-join5=1","srvros.wifi-eapol5=1","srvros.wifi-wpa5=1","srvros.wifi-data5=1","srvros.wifi-provider5=1","srvros.wifi-reuse5=1"))
 
     hfw_capture=bool(probe and manifest["config_version"].startswith(HFW_PROFILES))
-    hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-","ram-usb-v4-hsw-","ram-usb-v5-hsw-","ram-usb-v6-hsw-")))
+    hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-","ram-usb-v4-hsw-","ram-usb-v5-hsw-","ram-usb-v6-hsw-","ram-usb-v7-hsw-")))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     if args.ap_c3_sim and not coord_capture: parser.error("C3 simulation requires coordinated diagnostic stage")
@@ -732,7 +732,7 @@ def main():
                         result=backing_result(exit_log)
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         if manifest['config_version'].startswith('ram-usb-v2-hsw-'):assert result['source_version']==2
-                        if manifest['config_version'].startswith(('ram-usb-v3-hsw-', 'ram-usb-v4-hsw-', 'ram-usb-v5-hsw-', 'ram-usb-v6-hsw-')):
+                        if manifest['config_version'].startswith(('ram-usb-v3-hsw-', 'ram-usb-v4-hsw-', 'ram-usb-v5-hsw-', 'ram-usb-v6-hsw-', 'ram-usb-v7-hsw-')):
                             assert result['source_version']==3
                         if manifest['config_version'].startswith(('ram-usb-v4-hsw-', 'ram-usb-v5-hsw-', 'ram-usb-v6-hsw-')):
                             from hardware_haswell_candidate import candidate_result
@@ -744,6 +744,12 @@ def main():
                             access = access_result(exit_log)
                             assert access and access['status']=='REFUSED' and not access['fbc_maps']
                             assert 'hsw-firmware-progress:' not in text
+                        if manifest['config_version'].startswith('ram-usb-v7-hsw-'):
+                            from hardware_haswell_survey import survey_result
+                            survey = survey_result(exit_log)
+                            assert survey and survey['status']=='REFUSED'
+                            assert all(not p['reads'] and not p['maps'] for p in survey['passes'])
+                            assert 'hsw-survey-progress:' not in text and 'init: started' not in text
                         assert 'hsw-backing-progress: exact Air6,1' in exit_log
                         assert 'laptop-capture: completed=NO' in exit_log
                     if ap_capture:
