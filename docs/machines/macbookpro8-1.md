@@ -730,6 +730,19 @@ candidate adds one Request retransmission for the local BCM4331 trial
 within the existing paced DHCP scope and deadline. Shared DHCP parsing,
 lease checks and the policies of other callers are preserved.
 
+Release `c809111f83871175` (`f4725bbe`) passed the automatic local
+receive-gap test. The MacBook completed WPA2 and DHCP on the first
+Request and received 14 of 14 baseline gateway replies. The driver
+dropped 278 received frames over 15.009 seconds. During the gap the AP
+acknowledged the radio transmission of a gateway probe, and SrvrOS
+received no IP reply. Reception then resumed and all five gateway
+probes replied on the original association and lease. All 29 radio
+transmissions were acknowledged, and the provider and DMA retired.
+Both flash reports matched their checksums. The offline allocation check
+passed with 218 files and no leaks. Ubuntu returned and the collector
+removed the temporary private payload. The access point stayed online,
+so reacquisition after an access-point shutdown remains open.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
@@ -1747,7 +1760,7 @@ Offline allocation passed for 143 files with zero writes.
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
-| Wi-Fi | Settings Connect, Disconnect, and reconnect passed on BCM4331 against `Demers2.4` in `d6defd5b7a97090b`. Both sessions completed WPA2 and DHCP, received 14 gateway replies, and saved both reports | Qualify recovery after link loss |
+| Wi-Fi | Settings Connect, Disconnect, and reconnect passed on BCM4331 against `Demers2.4` in `d6defd5b7a97090b`. The original association resumed gateway traffic after a 15-second driver receive gap in `c809111f83871175`. Both trials saved both reports | Qualify reacquisition after an access-point or RF outage |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native
