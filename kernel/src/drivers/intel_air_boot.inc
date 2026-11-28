@@ -1,6 +1,7 @@
 /* Only the Air7,2 full-GT diagnostic consumes this same-boot EFI record. */
 #include <srvros/air_gpu_boot.h>
 static struct air_gpu_boot air_boot;
+static struct air_gpu_boot air_boot_candidate;
 static bool air_boot_buffer;
 static const char *air_import_status;
 static unsigned air_oem_tables;
@@ -116,8 +117,7 @@ static bool air_valid_record(const struct air_gpu_boot *r)
 static const char *air_transport;
 static void air_boot_import(void)
 {
-    struct air_gpu_boot candidate;
-    bool found=false;
+    const struct air_gpu_boot *candidate=NULL;
     air_oem_tables=0;
     air_transport="none";
     air_import_status="absent";
@@ -128,12 +128,11 @@ static void air_boot_import(void)
     if (config) {
         air_transport="uefi";
         air_import_status="configuration-record";
-        const struct air_gpu_boot *record=air_read_span(config,sizeof(candidate),LIMINE_MEMMAP_ACPI_NVS);
-        if (!record || !pmm_frame_has_tag(config,PMM_FRAME_RESERVED)) return;
-        candidate=*record;
-        if (!air_valid_record(&candidate) || config<AIR_BOOT_FRAMES*4096 ||
-            candidate.ram!=config-AIR_BOOT_FRAMES*4096) return;
-        found=true;
+        const struct air_gpu_boot *record=air_read_span(config,sizeof(*candidate),LIMINE_MEMMAP_ACPI_NVS);
+        if (!record || !pmm_frame_has_tag(config,PMM_FRAME_RESERVED) || config<AIR_BOOT_FRAMES*4096) return;
+        __builtin_memcpy(&air_boot_candidate,record,sizeof(air_boot_candidate));
+        if (!air_valid_record(&air_boot_candidate) || air_boot_candidate.ram!=config-AIR_BOOT_FRAMES*4096) return;
+        candidate=&air_boot_candidate;
     }
     for (uint64_t i=0;i<acpi_table_count();i++) {
         const struct acpi_table_info *t=acpi_table_at(i);
@@ -141,19 +140,21 @@ static void air_boot_import(void)
         ++air_oem_tables;
         if (t->length!=sizeof(air_boot) && t->length!=__builtin_offsetof(struct air_gpu_boot,display_branch) &&
             t->length!=__builtin_offsetof(struct air_gpu_boot,protocol_counts)) continue;
-        struct air_gpu_boot record={0};
-        __builtin_memcpy(&record,pmm_phys_to_virt(t->physical_address),t->length);
-        if (record.length!=t->length) continue;
-        if (__builtin_memcmp(record.oem,"SRVROS",6) || __builtin_memcmp(record.table_id,"BDWBOOT1",8)) continue;
-        if (found) { air_import_status="duplicate"; return; }
+        const uint8_t *record=pmm_phys_to_virt(t->physical_address);
+        uint32_t length;
+        __builtin_memcpy(&length,record+__builtin_offsetof(struct air_gpu_boot,length),sizeof(length));
+        if (length!=t->length) continue;
+        if (__builtin_memcmp(record+__builtin_offsetof(struct air_gpu_boot,oem),"SRVROS",6) ||
+            __builtin_memcmp(record+__builtin_offsetof(struct air_gpu_boot,table_id),"BDWBOOT1",8)) continue;
+        if (candidate) { air_import_status="duplicate"; return; }
         air_transport="acpi";
         air_import_status="invalid";
-        if (!air_valid_record(&record)) return;
-        candidate=record;
-        found=true;
+        __builtin_memcpy(&air_boot_candidate,record,t->length);
+        if (air_boot_candidate.length!=t->length || !air_valid_record(&air_boot_candidate)) return;
+        candidate=&air_boot_candidate;
     }
-    if (!found) return;
-    air_boot=candidate;
+    if (!candidate) return;
+    __builtin_memcpy(&air_boot,candidate,candidate->length);
     air_import_status="reservation";
     if (!air_boot_reserved()) return;
     air_boot_buffer=air_boot_pristine();
@@ -202,7 +203,7 @@ static void air_boot_inventory_report(void)
         unsigned n=air_boot.protocol_counts[role];
         if (!n) continue;
         char encoded[4*((AIR_BOOT_PROTOCOL_LIMIT*16+2)/3)+1];
-        entry_requester_base64(air_boot.handle_protocol_ids[role][0],n*16,encoded);
+        entry_requester_base64((const uint8_t *)&air_boot.handle_protocol_ids[role],n*16,encoded);
         console_printf("intel-efi-handle-guids: v=1 role=%u data=%s\n",(uint64_t)role,encoded);
     }
 }
