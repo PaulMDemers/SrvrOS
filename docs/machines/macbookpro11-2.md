@@ -405,6 +405,20 @@ Both sibling desktop regressions, 329 boot and trial tests, and all five
 exact-image VM rehearsals passed.
 Run record `build/bringup/pro112-rtl8822bu-rx-admission/run.json`.
 
+Physical session `session-0006614dce2b0ce8-00` verified all captured
+MAC filters, DMA arbitration, `CR=0x9a`, `TXPAUSE=0xff`, and LLT ready
+(`0x03000030`). Over 333.129 ms the PHY counted 71 valid CRCs (24 CCK,
+37 OFDM and 10 HT). RX DMA stayed idle (`RXPKT_NUM=0x00020000`) with
+zero packet count and pointer movement. The 32 KiB IN request remained
+pending at the same xHCI dequeue position and completed neither during
+the wait nor the closing sample. The common MAC filter and FIFO changes
+leave the receive stall unresolved. Compare the remaining MAC enable
+and initialization differences against the Linux trace while preserving
+the transmit gate. Both logs agree, the endpoint and radio retired
+safely, all 690 workspace files matched, and Ubuntu returned
+automatically. The verified payload and logs are in
+`evidence-5c9a82d1e9c3718a` in the recovery archive.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
