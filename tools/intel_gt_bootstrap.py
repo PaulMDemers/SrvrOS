@@ -278,7 +278,7 @@ def bootstrap_result(text,*,native=False):
     if flush:
         from intel_gt_flush import boot_page_preflight_result, flush_result, pipe_writer_result
         flush_proof=flush_result(text,s,r,range_proof['summary'],primary_proof['summary'],retire,memory_proof['summary'],range_proof.get('widi_messages'))
-        boot_page = boot_page_preflight_result(text,s,range_proof,primary_proof,flush_proof)
+        boot_page = boot_page_preflight_result(text,s,range_proof,primary_proof,flush_proof,timing['hardware_phase'])
         if boot_page is not None:
             flush_proof['boot_page_preflight'] = boot_page
         pipe_writer = pipe_writer_result(text,s,primary_proof,aux_proof,retire)

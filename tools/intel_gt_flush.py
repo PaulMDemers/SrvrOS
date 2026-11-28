@@ -30,7 +30,7 @@ DRIVER_CLOSE_STEPS = (
 )
 
 
-def driver_range_close(line, sample, parent, baseline, frame_before):
+def driver_range_close(line, sample, parent, baseline, frame_before, phase_us):
     panel = ('frame', 'plane', 'programmed', 'live')
     close = fields(line, DRIVER_CLOSE_PREFIX, ('v', 'attempted', 'passed', 'panel_words', *panel, 'smi'), panel)
     attempted, passed, count = (close[k] for k in ('attempted', 'passed', 'panel_words'))
@@ -49,7 +49,7 @@ def driver_range_close(line, sample, parent, baseline, frame_before):
                 16: close['smi'] == parent['smi0'], 18: sample['a0'] == sample['a2'],
                 19: sample['b0'] == sample['b2'], 20: sample['a0'] == sample['b0'],
                 21: sample['a1'] == sample['b1'], 22: not sample['live'],
-                23: sample['end'] > sample['begin'], 24: sample['end'] - parent['begin'] <= 100000}
+                23: sample['end'] > sample['begin'], 24: sample['end'] - parent['begin'] <= phase_us}
     if any(ok != (step <= passed) for step, ok in expected.items() if step <= attempted):
         raise ValueError('Driver range closing evidence disagrees with its checks')
     return dict(raw=close, checks=dict(zip(DRIVER_CLOSE_STEPS,
@@ -58,7 +58,7 @@ def driver_range_close(line, sample, parent, baseline, frame_before):
                 first_failure=DRIVER_CLOSE_STEPS[passed] if passed < attempted else None)
 
 
-def driver_range_preflight_result(rows, traffic_rows, close_rows, parent, baseline, frame_before):
+def driver_range_preflight_result(rows, traffic_rows, close_rows, parent, baseline, frame_before, phase_us):
     if not rows:
         if traffic_rows or close_rows:
             raise ValueError('Driver range preflight missing traffic bracket')
@@ -112,7 +112,7 @@ def driver_range_preflight_result(rows, traffic_rows, close_rows, parent, baseli
     if sample['v'] == 3:
         if len(close_rows) != 1:
             raise ValueError('Driver range closing receipt count')
-        report['closing'] = driver_range_close(close_rows[0], sample, parent, baseline, frame_before)
+        report['closing'] = driver_range_close(close_rows[0], sample, parent, baseline, frame_before, phase_us)
         traffic_open = any((s['raw']['gam'] | s['raw']['reply']) & GAM_GO_MASK or s['widi_go'] or
                            any(s['raw'][engine] & 0x10 for engine in ENGINES) for s in traffic)
         reason = ('traffic_open' if traffic_open else 'no_owned_request' if report['traffic']['bracket_complete']
@@ -123,7 +123,7 @@ def driver_range_preflight_result(rows, traffic_rows, close_rows, parent, baseli
     return report
 
 
-def boot_page_preflight_result(text, parent, range_proof, primary, flush):
+def boot_page_preflight_result(text, parent, range_proof, primary, flush, phase_us):
     prefix = 'intel-boot-page-'
     lines = text.splitlines()
     rows = [line for line in lines if line.startswith(prefix)]
@@ -171,7 +171,7 @@ def boot_page_preflight_result(text, parent, range_proof, primary, flush):
             raise ValueError('Boot page preflight surface or sample')
         wireless.append(sample)
     frame_delta = (wireless[1]['frame'] - wireless[0]['frame']) & 0xffffffff if stage >= 4 else None
-    if stage == 5 and (not 0 < end - begin <= 100000 or (maps, retired, reads) != (4, 4, 19) or summary['live'] or
+    if stage == 5 and (not 0 < end - begin <= phase_us or (maps, retired, reads) != (4, 4, 19) or summary['live'] or
                        summary['smi0'] != summary['smi1'] or summary['smi0'] != (flush['smi_guard'] or {}).get('first') or
                        frame_delta > 8 or translation['high0'] != translation['high1'] or
                        (translation['high0'] << 32 | translation['low']) != range_proof['vectors'][1][-1]):
@@ -193,7 +193,7 @@ def boot_page_preflight_result(text, parent, range_proof, primary, flush):
         raise ValueError('Driver range preflight version or missing record')
     driver_range = driver_range_preflight_result(driver_rows, traffic_rows, close_rows, summary,
                                                 primary['vectors'][1][30:33] if driver_rows else (),
-                                                wireless[0]['frame'] if wireless else None)
+                                                wireless[0]['frame'] if wireless else None, phase_us)
     if driver_range is not None and 'traffic' in driver_range:
         pinned = range_proof.get('scanout_backing_guard', {}).get('physical')
         pte = driver_range['pte']

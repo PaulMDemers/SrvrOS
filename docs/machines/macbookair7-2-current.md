@@ -812,6 +812,22 @@ closing checks, their USB receipt and the paired parser and host fixture.
 It uses the same pinned scanout and read-only traffic observations. The
 report distinguishes explicit open-client evidence from an unverified drain.
 
+Release `d5c1ff8a3445cc4c` at `a6f88f77` saved the closing checks and
+timing report in USB session `session-000661527aa07a8d-00`. The first 23
+checks passed. The final phase limit failed at 18.567 ms against 10 ms, with
+17.650 ms inside the driver-slot bracket. The original scanout stayed
+pinned at `0x8c001000`, Pipe A advanced one frame with stable surface
+registers, and both reads of slot 16385 returned `0x8c001001`. The six
+temporary aliases retired. PCI bus mastering stayed inhibited and the
+bootstrap owner was retained. SrvrOS wrote no GPU PTEs.
+
+Both powered packets showed open GAM and engine requests, WiDi GO set
+and zero engine or L3 flush acknowledgements. Inherited GPU traffic drain
+remains unverified. Ubuntu verified a clean offline exFAT check and all
+four file hashes. The first collection used the 100 ms GT budget for the
+closing check. The corrected parser uses the 10 ms limit from the
+validated receipt and can replay the same raw bytes without a reboot.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

@@ -41,9 +41,9 @@ and four retired traffic-register aliases. The collector compares the slot
 with the first pinned framebuffer page. These read-only observations do not
 establish fresh acknowledgements from a driver request or grant a write.
 Version 3 records each closing check through the first failure, including
-the raw closing panel values and sampled SMI count. It reports explicitly
-whether any hardware client was still open. Older manifests keep their
-original receipt interpretation.
+the raw closing panel values and sampled SMI count. The collector checks the
+closing elapsed time against the receipt's validated 10 ms hardware phase
+limit. It reports explicitly whether any hardware client was still open.
 
 The Air7,2 `intel-private-range-v1` profile selects `--intel-private-range`.
 It uses the range probe's two existing deadlines and the common display and

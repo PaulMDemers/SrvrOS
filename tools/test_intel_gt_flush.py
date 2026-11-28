@@ -162,7 +162,8 @@ class FlushAcknowledgements(unittest.TestCase):
                 ('boot-page-plane', 5, 'panel_live_surface'),
                 ('driver-close-frame', 5, 'panel_frame_delta'),
                 ('boot-page-smi', 5, 'smi_count'),
-                ('driver-page-drift', 2, 'pte_low_match')):
+                ('driver-page-drift', 2, 'pte_low_match'),
+                ('driver-close-phase', 5, 'phase_limit')):
             with self.subTest(mode=mode):
                 failed = driver(observe(mode, position))
                 close = failed['closing']

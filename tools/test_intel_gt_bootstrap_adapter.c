@@ -1114,6 +1114,8 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
     if (bf("boot-page-policy-drift",boot_page_preflight.policy_samples+1)) *out^=1u<<25;
     return true;
    case 0x70040:
+    if (bf("driver-close-phase",boot_page_preflight.stage))
+        ticks += BDW_BOOT_PHASE_US;
     *out=boot_page_preflight.stage==1 ? UINT32_MAX : bf("driver-close-frame",boot_page_preflight.stage) ? 8 : 0;
     return true;
    case 0x70180:
