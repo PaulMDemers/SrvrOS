@@ -1187,7 +1187,7 @@ decoder and feature mode switch, separate from the Air0291 Type3 profile.
 Synthetic protocol/transport tests do not accept physical gestures. Keep the
 last accepted keyboard payload and collect the native session before proceeding.
 
-### MacBookPro8,1 Ethernet link probe
+### MacBookPro8,1 Ethernet trials
 
 The MacBookPro8,1 onboard BCM57765 has a separate unattended
 `tools/hardware_boot.py stage --ehci-ethernet-probe UUID` recipe. Run
@@ -1197,7 +1197,16 @@ the selected EHCI flash workspace connected during the native trial.
 The probe reports controller and PHY identity, carrier, speed and
 duplex, and saves `ehci-ethernet-RELEASE-startup.txt` and
 `ehci-ethernet-RELEASE.txt` under `srvros-work` before returning to
-Ubuntu. Packet exchange requires a separate test.
+Ubuntu.
+
+Use `tools/hardware_boot.py stage --ehci-ethernet-dhcp UUID` for the
+unattended packet trial. The same exact-stage smoke command checks
+foreign-platform refusal, both reports and one-shot return. On the
+MacBook the packet trial verifies an exact MAC loopback frame, disables
+loopback, and runs DHCP on the connected cable. Check TX and RX
+completions, the accepted DHCP Offer and ACK, the configured address
+and router, and verified DMA retirement in the final report. Both
+reports use the same release-specific filenames as the link probe.
 
 ### Prompted Ethernet cable checks
 

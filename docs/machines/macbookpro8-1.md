@@ -365,6 +365,31 @@ then retire the provider and DMA before returning to Ubuntu. It uses a
 single standard receive ring, receive return ring and send ring. The
 startup report is saved before packet DMA is admitted.
 
+Native releases `94abe4b864708a88` and `68a8a7c71f096dcc` refused
+before enabling packet DMA. The second run isolated the refusal to the
+firmware's SRAM window selector, which was left at `0x0c04` with the
+packet engines idle. Both reports from each run verified after Ubuntu
+returned. The retry accepts that exact selector and restores it after
+each indirect SRAM access.
+
+Source `3db072e0`, release `4236ecafdcb7e339`, passed the native
+packet and DHCP trial. The MAC loopback returned the exact 60-byte frame
+with one TX and one RX completion. After loopback was disabled, the
+existing stack completed one Discover, Offer, Request and ACK on the
+wired link and configured IPv4 and a default router. DHCP took 1,846 µs
+in the bounded poll. Across both phases, all three TX and three RX
+descriptors completed, with zero drops and zero reported read/write
+DMA errors. The trial retired the provider, stopped bus mastering and
+released the DMA allocation. The exact-stage VM confirmed refusal on
+foreign hardware, both USB reports and one-shot return.
+
+Ubuntu verified both native reports and the retained recovery payloads.
+The read-only exFAT check passed with 166 files and 174 clusters. Earlier
+workspace files were preserved. All trial payloads and reports are
+archived outside `build`. This is an opt-in polled boot trial. Ordinary
+desktop networking and link loss/reconnect remain separate acceptance
+work.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
@@ -1381,7 +1406,7 @@ Offline allocation passed for 143 files with zero writes.
 | Audio | Built-in right speaker and stream teardown verified on `024a87e1e8d4bf42`. This unit has a broken left speaker | Qualify audible left-channel output with working hardware |
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
-| Wired Ethernet | BCM57765 PCI/PHY identity and 1 Gb/s full-duplex carrier verified on `c12c6db3391e7bc4` | Qualify transmit, receive, DMA retirement and network stack integration |
+| Wired Ethernet | BCM57765 1 Gb/s full-duplex carrier, exact TX/RX loopback, cable DHCP and DMA retirement verified on `4236ecafdcb7e339` | Qualify sustained desktop networking and cable reconnect |
 | Wi-Fi | Linux inventory captured | Qualify the native BCM4331 provider |
 
 The local host checkpoint, exact VM evidence and first console return are in
