@@ -353,7 +353,8 @@ static unsigned dependency_reports,hda_reports,dry_reports;
 void console_printf(const char *fmt,...) {
     if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13) || !strncmp(fmt,"hsw-access",10) ||
        !strncmp(fmt,"hsw-live",8) || !strncmp(fmt,"hsw-survey",10) || !strncmp(fmt,"hsw-sweep",9) ||
-       !strncmp(fmt,"hsw-ownership",13) || !strncmp(fmt,"hsw-engine-prereqs",18) ||
+       !strncmp(fmt,"hsw-ownership",13) || !strncmp(fmt,"hsw-requester-hold:",19) ||
+       !strncmp(fmt,"hsw-engine-prereqs",18) ||
        !strncmp(fmt,"hsw-forcewake",13) || !strncmp(fmt,"hsw-engine-drain",16) ||
        !strncmp(fmt,"hsw-exclusion-",14) || !strncmp(fmt,"hsw-handoff-",12)) {
         if(!hsw_emit)return;
