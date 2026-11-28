@@ -507,6 +507,15 @@ and Ubuntu return verified. The retry uses a bounded D11 reset to clear
 the inherited device state and verifies the HT and PLL clocks before
 loading the same microcode.
 
+Release `6a13ab07775b6428` passed the D11 reset and clock checks and
+bootstrapped the complete pinned microcode. The PSM raised a fresh MAC
+suspend event and returned firmware revision `784.2`. It halted with the
+MAC disabled and PCI bus mastering fenced. Both USB reports verified,
+the workspace allocation check passed with 186 files, and Ubuntu resumed
+with both links up. The next native checkpoint is HT PHY and radio
+initialization and passive receive on channel 10. Association, WPA2 and
+interface-bound DHCP and gateway traffic remain to be verified in SrvrOS.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
@@ -1524,7 +1533,7 @@ Offline allocation passed for 143 files with zero writes.
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
-| Wi-Fi | Ubuntu `b43` joined the 2.4 GHz test network and passed interface-bound traffic. SrvrOS verified BCM4331 PCIe, BCMA, HT PHY and board ROM on `81792b9f74d35454` | Qualify firmware startup, then wireless scan and connection |
+| Wi-Fi | Ubuntu `b43` joined the 2.4 GHz test network. SrvrOS verified BCM4331 topology, HT PHY and board ROM, then started and halted D11 microcode `784.2` on `6a13ab07775b6428` | Qualify HT PHY and radio initialization, passive receive and network connection |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native
