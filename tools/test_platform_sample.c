@@ -23,6 +23,11 @@ static bool survey_drift, survey_ones;
 static bool test_ownership, ownership_empty;
 static bool test_engine_prereqs, invalid_wake_ack;
 static unsigned wake_ack_reads, thread_status_reads;
+static bool test_forcewake, forcewake_mapped, forcewake_inactive_model;
+static bool forcewake_acquire_timeout, forcewake_c0_timeout, forcewake_release_timeout;
+static bool forcewake_held_drop, forcewake_unmap_fail, forcewake_clock_fault;
+static bool forcewake_route_drop;
+static uint32_t forcewake_ack, forcewake_stores;
 static bool test_sweep, sweep_max_zeros;
 static unsigned sweep_reads, sweep_stop_at;
 static uint8_t sweep_visits[65536];
@@ -36,6 +41,12 @@ static unsigned dep_change_pch;
 static void dependency_after_read(void);
 static uint64_t platform_test_tsc(void) {return ++test_ticks;}
 static uint32_t platform_test_read(unsigned off) {
+    if(test_forcewake && off==0x5c) {
+        assert(forcewake_stores==1 && forcewake_ack==1);
+        thread_status_reads++;
+        if(forcewake_route_drop)candidate_bad_route=true;
+        return forcewake_c0_timeout?3:0;
+    }
     if(test_engine_prereqs && off==0x5c){thread_status_reads++;return 0;}
     assert(off==0x60 || off==0x108);reads++;
     return off==0x60?3:rc++;
@@ -96,6 +107,11 @@ static unsigned mapping_hole,mapping_disjoint,map_walks;
 static bool test_hsw_translate(uint64_t,uint64_t *);
 uint64_t vmm_kernel_address_space(void) {return 0x1000;}
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
+    if(test_forcewake && va==HSW_WAKE_REQUEST_VA) {
+        assert(space==0x1000);
+        if(forcewake_mapped)*pa=gpu_base+HSW_WAKE_REQUEST_PAGE;
+        return forcewake_mapped;
+    }
     assert(space==0x1000);if(va==HWB_VA)return test_hsw_translate(va,pa);map_walks++;
     if(mapping_hole && map_walks==mapping_hole)return false;
     *pa=va-0xffff800000000000ull+(mapping_disjoint && map_walks==mapping_disjoint?4096:0);return true;
@@ -116,7 +132,10 @@ uint32_t pci_read_config32(const struct pci_device *p,uint8_t offset) {
     if(p==hsw_host)return hsw_host_config[offset/4];
     assert((p==gpu || p==pch_device || p==hda_device) && !(offset&3));return p==gpu?pci_config[offset/4]:p==pch_device?pch_config[offset/4]:hda_config[offset/4];
 }
-uint64_t timer_monotonic_us(void) {return ++test_ticks;}
+uint64_t timer_monotonic_us(void) {
+    if(test_forcewake && forcewake_clock_fault && forcewake_stores==1)return 0;
+    return ++test_ticks;
+}
 bool timer_delay_us(uint64_t delay) {
     assert(test_candidate && delay==HSW_CANDIDATE_GAP_US);
     test_ticks+=candidate_late?HSW_CANDIDATE_LIMIT_US:delay;
@@ -141,21 +160,49 @@ uint64_t pci_device_count(void) {return 0;}
 const struct pci_device *pci_device_at(uint64_t i) {(void)i;return NULL;}
 uint64_t vmm_current_address_space(void) {return hsw_test_space;}
 bool vmm_map_page_in_space(uint64_t space,uint64_t va,uint64_t pa,uint64_t flags) {
+    if(va==HSW_WAKE_REQUEST_VA) {
+        assert(test_forcewake && space==0x1000 && !forcewake_mapped &&
+               pa==gpu_base+HSW_WAKE_REQUEST_PAGE &&
+               flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITABLE));
+        assert(hsw_vmm_live && hsw_vmm_pa==gpu_base+HSW_WAKE_ACK_PAGE);
+        forcewake_mapped=true;
+        return true;
+    }
     assert(space==0x1000 && va==HWB_VA && flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE));
     hsw_vmm_maps++;if(hsw_vmm_map_fail)return false;
     assert(!hsw_vmm_live);hsw_vmm_live=true;hsw_vmm_pa=pa;return true;
 }
 bool vmm_unmap_page_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
+    if(va==HSW_WAKE_REQUEST_VA) {
+        assert(test_forcewake && space==0x1000 && forcewake_mapped);
+        if(forcewake_unmap_fail)return false;
+        *pa=gpu_base+HSW_WAKE_REQUEST_PAGE;
+        forcewake_mapped=false;
+        return true;
+    }
     assert(space==0x1000 && va==HWB_VA && hsw_vmm_live);hsw_vmm_unmaps++;
     if(hsw_vmm_unmap_fail)return false;
     *pa=hsw_vmm_pa;hsw_vmm_live=false;return true;
 }
 void platform_test_hsw_endpoint_start(void) {backing_reads=0;map_walks=0;}
+bool display_profile_is_air61(void) {return !forcewake_inactive_model;}
+void platform_test_hsw_forcewake_store(unsigned off,uint32_t value) {
+    assert(test_forcewake && forcewake_mapped && hsw_vmm_live &&
+           hsw_vmm_pa==gpu_base+HSW_WAKE_ACK_PAGE && off==0xa188);
+    assert(forcewake_stores<2 && value==(forcewake_stores?0x10000:0x10001));
+    if(++forcewake_stores==1) {
+        if(!forcewake_acquire_timeout)forcewake_ack=1;
+    } else if(!forcewake_release_timeout) {
+        forcewake_ack=0;
+    }
+}
 uint32_t platform_test_hsw_read(unsigned off) {
     if(hsw_wake_ack_window) {
         assert(test_engine_prereqs && hsw_vmm_live && hsw_vmm_pa==gpu_base+HSW_WAKE_ACK_PAGE);
         assert(off==HSW_WAKE_ACK);
         wake_ack_reads++;
+        if(test_forcewake)
+            return forcewake_held_drop && forcewake_stores==1 && thread_status_reads?0:forcewake_ack;
         return invalid_wake_ack ? UINT32_MAX : 1;
     }
     if(hsw_survey_window) {
@@ -218,7 +265,8 @@ static unsigned dependency_reports,hda_reports,dry_reports;
 void console_printf(const char *fmt,...) {
     if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13) || !strncmp(fmt,"hsw-access",10) ||
        !strncmp(fmt,"hsw-live",8) || !strncmp(fmt,"hsw-survey",10) || !strncmp(fmt,"hsw-sweep",9) ||
-       !strncmp(fmt,"hsw-ownership",13) || !strncmp(fmt,"hsw-engine-prereqs",18)) {
+       !strncmp(fmt,"hsw-ownership",13) || !strncmp(fmt,"hsw-engine-prereqs",18) ||
+       !strncmp(fmt,"hsw-forcewake",13)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {

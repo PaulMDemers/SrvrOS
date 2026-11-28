@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from hardware_haswell_backing import backing_result
+from hardware_haswell_backing import inherited_pipe_a_backing
 from hardware_haswell_live_vtd import _decode_af, _rows
 from hardware_haswell_survey import MASK32, MASK64, _record
 
@@ -48,12 +48,8 @@ def _result(text):
             raise ValueError("incomplete observation")
         return result
 
-    backing = backing_result(text)
     frames = (last-first) & MASK32
-    if (not backing or backing["status"] != "OBSERVED" or backing.get("source_version") != 3
-            or backing["offset"] or backing["count"] != 1056 or backing["tilectl_raw"] != [0,0]
-            or not backing["stolen_range_reserved"] or not backing["all_stolen_candidates"]
-            or any(row["fences"] != [0x00fff02b00000001]+[0]*31 for row in backing["samples"])
+    if (not inherited_pipe_a_backing(text)
             or (count,maps,retired) != (2,2,2) or not 1 <= frames <= 8
             or not 0 < end-begin <= 100000 or rows[1][0]-rows[0][1] < 20000):
         raise ValueError("live observation or backing did not qualify")

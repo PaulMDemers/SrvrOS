@@ -696,6 +696,37 @@ hold, DMA drain and firmware exclusion remain unverified.
 Ubuntu returned with the one-shot consumed. The exit snapshot, installed
 recovery and offline USB check verified.
 
+#### Bounded forcewake acquire and release
+
+The v11 isolated Air6,1 recipe exercises one kernel render forcewake
+request. The exact device, inherited backing, fence and Pipe A route
+must qualify before the request. The probe starts with an all-clear
+ACK at BAR0+`0x130044`. Only the kernel request bit at BAR0+`0xa188`
+is writable through a separate supervisor cache-disabled alias. The
+probe writes `0x00010001` to acquire and `0x00010000` to release.
+Other requests, engine registers, and GGTT slots 4096 and 16385 are
+outside the probe. The ACK alias stays read-only.
+[i915 Haswell wake domain](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_uncore.c#L2106-L2109)
+· [i915 masked request and release](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_uncore.c#L117-L119)
+
+The ACK polls each have a 10 ms budget. The test checks the GT thread
+status bits for C0 within 5 ms of ACK, checks the original display
+route under the request, and reads ACK again before clearing.
+It requires at most 20 ms from request to the clear attempt. After any
+issued request it attempts one clear even on acquisition, clock or
+display failure. If release is uncertain, both aliases stay reserved
+until reboot. Success requires clear ACK, verified retirement of both
+aliases and Pipe A frame progress after a 20 ms post-release gap,
+all inside the existing 100 ms window. This verifies the transient
+kernel request. Requester hold, DMA drain and firmware exclusion
+require separate evidence.
+
+Stage with `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-forcewake`. The
+unattended profile saves the result to the USB workspace and returns
+to Ubuntu. Decode the exit snapshot with
+`tools/hardware_haswell_forcewake.py`.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

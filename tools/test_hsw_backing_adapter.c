@@ -252,8 +252,92 @@ static void engine_prereqs_tests(void) {
  assert(!hsw_engine_prereqs_run() && hsw_survey.status==HSW_SURVEY_RETAINED && !hsw_engine_prereqs.retired);
  assert(hsw_window_poison && hsw_window_live && wake_ack_reads==1 && !thread_status_reads);
 }
+
+static void forcewake_setup(void) {
+ hsw_wake_ack_window=false;
+ test_forcewake=false;
+ engine_prereqs_setup();
+ memset(&hsw_forcewake,0,sizeof(hsw_forcewake));
+ test_forcewake=true;
+ forcewake_mapped=forcewake_inactive_model=forcewake_acquire_timeout=forcewake_c0_timeout=false;
+ forcewake_release_timeout=forcewake_held_drop=forcewake_unmap_fail=forcewake_clock_fault=false;
+ forcewake_route_drop=false;
+ forcewake_ack=forcewake_stores=0;
+}
+
+static void forcewake_cleanup_checked(const char *reason) {
+ assert(!hsw_forcewake_run());
+ assert(!strcmp(hsw_forcewake.failure,reason));
+ assert(hsw_forcewake.stores==2 && forcewake_stores==2 && hsw_forcewake.released);
+ assert(hsw_forcewake.retired==2 && !forcewake_mapped && !hsw_window_live && !candidate_ptes);
+}
+
+static void forcewake_tests(void) {
+ forcewake_setup();
+ hsw_forcewake_backing=true;
+ uint32_t word;
+ hsw_candidate_window=HSW_CANDIDATE_MMIO;
+ assert(hsw_map(NULL,HSW_CANDIDATE_MMIO) &&
+        !hsw_read(NULL,HSW_CANDIDATE_MMIO,&word) && hsw_unmap(NULL));
+ hsw_candidate_window=HSW_BOOT_SLOT_MMIO;
+ assert(hsw_map(NULL,HSW_BOOT_SLOT_MMIO&~4095u) &&
+        !hsw_read(NULL,HSW_BOOT_SLOT_MMIO,&word) && hsw_unmap(NULL));
+ assert(!candidate_ptes);
+ hsw_candidate_window=0;
+ hsw_forcewake_backing=false;
+ forcewake_setup();forcewake_inactive_model=true;
+ assert(!hsw_forcewake_run() && !hsw_forcewake.maps && !forcewake_stores && !wake_ack_reads);
+ forcewake_setup();pci_config[0x44/4]=3;
+ assert(!hsw_forcewake_run() && !forcewake_stores && !wake_ack_reads && !hsw_forcewake.maps);
+ forcewake_setup();forcewake_ack=1;
+ assert(!hsw_forcewake_run() && !forcewake_stores && wake_ack_reads==1 && hsw_forcewake.retired==2);
+ forcewake_setup();forcewake_ack=2;
+ assert(!hsw_forcewake_run() && !forcewake_stores && hsw_forcewake.retired==2);
+ forcewake_setup();forcewake_acquire_timeout=true;
+ forcewake_cleanup_checked("acquire-ack");
+ assert(!thread_status_reads && wake_ack_reads<=HSW_WAKE_ACK_US+3);
+ forcewake_setup();forcewake_c0_timeout=true;
+ forcewake_cleanup_checked("thread-c0");
+ assert(thread_status_reads==HSW_WAKE_C0_US+1);
+ forcewake_setup();forcewake_held_drop=true;
+ forcewake_cleanup_checked("held-ack");
+ forcewake_setup();forcewake_route_drop=true;
+ forcewake_cleanup_checked("held-display");
+ forcewake_setup();candidate_frozen=true;
+ forcewake_cleanup_checked("display");
+ assert(hsw_survey.status==HSW_SURVEY_CHANGED);
+ forcewake_setup();candidate_late=true;
+ forcewake_cleanup_checked("display");
+ assert(hsw_survey.status==HSW_SURVEY_DEADLINE);
+ forcewake_setup();forcewake_release_timeout=true;
+ assert(!hsw_forcewake_run() && hsw_survey.status==HSW_SURVEY_RETAINED &&
+        forcewake_stores==2 && !hsw_forcewake.retired && !hsw_forcewake.released &&
+        forcewake_mapped && hsw_window_live);
+ forcewake_setup();forcewake_clock_fault=true;
+ assert(!hsw_forcewake_run() && hsw_survey.status==HSW_SURVEY_RETAINED &&
+        forcewake_stores==2 && !forcewake_ack && !hsw_forcewake.released && !hsw_forcewake.retired);
+ forcewake_setup();forcewake_unmap_fail=true;
+ assert(!hsw_forcewake_run() && hsw_survey.status==HSW_SURVEY_RETAINED &&
+        forcewake_stores==2 && hsw_forcewake.released && hsw_forcewake.retired==1 &&
+        forcewake_mapped && !hsw_window_live);
+}
+
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"forcewake")) {
+  forcewake_tests();
+  forcewake_setup();
+  assert(hsw_forcewake_run() && forcewake_stores==2 && wake_ack_reads==4 && thread_status_reads==1);
+  assert(hsw_forcewake.maps==2 && hsw_forcewake.retired==2 && hsw_forcewake.released &&
+         candidate_frames==2 && !hsw_window_live && !forcewake_mapped && !candidate_ptes);
+  hsw_emit=1;hsw_report();hsw_forcewake_report();
+  puts("laptop-capture: boot options=srvros.storage=ram srvros.workspace-volume=6ada85bb "
+       "srvros.desktop-release=1234567890abcdef srvros.capture=haswell-backing "
+       "srvros.hsw-cpu-control=read-only srvros.hsw-fences=linux-model-32 "
+       "srvros.hsw-forcewake=acquire-release srvros.capture-failure=reboot");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"engine-prereqs")) {
   engine_prereqs_tests();
   engine_prereqs_setup();assert(hsw_engine_prereqs_run() && wake_ack_reads==2 && thread_status_reads==2);

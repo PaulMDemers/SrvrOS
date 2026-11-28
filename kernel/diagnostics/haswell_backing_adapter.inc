@@ -1,6 +1,7 @@
-/* Existing isolated Air6,1 diagnostic only. Never maps pixels/stolen RAM.
- * New window is supervisor/RO/NX/cache-disabled, kernel-space only, outside
- * the global mapping registry. Uncertain retirement is retained until reset. */
+/* Isolated Air6,1 diagnostic only. Never maps pixels/stolen RAM.
+ * The backing window is supervisor/RO/NX/cache-disabled. The forcewake trial
+ * has a separate write alias for the request register. Neither is shared
+ * through the global mapping registry. Uncertain retirement lasts until reset. */
 #include <srvros/haswell_backing.h>
 #include <srvros/haswell_firmware.h>
 #include <srvros/intel_hsw_ggtt.h>
@@ -18,6 +19,7 @@ static uint64_t hsw_window_pa;
 static uint32_t hsw_candidate_window;
 static uint32_t hsw_survey_window, hsw_survey_window_end;
 static bool hsw_access_window, hsw_wake_ack_window;
+static bool hsw_forcewake_backing;
 static bool hsw_window_live,hsw_window_poison,hsw_firmware,hsw_cpu_control,hsw_linux_fences;
 static bool hsw_safe_range(uint64_t base,uint64_t size,bool reserved) {
  const struct limine_memmap_response *m=memmap_request.response;
@@ -69,6 +71,7 @@ static bool hsw_endpoint(void *ctx,struct hwb_endpoint *e) {
  v[HW_DISPARB]=well_read(0);if(v[HW_DISPARB]==UINT32_MAX)return false;
  struct backing_capture f={0};if(!backing_descriptor(&f))return false;
  for(unsigned i=0;i<9;i++){v[HW_CONTROL+i]=resource_read(backing_offsets[i]);if(v[HW_CONTROL+i]==UINT32_MAX)return false;}
+ if(hsw_forcewake_backing && v[HW_SURF])return false;
  for(unsigned i=0;i<7;i++)v[HW_FB_COUNT+i]=f.fb[i];
  for(unsigned i=0;i<3;i++)v[HW_MEM_BASE+i]=f.entry[i];
  v[HW_PAGES]=f.pages;v[HW_ENTRIES]=f.entries;v[HW_BPP]=f.bpp;
@@ -122,6 +125,7 @@ static bool hsw_read(void *ctx,uint32_t off,uint32_t *v) {
  if(!hsw_window_live || hsw_window_poison || vmm_current_address_space()!=vmm_kernel_address_space() ||
     gpu_base+(off&~4095u)!=hsw_window_pa || (off&3) ||
     (hsw_wake_ack_window && off!=HSW_WAKE_ACK) ||
+    (hsw_forcewake_backing && hsw_survey_protected(off)) ||
     (hsw_survey_window && (off>=hsw_survey_window_end || hsw_survey_protected(off))) ||
     (hsw_candidate_window && !hsw_candidate_read_allowed(off)) ||
     (hsw_window_pa==gpu_base+0x101000 && (!hsw_cpu_control || off!=0x101000)) ||
@@ -171,6 +175,7 @@ static bool hsw_capture_bound(void) {
 #include "haswell_candidate.inc"
 #include "haswell_survey.inc"
 #include "haswell_engine_prereqs.inc"
+#include "haswell_forcewake.inc"
 
 static bool hsw_range_run(enum hsw_range_trial range, bool backing_captured) {
  switch(range) {
@@ -194,6 +199,11 @@ static bool hsw_range_run(enum hsw_range_trial range, bool backing_captured) {
   hsw_engine_prereqs_report();
   return observed;
  }
+ case HSW_RANGE_FORCEWAKE: {
+  bool verified=backing_captured && hsw_forcewake_run();
+  hsw_forcewake_report();
+  return verified;
+ }
  case HSW_RANGE_NONE:
   return false;
  }
@@ -210,6 +220,7 @@ static void hsw_backing_refusal(bool candidate_slot, bool access, bool boot_slot
 static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access,
                             bool boot_slot,enum hsw_range_trial range) {
  hsw_cpu_control=cpu_control;hsw_linux_fences=linux_fences;
+ hsw_forcewake_backing=range==HSW_RANGE_FORCEWAKE;
  hsw_result=(struct hwb_result){.status=2,.version=linux_fences?3:cpu_control?2:1,.fences=linux_fences?32:HWB_FENCES};
  console_write("hsw-backing-progress: exact Air6,1 read-only identity/config preflight\n");
  const struct pci_device *candidate=NULL;

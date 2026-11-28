@@ -37,6 +37,14 @@ def backing_result(text, *, require_completion=True):
     except (ValueError,KeyError,IndexError,struct.error):return None
 
 
+def inherited_pipe_a_backing(text):
+    backing = backing_result(text)
+    return bool(backing and backing["status"] == "OBSERVED" and backing.get("source_version") == 3
+                and (backing["offset"], backing["count"], backing["tilectl_raw"]) == (0, 1056, [0, 0])
+                and backing["stolen_range_reserved"] and backing["all_stolen_candidates"]
+                and all(row["fences"] == [0x00fff02b00000001] + [0] * 31 for row in backing["samples"]))
+
+
 def _parse(text, require_completion):
     lines=[x for x in text.splitlines() if x.startswith('hsw-backing:')]
     if len(lines)!=1:return None

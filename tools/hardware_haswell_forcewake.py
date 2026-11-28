@@ -1,0 +1,96 @@
+"""Check the isolated Haswell kernel forcewake acquire/release receipt."""
+
+import argparse
+import json
+from pathlib import Path
+import re
+
+from hardware_haswell_backing import inherited_pipe_a_backing
+from hardware_haswell_survey import MASK32, MASK64, _record
+
+TOKEN = "srvros.hsw-forcewake=acquire-release"
+REQUIRED = {TOKEN, "srvros.storage=ram", "srvros.capture=haswell-backing",
+            "srvros.hsw-cpu-control=read-only", "srvros.hsw-fences=linux-model-32",
+            "srvros.capture-failure=reboot"}
+FAILURES = {"map", "preflight", "baseline-ack", "request", "acquire-ack", "thread-c0",
+            "held-display", "held-ack", "release-unverified", "alias-retirement", "hold-deadline",
+            "display"}
+
+
+def _result(text):
+    lines = text.splitlines()
+    options = [line.partition("boot options=")[2].split() for line in lines
+               if line.startswith("laptop-capture: boot options=")]
+    for row in options:
+        identity = set(row) - REQUIRED
+        if (len(row) != 8 or not REQUIRED.issubset(row)
+                or sum(bool(re.fullmatch(r"srvros.workspace-volume=[0-9a-f]{8}", t)) for t in identity) != 1
+                or sum(bool(re.fullmatch(r"srvros.desktop-release=[0-9a-f]{16}", t)) for t in identity) != 1):
+            raise ValueError("isolated forcewake profile")
+    if not options:
+        raise ValueError("missing forcewake profile")
+    summary, = [line for line in lines if line.startswith("hsw-forcewake:")]
+    state, reason, *counts = _record(summary,
+        r"hsw-forcewake: v=1 status=([0-5]) reason=([a-z-]+) maps=([0-2]) retired=([0-2]) "
+        r"stores=([0-2]) released=([01]) frames=(\d+),(\d+) ring_reads=0 protected_reads=0 "
+        r"requester_hold=unverified")
+    state = int(state)
+    maps, retired, stores, released, first, last = map(int, counts)
+    proof, = [line for line in lines if line.startswith("hsw-forcewake-proof:")]
+    begin, request, ack, c0, clear, release, end, baseline, acquired, thread, held, final = map(int,
+        _record(proof, r"hsw-forcewake-proof: begin=(\d+) request=(\d+) ack=(\d+) c0=(\d+) "
+                       r"clear=(\d+) release=(\d+) end=(\d+) baseline=(\d+) acquired=(\d+) "
+                       r"thread=(\d+) held=(\d+) final=(\d+)"))
+    if (retired > maps or stores and maps != 2 or max(first, last, baseline, acquired, thread, held, final) > MASK32
+            or not 0 <= begin <= end <= MASK64 or max(request, ack, c0, clear, release) > MASK64):
+        raise ValueError("forcewake receipt extent")
+    if released and (stores != 2 or final or not 0 < clear <= release <= clear + 10000):
+        raise ValueError("invalid release observation")
+    status = "VERIFIED" if state == 1 else "UNAVAILABLE" if state == 0 else "FAILED"
+    result = dict(status=status, source_status=state, reason=reason, maps=maps, retired=retired,
+                  stores=stores, released=bool(released), frames=[first, last],
+                  clock_us=dict(begin=begin, request=request, ack=ack, c0=c0, clear=clear, release=release, end=end),
+                  raw=dict(baseline=baseline, acquired=acquired, thread=thread, held=held, final=final),
+                  ring_reads=0, protected_reads=0, requester_hold="unverified")
+    complete = lines.count("laptop-capture: completed=yes")
+    if complete and "laptop-capture: completed=NO" in lines:
+        raise ValueError("conflicting completion markers")
+    if state == 0:
+        if reason != "none" or complete or any((maps, retired, stores, released, first, last, begin, request,
+                                                 ack, c0, clear, release, end, baseline, acquired, thread, held, final)):
+            raise ValueError("unavailable forcewake issued operations")
+        return result
+    if state != 1:
+        if reason not in FAILURES or complete or (state != 5 and (retired != maps or (stores and not released))):
+            raise ValueError("failed forcewake cleanup")
+        if reason == "release-unverified" and (state != 5 or retired or released or not stores):
+            raise ValueError("unverified release altered mapping state")
+        return result
+    frames = (last - first) & MASK32
+    if (reason != "none" or complete != 1 or (maps, retired, stores, released) != (2, 2, 2, 1)
+            or (baseline, acquired, held, final) != (0, 1, 1, 0) or thread & 7
+            or not 0 < begin <= request <= ack <= c0 <= clear <= release <= end
+            or request - begin > 50000 or ack - request > 10000 or c0 - ack > 5000
+            or clear - request > 20000 or end - release < 20000 or end - begin > 100000
+            or not 1 <= frames <= 8 or not inherited_pipe_a_backing(text)):
+        raise ValueError("forcewake acquire, release or Pipe A did not qualify")
+    result.update(frame_delta=frames, elapsed_us=end-begin, ack_latency_us=ack-request,
+                  c0_latency_us=c0-ack, release_latency_us=release-clear)
+    return result
+
+
+def forcewake_result(text):
+    try:
+        return _result(text)
+    except ValueError:
+        return None
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("receipt", type=Path)
+    args = parser.parse_args()
+    result = forcewake_result(args.receipt.read_text())
+    if result is None:
+        parser.exit(1, "Invalid Haswell forcewake receipt\n")
+    print(json.dumps(result, indent=2))

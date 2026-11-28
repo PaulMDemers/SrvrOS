@@ -273,6 +273,31 @@ static bool cmdline_tokens_unique(const char *text) {
     return true;
 }
 
+/* Six fixed tokens are checked by the caller. The two remaining tokens
+ * identify the release and evidence volume. Any extra option refuses writes. */
+static bool hsw_forcewake_identity(const char *text) {
+    static const struct { const char *prefix; unsigned digits; } identity[] = {
+        {"srvros.workspace-volume=", 8}, {"srvros.desktop-release=", 16},
+    };
+    unsigned tokens = 0, found = 0;
+    for (const char *p = text; *p;) {
+        while (*p && char_is_separator(*p)) p++;
+        if (!*p) break;
+        const char *end = p;
+        while (!char_is_separator(*end)) end++;
+        tokens++;
+        for (unsigned i = 0; i < 2; i++) {
+            const char *s = p, *prefix = identity[i].prefix;
+            while (s < end && *prefix && *s == *prefix) {s++; prefix++;}
+            if (*prefix || end - s != identity[i].digits) continue;
+            while (s < end && ((*s >= '0' && *s <= '9') || (*s >= 'a' && *s <= 'f'))) s++;
+            if (s == end) found |= 1u << i;
+        }
+        p = end;
+    }
+    return tokens == 8 && found == 3;
+}
+
 
 /* Separate opt-in connection recipe: legacy one-shot dispatch is unchanged.
  * Every staged v138 parent is required, and another Wi-Fi owner cannot piggyback
@@ -1520,7 +1545,10 @@ void kmain(void) {
     bool hsw_sweep = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-sweep=read-only");
     bool hsw_ownership = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-ownership=read-only");
     bool hsw_engine_prereqs = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-engine-prereqs=read-only");
-    bool hsw_preinit = hsw_candidate || hsw_survey || hsw_sweep || hsw_ownership || hsw_engine_prereqs;
+    bool hsw_forcewake_requested = cmdline_has_token(cmdline,"srvros.hsw-forcewake=acquire-release");
+    bool hsw_forcewake = hsw_forcewake_requested && hsw_isolated && hsw_forcewake_identity(cmdline);
+    bool hsw_preinit = hsw_candidate || hsw_survey || hsw_sweep || hsw_ownership ||
+                       hsw_engine_prereqs || hsw_forcewake_requested;
     bool init_ready = false;
     int64_t init_pid = (hsw_preinit || live_vtd) ? -1 : process_spawn_background_elf_args_quiet("/init", (http_child_trial || wifi_http5_trial || wifi_http_reconnect5_trial || wifi_desktop_owner_trial)?"--network-probe":"--system");
     if (init_pid >= 0) {
@@ -1892,10 +1920,12 @@ void kmain(void) {
         }
         if(automatic_hsw && started && (init_ready || hsw_preinit) && timer_running) {
 #ifdef SRVROS_AP_PROBE
-            enum hsw_range_trial range=hsw_engine_prereqs ? HSW_RANGE_ENGINE_PREREQS :
+            enum hsw_range_trial range=hsw_forcewake ? HSW_RANGE_FORCEWAKE :
+                                       hsw_engine_prereqs ? HSW_RANGE_ENGINE_PREREQS :
                                        hsw_ownership ? HSW_RANGE_OWNERSHIP : hsw_sweep ? HSW_RANGE_SWEEP :
                                        hsw_survey ? HSW_RANGE_SURVEY : HSW_RANGE_NONE;
-            sampled=hsw_candidate+hsw_survey+hsw_sweep+hsw_ownership+hsw_engine_prereqs<=1 &&
+            sampled=(!hsw_forcewake_requested || hsw_forcewake) &&
+                hsw_candidate+hsw_survey+hsw_sweep+hsw_ownership+hsw_engine_prereqs+hsw_forcewake<=1 &&
                 platform_haswell_backing_run(cmdline_has_token(cmdline,"srvros.hsw-cpu-control=read-only"),cmdline_has_token(cmdline,"srvros.hsw-fences=linux-model-32"),hsw_candidate,
                 hsw_preinit && cmdline_has_token(cmdline,"srvros.hsw-access=read-only"),
                 hsw_preinit && cmdline_has_token(cmdline,"srvros.hsw-boot-slot=read-only"),range);

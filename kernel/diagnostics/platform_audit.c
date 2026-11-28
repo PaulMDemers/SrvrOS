@@ -1,4 +1,4 @@
-/* Opt-in Haswell Air6,1 audit. No power control, forcewake or mailbox writes. */
+/* Opt-in Haswell Air6,1 audit. Only the isolated forcewake trial can write GT controls. */
 #include <srvros/package_audit.h>
 #include <srvros/pci.h>
 #include <srvros/acpi.h>
@@ -10,6 +10,7 @@
 #include <srvros/power.h>
 #include <stddef.h>
 #include <srvros/display_resource_audit.h>
+#include <srvros/display_profile.h>
 #define GFX_VA 0xffffc001f3200000ull
 #define WELL_VA 0xffffc001f3201000ull
 static struct package_ltr latency[2][PCI_MAX_DEVICES];
