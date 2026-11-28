@@ -249,6 +249,24 @@ reply, refusal paths and existing firmware/USB sibling behavior. Keep
 baseband and RF gated. Carry the same pinned firmware, three hub ports,
 independent EFI journal and workspace evidence into the cold run.
 
+The Ubuntu USB trace reports board ID `0x8129`, RFE type 3, crystal
+trim `0x28` and channel-plan byte `0x34`. The firmware feature reply
+matches USB, VHT, two spatial streams and two antennas. The v3 recipe
+reads the 928-byte unprotected Wi-Fi eFuse area with programming power
+off, decodes the board fields, and acknowledges the feature reply. It
+leaves the radio gated and omits raw eFuse data from the logs. The
+existing firmware-only recipe remains available. Linux references are
+[eFuse reads](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/efuse.c)
+and [chip discovery](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/main.c).
+
+Release `cb159e6b83f08752` on `3b038452` preserves the previously
+verified userspace and boot loader. The native fixture exercises the
+captured cold latch, firmware upload, eFuse addressing, feature reply
+and endpoint retirement with malformed signatures and replies refused.
+Both sibling desktop regressions, 329 boot and trial tests and all five
+exact-image VM rehearsals passed. Collect native board acceptance from
+`build/bringup/pro112-rtl8822bu-board/run.json` before applying PHY tables.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
