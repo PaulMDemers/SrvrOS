@@ -655,6 +655,14 @@ of a writable range remains pending. Ubuntu is at 1% volume with no one-shot
 boot armed.
 [Driver-owned range qualification](../intel-tearfree-roadmap.md#driver-owned-range-qualification)
 
+The takeover range block starts at `3b575888`, with main `24feebdd` and
+the separate Haswell work in PR 567 reviewed. Scope is the Broadwell
+takeover core, its guarded one-page publisher and the paired host/Q35
+fixtures. The takeover will register the exact post-reset candidate and
+keep the same reservation through panel recovery, bind and rollback. The
+native prerequisite remains a verified traffic retirement and a range
+handoff that excludes firmware and the display proxy.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
