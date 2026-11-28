@@ -1288,6 +1288,20 @@ route state, and key retirement. The second epoch must show a fresh
 authenticator nonce. Verify provider and DMA retirement, collect both
 flash reports, and use the same private-payload cleanup on return.
 
+For the attended Settings trial, stage with
+`--ehci-desktop-trial UUID --ehci-desktop-wifi --bcm4331-radio-profile PROFILE
+--bcm4331-station-key PATH`. Use the qualified station profile and a fresh
+private key record. The boot selects the BCM4331 for the single-adapter
+network stack. Text opens the checklist. In Settings, open Wi-Fi, select
+Demers2.4, connect, disconnect, then select the network and connect again.
+Use Ctrl-Alt-Esc to finish and return to Ubuntu.
+
+Verify the two release-matched `ehci-wifi4331-*` reports on the flash
+drive. The final report must show the three requests from Settings,
+two WPA2 and DHCP lifetimes, gateway replies on both, and safe adapter
+retirement. Archive the reports and manifest, restore the credential-free
+boot entry, and remove the private stage and installed payload.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal

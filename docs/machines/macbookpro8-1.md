@@ -661,6 +661,14 @@ desktop boot for this trial while retaining the wired desktop profile and
 Ubuntu recovery. PR #568 carries the device branch. The Pro11,2 USB Wi-Fi
 owner and the graphics and runtime PRs have separate hardware and scope.
 
+Desktop candidate `d6defd5b7a97090b` uses SrvrOS `24738e27` and SrvrApps
+`6818e00`. The exact-release VM opened the Wi-Fi pane from Settings,
+saved both reports, and verified the Ubuntu boot fixture. The VM confirmed
+that the driver refuses a mismatched platform. The MacBook checklist
+opens in Text and covers Connect, Disconnect, and Connect again, followed
+by Ctrl-Alt-Esc. The native run record is
+`build/review/macbookpro8-1-ehci-trial-d6defd5b7a97090b/run.json`.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
