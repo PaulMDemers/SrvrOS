@@ -286,6 +286,14 @@ The exit snapshot, installed recovery, automatic Ubuntu return and
 offline USB check verified. The maintained requester hold and
 firmware handoff remain unavailable.
 
+The next PR567 checkpoint prototypes a boot-local requester admission hold
+for populated slots 24576–24591. Scope is the Haswell ownership diagnostic,
+its staged boot profile and its receipt verifier, starting at `273a9b7d`.
+It checks refusal before and after a no-store observation with Pipe A active.
+Slots 4096 and 16385 remain outside the diagnostic range. Integration head
+`117a0294` and the separate Broadwell drain work in PR301 at `4b1aa8fb` were
+reviewed. Native firmware handoff and hardware drain require separate evidence.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
