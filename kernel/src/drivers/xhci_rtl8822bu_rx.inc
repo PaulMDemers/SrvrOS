@@ -147,6 +147,34 @@ static void bu_rx_parse(struct bu_rx *rx) {
     }
 }
 
+static bool bu_rx_observe(const struct bu_rx *rx,const char *sample) {
+    struct xhci_device *d=rx->device;
+    uint32_t cck_cca,ofdm_cca,cck_crc,ofdm_crc,ht_crc,vht_crc;
+    uint32_t dma_queue,dma_status,dma_pointer,packet_count;
+    /* rtw88 reads these PHY counters before resetting them. Keep both
+     * observations read-only so the collector can compute the deltas. */
+    if(!bu_read(d,0xfcc,4,&cck_cca) || !bu_read(d,0xf08,4,&ofdm_cca) ||
+       !bu_read(d,0xf04,4,&cck_crc) || !bu_read(d,0xf14,4,&ofdm_crc) ||
+       !bu_read(d,0xf10,4,&ht_crc) || !bu_read(d,0xf0c,4,&vht_crc) ||
+       !bu_read(d,0x284,4,&dma_queue) || !bu_read(d,0x288,4,&dma_status) ||
+       !bu_read(d,0x28c,4,&dma_pointer) || !bu_read(d,0x2b0,4,&packet_count)) {
+        console_printf("rtl8822bu-rx-observe: sample=%s ok=0\n",sample);
+        return false;
+    }
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
+    unsigned state=context_read32(d->output_context,BU_RX_DCI,0)&7;
+    uint64_t cursor=context_read32(d->output_context,BU_RX_DCI,2) |
+                    (uint64_t)context_read32(d->output_context,BU_RX_DCI,3)<<32;
+    console_printf("rtl8822bu-rx-phy: sample=%s cca_cck=%u cca_ofdm=%u crc_cck=%x crc_ofdm=%x crc_ht=%x crc_vht=%x\n",
+        sample,(uint64_t)(cck_cca&0xffff),(uint64_t)(ofdm_cca>>16),(uint64_t)cck_crc,
+        (uint64_t)ofdm_crc,(uint64_t)ht_crc,(uint64_t)vht_crc);
+    console_printf("rtl8822bu-rx-dma: sample=%s queue=%x status=%x pointer=%x packets=%x\n",
+        sample,(uint64_t)dma_queue,(uint64_t)dma_status,(uint64_t)dma_pointer,(uint64_t)packet_count);
+    console_printf("rtl8822bu-rx-xhci: sample=%s state=%u dequeue=%x trb=%x pending=%u completed=%u\n",
+        sample,(uint64_t)state,cursor,rx->trb,(uint64_t)rx->pending,(uint64_t)rx->completed);
+    return true;
+}
+
 static bool bu_rx_stop(struct bu_rx *rx) {
     struct xhci_device *d=rx->device;
     if(!rx->configured)return !xhci.command_failed;
@@ -177,7 +205,8 @@ static const char *bu_receive(struct bu_upload *up,bool *retired) {
         bu_write(d,0x60c,1,0x18) && bu_write(d,0x60f,1,4) &&
         bu_write(d,0x608,4,0x90000008u) && bu_write(d,0x6a0,4,1u<<8) && bu_write(d,0x6a4,2,0) &&
         bu_phy_tx_inhibited(d) && bu_write(d,BU_CR,1,BU_RX_CR) && bu_read(d,BU_CR,1,&cr) && cr==BU_RX_CR;
-    if(enabled) {
+    if(enabled)failure="rx-observe";
+    if(enabled && bu_rx_observe(&rx,"before")) {
         console_write("rtl8822bu-rx-progress: sampling channel 10 with MAC transmit disabled\n");
         uint64_t start=timer_monotonic_us();
         bu_rx_post(&rx);
@@ -194,7 +223,12 @@ static const char *bu_receive(struct bu_upload *up,bool *retired) {
             if((spin&255u)==0 && (timer_monotonic_us()-start>=600000u || device_removed(d)))break;
             __asm__ volatile("pause");
         }
-        failure=rx.failed?"rx-event":rx.target?NULL:"no-target";
+        uint64_t elapsed=timer_monotonic_us()-start;
+        unsigned in_window=rx.completed;
+        bool observed=!device_removed(d) && bu_rx_observe(&rx,"after");
+        console_printf("rtl8822bu-rx-window: elapsed_us=%u completed=%u closing=%u observed=%u\n",
+            elapsed,(uint64_t)in_window,(uint64_t)(rx.completed-in_window),(uint64_t)observed);
+        failure=rx.failed?"rx-event":!observed?"rx-observe":rx.target?NULL:"no-target";
     }
     bool gated=bu_write(d,BU_CR,1,0) && bu_phy_tx_inhibited(d);
     bool stopped=bu_rx_stop(&rx);
