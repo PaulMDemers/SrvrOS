@@ -342,6 +342,16 @@ the recovery archive. USB receive and passive discovery remain open.
 Next compare PHY frame and RX FIFO counts across the receive window to
 locate the stall before changing the channel settings or parser.
 
+#### Netgear A6150 receive counters
+
+Continue from `f81f1226` with main `24feebdd`. Keep the channel sequence,
+TX inhibit, MAC filtering and 32 KiB IN request from the physical trial.
+Capture PHY CCA and CRC counters, RX DMA and packet queue registers,
+and the xHCI endpoint state on both sides of the receive wait. Preserve
+the distinction between a transfer completed during the wait and one
+observed during the closing register sample. Keep existing stop and
+EFI journal recovery checks.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
