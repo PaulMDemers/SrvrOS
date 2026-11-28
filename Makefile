@@ -4856,7 +4856,7 @@ build/ap-probe/haswell-backing.o: kernel/diagnostics/haswell_backing_core.c $(ZI
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c kernel/diagnostics/haswell_backing_adapter.inc kernel/diagnostics/haswell_candidate.inc kernel/diagnostics/haswell_survey.inc kernel/diagnostics/platform_backing.inc kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc $(ZIG) $(KERNEL_HEADERS)
+build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c kernel/diagnostics/haswell_backing_adapter.inc kernel/diagnostics/haswell_candidate.inc kernel/diagnostics/haswell_survey.inc kernel/diagnostics/haswell_engine_prereqs.inc kernel/diagnostics/platform_backing.inc kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -4949,7 +4949,7 @@ build/tests/power-platform-host$(HOST_EXE): tools/test_power_service.c kernel/sr
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_AP_PROBE -I kernel/include -I shared/include tools/test_power_service.c kernel/src/drivers/power_core.c -o $@
 
-build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/haswell_backing_adapter.inc kernel/diagnostics/haswell_candidate.inc kernel/diagnostics/haswell_survey.inc kernel/diagnostics/platform_backing.inc kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc kernel/diagnostics/platform_audit.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/haswell_backing_adapter.inc kernel/diagnostics/haswell_candidate.inc kernel/diagnostics/haswell_survey.inc kernel/diagnostics/haswell_engine_prereqs.inc kernel/diagnostics/platform_backing.inc kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc kernel/diagnostics/platform_audit.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
@@ -5459,6 +5459,7 @@ test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing
 	build/tests/hsw-backing-adapter$(HOST_EXE) sweep-max > build/tests/hsw-sweep-max.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) sweep-failed > build/tests/hsw-sweep-failed.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) ownership > build/tests/hsw-ownership-receipt.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) engine-prereqs > build/tests/hsw-engine-prereqs-receipt.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) access > build/tests/hsw-access-receipt.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_access.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_live_vtd.py
@@ -5466,6 +5467,7 @@ test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_survey.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_sweep.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_ownership.py
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_engine_prereqs.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_backing.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_tilectl.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_fences.py
@@ -5483,7 +5485,7 @@ build/ap-probe/intel-hsw-ggtt.o: kernel/diagnostics/intel_hsw_ggtt.c $(ZIG) $(KE
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -Wframe-larger-than=2048 -c $< -o $@
 
-build/tests/hsw-backing-adapter$(HOST_EXE): tools/test_hsw_backing_adapter.c tools/test_platform_sample.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/intel_hsw_ggtt.c kernel/diagnostics/haswell_candidate.inc kernel/diagnostics/haswell_survey.inc kernel/diagnostics/haswell_backing_adapter.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/hsw-backing-adapter$(HOST_EXE): tools/test_hsw_backing_adapter.c tools/test_platform_sample.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/intel_hsw_ggtt.c kernel/diagnostics/haswell_candidate.inc kernel/diagnostics/haswell_survey.inc kernel/diagnostics/haswell_engine_prereqs.inc kernel/diagnostics/haswell_backing_adapter.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_hsw_backing_adapter.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/intel_hsw_ggtt.c -Wl,--gc-sections -o $@
 .PHONY: test-profile-chooser

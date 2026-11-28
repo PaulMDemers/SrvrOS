@@ -21,6 +21,8 @@ static unsigned candidate_frames, candidate_ptes;
 static unsigned survey_reads, survey_route_drop_at;
 static bool survey_drift, survey_ones;
 static bool test_ownership, ownership_empty;
+static bool test_engine_prereqs, invalid_wake_ack;
+static unsigned wake_ack_reads, thread_status_reads;
 static bool test_sweep, sweep_max_zeros;
 static unsigned sweep_reads, sweep_stop_at;
 static uint8_t sweep_visits[65536];
@@ -34,6 +36,7 @@ static unsigned dep_change_pch;
 static void dependency_after_read(void);
 static uint64_t platform_test_tsc(void) {return ++test_ticks;}
 static uint32_t platform_test_read(unsigned off) {
+    if(test_engine_prereqs && off==0x5c){thread_status_reads++;return 0;}
     assert(off==0x60 || off==0x108);reads++;
     return off==0x60?3:rc++;
 }
@@ -149,6 +152,12 @@ bool vmm_unmap_page_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
 }
 void platform_test_hsw_endpoint_start(void) {backing_reads=0;map_walks=0;}
 uint32_t platform_test_hsw_read(unsigned off) {
+    if(hsw_wake_ack_window) {
+        assert(test_engine_prereqs && hsw_vmm_live && hsw_vmm_pa==gpu_base+HSW_WAKE_ACK_PAGE);
+        assert(off==HSW_WAKE_ACK);
+        wake_ack_reads++;
+        return invalid_wake_ack ? UINT32_MAX : 1;
+    }
     if(hsw_survey_window) {
         assert(test_candidate && hsw_vmm_live && hsw_vmm_pa==gpu_base+hsw_survey_window);
         if(test_ownership) {
@@ -209,7 +218,7 @@ static unsigned dependency_reports,hda_reports,dry_reports;
 void console_printf(const char *fmt,...) {
     if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13) || !strncmp(fmt,"hsw-access",10) ||
        !strncmp(fmt,"hsw-live",8) || !strncmp(fmt,"hsw-survey",10) || !strncmp(fmt,"hsw-sweep",9) ||
-       !strncmp(fmt,"hsw-ownership",13)) {
+       !strncmp(fmt,"hsw-ownership",13) || !strncmp(fmt,"hsw-engine-prereqs",18)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {

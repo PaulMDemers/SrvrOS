@@ -225,6 +225,14 @@ advanced two frames, both temporary mappings retired in 25.836 ms,
 and ownership stayed refused. The exit snapshot, installed recovery
 and offline USB check verified after the one-shot returned.
 
+The next PR567 checkpoint brackets Haswell wake acknowledgement, GT
+thread status and IGD requester status while Pipe A scans the inherited
+framebuffer. It uses the existing backing and PCI observation paths,
+with a temporary read-only alias restricted to the wake ACK DWORD.
+Engine registers, protected GGTT slots and hardware controls stay
+outside the probe. Air7,2 PR301 at `cb578981` owns its independent
+occupied-slot handoff work.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

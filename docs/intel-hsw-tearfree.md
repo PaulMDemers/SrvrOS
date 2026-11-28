@@ -635,6 +635,49 @@ engine state were unavailable, and DMA drain and firmware exclusion
 remain unverified. Ubuntu returned with the one-shot consumed. The
 exit snapshot, installed recovery and offline USB check verified.
 
+#### Read-only engine and requester prerequisites
+
+The Haswell i915 profile lists render, video decode, blitter and video
+enhancement engines. Their ring registers require forcewake access.
+The i915 Haswell wake path checks the acknowledgement and waits for
+GT thread C0 to avoid spurious zero reads. A later SrvrOS engine sample
+needs a continuously held awake reference for this exact device and
+domain, with the required thread state and a checked release. The
+comparison supplies register and access rules for the proposed provider.
+[i915 Haswell engine inventory](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/i915_pci.c#L364-L387)
+· [i915 ring registers](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_engine_regs.h#L9-L25)
+· [i915 forcewake ranges and generation dispatch](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_uncore.c#L2321-L2331)
+· [i915 GT thread wait](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_uncore.c#L349-L365)
+
+The v10 Haswell backing profile records two bounded observations while
+Pipe A scans the inherited surface. Each endpoint reads the Haswell
+forcewake ACK at BAR0+`0x130044` through a temporary alias admitting
+only that DWORD. It also reads GT thread and core status through the
+existing graphics status page, IGD PCI Command, PMCSR and Advanced
+Features status, and CPU0's SMI counter. The endpoints are at least
+20 ms apart and both aliases must retire within the 100 ms observation.
+The backing capture verifies the inherited fence and surface. The
+check skips the protected slots and issues no ring reads, wake requests
+or hardware control writes.
+[i915 Haswell ACK and GT status definitions](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_gt_regs.h#L1379-L1411)
+· [i915 Haswell wake-domain setup](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_uncore.c#L2106-L2109)
+
+A set ACK and sampled thread C0 describe those endpoints. A clear
+Transactions Pending bit only covers the sampled PCI capability. A
+verified hold needs one live owner and epoch tied to the exact GPU
+range, with new submissions inhibited, earlier traffic and translations
+retired, and every other requester, including firmware, excluded
+through release. Broadwell PR301 is developing that contract for its
+own occupied-slot loan while keeping Pipe A live. The Haswell receipt
+records `awake_owner=unavailable` and `requester_hold=unverified`
+for every combination of raw endpoint values.
+[PCI Advanced Features definitions](https://github.com/torvalds/linux/blob/v6.12/include/uapi/linux/pci_regs.h#L331-L340)
+· [Air7,2 occupied-slot scope](https://github.com/PaulMDemers/SrvrOS/blob/cb578981/docs/machines/macbookair7-2-current.md)
+
+Stage with `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-engine-prereqs`.
+Decode `exit.log` with `tools/hardware_haswell_engine_prereqs.py`.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

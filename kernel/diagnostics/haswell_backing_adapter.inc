@@ -13,9 +13,11 @@ static uint64_t hsw_window_pa;
 #define HSW_FBC_CTL 0x43208u
 #define HSW_FBC_STATUS 0x43210u
 #define HSW_ACCESS_SLOTS 16u
+#define HSW_WAKE_ACK_PAGE 0x130000u
+#define HSW_WAKE_ACK 0x130044u
 static uint32_t hsw_candidate_window;
 static uint32_t hsw_survey_window, hsw_survey_window_end;
-static bool hsw_access_window;
+static bool hsw_access_window, hsw_wake_ack_window;
 static bool hsw_window_live,hsw_window_poison,hsw_firmware,hsw_cpu_control,hsw_linux_fences;
 static bool hsw_safe_range(uint64_t base,uint64_t size,bool reserved) {
  const struct limine_memmap_response *m=memmap_request.response;
@@ -83,7 +85,8 @@ static bool hsw_map(void *ctx,uint32_t off) {
  uint64_t first=(0x200000+(hsw_result.offset/4096)*4)&~4095ull;
  uint64_t last=(0x200000+(hsw_result.offset/4096+hsw_result.count)*4-1)&~4095ull;
  if(hsw_window_live || hsw_window_poison || !kernel || vmm_current_address_space()!=kernel ||
-    (off&4095) || (hsw_survey_window ? off!=hsw_survey_window :
+    (off&4095) || (hsw_wake_ack_window ? off!=HSW_WAKE_ACK_PAGE :
+      hsw_survey_window ? off!=hsw_survey_window :
       hsw_candidate_window ? off!=(hsw_candidate_window&~4095u) &&
         !(hsw_access_window && off==HSW_FBC_PAGE) :
         off!=0x100000 && !(hsw_cpu_control && off==0x101000) && (off<first || off>last || off>=0x400000)) ||
@@ -118,6 +121,7 @@ static bool hsw_read(void *ctx,uint32_t off,uint32_t *v) {
  (void)ctx;
  if(!hsw_window_live || hsw_window_poison || vmm_current_address_space()!=vmm_kernel_address_space() ||
     gpu_base+(off&~4095u)!=hsw_window_pa || (off&3) ||
+    (hsw_wake_ack_window && off!=HSW_WAKE_ACK) ||
     (hsw_survey_window && (off>=hsw_survey_window_end || hsw_survey_protected(off))) ||
     (hsw_candidate_window && !hsw_candidate_read_allowed(off)) ||
     (hsw_window_pa==gpu_base+0x101000 && (!hsw_cpu_control || off!=0x101000)) ||
@@ -166,6 +170,7 @@ static bool hsw_capture_bound(void) {
 }
 #include "haswell_candidate.inc"
 #include "haswell_survey.inc"
+#include "haswell_engine_prereqs.inc"
 
 static bool hsw_range_run(enum hsw_range_trial range, bool backing_captured) {
  switch(range) {
@@ -182,6 +187,11 @@ static bool hsw_range_run(enum hsw_range_trial range, bool backing_captured) {
  case HSW_RANGE_OWNERSHIP: {
   bool observed=backing_captured && hsw_ownership_run();
   hsw_ownership_report();
+  return observed;
+ }
+ case HSW_RANGE_ENGINE_PREREQS: {
+  bool observed=backing_captured && hsw_engine_prereqs_run();
+  hsw_engine_prereqs_report();
   return observed;
  }
  case HSW_RANGE_NONE:

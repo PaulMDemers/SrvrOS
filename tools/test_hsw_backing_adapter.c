@@ -224,8 +224,45 @@ static void ownership_tests(void) {
  assert(!hsw_ownership_run() && hsw_survey.status==HSW_SURVEY_RETAINED && survey_reads==16);
  assert(hsw_window_poison && hsw_window_live && !hsw_survey.pass[0].retired);
 }
+static void engine_prereqs_setup(void) {
+ live_setup();
+ memset(&hsw_survey,0,sizeof(hsw_survey));
+ memset(&hsw_engine_prereqs,0,sizeof(hsw_engine_prereqs));
+ test_engine_prereqs=true;
+ invalid_wake_ack=false;
+ wake_ack_reads=thread_status_reads=0;
+ pci_config[0x8c/4]=0;
+}
+static void engine_prereqs_tests(void) {
+ engine_prereqs_setup();
+ hsw_wake_ack_window=true;
+ uint32_t word;
+ assert(!hsw_map(NULL,HSW_CANDIDATE_MMIO) && !hsw_map(NULL,HSW_BOOT_SLOT_MMIO&~4095u));
+ assert(hsw_map(NULL,HSW_WAKE_ACK_PAGE) && !hsw_read(NULL,HSW_WAKE_ACK-4,&word) &&
+        !hsw_read(NULL,HSW_WAKE_ACK+4,&word) && hsw_unmap(NULL) && !wake_ack_reads);
+ hsw_wake_ack_window=false;
+ engine_prereqs_setup();candidate_frozen=true;
+ assert(!hsw_engine_prereqs_run() && hsw_survey.status==HSW_SURVEY_CHANGED && wake_ack_reads==2);
+ engine_prereqs_setup();candidate_late=true;
+ assert(!hsw_engine_prereqs_run() && hsw_survey.status==HSW_SURVEY_DEADLINE && wake_ack_reads==1);
+ engine_prereqs_setup();invalid_wake_ack=true;
+ assert(!hsw_engine_prereqs_run() && hsw_survey.status==HSW_SURVEY_ACCESS && wake_ack_reads==1);
+ assert(hsw_engine_prereqs.retired==1 && !hsw_window_live && !thread_status_reads);
+ engine_prereqs_setup();hsw_vmm_unmap_fail=1;
+ assert(!hsw_engine_prereqs_run() && hsw_survey.status==HSW_SURVEY_RETAINED && !hsw_engine_prereqs.retired);
+ assert(hsw_window_poison && hsw_window_live && wake_ack_reads==1 && !thread_status_reads);
+}
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"engine-prereqs")) {
+  engine_prereqs_tests();
+  engine_prereqs_setup();assert(hsw_engine_prereqs_run() && wake_ack_reads==2 && thread_status_reads==2);
+  assert(hsw_vmm_maps==12 && hsw_vmm_unmaps==12 && candidate_frames==2 && !hsw_window_live && !candidate_ptes);
+  hsw_emit=1;hsw_report();hsw_engine_prereqs_report();
+  puts("laptop-capture: boot options=srvros.hsw-engine-prereqs=read-only");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"ownership")) {
   ownership_tests();
   ownership_setup();assert(hsw_ownership_run() && survey_reads==32 && hsw_ownership_image_aliases==15);
