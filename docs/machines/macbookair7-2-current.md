@@ -879,6 +879,14 @@ unarmed until a native provider can keep the actual request live with
 the panel running and the acknowledgement registers powered.
 [Broadwell register reference, pp. 426–427, 587–592, 606–607 and 859](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
 
+The firmware-interface checkpoint starts at `4b1aa8fb`. Main
+`117a0294` and separate Air6,1 PR 567 `273a9b7d` were reviewed. Scope is
+the Air UEFI handoff record, protected import and collector. The probe
+will inventory protocols on the matched GOP and its child and on the
+bound PCI and CoreEG2 driver handles. This keeps the original panel
+active and records what firmware exposes without opening new interfaces
+or changing the controller binding.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
