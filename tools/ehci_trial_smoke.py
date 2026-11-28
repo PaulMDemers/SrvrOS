@@ -458,6 +458,9 @@ def exercise_report_probe(command, temp, logs, release, log_volume, packets, wif
         assert f"{report}: release={release} phase=startup workspace=1 model=0 sample=0 raw=0\n" in startup
         assert f"{report}: release={release} phase=final result=REFUSED edges=0 sleep=0\n" in final
         assert f"{report}: edge=" not in final
+        if lid[2]:
+            assert "s3-workspace: before_retired=1 reopened=1 mode_roundtrip=0" in final
+            assert "pro81-s3-mode: entered=" not in final
         return
     suffix = "" if wifi4331 else f" packet_io={int(packets)}"
     assert f"{report}: release={release} phase=final result=REFUSED{suffix}\n" in final
@@ -581,7 +584,7 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
                    "-monitor", "none", "-display", "none", "-no-reboot"]
 
         if ethernet_match or wifi4331 or lid_match:
-            exercise_report_probe(command.copy(), temp, logs, release, log_volume, ethernet_packets, wifi4331_mode, bool(lid_match))
+            exercise_report_probe(command.copy(), temp, logs, release, log_volume, ethernet_packets, wifi4331_mode, lid_match)
         elif keyboard_monitor:
             exercise_monitor(command.copy(), temp, logs, release)
         elif desktop_match:

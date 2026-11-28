@@ -19,12 +19,17 @@ static struct ehci_desktop_workspace {
     struct ehci_probe_report report;
     struct ehci_control_path path;
     struct ehci_flash_io flash;
-    struct usb_storage storage;
+    struct usb_storage *storage;
     const struct pci_device *device;
     uint64_t root, page, bulk_page;
     uint16_t memory_command;
     bool unsafe;
 } desktop_workspace;
+
+/* A retired block descriptor still refers to its owner's name. Keep each
+ * attachment distinct across the initial mount and one recovery mount. */
+static struct usb_storage desktop_workspace_storage[2];
+static unsigned desktop_workspace_attachments;
 
 static bool captured_flash_interface(const uint8_t *config, uint16_t length) {
     if (!config || length < 9 || config[4] != 1 || config[5] != 1) return false;

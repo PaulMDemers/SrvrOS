@@ -1170,6 +1170,14 @@ static void ehci_lid_trial(const char *release, const char *volume, bool s3_pref
         release, (uint64_t)mounted, (uint64_t)model, (uint64_t)sampled, (uint64_t)closed);
     bool startup = mounted && ehci_lid_workspace_report(release, true);
     bool preflight = s3_preflight && startup && s3_pro81_preflight(memmap_request.response);
+    if (s3_preflight && startup) {
+        bool retired = ehci_desktop_workspace_stop();
+        bool mode = retired && preflight && s3_pro81_mode_roundtrip();
+        bool reopened = retired && ehci_desktop_workspace_start(volume);
+        console_printf("s3-workspace: before_retired=%u reopened=%u mode_roundtrip=%u\n",
+            (uint64_t)retired, (uint64_t)reopened, (uint64_t)mode);
+        mounted = reopened || workspace_active();
+    }
     unsigned transitions = 0;
     unsigned samples = 0;
     uint64_t elapsed = 0;

@@ -14,5 +14,6 @@ void arch_enable_interrupts(void);
 void arch_test_breakpoint(void);
 bool s3_q35_fixture(const struct limine_memmap_response *map);
 bool s3_pro81_preflight(const struct limine_memmap_response *map);
+bool s3_pro81_mode_roundtrip(void);
 
 #endif
