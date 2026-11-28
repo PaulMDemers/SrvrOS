@@ -866,6 +866,15 @@ fallback deadline had not elapsed and the temporary alarm was cleared.
 Native S3 still needs a waking vector and processor context restoration,
 firmware sleep and wake handling, and a verified device quiesce and
 resume sequence. The lid trial keeps those dependencies out of startup.
+The captured FADT points both FACS addresses to the same region and
+describes legacy PM1a control at `0x404`. SSDT5 advertises S3 sleep type 5.
+These records identify the platform's firmware path for a later isolated
+resume test.
+
+Release `639707b0cfcad7d4` verified the startup sample as open but recorded
+zero edges and returned `INCOMPLETE`. Both reports, all prior flash files,
+offline allocation and Ubuntu recovery verified. The retry adds a sample
+count, elapsed time, and on-screen reminders during a 90-second capture.
 
 ## Bring-up sequence
 

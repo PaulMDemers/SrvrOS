@@ -1345,7 +1345,7 @@ the exact stage with `tools/ehci_trial_smoke.py RELEASE`. The VM verifies
 foreign-platform refusal, both report files and the one-shot return.
 Use the verified Ubuntu recovery and run-record sequence for native use.
 Start with the lid open and the charger and flash drive attached. The
-guest prompts for two five-second close/reopen cycles and automatically
+guest prompts for two five-second close/reopen cycles within 90 seconds and automatically
 returns to Ubuntu. Verify the release-matched `ehci-lidstate-*` startup
 and final reports, the four ordered edges, and clean flash retirement.
 The probe records lid state while the machine remains awake. Suspend to

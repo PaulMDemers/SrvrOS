@@ -1169,26 +1169,38 @@ static void ehci_lid_trial(const char *release, const char *volume) {
         release, (uint64_t)mounted, (uint64_t)model, (uint64_t)sampled, (uint64_t)closed);
     bool startup = mounted && ehci_lid_workspace_report(release, true);
     unsigned transitions = 0;
+    unsigned samples = 0;
+    uint64_t elapsed = 0;
     if (startup && sampled && !closed) {
-        console_write("You have 60 seconds. Close the lid for five seconds and reopen it. Repeat when prompted.\n");
+        console_write("Lid capture ready. Close the lid for five seconds and reopen it. Repeat when prompted.\n");
         console_sync();
         uint64_t start = timer_monotonic_us();
-        while (transitions < 4 && timer_monotonic_us() - start < 60000000) {
+        uint64_t next_reminder = 15000000;
+        while (transitions < 4 && elapsed < 90000000) {
             uint8_t next;
             if (!timer_delay_us(100000) || !smc_lid_probe_read(&next)) {
                 console_write("ehci-lidstate: sampling failed\n");
                 break;
             }
+            samples++;
+            elapsed = timer_monotonic_us() - start;
+            if (elapsed >= next_reminder && !closed && next == closed) {
+                console_write("Lid capture is waiting. Close the lid for five seconds, then reopen it.\n");
+                console_sync();
+                next_reminder = elapsed + 15000000;
+            }
             if (next == closed) continue;
             closed = next;
             console_printf("ehci-lidstate: edge=%u raw=%u elapsed_us=%u\n",
-                (uint64_t)++transitions, (uint64_t)closed, timer_monotonic_us() - start);
+                (uint64_t)++transitions, (uint64_t)closed, elapsed);
             if (transitions == 2) {
                 console_write("First cycle recorded. Close the lid for five seconds and reopen it again.\n");
                 console_sync();
             }
         }
     }
+    console_printf("ehci-lidstate: samples=%u elapsed_us=%u last_raw=%u\n",
+        (uint64_t)samples, elapsed, (uint64_t)closed);
     const char *result = !model ? "REFUSED" : transitions == 4 ? "PASS" : "INCOMPLETE";
     console_printf("ehci-lidstate: release=%s phase=final result=%s edges=%u sleep=0\n",
         release, result, (uint64_t)transitions);
