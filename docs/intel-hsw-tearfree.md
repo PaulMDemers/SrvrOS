@@ -1065,6 +1065,23 @@ Stage using `--laptop-probe-volume UUID --haswell-backing-capture
 The probe saves its receipt and returns to Ubuntu. Decode the matching
 `exit.log` with `tools/hardware_haswell_forcewake.py`.
 
+##### Native reset-free audit result
+
+Air6,1 release `a71fe4aaa95f6592` from source `05931e32` completed both
+held-engine samples in 374 µs in session `session-000661598206ec1a-00`.
+`INSTPM` read `0x6080` on render and `0` on video decode, blitter and
+video enhancement at both endpoints. All four `MI_MODE` values were
+`0x200`. The rings reported idle, Stop Ring and Sync Flush Enable were
+clear, and the blitter bypass bit was clear. Both requester pending
+indications were clear at the samples. Requester drain remains unverified
+and firmware handoff unavailable.
+
+Pipe A advanced from frame 920 to 921 on the inherited framebuffer.
+The probe left slots 4096 and 16385 untouched and issued no ring-stop,
+flush, or GPU reset requests. Forcewake ACK cleared in 8 µs after release,
+and all six aliases retired. The installed image, exit snapshot, archived
+replay, recovery and offline USB check verified after Ubuntu returned.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two
