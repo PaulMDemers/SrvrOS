@@ -26,6 +26,7 @@ enum process_file_type {
     PROCESS_FILE_UNIX_LISTENER,
     PROCESS_FILE_PTY_MASTER,
     PROCESS_FILE_PTY_SLAVE,
+    PROCESS_FILE_SHARED_MEMORY,
 };
 
 struct process_file {
@@ -391,6 +392,7 @@ int64_t process_file_stat(struct process *process,
 int64_t process_file_chmod(struct process *process, uint64_t fd, uint64_t mode);
 int64_t process_file_utime(struct process *process, uint64_t fd, uint64_t atime, uint64_t mtime);
 int64_t process_sbrk(struct process *process, int64_t increment, uint64_t *previous_out);
+int64_t process_shm(struct process *process, uint64_t operation, uint64_t argument);
 int64_t process_mmap(struct process *process,
     uint64_t address,
     uint64_t length,

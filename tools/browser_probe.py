@@ -205,7 +205,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
                 if compiled:
                     checks.append(command('memory_contract_run', [run / 'memory-contract']))
                     output = (run / 'memory_contract_run.stdout').read_text(errors='replace')
-                    signature = 'browser-memory: shared rejected; discard retains bytes; noreserve stripped'
+                    signature = 'browser-memory: shared FD forwarded; discard retains bytes; noreserve stripped'
                     matched = signature in output
                     receipt['tests'][-1]['expected_stdout'] = signature
                     receipt['tests'][-1]['matched'] &= matched

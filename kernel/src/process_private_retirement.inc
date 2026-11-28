@@ -5,7 +5,7 @@ static bool process_private_mappings_valid(struct process *p) {
        p->mapping_count>4096 || (p->mapping_count && !p->mappings))return false;
     for(uint64_t i=0;i<p->mapping_count;i++) {
         const struct process_mapping *m=&p->mappings[i];uint64_t physical=0;
-        if(!m->physical_address || m->virtual_address>=(1ull<<47) ||
+        if((m->flags & PROCESS_MAPPING_SHARED) || !m->physical_address || m->virtual_address>=(1ull<<47) ||
            m->virtual_address%PAGE_SIZE || m->physical_address%PAGE_SIZE ||
            !vmm_virt_to_phys_in_space(p->address_space,m->virtual_address,&physical) || physical!=m->physical_address)return false;
     }

@@ -157,6 +157,9 @@ long srv_chmod(const char *path, uint64_t mode);
 long srv_fchmod(int fd, uint64_t mode);
 long srv_sbrk(int64_t increment, uint64_t *previous_out);
 long srv_mmap(void *address, size_t length, int protection, int flags, int fd, int64_t offset);
+/* Fixed-size memory descriptor and read-only derivative. Both are CLOEXEC. */
+long srv_shm_create(uint64_t size);
+long srv_shm_export_readonly(int fd);
 long srv_munmap(void *address, size_t length);
 long srv_mprotect(void *address, size_t length, int protection);
 long srv_msync(void *address, size_t length, int flags);

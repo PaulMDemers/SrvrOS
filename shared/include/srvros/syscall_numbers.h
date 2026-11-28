@@ -175,6 +175,7 @@
 #define SYS_NET_IPV4_TTL 172
 #define SYS_NET_UDP_BROADCAST 173
 #define SYS_MOUNT_SNAPSHOT 174 /* Output pointer and exact v1 byte size. */
+#define SYS_SHM 175 /* Operation and size or descriptor. */
 
 /* Device branch Wi-Fi call moved from163;matched image required. */
 #define SYS_WIFI 169
@@ -361,6 +362,7 @@ struct srv_winsize {
 #define SRV_ERR_BUSY -16
 #define SRV_ERR_NOTEMPTY -39
 #define SRV_ERR_XDEV -18
+#define SRV_ERR_NODEV -19
 #define SRV_ERR_NAMETOOLONG -36
 #define SRV_ERR_RANGE -34
 #define SRV_ERR_NOLCK -37
@@ -611,6 +613,12 @@ struct srv_meminfo {
 #define SRV_MAP_PRIVATE 0x02
 #define SRV_MAP_FIXED 0x10
 #define SRV_MAP_ANONYMOUS 0x20
+
+#define SRV_SHM_CREATE 0
+#define SRV_SHM_EXPORT_READONLY 1
+#define SRV_SHM_MAX_OBJECT_BYTES (32ull * 1024 * 1024)
+#define SRV_SHM_MAX_TOTAL_BYTES (64ull * 1024 * 1024)
+#define SRV_SHM_MAX_OBJECTS 16
 
 #define SRV_MS_ASYNC 0x01
 #define SRV_MS_SYNC 0x02

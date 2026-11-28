@@ -102,12 +102,18 @@ int main(void) {
     f=(struct isr_frame){.rax=SYS_MOUNT_SNAPSHOT,.rdi=UINT64_MAX};
     syscall_dispatch(&f);
     assert((int64_t)f.rax==SRV_ERR_NOTSUP && !backends && !fd_checks);
+    f=(struct isr_frame){.rax=SYS_SHM,.rdi=SRV_SHM_CREATE,.rsi=4097};
+    syscall_dispatch(&f);
+    assert((int64_t)f.rax==SRV_ERR_NOTSUP && !backends && !fd_checks);
+    f=(struct isr_frame){.rax=SYS_MMAP,.rcx=SRV_MAP_SHARED};
+    syscall_dispatch(&f);
+    assert((int64_t)f.rax==SRV_ERR_NOTSUP && !backends && !fd_checks);
     assert(!irq_saves && !irq_restores && !io_safety && !io_waits && !io_begins && !io_ends);
     f=(struct isr_frame){.rax=SYS_WRITE,.rdi=1};
     assert(signal_experimental_raw_allowed(&f) && fd_checks==1);
     f.rdi=9;assert(!signal_experimental_raw_allowed(&f) && fd_checks==2);
     f.rax=SYS_RANDOM;assert(signal_experimental_raw_allowed(&f));
-    puts("signal-admission: experimental scope/stream/IPv4 TTL/UDP broadcast/mount snapshot denied before effects");
+    puts("signal-admission: experimental scope/stream/IPv4 TTL/UDP broadcast/mount snapshot/shared memory denied before effects");
 #else
     backends=copies=handles=0;irq_saves=irq_restores=io_safety=io_waits=io_begins=io_ends=0;
     io_admit=false;struct isr_frame f={.rax=SYS_FILE_STREAM,.rdi=1};

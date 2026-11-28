@@ -1,0 +1,80 @@
+{
+  "tested_source": "f42ec5b58332ca462bcb96e261601c1322201582",
+  "integration_base": "8750396839ec272dfdc1db7e0302ee3624fd4e6a",
+  "scope": "Normal SrvrOS anonymous memory FD, permanently NX shared pages and irreversible read-only descriptor transfer.",
+  "source_sha256": {
+    "kernel/include/srvros/process.h": "479e5443a9cf26603eced16d25c63b5061d3d2f1420ea4f2b8267c0db7ffb9db",
+    "kernel/src/arch/x86_64/syscall.c": "5a2e5c14f9bf6b40e3b890dfab616b44d2ff96606919dbe6bfcf691715667090",
+    "kernel/src/process.c": "120f219440cda5f3e120995a940b60c740cd6d95dc5acfbd645b099d367b2b13",
+    "kernel/src/process_private_retirement.inc": "aa661909a0d1e2d4821eaaf719a064e414cf1df3d54cc79cb7a9d57a0c7883a0",
+    "shared/include/srvros/syscall_numbers.h": "452833b8f6f43a8f538246e9794116fec1815ea68c83ca6fd0196a1ff301e76c",
+    "tools/browser_probe.py": "c7bcdb54f1ae2630312f2d4ec0cc3e4ea5f5a97ba3deaeec20759b365a32bbd9",
+    "tools/test_browser_memory_contract.c": "69a85bc4d3cc6ec1610630ca5236bb9a7c5cdbc7df60d57b87a9706ad0a70698",
+    "tools/test_signal_experimental_admission.py": "ad8a3a0bf2f6802a53b0cedb302fc5f4c6377daf523266d8a95b946ed277fa92",
+    "userspace/lib/include/srvros/sys.h": "26b90f72cb36236a403b055acd75b8978ee015ece8f86d55e0f535807cfee5e2",
+    "userspace/lib/src/posix_mman.c": "afeb63ab314f99dc8664cd554d86f833775f7a0764c0763007b0f2bf301b3299",
+    "userspace/lib/src/sys.c": "6d9c2a153725e7b51e5d44637af75f03150e1cdc47f4b49e24c58e7f6b32a45c"
+  },
+  "matched_build": {
+    "exit_status": 0,
+    "sha256": {
+      "build/kernel/srvros.elf": "4e9add18ad1dbf55616dfedfd09e0cfe33d3a7164e2d66e287b60645e182d174",
+      "build/userspace/init.elf": "3c6bd12b56386e599f348011076c433ad5c0e25f49b6cb8f87058e136ad50cfd",
+      "build/sysroot/srvros/lib/libsrvros.a": "8ceb590e36f41310ce133f79fadfea79014b38522ba783d8c1a9812068101132",
+      "build/sysroot/srvros/lib/crt0.o": "3b25b0b9ef02f046e00fefe9e69981d1641aefcf353a16e315ff16960e7f05cf",
+      "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912",
+      "build/shm-final-build.log": "e0227a0d3f2b5f9ad57a4b646dba850748bf91da7912b2476f02e0c2d6bdc908"
+    }
+  },
+  "host_checks": {
+    "browser_memory_contract": "passed on x86-64",
+    "normal_and_experimental_admission": "passed strict and ASan/UBSan",
+    "process_regressions": "process service, private retirement, user frame copy, syscall I/O, pipe messages passed on x86-64",
+    "process_log_sha256": "692e7c84eeaddf5aa4df5c48c065f4cb28002de80e7065bb7b020f803e227c90",
+    "admission_receipt_sha256": "92be52b85777fa70baba453bb80bbfcdbf972511cf6c74f97df0d4d23e4bb72a"
+  },
+  "normal_guest": {
+    "profile": "normal SrvrOS Q35 with no attached disk or NIC",
+    "tests": [
+      {
+        "program": "wpe-shared-memory",
+        "attempt": 1,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      },
+      {
+        "program": "wpe-shared-memory",
+        "attempt": 2,
+        "exit_status": 0,
+        "returned_to_monitor": true
+      }
+    ],
+    "guest_stopped": true,
+    "bitmap_bytes": 7360,
+    "payload_bytes": 12293,
+    "verified": [
+      "initial zeroing and exact fstat length",
+      "bitmap and payload across two processes",
+      "queued SCM_RIGHTS retains data after FD close",
+      "live write visible through read-only view",
+      "read-only and NX mapping enforcement",
+      "EFAULT for kernel copyout to a read-only mapping",
+      "exact whole-object protection and unmap",
+      "abandoned rights and quota recycling"
+    ],
+    "raw_receipt_sha256": "2c38e174a19549821cdeaa92519fbbb50c662fc41038a07f4831a42b3f5379c5",
+    "elf_sha256": "c5e9d6761bad551a029e945987d608438549344668d8120ee1cb5fdff80257be",
+    "image_sha256": "f18bd0c7e3f5bf0b871afedf25319a81449eebe7702d463a0808e9effbfcb95f",
+    "serial_sha256": "8a43be20e664fc3131c80b9dd2d48828028e9871511dcbe40afac83f602e6d7e",
+    "iso_readback_sha256": {
+      "initramfs.tar": "7ad092569f1958fdffb7320b7bbda055d1a534a2f403d1d4e9eed4dc3814b75b",
+      "srvros.elf": "4e9add18ad1dbf55616dfedfd09e0cfe33d3a7164e2d66e287b60645e182d174"
+    },
+    "fixture_files_sha256": {
+      "shared_memory_guest.c": "ad2cfbd8517d0d8e375475480c5f9bf567e649be2f6e1fb58e9e70f47e76c0df",
+      "shared_memory_api.h": "3a1ea096a03fddba92180bafe163678e3930e91c06c93642f52d2e117db23cb6",
+      "wpe-2.54.2-srvros-shared-memory.patch": "3e15e040e478e3c55185ee9dae4117fcff9aba61f27867ffc57419ce2d573c1e",
+      "verify_shared_memory.py": "cafa9f0911cfb2c85efbb1d76f7d26282c2fb304af1367b41e3e903ff07c5124"
+    }
+  }
+}
