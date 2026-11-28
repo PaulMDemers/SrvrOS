@@ -689,6 +689,17 @@ the first framebuffer PTE, retired aliases and frame progress. A complete
 survey also rechecks the inherited backing within the new two-second survey
 budget. The scan gives no allocation or write authority. [Broadwell memory views](https://www.x.org/docs/intel/BDW/intel-gfx-prm-osrc-bdw-vol05-memory_views_0.pdf)
 
+The first complete Air sweep found that every GPU-only entry exactly matched
+the first framebuffer PTE. The lower aperture sweep also found zero empty
+entries beyond the inherited fence. A repeated PTE establishes matching backing
+bits. Ownership still depends on excluding inherited readers and draining
+their access. A takeover should reserve the inherited scanout and its fetch
+tail before importing any single candidate into the boot driver's address
+allocator. The first candidate must keep both backings pinned through
+translation invalidation and exact rollback under the same owner. The
+current post-reset trial still refuses occupied entries. [Air result](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
+· [i915 GGTT reservation and initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L785-L849)
+
 ### Full takeover with a boot blank
 
 The Air's PCI-hold diagnostic now scans the 56,832 CPU-visible GGTT entries

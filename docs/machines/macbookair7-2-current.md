@@ -1,6 +1,6 @@
 # MacBookAir7,2 current status
 
-Updated 2026-11-27 (America/New_York). Reference A1466 with partial desktop/device acceptance.
+Updated 2026-11-28 (America/New_York). Reference A1466 with partial desktop/device acceptance.
 The [dated journal](macbookair7-2.md) preserves exact-source history.
 
 The inherited-framebuffer desktop remains usable, with independent evidence for
@@ -762,13 +762,24 @@ request that remains held while the acknowledgement registers are readable
 and the original display runs. The native occupied-slot trial stays unarmed.
 [Broadwell register reference, pp. 469, 587–592, 606–610 and 859](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
 
-The next Air7,2 checkpoint starts at `5b8d6ee7` with main `24feebdd` and
-Air6,1 PR 567 `0220fb23` reviewed. The dedicated Broadwell eDP baseline
-will sweep the GGTT above the 256 MiB CPU aperture while the original Pipe A
-surface scans out. This covers the range that the previous three spot checks
-and one short vector did not cover. The new receipt records vacancy and
-alias counts with no PTE writes or allocation grant. The survey can identify
-a candidate for command memory, which would still need an ownership proof.
+Release `025f89dd3986e36b` at `e69ae6fa` finished the full GPU-only GGTT
+census in session `session-000661507bbafc2c-00`. The scan read all 983,040
+entries in `[65536, 1048576)` in 677.324 ms. Every word matched the first
+framebuffer PTE. There were zero empty entries and all 1,920 read-only
+aliases retired. Pipe A advanced 40 frames while the programmed and live
+surface, framebuffer digest and PCI Command stayed fixed. SrvrOS made no
+PTE stores or resets. Ubuntu returned automatically and collected the USB
+receipt. The offline exFAT check found no leaked allocations or errors.
+
+Together with the completed CPU-aperture census, the Air has zero empty
+entries across `[8704, 1048576)` in these two captures. The next checkpoint
+uses a boot-scoped driver range while preserving the inherited scanout and
+its fetch tail. It needs proof of inherited engine, firmware and display
+proxy retirement before qualifying one backed page under a new owner.
+The occupied-slot publisher remains gated on a native traffic provider with
+fresh engine and L3 acknowledgements. Main `24feebdd` and the separate
+Haswell PR 567 at `91a11411` were reviewed for this checkpoint.
+[Takeover contract](../intel-bdw-edp-recovery.md#full-takeover-with-a-boot-blank)
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
