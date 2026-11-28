@@ -245,6 +245,15 @@ and release interface, or a platform firmware contract that exposes one.
 [Intel PCIe register reference, pp. 23 and 31–33](https://cdrdv2-public.intel.com/690865/intel-gfx-prm-osrc-bdw-vol-12-pcie-config-registers.pdf)
 · [Intel register reference, pp. 1476–1477](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
 
+The Air's matched GOP and EG2 child add panel backlight, connector, console
+font and gamma controls. The Broadwell EG2 `ExitBootServices` handler found
+in the same firmware image writes panel DPCD through AUX. The firmware
+inventory establishes no GT traffic-hold interface or runtime reader yield.
+Use the original scanout pin and the OS-owned interval checks for the
+boot driver. Continue to require the independent requester and completion
+proofs before admitting a GGTT store.
+[Air firmware review](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
+
 The GT's IDI path also exposes a request and a status. The Broadwell
 register reference describes `IDIMSG[6]` at `0x8500` as a CPD-flow
 request, and `MSG_GARB_MBC[4]` at `0x801c` as the interface's block

@@ -891,11 +891,9 @@ Release `5afb11538a09de41` at `d91ef758` recorded the inventory on the Air
 in USB session `session-000661542acbb81c-00`. The kernel and ESP agreed on
 the selected display branch `0xf85dfc5100000201`. The active GOP exposed
 eight GUIDs, including GOP, EDID, Device Path and the text console. Its
-matched child exposed Device Path and two unidentified GUIDs. The bound
-PCI driver exposed Driver Binding, Component Name and Loaded Image. The
-CoreEG2 driver handle exposed Driver Binding alone. Two GUIDs on the GOP
-also remain unidentified. The inventory provides no verified firmware
-interface for requesting and holding the GPU traffic block.
+matched child exposed three GUIDs including Device Path. The bound PCI
+driver exposed Driver Binding, Component Name and Loaded Image. The
+CoreEG2 driver handle exposed Driver Binding alone.
 [EDK II UEFI protocol definitions](https://github.com/tianocore/edk2/blob/master/MdePkg/MdePkg.dec)
 
 The original framebuffer remained pinned at `0x8c001000`. The two reads
@@ -906,6 +904,32 @@ flush acknowledgements. No GPU drain or ownership grant was established.
 The machine returned to Ubuntu automatically. Collection verified all
 four USB files and a clean offline exFAT check. The run closed as a
 diagnostic under the wider policy.
+
+The read-only firmware review starts at `4158764d`. Shared main `117a0294`
+and separate Air6,1 PR 567 `b65bfd4c` were reviewed. The native USB
+inventory was matched against PE images from this Air's read-only BIOS MTD.
+The local receipt binds the USB session and ESP branch to the firmware
+file GUIDs, image hashes and inspected offsets. These roles describe the
+observed implementation on this unit.
+
+| Handle | GUID | Observed firmware role |
+| --- | --- | --- |
+| EG2 child | `e49d0dc9-9d03-4047-8cdc-812458bed435` | Broadwell EG2 `BkLt` backlight controls, including PWM programming |
+| EG2 child | `cf611019-a212-4075-83a7-39f7364dea6b` | Broadwell EG2 connector interface. CoreEG2 opens it as a driver and follows its display data. |
+| Active GOP | `69e12d5a-9d27-462c-93d1-c6df5e896884` | Graphical console companion to Simple Text Output, with console font operations |
+| Active GOP | `03622d6d-362a-4e47-9710-c238b23755c1` | CoreEG2 gamma interface. Its only method forwards to display controls that program the pipe palette. |
+
+Broadwell EG2 also registers an `ExitBootServices` callback in a
+conditional panel-backlight path. The callback issues panel DPCD writes
+through the display AUX helper. The inspected callback and four interface
+paths provide no verified acquire, hold and release operation for GAM or
+WiDi, and provide no engine or L3 flush receipt. Registration in the image
+alone cannot establish whether the callback ran on the captured boot.
+No interface was invoked during the host review. The physical no-store
+trial still needs a verified hardware traffic provider.
+[EDK II event types](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Uefi/UefiSpec.h)
+· [i915 display AUX registers](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_dp_aux_regs.h)
+· [i915 palette registers](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/gpu/drm/i915/display/intel_color_regs.h)
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
