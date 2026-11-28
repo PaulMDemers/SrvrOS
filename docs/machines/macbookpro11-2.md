@@ -764,6 +764,19 @@ The workspace exit log retains identity and the first OUT details
 that rolled out of the EFI tail. The payload and logs are preserved
 under `evidence-791018b16f30adab`.
 
+#### RTL8822BU pre-firmware bulk-IN queue
+
+Device scope from `eb00a619` against main `24feebdd`. The previous
+Linux trace had four 32 KiB requests outstanding before firmware
+startup. Reuse the same endpoint context and queue all four requests
+as soon as SrvrOS has verified digital power with MAC transmit
+disabled and TX paused, before setting up firmware DMA or uploading
+the image. Keep the queue owned through firmware, board, PHY and H2C
+setup. Count startup completions separately from the channel 10 scan.
+Stop and verify the IN endpoint on every exit after configuration,
+including firmware failures. Keep all three adapters in the Genesys
+hub and preserve the workspace and independent journal.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
