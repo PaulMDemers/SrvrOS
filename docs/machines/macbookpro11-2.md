@@ -706,6 +706,21 @@ regressions, 329 boot and trial tests, and all five exact-image VM
 rehearsals passed. The run and Linux proof use
 `build/bringup/pro112-rtl8822bu-rx-fifo/`.
 
+Physical session `session-000661521b450eb4-00` verified the measured
+Linux FIFO tuple and the short-timeout comparison. Map and threshold
+changed from `0xf5a1/0x2003` to `0xf5a5/0x0100`; boundary
+`0x5eff`, burst mode `0x1e`, offset `0x8200`, `CR=0x06bf`,
+`TXPAUSE=0xff` and the original 32 KiB transfer matched across
+both windows. The PHY counted 12 and 30 valid CRCs respectively.
+No USB IN completed in either 328 ms window or during the switch.
+Original FIFO and security settings were restored, the endpoints
+retired, all three adapters appeared, and all 704 existing workspace
+files matched. The EFI journal validated all seven phases, and its
+phase-2 tail matches the exit log byte for byte. The 7,680-byte tail
+omits adapter identity and the last firmware-download OUT details,
+which survive in the workspace exit log. Preserve this coverage
+limitation in `evidence-0b7b3bacada36cb3/archive-note.json`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
