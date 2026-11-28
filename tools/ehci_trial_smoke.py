@@ -352,13 +352,14 @@ def verify_desktop_workspace(stick, volume, release, keyboard_exit, file_checkli
         assert b"pro81-audio: phase=final result=INCOMPLETE started=0 completed=0" in final
 
 
-def exercise_network_probe(command, temp, logs, release, log_volume, packets, wifi4331, wifi4331_firmware):
+def exercise_network_probe(command, temp, logs, release, log_volume, packets, wifi4331_mode):
     stick, volume = desktop_workspace_image(temp, log_volume)
     command += ["-device", "qemu-xhci,id=xhci", "-drive", f"if=none,id=stick,format=raw,file={stick}",
                 "-device", "usb-storage,drive=stick,bus=xhci.0"]
     serial = logs / "trial-serial.log"
-    finished = ("Wi-Fi firmware trial finished" if wifi4331_firmware else
-                "Wi-Fi topology probe finished" if wifi4331 else "Ethernet probe finished")
+    wifi4331 = wifi4331_mode is not None
+    finished = {"channel10": "Wi-Fi channel 10 trial finished", "firmware": "Wi-Fi firmware trial finished",
+                "topology": "Wi-Fi topology probe finished", None: "Ethernet probe finished"}[wifi4331_mode]
     report = "ehci-wifi4331" if wifi4331 else "ehci-ethernet"
     serial.unlink(missing_ok=True)
     with (logs / "trial-qemu.log").open("wb") as errors:
@@ -401,7 +402,8 @@ def main():
     desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
     ethernet_match = boot.EHCI_ETHERNET_RE.fullmatch(version)
     wifi4331 = boot.EHCI_BCM4331_RE.fullmatch(version)
-    wifi4331_firmware = version.startswith(boot.EHCI_BCM4331_FIRMWARE)
+    wifi4331_mode = ("channel10" if version.startswith(boot.EHCI_BCM4331_CHANNEL10) else
+                     "firmware" if version.startswith(boot.EHCI_BCM4331_FIRMWARE) else "topology" if wifi4331 else None)
     desktop_file = version.startswith((boot.EHCI_DESKTOP_FILE_VERSION, boot.EHCI_DESKTOP_FILE_V4_VERSION))
     brightness = version.startswith(boot.EHCI_DESKTOP_BRIGHTNESS_VERSION)
     audio = version.startswith((boot.EHCI_DESKTOP_AUDIO_VERSION, boot.EHCI_DESKTOP_AUDIO_V7_VERSION))
@@ -488,8 +490,7 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
                    "-monitor", "none", "-display", "none", "-no-reboot"]
 
         if ethernet_match or wifi4331:
-            exercise_network_probe(command.copy(), temp, logs, release, log_volume, ethernet_packets, bool(wifi4331),
-                                   wifi4331_firmware)
+            exercise_network_probe(command.copy(), temp, logs, release, log_volume, ethernet_packets, wifi4331_mode)
         elif keyboard_monitor:
             exercise_monitor(command.copy(), temp, logs, release)
         elif desktop_match:
@@ -521,7 +522,7 @@ menuentry 'Ubuntu return fixture' --id ubuntu {
                   on_screen_checklist="vm-screen.ppm", grub_next_entry="", ubuntu_default_fixture=True)
     if wifi4331:
         result.pop("on_screen_checklist")
-        result.update(wifi4331_controller="refused", wifi4331_firmware=wifi4331_firmware,
+        result.update(wifi4331_controller="refused", wifi4331_firmware=wifi4331_mode == "firmware", wifi4331_mode=wifi4331_mode,
                       startup_checkpoint="verified", final_report="verified")
     elif ethernet_match:
         result.pop("on_screen_checklist")

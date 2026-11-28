@@ -1,0 +1,19 @@
+BEGIN { printf("ready\n"); }
+kprobe:b43_phy_ht_op_switch_analog /arg1/ { @analog[tid] = 1; printf("%llu %d begin a\n", nsecs, tid); }
+kretprobe:b43_phy_ht_op_switch_analog /@analog[tid]/ { printf("%llu %d end a\n", nsecs, tid); delete(@analog[tid]); }
+kprobe:b43_phy_ht_op_software_rfkill /!arg1/ { @radio[tid] = 1; printf("%llu %d begin r\n", nsecs, tid); }
+kretprobe:b43_phy_ht_op_software_rfkill /@radio[tid]/ { printf("%llu %d end r\n", nsecs, tid); delete(@radio[tid]); }
+kprobe:b43_phy_ht_op_init { @init[tid] = 1; printf("%llu %d begin i\n", nsecs, tid); }
+kretprobe:b43_phy_ht_op_init /@init[tid]/ { printf("%llu %d end i %lld\n", nsecs, tid, (int64)retval); delete(@init[tid]); }
+kprobe:b43_phy_ht_op_switch_channel { @channel[tid] = arg1; printf("%llu %d begin c %lld\n", nsecs, tid, (int64)arg1); }
+kretprobe:b43_phy_ht_op_switch_channel /@channel[tid]/ { printf("%llu %d end c %lld %lld\n", nsecs, tid, (int64)@channel[tid], (int64)retval); delete(@channel[tid]); }
+kfunc:bcma:bcma_host_pci_write16 /(@analog[tid] || @radio[tid] || @init[tid] || @channel[tid]) && args.core->id.id == 0x812/ {
+    printf("%llu %d w16 %x %x\n", nsecs, tid, args.offset, args.value);
+}
+kfunc:bcma:bcma_host_pci_write32 /(@analog[tid] || @radio[tid] || @init[tid] || @channel[tid]) && args.core->id.id == 0x812/ {
+    printf("%llu %d w32 %x %x\n", nsecs, tid, args.offset, args.value);
+}
+kretfunc:bcma:bcma_host_pci_read16 /(@radio[tid] || @init[tid] || @channel[tid]) && args.core->id.id == 0x812 && (args.offset == 0x3da || args.offset == 0x3fe)/ {
+    printf("%llu %d r16 %x %x\n", nsecs, tid, args.offset, retval);
+}
+END { clear(@analog); clear(@radio); clear(@init); clear(@channel); }

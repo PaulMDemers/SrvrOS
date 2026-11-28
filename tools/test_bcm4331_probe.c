@@ -5,6 +5,17 @@
 
 int main(void) {
     assert(srom_crc_byte(0, 1) == 0xf7 && srom_crc_byte(0xff, 0xff) == 0);
+    assert(beacon_fcs((const uint8_t *)"123456789", 9) == 0xcbf43926);
+    uint8_t beacon[54] = {0x80, [10] = 2, [16] = 2, [34] = 1, [37] = 9};
+    memset(beacon + 4, 0xff, 6);
+    memcpy(beacon + 38, "Demers2.4", 9);
+    beacon[47] = 3; beacon[48] = 1; beacon[49] = 10;
+    uint32_t fcs = beacon_fcs(beacon, 50);
+    for (unsigned i = 0; i < 4; i++) beacon[50 + i] = (uint8_t)(fcs >> (i * 8));
+    assert(target_beacon(beacon, sizeof beacon));
+    for (unsigned size = 0; size < sizeof beacon; size++) assert(!target_beacon(beacon, size));
+    beacon[49] = 11;
+    assert(!target_beacon(beacon, sizeof beacon));
     /* A 64-bit-form address and explicit size precede the next core tag. */
     const uint32_t erom[] = {
         0x4bf80001, 0x25080201, 0x18000005, 0x18100085,

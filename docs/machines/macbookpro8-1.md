@@ -526,6 +526,16 @@ native acceptance is a bounded receive window with a verified target
 beacon and safe retirement. The Pro11,2 USB work at `4226e6f2` and the
 open graphics and runtime PRs have separate hardware and paths.
 
+Ubuntu's driver trace recorded the radio power-up, HT table programming
+and channel 10 switch. The passive profile keeps the receive setup through
+the last HT table and omits the driver's later TX sample calibration. A
+separate Linux programmed-I/O monitor test received a beacon from the
+associated AP at 2457 MHz. Its advertised SSID is `Demers2.4`. Ubuntu's
+normal DMA driver and both connections were restored after capture. The
+SrvrOS trial checks the pinned local HT profile and firmware tables,
+requires fresh radio calibration status, and compares complete beacon
+frames from the PIO FIFO without enabling PCI bus mastering.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
