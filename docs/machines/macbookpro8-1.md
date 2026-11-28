@@ -704,6 +704,15 @@ Both flash reports and Ubuntu return were verified, and the exFAT check
 passed with 212 files and no leaks. The checklist now identifies the
 router or access point as the control for the outage.
 
+The local receive-gap trial starts from `551901ee` against integration
+baseline `24feebdd` on PR #568. The owner cannot interrupt the access point.
+The replacement trial keeps the normal desktop, station and gateway in
+use, and temporarily drops received frames at the BCM4331 driver boundary.
+It measures the original connection before, during and after that gap.
+Scope covers the BCM4331 probe, the automatic desktop trial and release
+reports. It depends on the existing station profile and EHCI workspace.
+The previously staged attended router trial has not been armed.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
