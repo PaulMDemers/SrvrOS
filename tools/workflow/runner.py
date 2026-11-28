@@ -755,7 +755,8 @@ class Runner:
                 raise ValueError('Missing requester queue handoff receipt')
             if 'driver_range_version' in manifest:
                 driver_range = native.get('flush', {}).get('boot_page_preflight', {}).get('driver_range', {})
-                if native.get('diagnostic_complete') and driver_range.get('summary', {}).get('v') != manifest['driver_range_version']:
+                if ((driver_range or native.get('diagnostic_complete')) and
+                        driver_range.get('summary', {}).get('v') != manifest['driver_range_version']):
                     raise ValueError('Missing driver range traffic receipt')
             if 'owned_page_slot' in manifest and native.get('owned_page',{}).get('slot') != manifest['owned_page_slot']:
                 raise ValueError('Missing independent page receipt for this stage')

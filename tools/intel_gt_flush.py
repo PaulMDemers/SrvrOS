@@ -19,11 +19,48 @@ SMI_PREFIX = "intel-smi-guard:"
 SMI_FAULT = 2048
 DRIVER_RANGE_PREFIX = 'intel-driver-range-preflight:'
 DRIVER_TRAFFIC_PREFIX = 'intel-driver-range-traffic:'
+DRIVER_CLOSE_PREFIX = 'intel-driver-range-close:'
+DRIVER_CLOSE_STEPS = (
+    'pte_sample_count', 'traffic_alias_retired', 'panel_owner_before', 'panel_alias_before',
+    'panel_clock_before', 'panel_reads', 'panel_control', 'panel_programmed_surface',
+    'panel_live_surface', 'panel_alias_after', 'panel_owner_after', 'panel_clock_after',
+    'panel_frame_delta', 'owner_guard', 'smi_available', 'smi_count', 'closing_clock',
+    'first_pte_high_pair', 'second_pte_high_pair', 'pte_high_match', 'pte_low_match',
+    'pte_alias_retired', 'positive_elapsed', 'phase_limit',
+)
 
 
-def driver_range_preflight_result(rows, traffic_rows, parent):
+def driver_range_close(line, sample, parent, baseline, frame_before):
+    panel = ('frame', 'plane', 'programmed', 'live')
+    close = fields(line, DRIVER_CLOSE_PREFIX, ('v', 'attempted', 'passed', 'panel_words', *panel, 'smi'), panel)
+    attempted, passed, count = (close[k] for k in ('attempted', 'passed', 'panel_words'))
+    total = len(DRIVER_CLOSE_STEPS)
+    if (not 1 <= attempted <= total or passed not in (attempted, attempted - 1) or
+            bool(sample['stable']) != (passed == total) or (passed != total and passed == attempted) or
+            not 0 <= count <= 4 or (attempted < 6 and count) or (passed >= 6 and count != 4) or
+            (attempted == 6 and passed == 5 and count == 4) or
+            any(close[k] >= 1 << 32 for k in (*panel, 'smi')) or any(close[k] for k in panel[count:]) or
+            (attempted < 15 and close['smi']) or (attempted >= 15 and close['smi'] != parent['smi1'])):
+        raise ValueError('Driver range closing sequence')
+    frame_delta = (close['frame'] - frame_before) & 0xffffffff if count else None
+    expected = {1: sample['samples'] == 2, 2: not sample['traffic_live'],
+                7: close['plane'] == baseline[0], 8: close['programmed'] == baseline[1],
+                9: close['live'] == baseline[2], 13: frame_delta is not None and frame_delta <= 8,
+                16: close['smi'] == parent['smi0'], 18: sample['a0'] == sample['a2'],
+                19: sample['b0'] == sample['b2'], 20: sample['a0'] == sample['b0'],
+                21: sample['a1'] == sample['b1'], 22: not sample['live'],
+                23: sample['end'] > sample['begin'], 24: sample['end'] - parent['begin'] <= 100000}
+    if any(ok != (step <= passed) for step, ok in expected.items() if step <= attempted):
+        raise ValueError('Driver range closing evidence disagrees with its checks')
+    return dict(raw=close, checks=dict(zip(DRIVER_CLOSE_STEPS,
+                ('passed' if i <= passed else 'failed' if i == attempted else 'not_run'
+                 for i in range(1, total + 1)))), frame_delta=frame_delta,
+                first_failure=DRIVER_CLOSE_STEPS[passed] if passed < attempted else None)
+
+
+def driver_range_preflight_result(rows, traffic_rows, close_rows, parent, baseline, frame_before):
     if not rows:
-        if traffic_rows:
+        if traffic_rows or close_rows:
             raise ValueError('Driver range preflight missing traffic bracket')
         return None
     suffix = ' authority=none'
@@ -32,12 +69,12 @@ def driver_range_preflight_result(rows, traffic_rows, parent):
     words = ('a0', 'a1', 'a2', 'b0', 'b1', 'b2')
     keys = ('v', 'slot', 'begin', 'end', 'maps', 'retired', 'reads', 'live', 'samples', 'stable', *words)
     hexkeys = ('live', *words)
-    current = rows[0].startswith(DRIVER_RANGE_PREFIX + ' v=2 ')
+    current = rows[0].startswith((DRIVER_RANGE_PREFIX + ' v=2 ', DRIVER_RANGE_PREFIX + ' v=3 '))
     if current:
         keys += ('packets', 'traffic_maps', 'traffic_retired', 'traffic_reads', 'traffic_live')
         hexkeys += ('traffic_live',)
     sample = fields(rows[0].removesuffix(suffix), DRIVER_RANGE_PREFIX, keys, hexkeys,
-                    versions=(2,) if current else (1,))
+                    versions=(2, 3) if current else (1,))
     maps, retired, reads, count = (sample[key] for key in ('maps', 'retired', 'reads', 'samples'))
     if (sample['slot'] != 16385 or parent['stage'] not in (4, 5) or
             not parent['begin'] <= sample['begin'] <= sample['end'] <= parent['end'] or
@@ -72,6 +109,17 @@ def driver_range_preflight_result(rows, traffic_rows, parent):
         report['traffic'] = dict(samples=traffic, bracket_complete=packets == 2 and stable, request_issued=False)
     elif traffic_rows:
         raise ValueError('Driver range preflight unexpected traffic bracket')
+    if sample['v'] == 3:
+        if len(close_rows) != 1:
+            raise ValueError('Driver range closing receipt count')
+        report['closing'] = driver_range_close(close_rows[0], sample, parent, baseline, frame_before)
+        traffic_open = any((s['raw']['gam'] | s['raw']['reply']) & GAM_GO_MASK or s['widi_go'] or
+                           any(s['raw'][engine] & 0x10 for engine in ENGINES) for s in traffic)
+        reason = ('traffic_open' if traffic_open else 'no_owned_request' if report['traffic']['bracket_complete']
+                  else 'incomplete_bracket')
+        report['traffic'].update(drain_verified=False, drain_disposition=reason)
+    elif close_rows:
+        raise ValueError('Unexpected driver range closing receipt')
     return report
 
 
@@ -81,8 +129,9 @@ def boot_page_preflight_result(text, parent, range_proof, primary, flush):
     rows = [line for line in lines if line.startswith(prefix)]
     driver_rows = [line for line in lines if line.startswith(DRIVER_RANGE_PREFIX)]
     traffic_rows = [line for line in lines if line.startswith(DRIVER_TRAFFIC_PREFIX)]
+    close_rows = [line for line in lines if line.startswith(DRIVER_CLOSE_PREFIX)]
     if not rows:
-        if driver_rows or traffic_rows:
+        if driver_rows or traffic_rows or close_rows:
             raise ValueError('Driver range preflight lacks the boot-page record')
         return None
     if flush['summary']['v'] != 9 or range_proof['summary']['v'] != 8:
@@ -142,7 +191,9 @@ def boot_page_preflight_result(text, parent, range_proof, primary, flush):
                       cpd_go_locked_out=locked and not enabled if stable else None)
     if (summary['v'] == 3 and stage == 5 and not driver_rows) or (summary['v'] < 3 and driver_rows):
         raise ValueError('Driver range preflight version or missing record')
-    driver_range = driver_range_preflight_result(driver_rows, traffic_rows, summary)
+    driver_range = driver_range_preflight_result(driver_rows, traffic_rows, close_rows, summary,
+                                                primary['vectors'][1][30:33] if driver_rows else (),
+                                                wireless[0]['frame'] if wireless else None)
     if driver_range is not None and 'traffic' in driver_range:
         pinned = range_proof.get('scanout_backing_guard', {}).get('physical')
         pte = driver_range['pte']

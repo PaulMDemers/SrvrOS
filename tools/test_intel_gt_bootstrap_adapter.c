@@ -685,7 +685,8 @@ static bool intel_display_test_bootstrap_expected(void) {
 #ifdef SRVROS_INTEL_GT_FLUSH
  if(!strcmp(bootstrap_mode,"pipe-writer") || !strcmp(bootstrap_mode,"boot-page-valid") ||
     !strcmp(bootstrap_mode,"driver-page-occupied") || !strcmp(bootstrap_mode,"driver-traffic-read") ||
-    !strcmp(bootstrap_mode,"driver-traffic-vecs-ack") || !strcmp(bootstrap_mode,"driver-page-framebuffer"))return true;
+    !strcmp(bootstrap_mode,"driver-traffic-vecs-ack") || !strcmp(bootstrap_mode,"driver-page-framebuffer") ||
+    !strcmp(bootstrap_mode,"driver-traffic-unowned-block"))return true;
  if(!strcmp(bootstrap_mode,"park-ack") || !strcmp(bootstrap_mode,"park-late-ack") ||
     !strcmp(bootstrap_mode,"park-rc1e") || !strcmp(bootstrap_mode,"park-rc1e-ack") ||
     !strcmp(bootstrap_mode,"park-rc1e-stale-closed") ||
@@ -1112,9 +1113,13 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
     if (bf("boot-page-policy-float",boot_page_preflight.policy_samples+1)) *out=UINT32_MAX;
     if (bf("boot-page-policy-drift",boot_page_preflight.policy_samples+1)) *out^=1u<<25;
     return true;
-   case 0x70040: *out=boot_page_preflight.stage==1 ? UINT32_MAX : 0; return true;
-   case 0x70180: *out=0xd8000400; return true;
-   case 0x7019c: *out=0; return true;
+   case 0x70040:
+    *out=boot_page_preflight.stage==1 ? UINT32_MAX : bf("driver-close-frame",boot_page_preflight.stage) ? 8 : 0;
+    return true;
+   case 0x70180:
+    *out=bf("driver-close-control",boot_page_preflight.stage) ? 0x58000400 : 0xd8000400;
+    return !bf("driver-close-panel-read",boot_page_preflight.stage);
+   case 0x7019c: *out=bf("driver-close-programmed",boot_page_preflight.stage) ? 4096 : 0; return true;
    case 0x701ac: *out=bf("boot-page-plane",boot_page_preflight.stage) ? 4096 : 0; return true;
    default: assert(false); return false;
    }
@@ -1123,7 +1128,9 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
    assert(range_pa==result.mmio_base+(offset&~4095u));
    if(boot_driver_message_register(offset)) {
     if(bf("driver-traffic-read",boot_driver_page.traffic.reads+1))return false;
-    if(offset==0x40d0) *out=0x7fff;
+    if(bf("driver-traffic-unowned-block",1)) *out=offset==0x8038 ? 1 :
+        (offset>=0x8000 && offset<=0x8010 ? 0x20 : 0);
+    else if(offset==0x40d0) *out=0x7fff;
     else if(offset==0x8028) *out=0x7f;
     else if(offset==0x8014) *out=0x1f;
     else if(offset==0x8010 && bf("driver-traffic-vecs-ack",1)) *out=0x20;

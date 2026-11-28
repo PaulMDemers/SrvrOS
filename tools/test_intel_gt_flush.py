@@ -76,7 +76,7 @@ class FlushAcknowledgements(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'power policy bracket'):
             bootstrap_result(text.replace(current, current.replace('policy1=0xc5280000', 'policy1=0xc7280000')))
         legacy = re.sub(r' policy_samples=\d+ policy0=\w+ policy1=\w+', '', current.replace('v=3', 'v=1', 1))
-        old_text = re.sub(r'^intel-driver-range-(?:preflight|traffic):.*\n', '', text, flags=re.M)
+        old_text = re.sub(r'^intel-driver-range-(?:preflight|traffic|close):.*\n', '', text, flags=re.M)
         old = bootstrap_result(old_text.replace(current, legacy))['flush']['boot_page_preflight']
         self.assertTrue(old['capture_complete'])
         self.assertNotIn('power_policy', old)
@@ -134,10 +134,48 @@ class FlushAcknowledgements(unittest.TestCase):
         packet = next(line for line in text.splitlines() if line.startswith('intel-driver-range-traffic:'))
         with self.assertRaisesRegex(ValueError, 'Driver range preflight'):
             bootstrap_result(text.replace(packet, ''))
-        old_text = re.sub(r'^intel-driver-range-(?:preflight|traffic):.*\n', '', text, flags=re.M)
+        old_text = re.sub(r'^intel-driver-range-(?:preflight|traffic|close):.*\n', '', text, flags=re.M)
         old_text = old_text.replace('intel-boot-page-preflight: v=3 ', 'intel-boot-page-preflight: v=2 ')
         legacy = bootstrap_result(old_text)['flush']['boot_page_preflight']
         self.assertNotIn('driver_range', legacy)
+
+    def test_driver_closing_checks_pinpoint_failure_and_keep_traffic_diagnostic(self):
+        def driver(text):
+            return bootstrap_result(text)['flush']['boot_page_preflight']['driver_range']
+
+        text = observe('pass')
+        passed = driver(text)
+        self.assertIsNone(passed['closing']['first_failure'])
+        self.assertEqual(set(passed['closing']['checks'].values()), {'passed'})
+        self.assertEqual(passed['traffic']['drain_disposition'], 'traffic_open')
+        self.assertFalse(passed['traffic']['drain_verified'])
+        refused = driver(observe('driver-traffic-unowned-block', 1))['traffic']
+        self.assertEqual(refused['drain_disposition'], 'no_owned_request')
+        self.assertEqual([s['engine_ack_bits'] for s in refused['samples']], [31, 31])
+        self.assertFalse(refused['drain_verified'])
+
+        for mode, position, step in (
+                ('driver-page-map', 2, 'pte_sample_count'),
+                ('driver-close-panel-read', 5, 'panel_reads'),
+                ('driver-close-control', 5, 'panel_control'),
+                ('driver-close-programmed', 5, 'panel_programmed_surface'),
+                ('boot-page-plane', 5, 'panel_live_surface'),
+                ('driver-close-frame', 5, 'panel_frame_delta'),
+                ('boot-page-smi', 5, 'smi_count'),
+                ('driver-page-drift', 2, 'pte_low_match')):
+            with self.subTest(mode=mode):
+                failed = driver(observe(mode, position))
+                close = failed['closing']
+                self.assertEqual(close['first_failure'], step)
+                self.assertEqual(close['checks'][step], 'failed')
+                self.assertFalse(failed['summary']['stable'])
+                self.assertFalse(failed['write_authority'])
+
+        close = next(line for line in text.splitlines() if line.startswith('intel-driver-range-close:'))
+        for replacement in ('', close + '\n' + close, close.replace('passed=24', 'passed=23'),
+                            re.sub(r' programmed=\S+', ' programmed=0x1000', close)):
+            with self.assertRaisesRegex(ValueError, 'Driver range closing'):
+                driver(text.replace(close, replacement))
 
     def test_samples_and_timing_on_both_original_paths(self):
         for entry in (None, "disabled"):
