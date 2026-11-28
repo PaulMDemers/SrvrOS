@@ -638,16 +638,19 @@ def main():
                     if rtl8822bu:
                         assert b"rtl8822bu-probe: result=absent register_writes=0 firmware=0 rf=0" in exit_log
                         assert b"rtl8822bu-identity:" not in exit_log
-                        if manifest["config_version"].startswith(("ram-usb-rtl8822bu-v2-", "ram-usb-rtl8822bu-v3-", "ram-usb-rtl8822bu-v4-", "ram-usb-rtl8822bu-v5-")):
+                        if manifest["config_version"].startswith(("ram-usb-rtl8822bu-v2-", "ram-usb-rtl8822bu-v3-", "ram-usb-rtl8822bu-v4-", "ram-usb-rtl8822bu-v5-", "ram-usb-rtl8822bu-v6-")):
                             assert b"rtl8822bu-firmware: result=identity bytes=0 packets=0" in exit_log
                             assert b"rtl8822bu-firmware-progress:" not in exit_log
-                        if manifest["config_version"].startswith(("ram-usb-rtl8822bu-v3-", "ram-usb-rtl8822bu-v4-", "ram-usb-rtl8822bu-v5-")):
+                        if manifest["config_version"].startswith(("ram-usb-rtl8822bu-v3-", "ram-usb-rtl8822bu-v4-", "ram-usb-rtl8822bu-v5-", "ram-usb-rtl8822bu-v6-")):
                             assert b"rtl8822bu-board: result=not-run" in exit_log
                             assert b"rtl8822bu-board-entry:" not in exit_log
-                        if manifest["config_version"].startswith(("ram-usb-rtl8822bu-v4-", "ram-usb-rtl8822bu-v5-")):
+                        if manifest["config_version"].startswith(("ram-usb-rtl8822bu-v4-", "ram-usb-rtl8822bu-v5-", "ram-usb-rtl8822bu-v6-")):
                             assert b"rtl8822bu-phy: result=not-run writes=0" in exit_log
-                        if manifest["config_version"].startswith("ram-usb-rtl8822bu-v5-"):
+                        if manifest["config_version"].startswith(("ram-usb-rtl8822bu-v5-", "ram-usb-rtl8822bu-v6-")):
                             assert b"rtl8822bu-passive: result=not-run" in exit_log
+                        if manifest["config_version"].startswith("ram-usb-rtl8822bu-v6-"):
+                            assert b"rtl8822bu-station-tx:" not in exit_log
+                            assert b"rtl8822bu-wpa2: result=credential" not in exit_log
                         assert b"laptop-capture: completed=NO" in exit_log
                     if rtl8188cu:
                         assert b"rtl8188cu-probe: result=absent register_writes=0 firmware=0 rf=0" in exit_log
