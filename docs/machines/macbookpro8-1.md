@@ -722,6 +722,14 @@ Ubuntu recovery verified. The retry delays automatic Connect until
 after desktop startup and records DHCP Discover, Offer, Request, and ACK
 counts in the final report.
 
+The delayed retry `8cf559613c3b0b22` (`e982b06b`) completed WPA2
+and recorded one Discover, one accepted Offer, one queued Request and
+zero accepted ACKs before the two-second DHCP bound. Both reports
+verified and Ubuntu acquired its lease after reboot. The next bounded
+candidate adds one Request retransmission for the local BCM4331 trial
+within the existing paced DHCP scope and deadline. Shared DHCP parsing,
+lease checks and the policies of other callers are preserved.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
