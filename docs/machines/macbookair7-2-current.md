@@ -789,6 +789,23 @@ restore the exact inherited alias under the same traffic ticket while the
 protected scanout remains pinned. Native writes require a qualified ticket
 and proof of backing, firmware and proxy exclusion in the same boot.
 
+The occupied driver loan passed all 351 host cases and 130 Q35 guest cases,
+including exact rollback while the original framebuffer was pinned. Physical
+release `82e4c4dc7d57534b` at `9827235e` saved four files in session
+`session-00066151336e7118-00`. Both raw reads of slot 16385 were
+`0x8c001001`, matching the first page of the pinned scanout. Both powered
+packets recorded `GO_GAM_REQ=0x7fff`, reply `0x7f`, zero engine and L3
+acknowledgements and WiDi GO still set. All six temporary read-only aliases
+retired. SrvrOS issued zero PTE stores.
+
+The closing slot check did not pass after the 17.594 ms bracket, so bus
+mastering stayed inhibited and the boot owner was retained. The receipt
+records no timer or SMI fault and does not identify the exact closing
+subcheck. Ubuntu recovered the incomplete run and verified all four
+file hashes and a clean offline exFAT check. The next diagnostic must
+record each closing check separately. Native drain and write ownership
+remain open.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
