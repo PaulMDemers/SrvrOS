@@ -181,6 +181,10 @@ static uint64_t station_net_poll(void *context, uint64_t budget, bool verbose) {
 static bool station_net_link(void *context, struct net_device_link *out) {
     const struct bcm4331_station *s = context;
     *out = (struct net_device_link){.up = s->provider_live && s->secured && !s->fault};
+    if (out->up && s->range_trial && s->signal_beacon_at) {
+        uint64_t beacon = s->signal_beacon_at, now = timer_monotonic_us();
+        if (now >= beacon && now - beacon >= 4000000) out->up = false;
+    }
     return true;
 }
 

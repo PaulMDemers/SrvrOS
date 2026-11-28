@@ -30,7 +30,7 @@ struct bcm4331_station {
     uint64_t muted_frames;
     unsigned rx_next, sent, acked;
     uint32_t tx_status, tx_dma_status, tx_dma_error;
-    bool fault, tx_pending, secured, provider_live, provider_pinned, desktop, signal_trial, rx_muted;
+    bool fault, tx_pending, secured, provider_live, provider_pinned, desktop, signal_trial, rx_muted, range_trial;
     uint8_t address[6], bssid[6], last_anonce_digest[32];
     struct wpa2_hs_peer peer;
     uint16_t aid, auth_status, assoc_status;

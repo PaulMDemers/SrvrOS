@@ -1321,6 +1321,15 @@ Keep the flash drive attached through the on-screen countdown and Ubuntu
 return. This exercise does not qualify association recovery after an access
 point goes offline.
 
+For an attended RF outage without access to the router, use
+`--ehci-desktop-wifi-range`. Start in reliable coverage and wait for the
+desktop to prompt the operator to move. Keep the lid open and the flash
+drive attached. Stay out of range until the return prompt, then go back to
+the starting spot and reconnect Ethernet if unplugged. The final report
+records the associated AP's beacon gap, the WPA2 and DHCP epochs, and
+gateway replies after return. Recovery on the original association and
+recovery through a new association provide different evidence.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal

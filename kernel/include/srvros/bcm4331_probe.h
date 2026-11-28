@@ -26,10 +26,10 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode);
 bool bcm4331_desktop_configured(void);
 enum bcm4331_desktop_trial {
     BCM4331_DESKTOP_NORMAL, BCM4331_DESKTOP_SETTINGS, BCM4331_DESKTOP_SIGNAL_LOSS,
-    BCM4331_DESKTOP_LOCAL_GAP,
+    BCM4331_DESKTOP_LOCAL_GAP, BCM4331_DESKTOP_RANGE,
 };
 bool bcm4331_desktop_start(enum bcm4331_desktop_trial trial);
-void bcm4331_desktop_begin_gap(void);
+void bcm4331_desktop_begin_automatic_trial(void);
 bool bcm4331_desktop_finish(bool *retired);
 bool bcm4331_desktop_fence(void);
 
