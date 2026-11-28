@@ -596,6 +596,12 @@ Both reserved-backing offers restored the modeled panel with zero PTE
 stores. A maintained native traffic hold and the GGTT range grant remain
 open. [Physical backing and DMAR result](../intel-bdw-edp-recovery.md#protected-translation-evidence-across-panel-recovery)
 
+The separate-range traffic checkpoint starts at `efc06d12` with main
+`24feebdd` and the independent Haswell requester audit `d7ecead3` reviewed.
+It extends the Broadwell no-store traffic trial to an explicitly granted
+vacant page. The test holds an exact loan from the driver range while
+checking the fresh engine and L3 responses and through clean release.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
