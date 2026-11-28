@@ -255,6 +255,13 @@ released, all six aliases retired, and the protected slots were
 untouched. The exit snapshot, recovery and offline USB check verified.
 Air7,2 PR301 at `9827235e` owns its Broadwell full-GT work.
 
+The next PR567 checkpoint isolates the existing 4 ms held-engine
+sampler from CPU0 maskable interrupts and records timing around both
+passes. Scope is the Air6,1 sampler and its receipt tests on
+`70588176` against integration head `24feebdd`. The forcewake limits,
+Pipe A route and protected GGTT slot checks carry forward. Air7,2
+PR301 at `a6f88f77` owns the independent Broadwell work.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
