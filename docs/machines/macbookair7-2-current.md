@@ -762,6 +762,14 @@ request that remains held while the acknowledgement registers are readable
 and the original display runs. The native occupied-slot trial stays unarmed.
 [Broadwell register reference, pp. 469, 587–592, 606–610 and 859](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
 
+The next Air7,2 checkpoint starts at `5b8d6ee7` with main `24feebdd` and
+Air6,1 PR 567 `0220fb23` reviewed. The dedicated Broadwell eDP baseline
+will sweep the GGTT above the 256 MiB CPU aperture while the original Pipe A
+surface scans out. This covers the range that the previous three spot checks
+and one short vector did not cover. The new receipt records vacancy and
+alias counts with no PTE writes or allocation grant. The survey can identify
+a candidate for command memory, which would still need an ownership proof.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

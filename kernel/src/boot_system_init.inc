@@ -19,18 +19,30 @@ static bool edp_boot_hex(const char **cursor, unsigned digits) {
     return true;
 }
 
+static bool edp_boot_prefix(const char **cmdline) {
+    return *cmdline && edp_boot_literal(cmdline, "srvros.storage=ram srvros.workspace-volume=") &&
+        edp_boot_hex(cmdline, 8) && edp_boot_literal(cmdline, " srvros.desktop-release=") &&
+        edp_boot_hex(cmdline, 16) &&
+        edp_boot_literal(cmdline, " srvros.capture=intel-display srvros.intel-backing=read-only"
+            " srvros.intel-cache=read-only srvros.intel-edp-baseline=on");
+}
+
 static bool edp_pci_hold_recipe(const char *cmdline) {
-    return cmdline && edp_boot_literal(&cmdline, "srvros.storage=ram srvros.workspace-volume=") &&
-        edp_boot_hex(&cmdline, 8) && edp_boot_literal(&cmdline, " srvros.desktop-release=") &&
-        edp_boot_hex(&cmdline, 16) &&
-        edp_boot_literal(&cmdline, " srvros.capture=intel-display srvros.intel-backing=read-only"
-            " srvros.intel-cache=read-only srvros.intel-edp-baseline=on srvros.intel-edp-cycle=on"
-            " srvros.intel-edp-flr=pci-hold srvros.capture-failure=reboot") && !*cmdline;
+    return edp_boot_prefix(&cmdline) && edp_boot_literal(&cmdline, " srvros.intel-edp-cycle=on"
+        " srvros.intel-edp-flr=pci-hold srvros.capture-failure=reboot") && !*cmdline;
+}
+
+static bool edp_live_ggtt_recipe(const char *cmdline) {
+    return edp_boot_prefix(&cmdline) && edp_boot_literal(&cmdline, " srvros.capture-failure=reboot") && !*cmdline;
 }
 #endif
 
 static bool boot_system_init(const char *cmdline, bool timer_running) {
 #if defined(SRVROS_INTEL_EDP_BASELINE)
+    if (edp_live_ggtt_recipe(cmdline)) {
+        console_write("init: deferred=edp-live-ggtt-preinit; terminal automatic capture, no user services\n");
+        return false;
+    }
     if (edp_pci_hold_recipe(cmdline)) {
         console_write("init: deferred=edp-pci-hold-preinit; terminal automatic capture, no user services\n");
         return false;

@@ -938,6 +938,8 @@ class Runner:
                 record['candidate'] = report['native']['candidate']
             if 'dark_census' in report['native']:
                 record['dark_census'] = report['native']['dark_census']
+            if 'live_ggtt' in report['native']:
+                record['live_ggtt'] = report['native']['live_ggtt']
             if 'pwm' in report['native']:
                 record['pwm'] = report['native']['pwm']
             if 'pps' in report['native']:

@@ -9,7 +9,8 @@ from unittest.mock import patch
 
 from hardware_boot import EDP_CONFIGS, limine_config
 from hardware_boot_smoke import intel_probe_cpu_args, intel_probe_profile
-from intel_edp_baseline import PREFIX, candidate_result, checkpoint, dark_census_result, dark_rc6_result, pci_reopen_result, recipe, result, rows_of
+from intel_edp_baseline import (PREFIX, candidate_result, checkpoint, dark_census_result, dark_rc6_result,
+                                live_ggtt_result, pci_reopen_result, recipe, result, rows_of)
 
 ROOT = Path(__file__).resolve().parent.parent
 RELEASE = "1" * 16
@@ -119,6 +120,28 @@ class EdpBaseline(unittest.TestCase):
         for invalid in (dict(refusal, entries=1), dict(refusal, stop=3), dict(observed, alias_flags=5)):
             with self.assertRaises(ValueError):
                 dark_census_result([invalid], points, hold, pixels, native=True)
+
+    def test_live_ggtt_census_keeps_original_scanout_and_gives_no_authority(self):
+        live = dict(v=1, first=65536, end_slot=1048576, complete=1, entries=983040,
+                    empty=48, first_empty=65540, zero_start=70000, zero_pages=32,
+                    framebuffer_aliases=800000, maps=1920, retired=1920, begin_us=100,
+                    end_us=800000, command=0x900007, stop=0, frame0=0xfffffff0,
+                    frame1=20, backing=123, pte_writes=0)
+        line = "intel-edp-live-ggtt: " + " ".join(f"{k}={v}" for k, v in live.items())
+        self.assertEqual(rows_of(line)["intel-edp-live-ggtt"], [live])
+        proof = live_ggtt_result([live], True, 123, native=True, cycle=False)
+        self.assertEqual(proof["frame_delta"], 36)
+        self.assertFalse(proof["write_authority"])
+        for change in (dict(command=0x900402), dict(frame1=live["frame0"]), dict(zero_pages=49),
+                       dict(retired=1919), dict(end_us=2000100), dict(pte_writes=1), dict(backing=7)):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                live_ggtt_result([dict(live, **change)], True, 123, native=True, cycle=False)
+        for native, cycle in ((False, False), (True, True)):
+            with self.assertRaises(ValueError):
+                live_ggtt_result([live], True, 123, native=native, cycle=cycle)
+        stopped = dict(live, complete=0, stop=3, entries=512, maps=1, retired=1,
+                       zero_start=65540, framebuffer_aliases=464, frame1=0, backing=0)
+        self.assertEqual(live_ggtt_result([stopped], True, 123, native=True, cycle=False)["stop"], "clock")
 
     def test_dark_rc6_receipt(self):
         hold = dict(v=4, samples=5, writes=4, elapsed_us=204000, settle_us=250)

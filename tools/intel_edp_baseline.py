@@ -39,6 +39,8 @@ SCHEMAS = {
     "intel-edp-candidate": "v phase slot complete reads retired begin_us end_us command af left target right",
     "intel-edp-dark-census": ("v first end_slot complete entries empty first_empty framebuffer_aliases "
                              "maps retired begin_us end_us command pte_writes"),
+    "intel-edp-live-ggtt": ("v first end_slot complete entries empty first_empty zero_start zero_pages "
+                            "framebuffer_aliases maps retired begin_us end_us command stop frame0 frame1 backing pte_writes"),
     "intel-edp-reopen": "v seq check at ok read got want",
     "intel-edp-pwm": "v complete retained writes elapsed_us before_ctl before_data after_ctl after_data",
     "intel-edp-pps": "v complete retained samples writes wait_us program_us initial_status idle_status",
@@ -401,6 +403,36 @@ def dark_census_result(rows, points, hold, pixels, *, native):
     return report
 
 
+def live_ggtt_result(rows, baseline, reference, *, native, cycle):
+    if not rows:
+        return None
+    if cycle or len(rows) != 1:
+        raise ValueError("Unexpected live GGTT survey")
+    s = rows[0]
+    first, end_slot, count = (s[k] for k in ("first", "end_slot", "entries"))
+    begin, end, stop = (s[k] for k in ("begin_us", "end_us", "stop"))
+    maps, retired = s["maps"], s["retired"]
+    frames = tuple(s[k] for k in ("frame0", "frame1"))
+    if ((first, end_slot) != (65536, 1048576) or s["pte_writes"] or
+            (not begin and any(v for k, v in s.items() if k not in ("v", "first", "end_slot"))) or
+            (begin and (not native or end < begin or bool(s["complete"]) != (stop == 0))) or
+            s["complete"] > 1 or stop >= len(DARK_CENSUS_STOPS) or
+            not 0 <= maps - retired <= 1 or (stop == 8) != (maps != retired) or
+            not 0 <= count <= 512 * maps <= end_slot - first or
+            s["empty"] + s["framebuffer_aliases"] > count or s["zero_pages"] > s["empty"] or
+            bool(s["empty"]) != bool(s["zero_pages"]) or
+            (s["empty"] and not first <= s["first_empty"] <= s["zero_start"] < s["zero_start"] + s["zero_pages"] <= first + count) or
+            (not s["empty"] and (s["first_empty"] or s["zero_start"])) or
+            max(*frames, s["command"]) >= 1 << 32 or (maps and s["command"] & 0xffff != 7)):
+        raise ValueError("Invalid live GGTT survey")
+    delta = (frames[1] - frames[0]) & 0xffffffff
+    if s["complete"] and (not baseline or count != end_slot - first or not 0 < end - begin < 2000000 or
+                          not 0 < delta <= 240 or s["backing"] != reference or not reference):
+        raise ValueError("Incomplete live GGTT coverage or display verification")
+    return dict(survey=s, stop=DARK_CENSUS_STOPS[stop] if begin else "before-survey",
+                frame_delta=delta if s["complete"] else None, write_authority=False)
+
+
 def pci_hold_result(rows, *, native, display):
     summaries, samples = (rows[k] for k in HOLD_ROWS)
     if len(summaries) != 1:
@@ -658,9 +690,13 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
             raise ValueError("Unexpected eDP framebuffer geometry")
     if not cycle:
         del rows["intel-edp-cycle"]  # Keep the original parser receipt shape.
+    live_ggtt = live_ggtt_result(rows.pop("intel-edp-live-ggtt"), complete, windows[-1]["hash"],
+                                native=native, cycle=cycle)
     report = dict(version=1, complete=complete, native_complete=False, pattern_repeated=repeat,
                   well_cycle=well_cycle, cycle_preflight=preflight, diagnostic_complete=complete,
                   retained=retained, rows=rows)
+    if live_ggtt is not None:
+        report["live_ggtt"] = live_ggtt
     if cycle:
         report["display_cycle"] = observed
     if cycle and panel_off is not None:

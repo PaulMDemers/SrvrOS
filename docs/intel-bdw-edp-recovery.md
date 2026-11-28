@@ -677,6 +677,18 @@ cross-checked with i915. [Intel Broadwell Display PRM](https://xorg.freedesktop.
 [i915 CRC sources](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_pipe_crc.c) ·
 [i915 CRC-done interrupt setup](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/i915_irq.c).
 
+### GPU-only translation census with the panel active
+
+The exact Air eDP baseline also surveys GGTT indices `[65536, 1048576)`
+after the inherited CRC check, before leaving the pre-init kernel root.
+The CPU aperture ends at index 65536. The separate table aperture exposes
+the remaining words without mapping the targets. The test keeps PCI Command
+and the programmed and live Pipe A surface fixed throughout the read-only
+sweep. It reports the zero count, longest contiguous zero run, entries matching
+the first framebuffer PTE, retired aliases and frame progress. A complete
+survey also rechecks the inherited backing within the new two-second survey
+budget. The scan gives no allocation or write authority. [Broadwell memory views](https://www.x.org/docs/intel/BDW/intel-gfx-prm-osrc-bdw-vol05-memory_views_0.pdf)
+
 ### Full takeover with a boot blank
 
 The Air's PCI-hold diagnostic now scans the 56,832 CPU-visible GGTT entries

@@ -1014,6 +1014,7 @@ void kmain(void) {
                 bool pci_hold = display_cycle && cmdline_has_token(cmdline, "srvros.intel-edp-flr=pci-hold");
                 bool dark_pwm = display_cycle && cmdline_has_token(cmdline, "srvros.intel-edp-flr=dark-pwm");
                 bool dark_pps = display_cycle && cmdline_has_token(cmdline, "srvros.intel-edp-flr=dark-pps");
+                bool live_ggtt = edp_live_ggtt_recipe(cmdline);
                 bool flr_preflight = dark_well || pci_hold || dark_pwm || dark_pps ||
                     (display_cycle && cmdline_has_token(cmdline, "srvros.intel-edp-flr=preflight"));
                 if (flr_preflight)
@@ -1026,6 +1027,8 @@ void kmain(void) {
                     console_write("intel-edp-pwm: restore the captured backlight PWM with the panel off.\n");
                 if (dark_pps)
                     console_write("intel-edp-pps: wait for the off-cycle timer and restore the panel timing words.\n");
+                if (live_ggtt)
+                    console_write("intel-edp-live-ggtt: read-only GPU address census. Panel stays on. No reset or PTE writes. Automatic, volume 1%.\n");
                 console_write(display_cycle
                     ? "intel-edp-cycle: automatic display shutdown and restore, silent, volume 1%, no input.\n"
                       "intel-edp-cycle: the screen goes dark. If still dark or unchanged after 60s, restart manually.\n"
@@ -1033,7 +1036,7 @@ void kmain(void) {
                       "intel-edp-baseline: saved outcomes return to Ubuntu. If unchanged 60s, photograph and restart manually.\n");
                 if (started && workspace_log_pause()) {
                     bool baseline_ok = intel_edp_baseline_probe(&edp_retained, display_cycle, flr_preflight,
-                                                                dark_well, pci_hold, dark_pwm, dark_pps);
+                                                                dark_well, pci_hold, dark_pwm, dark_pps, live_ggtt);
                     sampled = sampled && cache_ok && baseline_ok;
                 } else {
                     console_write("intel-edp-baseline: checkpoint unavailable; no trial\n");

@@ -57,6 +57,6 @@ bool intel_bdw_edp_baseline_same(const struct bdw_edp_baseline_report *,
 
 #ifdef SRVROS_INTEL_EDP_BASELINE
 bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_preflight,
-                             bool dark_well, bool pci_hold, bool dark_pwm, bool dark_pps);
+                             bool dark_well, bool pci_hold, bool dark_pwm, bool dark_pps, bool live_ggtt);
 #endif
 #endif
