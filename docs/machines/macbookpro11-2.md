@@ -377,6 +377,16 @@ agree, the endpoint and radio retired safely, all 688 workspace files
 matched, and Ubuntu returned automatically. The verified payload and
 logs are in `evidence-dcfa2ac84069edd9` in the recovery archive.
 
+#### Netgear A6150 MAC receive admission
+
+Continue from `7e77cf5f` with main `24feebdd`. Compare the channel 10
+trial against the captured Linux WMAC filters, RX DMA arbitration and
+shared FIFO initialization. Apply those settings after the established
+PHY tune and keep TX paused with its MAC and DMA bits clear. Keep the
+existing 32 KiB request, receive window, parser and EFI journal checks.
+The native fixture must exercise enable ordering, LLT completion, actual
+bulk IN handling and safe retirement when admission fails.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
