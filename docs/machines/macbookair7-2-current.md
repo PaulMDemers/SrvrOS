@@ -675,6 +675,14 @@ by the takeover reset nor the exclusive post-reset grant, so no write-capable
 trial was armed.
 [Joined takeover and recovery](../intel-bdw-edp-recovery.md#full-takeover-with-a-boot-blank)
 
+The next native checkpoint starts at `3f05f022` with main `24feebdd`
+reviewed. It extends the qualified eDP PCI hold to census the CPU-visible
+GGTT outside the inherited fence while the panel is dark and hardware
+reports memory decode on and bus mastering off. Scope is the Air eDP
+adapter and receipt collector. The original framebuffer and the normal
+panel recovery path stay pinned. The census makes no PTE writes and
+grants no ownership.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
