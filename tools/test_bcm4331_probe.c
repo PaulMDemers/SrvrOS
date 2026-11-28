@@ -16,6 +16,16 @@ int main(void) {
     for (unsigned size = 0; size < sizeof beacon; size++) assert(!target_beacon(beacon, size));
     beacon[49] = 11;
     assert(!target_beacon(beacon, sizeof beacon));
+    beacon[49] = 10;
+    uint8_t station_beacon[sizeof beacon + sizeof station_rsn];
+    memcpy(station_beacon, beacon, sizeof beacon - 4);
+    memcpy(station_beacon + sizeof beacon - 4, station_rsn, sizeof station_rsn);
+    radio_put32(station_beacon + sizeof station_beacon - 4, beacon_fcs(station_beacon, sizeof station_beacon - 4));
+    assert(station_peer(station_beacon, sizeof station_beacon));
+    assert(!station_peer(beacon, sizeof beacon));
+    station_beacon[sizeof station_beacon - 6] |= 0x40; /* AP requires PMF. */
+    radio_put32(station_beacon + sizeof station_beacon - 4, beacon_fcs(station_beacon, sizeof station_beacon - 4));
+    assert(!station_peer(station_beacon, sizeof station_beacon));
     /* A 64-bit-form address and explicit size precede the next core tag. */
     const uint32_t erom[] = {
         0x4bf80001, 0x25080201, 0x18000005, 0x18100085,

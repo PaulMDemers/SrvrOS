@@ -93,7 +93,7 @@ def encode(operations):
     return encoded, calibration
 
 
-def make_profile(trace):
+def make_profile(trace, station=False):
     phases = read_phases(trace)
     initialized = next(p for p in phases if p[2] == ["i"] and p[3] == ["i", "0"])
     radio = max(p for p in phases if p[2] == ["r"] and p[1] < initialized[0])
@@ -102,9 +102,9 @@ def make_profile(trace):
     powerup, calibration = encode(analog[4] + radio[4])
     if calibration != {0xB45: 1, 0x340: 3}:
         raise ValueError("Expected one resistor and three oscillator completion samples")
-    phy, _ = encode(receive_only_phy(initialized[4]))
+    phy, _ = encode(initialized[4] if station else receive_only_phy(initialized[4]))
     tune, _ = encode(channel[4])
-    header = struct.pack("<4sIII", b"HT10", len(powerup), len(phy), len(tune))
+    header = struct.pack("<4sIII", b"HTTX" if station else b"HT10", len(powerup), len(phy), len(tune))
     return header + b"".join(powerup + phy + tune)
 
 
@@ -112,8 +112,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trace", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--station", action="store_true", help="also include the unit's transmit gain calibration")
     args = parser.parse_args()
-    args.output.write_bytes(make_profile(args.trace))
+    args.output.write_bytes(make_profile(args.trace, args.station))
 
 
 if __name__ == "__main__":

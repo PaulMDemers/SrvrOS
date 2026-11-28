@@ -1156,7 +1156,7 @@ static void ehci_ethernet_trial(const char *release, const char *volume, bool pa
 static void ehci_bcm4331_trial(const char *release, const char *volume, enum bcm4331_probe_mode mode) {
     boot_set_framebuffer_quiet(false);
     console_clear();
-    const char *trial = mode == BCM4331_CHANNEL10 ? "channel 10 trial" :
+    const char *trial = mode == BCM4331_STATION ? "station trial" : mode == BCM4331_CHANNEL10 ? "channel 10 trial" :
         mode == BCM4331_FIRMWARE ? "firmware trial" : "topology probe";
     console_printf("MacBookPro8,1 internal Wi-Fi %s. Release %s.\n", trial, release);
     console_write("Leave Ethernet and the flash drive connected. No input needed.\n");
@@ -1169,7 +1169,7 @@ static void ehci_bcm4331_trial(const char *release, const char *volume, enum bcm
     console_sync();
 
     enum bcm4331_probe_result result = bcm4331_probe(mode);
-    const char *state = result == BCM4331_BEACON_OK ? "BEACON_OK" : result == BCM4331_FIRMWARE_OK ? "FIRMWARE_OK" :
+    const char *state = result == BCM4331_ASSOCIATED ? "ASSOCIATED" : result == BCM4331_BEACON_OK ? "BEACON_OK" : result == BCM4331_FIRMWARE_OK ? "FIRMWARE_OK" :
         result == BCM4331_TOPOLOGY_OK ? "TOPOLOGY_OK" : result == BCM4331_REFUSED ? "REFUSED" :
         result == BCM4331_UNSAFE ? "UNSAFE" : "INCOMPLETE";
     console_printf("ehci-wifi4331: release=%s phase=final result=%s\n", release, state);
@@ -1430,8 +1430,9 @@ void kmain(void) {
     bool ehci_ethernet = ehci_ethernet_probe || ehci_ethernet_dhcp;
     bool ehci_wifi4331_firmware = cmdline_has_token(cmdline, "srvros.ehci=wifi4331-firmware");
     bool ehci_wifi4331_channel10 = cmdline_has_token(cmdline, "srvros.ehci=wifi4331-channel10");
-    bool ehci_wifi4331 = ehci_wifi4331_channel10 || ehci_wifi4331_firmware || cmdline_has_token(cmdline, "srvros.ehci=wifi4331-probe");
-    enum bcm4331_probe_mode wifi4331_mode = ehci_wifi4331_channel10 ? BCM4331_CHANNEL10 :
+    bool ehci_wifi4331_station = cmdline_has_token(cmdline, "srvros.ehci=wifi4331-station");
+    bool ehci_wifi4331 = ehci_wifi4331_station || ehci_wifi4331_channel10 || ehci_wifi4331_firmware || cmdline_has_token(cmdline, "srvros.ehci=wifi4331-probe");
+    enum bcm4331_probe_mode wifi4331_mode = ehci_wifi4331_station ? BCM4331_STATION : ehci_wifi4331_channel10 ? BCM4331_CHANNEL10 :
         ehci_wifi4331_firmware ? BCM4331_FIRMWARE : BCM4331_TOPOLOGY;
     bool ehci_file_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-file");
     bool ehci_brightness_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-brightness");
@@ -1458,7 +1459,8 @@ void kmain(void) {
     char trial_release[17];
     char ehci_log_volume[9] = {0};
     if (ehci_wifi4331 && (!ehci_trial_release(cmdline, trial_release,
-            ehci_wifi4331_channel10 ? "wifi4331-channel10" : ehci_wifi4331_firmware ? "wifi4331-firmware" : "wifi4331-probe",
+            ehci_wifi4331_station ? "wifi4331-station" : ehci_wifi4331_channel10 ? "wifi4331-channel10" :
+            ehci_wifi4331_firmware ? "wifi4331-firmware" : "wifi4331-probe",
             ehci_log_volume) ||
             !ehci_log_volume[0])) {
         console_write("ehci-wifi4331: invalid boot profile\n");

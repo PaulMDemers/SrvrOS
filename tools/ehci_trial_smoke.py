@@ -358,7 +358,7 @@ def exercise_network_probe(command, temp, logs, release, log_volume, packets, wi
                 "-device", "usb-storage,drive=stick,bus=xhci.0"]
     serial = logs / "trial-serial.log"
     wifi4331 = wifi4331_mode is not None
-    finished = {"channel10": "Wi-Fi channel 10 trial finished", "firmware": "Wi-Fi firmware trial finished",
+    finished = {"station": "Wi-Fi station trial finished", "channel10": "Wi-Fi channel 10 trial finished", "firmware": "Wi-Fi firmware trial finished",
                 "topology": "Wi-Fi topology probe finished", None: "Ethernet probe finished"}[wifi4331_mode]
     report = "ehci-wifi4331" if wifi4331 else "ehci-ethernet"
     serial.unlink(missing_ok=True)
@@ -402,7 +402,8 @@ def main():
     desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
     ethernet_match = boot.EHCI_ETHERNET_RE.fullmatch(version)
     wifi4331 = boot.EHCI_BCM4331_RE.fullmatch(version)
-    wifi4331_mode = ("channel10" if version.startswith(boot.EHCI_BCM4331_CHANNEL10) else
+    wifi4331_mode = ("station" if version.startswith(boot.EHCI_BCM4331_STATION) else
+                     "channel10" if version.startswith(boot.EHCI_BCM4331_CHANNEL10) else
                      "firmware" if version.startswith(boot.EHCI_BCM4331_FIRMWARE) else "topology" if wifi4331 else None)
     desktop_file = version.startswith((boot.EHCI_DESKTOP_FILE_VERSION, boot.EHCI_DESKTOP_FILE_V4_VERSION))
     brightness = version.startswith(boot.EHCI_DESKTOP_BRIGHTNESS_VERSION)

@@ -137,7 +137,7 @@ static uint8_t srom_crc_byte(uint8_t crc, uint8_t byte) {
     return crc;
 }
 
-static bool inspect_srom(const volatile uint16_t *rom) {
+static bool inspect_srom(const volatile uint16_t *rom, uint8_t *station_mac) {
     static const unsigned lengths[] = {220, 230, 234};
     for (unsigned i = 0; i < sizeof lengths / sizeof lengths[0]; i++) {
         unsigned count = lengths[i];
@@ -150,6 +150,17 @@ static bool inspect_srom(const volatile uint16_t *rom) {
         uint8_t revision = (uint8_t)footer;
         crc = srom_crc_byte(crc, revision) ^ 0xff;
         if (crc == footer >> 8 && revision >= 8 && revision <= 11) {
+            if (station_mac) {
+                if (count != 220 || revision != 9) return false;
+                unsigned any = 0;
+                for (unsigned i = 0; i < 3; i++) {
+                    uint16_t mac_word = rom[0x8c / 2 + i];
+                    station_mac[i * 2] = (uint8_t)(mac_word >> 8);
+                    station_mac[i * 2 + 1] = (uint8_t)mac_word;
+                    any |= mac_word;
+                }
+                if (!any || (station_mac[0] & 1)) return false;
+            }
             console_printf("bcm4331: sprom words=%u revision=%u crc=valid\n", (uint64_t)count, (uint64_t)revision);
             return true;
         }
@@ -157,7 +168,7 @@ static bool inspect_srom(const volatile uint16_t *rom) {
     return false;
 }
 
-static bool inspect_board_rom(volatile uint32_t *cc, bool *restored) {
+static bool inspect_board_rom(volatile uint32_t *cc, bool *restored, uint8_t *station_mac) {
     uint32_t original = cc[CHIP_CONTROL / 4];
     if (original == UINT32_MAX) return false;
     /* BCM4331 multiplexes these external PA lines with the SPROM pins.
@@ -165,7 +176,7 @@ static bool inspect_board_rom(volatile uint32_t *cc, bool *restored) {
     uint32_t sprom_pins = original & ~CHIP_PA_PINS;
     if (sprom_pins != original) cc[CHIP_CONTROL / 4] = sprom_pins;
     bool pins_selected = cc[CHIP_CONTROL / 4] == sprom_pins;
-    bool verified = pins_selected && inspect_srom((const volatile uint16_t *)((uintptr_t)cc + CHIP_SROM));
+    bool verified = pins_selected && inspect_srom((const volatile uint16_t *)((uintptr_t)cc + CHIP_SROM), station_mac);
     if (sprom_pins != original) cc[CHIP_CONTROL / 4] = original;
     *restored = cc[CHIP_CONTROL / 4] == original;
     console_printf("bcm4331: sprom pins_selected=%u pins_restored=%u crc_verified=%u\n",
@@ -328,7 +339,7 @@ static bool firmware_trial(const struct pci_device *p, volatile uint32_t *regs, 
         }
     }
     bool radio_retired = true;
-    if (radio && revision == 784 && patch == 2) *beacon = passive_radio_trial(p, regs, radio, &radio_retired, dma_memory);
+    if (radio && revision == 784 && patch == 2) *beacon = radio_trial(p, regs, radio, &radio_retired, dma_memory);
     regs[D11_MAC_CONTROL / 4] = quiet;
     uint32_t control = regs[D11_MAC_CONTROL / 4];
     *retired = radio_retired && control != UINT32_MAX && !(control & (D11_MAC_ENABLED | D11_PSM_RUN)) && !regs[D11_IRQ_MASK / 4];
@@ -349,14 +360,18 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
         console_write("bcm4331: refused missing or mismatched firmware image\n");
         return BCM4331_REFUSED;
     }
-    struct radio_assets assets = {0};
-    if (mode == BCM4331_CHANNEL10) {
+    bool radio_trial_mode = mode == BCM4331_CHANNEL10 || mode == BCM4331_STATION;
+    struct radio_assets assets = {.station = mode == BCM4331_STATION};
+    if (radio_trial_mode) {
         assets.initial = pinned_asset("/firmware/bcm4331-ht-init.fw", 2830,
             "1ee846e61c27505bc55d68bd1ff8155affc2771eb8244d935d329ed8c08ad764");
         assets.band = pinned_asset("/firmware/bcm4331-ht-band.fw", 178,
             "c45a240b9bb97df9f99550abe4a2904908931c5266cf7874869e8cdf6db8a7c5");
-        assets.profile = pinned_asset("/firmware/bcm4331-channel10.bin", RECIPE_HEADER + RECIPE_OP_BYTES * RECIPE_OPS,
-            "4ced8b4f9f4c39bf0c89cbf72f8dcee0b227720ab62019f7489b499e7ac89e98");
+        assets.profile = assets.station ?
+            pinned_asset("/firmware/bcm4331-station.bin", RECIPE_HEADER + RECIPE_OP_BYTES * STATION_RECIPE_OPS,
+                "f08da76a270c02a7b30b4dc33a79cf8337c804ecbc452d42b6b03f9a330b5a38") :
+            pinned_asset("/firmware/bcm4331-channel10.bin", RECIPE_HEADER + RECIPE_OP_BYTES * RECIPE_OPS,
+                "4ced8b4f9f4c39bf0c89cbf72f8dcee0b227720ab62019f7489b499e7ac89e98");
         if (!assets.initial || !assets.band || !assets.profile) {
             console_write("bcm4331: refused missing or mismatched channel 10 assets\n");
             return BCM4331_REFUSED;
@@ -425,12 +440,12 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
                     phy_ready = inspect_d11(p, &cores[1], words);
                     if ((cap & CHIP_CAP_SROM) && (cc[CHIP_STATUS / 4] & CHIP_STATUS_SPROM) &&
                         (srom & 1) && !(srom & (1u << 31)))
-                        srom_ready = inspect_board_rom(cc, &pins_restored);
+                        srom_ready = inspect_board_rom(cc, &pins_restored, assets.station ? assets.address : 0);
                     if (start_firmware && phy_ready && srom_ready && pins_restored) {
                         volatile uint32_t *regs = (volatile uint32_t *)bcm4331_window;
                         firmware_attempted = reset_d11(p, &cores[1], regs, &psm_retired);
                         if (firmware_attempted) firmware_ready = firmware_trial(p, regs, ucode + UCODE_HEADER_BYTES,
-                            mode == BCM4331_CHANNEL10 ? &assets : 0, &beacon, &psm_retired, &dma_memory);
+                            radio_trial_mode ? &assets : 0, &beacon, &psm_retired, &dma_memory);
                         if (dma_memory) psm_retired = retire_stuck_radio_dma(p, &cores[1], regs, &dma_memory);
                     }
                 } else if (selected) {
@@ -455,6 +470,7 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
         (uint64_t)(dma_memory ? RX_DMA_PAGES : 0), (uint64_t)firmware_attempted);
     if (!restored || !unmapped || !pins_restored || !psm_retired) return BCM4331_UNSAFE;
     if (matched) console_printf("bcm4331: board_data=%u phy_identified=%u\n", (uint64_t)srom_ready, (uint64_t)phy_ready);
+    if (mode == BCM4331_STATION) return beacon ? BCM4331_ASSOCIATED : BCM4331_INCOMPLETE;
     if (mode == BCM4331_CHANNEL10) return beacon ? BCM4331_BEACON_OK : BCM4331_INCOMPLETE;
     if (start_firmware) return firmware_ready ? BCM4331_FIRMWARE_OK : BCM4331_INCOMPLETE;
     return matched ? BCM4331_TOPOLOGY_OK : BCM4331_INCOMPLETE;
