@@ -1343,6 +1343,8 @@ reports from each distinct boot, including any failure.
 Build the current kernel before staging `--ehci-lid-probe UUID`. Rehearse
 the exact stage with `tools/ehci_trial_smoke.py RELEASE`. The VM verifies
 foreign-platform refusal, both report files and the one-shot return.
+For a repeat using the same kernel, add `--ehci-lid-run ID` with a fresh
+16-digit lowercase hexadecimal ID to give both reports new filenames.
 Use the verified Ubuntu recovery and run-record sequence for native use.
 Start with the lid open and the charger and flash drive attached. The
 guest prompts for two five-second close/reopen cycles within 90 seconds and automatically

@@ -880,8 +880,13 @@ with the lid value unchanged at `0`. The four expected edges remain
 unverified. The operator confirmed the lid stayed open during this run.
 Both reports matched their archived copies by SHA-256, and the
 workspace passed allocation and prior-file verification on both returns.
-Native sleep was disabled throughout the lid tests. The Ubuntu S3 baseline
-provides the reference for separate firmware wake testing.
+The attended repeat `080d4028bdb8a4e2` used a byte-identical kernel and a
+distinct report release. It passed both close/reopen cycles, with raw
+values `0 → 1 → 0 → 1 → 0` over 15.669 seconds. Both reports matched the
+flash and archive by SHA-256, all previous files survived, the offline
+allocation check passed, and Ubuntu recovery verified. Native sleep was
+disabled during the lid trial. The Ubuntu S3 baseline provides the
+reference for separate firmware wake testing.
 
 ## Bring-up sequence
 
@@ -1899,7 +1904,7 @@ Offline allocation passed for 143 files with zero writes.
 | Audio | Built-in right speaker and stream teardown verified on `024a87e1e8d4bf42`. This unit has a broken left speaker | Qualify audible left-channel output with working hardware |
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
-| Lid and suspend | Ubuntu recorded two lid cycles and an S3 suspend/resume. SrvrOS read the open-lid state and saved both reports on each native boot | Native close/reopen edges and S3 remain unverified |
+| Lid and suspend | SrvrOS recorded both physical close/reopen cycles in `080d4028bdb8a4e2` and verified both reports. Ubuntu verified S3 suspend/resume | SrvrOS S3 remains unverified |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
 | Wi-Fi | Settings Connect, Disconnect, and reconnect passed on BCM4331 against `Demers2.4` in `d6defd5b7a97090b`. The original association resumed gateway traffic after a 15-second driver receive gap in `c809111f83871175`. Both trials saved both reports | Three instrumented warm startups passed WPA2, DHCP and gateway traffic. Two corrected cold starts on `1c813017` admitted the Apple subsystem and passed the same connection checks, with both reports verified each time. Access-point outage and automatic reassociation testing are deferred |
 
