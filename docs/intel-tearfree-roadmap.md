@@ -169,6 +169,16 @@ The provider owns the actual request, checks the pre-reopen boot context
 and retains the firmware, proxy and cache-policy guards. The saved Air
 baseline refuses before any request. [Diagnostic core](../kernel/diagnostics/intel_bdw_boot_drain.c)
 
+The separate-range entry point borrows an exact slot from a registered
+driver interval and requires an exactly zero PTE before requesting a hold.
+It keeps the loan and the inherited display pinned through the fresh
+five-engine and L3 acknowledgement checks and through reopening. It
+rereads the vacant entry and original plane under both the closed and
+reopened states. A successful report records all five engine bits, the
+fresh L3 acknowledgement and a clock observation after the request. The
+no-store trial returns the ticket and leaves the range unseeded. The later
+bind must acquire its own live hold.
+
 The native pre-reopen sampler reads `MISC_CTRL0` through the guarded
 power-register alias before and after the PTE, WiDi and Pipe A packet.
 This checks whether the contemplated CPD route can send GO messages while

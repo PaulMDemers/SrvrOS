@@ -27,6 +27,8 @@ OWNED_PAGE_MODES += tuple(f"boot-drain-{mode}" for mode in (
     "roundtrip", "air-capture", "no-parent", "no-effect", "ambiguous-request", "lost-ticket",
     "stale-l3", "no-l3", "widi-open", "target-drift", "plane-drift", "delayed-return",
     "ambiguous-return", "stuck-return", "expired", "late-parent-loss", "separate-windows",
+    "driver-roundtrip", "driver-occupied", "driver-unowned", "driver-firmware", "driver-target-drift",
+    "driver-frozen", "driver-range-drift",
 ))
 OWNED_PAGE_MODES += tuple(f"boot-range-{mode}" for mode in (
     "roundtrip", "copy", "foreign-driver", "outside", "firmware", "no-scratch", "unmapped",

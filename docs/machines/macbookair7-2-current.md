@@ -601,6 +601,12 @@ The separate-range traffic checkpoint starts at `efc06d12` with main
 It extends the Broadwell no-store traffic trial to an explicitly granted
 vacant page. The test holds an exact loan from the driver range while
 checking the fresh engine and L3 responses and through clean release.
+All 327 host cases and 106 Q35 cases passed, including seven new
+driver-range cases. The modeled roundtrip recorded all five engine
+acknowledgements and a fresh L3 acknowledgement while the candidate stayed
+vacant and the inherited plane stayed unchanged. The Air still lacks a
+native request source and matching range grant. Ubuntu stayed at 1% volume.
+[Separate-range traffic trial](../intel-tearfree-roadmap.md#native-rollback-admission-after-the-air-checkpoint)
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach

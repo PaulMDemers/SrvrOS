@@ -30,7 +30,11 @@ struct bdw_boot_drain {
     struct bdw_boot_page_binding binding;
     struct bdw_boot_drain_io io;
     struct scanout_interval interval;
-    uint64_t begin, last, release_begin, ticket;
+    const struct scanout_interval *driver_range;
+    struct scanout_space_range driver_pages;
+    uint64_t begin, last, requested_at, release_begin, ticket;
+    uint32_t engine_acks;
+    bool l3_ack;
     unsigned state, polls, return_polls;
 };
 
@@ -39,5 +43,10 @@ struct bdw_boot_drain {
  * A returned outcome describes a completed trial without ongoing authority. */
 bool intel_bdw_boot_drain_run(struct bdw_boot_drain *, const struct bdw_boot_page_binding *,
                              const struct bdw_boot_drain_io *);
+/* Exercise the same traffic transaction on a vacant page under an existing
+ * driver grant. The exact loan stays live through the reopen checks. This
+ * trial leaves both the page and its parent's publication state unchanged. */
+bool intel_bdw_boot_drain_run_driver(struct bdw_boot_drain *, const struct bdw_boot_page_binding *,
+                                    const struct scanout_interval *driver_range, const struct bdw_boot_drain_io *);
 
 #endif
