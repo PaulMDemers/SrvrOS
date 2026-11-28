@@ -14,7 +14,7 @@ static uint64_t hsw_window_pa;
 #define HSW_FBC_STATUS 0x43210u
 #define HSW_ACCESS_SLOTS 16u
 static uint32_t hsw_candidate_window;
-static uint32_t hsw_survey_window;
+static uint32_t hsw_survey_window, hsw_survey_window_end;
 static bool hsw_access_window;
 static bool hsw_window_live,hsw_window_poison,hsw_firmware,hsw_cpu_control,hsw_linux_fences;
 static bool hsw_safe_range(uint64_t base,uint64_t size,bool reserved) {
@@ -118,7 +118,7 @@ static bool hsw_read(void *ctx,uint32_t off,uint32_t *v) {
  (void)ctx;
  if(!hsw_window_live || hsw_window_poison || vmm_current_address_space()!=vmm_kernel_address_space() ||
     gpu_base+(off&~4095u)!=hsw_window_pa || (off&3) ||
-    (hsw_survey_window && hsw_survey_protected(off)) ||
+    (hsw_survey_window && (off>=hsw_survey_window_end || hsw_survey_protected(off))) ||
     (hsw_candidate_window && !hsw_candidate_read_allowed(off)) ||
     (hsw_window_pa==gpu_base+0x101000 && (!hsw_cpu_control || off!=0x101000)) ||
     (off>=0x100080 && off<0x101000 && (!hsw_linux_fences || off>=0x100100)))return false;
@@ -167,15 +167,38 @@ static bool hsw_capture_bound(void) {
 #include "haswell_candidate.inc"
 #include "haswell_survey.inc"
 
-static void hsw_backing_refusal(bool candidate_slot, bool access, bool boot_slot, bool survey, bool sweep) {
+static bool hsw_range_run(enum hsw_range_trial range, bool backing_captured) {
+ switch(range) {
+ case HSW_RANGE_SURVEY: {
+  bool observed=backing_captured && hsw_survey_run();
+  hsw_survey_report();
+  return observed;
+ }
+ case HSW_RANGE_SWEEP: {
+  bool observed=backing_captured && hsw_sweep_run();
+  hsw_sweep_report();
+  return observed;
+ }
+ case HSW_RANGE_OWNERSHIP: {
+  bool observed=backing_captured && hsw_ownership_run();
+  hsw_ownership_report();
+  return observed;
+ }
+ case HSW_RANGE_NONE:
+  return false;
+ }
+ return false;
+}
+
+static void hsw_backing_refusal(bool candidate_slot, bool access, bool boot_slot, enum hsw_range_trial range) {
  hsw_report();
  if(candidate_slot)hsw_candidate_report(boot_slot);
  if(access)hsw_access_report(false);
- if(survey)hsw_survey_report();
- if(sweep)hsw_sweep_report();
+ (void)hsw_range_run(range,false);
 }
 
-static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access,bool boot_slot,bool survey,bool sweep) {
+static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access,
+                            bool boot_slot,enum hsw_range_trial range) {
  hsw_cpu_control=cpu_control;hsw_linux_fences=linux_fences;
  hsw_result=(struct hwb_result){.status=2,.version=linux_fences?3:cpu_control?2:1,.fences=linux_fences?32:HWB_FENCES};
  console_write("hsw-backing-progress: exact Air6,1 read-only identity/config preflight\n");
@@ -189,22 +212,13 @@ static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_sl
  uint64_t base;
  if(!candidate || !hsw_host || !timer_reference_ready() ||
     !package_graphics_bar(pci_read_config32(candidate,0x10),pci_read_config32(candidate,0x14),pci_read_config16(candidate,4),&base) ||
-    !hsw_safe_range(base,0x400000,false)) {hsw_backing_refusal(candidate_slot,access,boot_slot,survey,sweep);return false;}
+    !hsw_safe_range(base,0x400000,false)) {hsw_backing_refusal(candidate_slot,access,boot_slot,range);return false;}
  gpu=candidate;gpu_base=base;
- if(!hsw_config_valid()){hsw_backing_refusal(candidate_slot,access,boot_slot,survey,sweep);return false;}
+ if(!hsw_config_valid()){hsw_backing_refusal(candidate_slot,access,boot_slot,range);return false;}
  mapped=graphics_bind();hsw_firmware=mapped;
- if(!mapped){hsw_backing_refusal(candidate_slot,access,boot_slot,survey,sweep);return false;}
+ if(!mapped){hsw_backing_refusal(candidate_slot,access,boot_slot,range);return false;}
  bool captured=hsw_capture_bound();
- if(sweep){
-  bool observed=captured && hsw_sweep_run();
-  hsw_sweep_report();
-  return observed;
- }
- if(survey){
-  bool observed=captured && hsw_survey_run();
-  hsw_survey_report();
-  return observed;
- }
+ if(range!=HSW_RANGE_NONE)return hsw_range_run(range,captured);
  if(!candidate_slot)return captured;
  bool observed=captured && (!access || hsw_live.slot_probe || haswell_firmware_run()) &&
                hsw_candidate_observe_access(access,boot_slot);
@@ -213,18 +227,18 @@ static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_sl
  return observed;
 }
 
-bool platform_haswell_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access,bool boot_slot,bool survey,bool sweep) {
+bool platform_haswell_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access,
+                                 bool boot_slot,enum hsw_range_trial range) {
  if((boot_slot && (!candidate_slot || access)) ||
-    ((survey || sweep) && (candidate_slot || access || boot_slot || !cpu_control || !linux_fences)) ||
-    (survey && sweep))return false;
- return hsw_backing_run(cpu_control,linux_fences,candidate_slot,access,boot_slot,survey,sweep);
+    (range!=HSW_RANGE_NONE && (candidate_slot || access || boot_slot || !cpu_control || !linux_fences)))return false;
+ return hsw_backing_run(cpu_control,linux_fences,candidate_slot,access,boot_slot,range);
 }
 
 bool platform_haswell_live_slot(bool sampler_saved) {
  bool ok=false;
  if(sampler_saved && hsw_live.requester_rows==2) {
   hsw_live.slot_probe=true;
-  ok=hsw_backing_run(true,true,true,true,false,false,false) && hsw_live_match();
+  ok=hsw_backing_run(true,true,true,true,false,HSW_RANGE_NONE) && hsw_live_match();
   hsw_live.slot_probe=false;
  }
  hsw_live_report(ok);

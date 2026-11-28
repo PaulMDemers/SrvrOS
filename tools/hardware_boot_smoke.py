@@ -308,7 +308,7 @@ def main():
         assert not any(t in config for t in ("srvros.wifi-join5=1","srvros.wifi-eapol5=1","srvros.wifi-wpa5=1","srvros.wifi-data5=1","srvros.wifi-provider5=1","srvros.wifi-reuse5=1"))
 
     hfw_capture=bool(probe and manifest["config_version"].startswith(HFW_PROFILES))
-    hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-","ram-usb-v4-hsw-","ram-usb-v5-hsw-","ram-usb-v6-hsw-","ram-usb-v7-hsw-","ram-usb-v8-hsw-")))
+    hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-","ram-usb-v4-hsw-","ram-usb-v5-hsw-","ram-usb-v6-hsw-","ram-usb-v7-hsw-","ram-usb-v8-hsw-","ram-usb-v9-hsw-")))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     if args.ap_c3_sim and not coord_capture: parser.error("C3 simulation requires coordinated diagnostic stage")
@@ -732,7 +732,7 @@ def main():
                         result=backing_result(exit_log)
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         if manifest['config_version'].startswith('ram-usb-v2-hsw-'):assert result['source_version']==2
-                        if manifest['config_version'].startswith(('ram-usb-v3-hsw-', 'ram-usb-v4-hsw-', 'ram-usb-v5-hsw-', 'ram-usb-v6-hsw-', 'ram-usb-v7-hsw-', 'ram-usb-v8-hsw-')):
+                        if manifest['config_version'].startswith(('ram-usb-v3-hsw-', 'ram-usb-v4-hsw-', 'ram-usb-v5-hsw-', 'ram-usb-v6-hsw-', 'ram-usb-v7-hsw-', 'ram-usb-v8-hsw-', 'ram-usb-v9-hsw-')):
                             assert result['source_version']==3
                         if manifest['config_version'].startswith(('ram-usb-v4-hsw-', 'ram-usb-v5-hsw-', 'ram-usb-v6-hsw-')):
                             from hardware_haswell_candidate import candidate_result
@@ -755,6 +755,12 @@ def main():
                             survey = sweep_result(exit_log)
                             assert survey and survey['status']=='REFUSED' and not survey['batches']
                             assert 'hsw-sweep-progress:' not in text and 'init: started' not in text
+                        if manifest['config_version'].startswith('ram-usb-v9-hsw-'):
+                            from hardware_haswell_ownership import ownership_result
+                            ownership = ownership_result(exit_log)
+                            assert ownership and ownership['status']=='UNAVAILABLE'
+                            assert all(not p['reads'] and not p['maps'] for p in ownership['passes'])
+                            assert 'hsw-ownership-progress:' not in text and 'init: started' not in text
                         assert 'hsw-backing-progress: exact Air6,1' in exit_log
                         assert 'laptop-capture: completed=NO' in exit_log
                     if ap_capture:

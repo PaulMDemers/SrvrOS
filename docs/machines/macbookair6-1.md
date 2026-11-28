@@ -211,6 +211,13 @@ path while the original Plane A surface stays pinned. Scope is the
 documented ownership contract and archived evidence. No native range
 has been granted.
 
+The next PR567 checkpoint exercises the read-only ownership refusal for
+populated slots 24576–24591, outside the inherited fence and protected
+slots 4096 and 16385. It reuses the bounded Haswell backing and survey
+checks while Pipe A scans. The receipt will bind the sampled entries to
+the inherited framebuffer and record missing ownership evidence.
+Air7,2 PR301 at `bd3272d2` retains its separate panel-dark scope.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

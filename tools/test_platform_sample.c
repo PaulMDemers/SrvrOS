@@ -20,6 +20,7 @@ static bool test_candidate;
 static unsigned candidate_frames, candidate_ptes;
 static unsigned survey_reads, survey_route_drop_at;
 static bool survey_drift, survey_ones;
+static bool test_ownership, ownership_empty;
 static bool test_sweep, sweep_max_zeros;
 static unsigned sweep_reads, sweep_stop_at;
 static uint8_t sweep_visits[65536];
@@ -150,6 +151,15 @@ void platform_test_hsw_endpoint_start(void) {backing_reads=0;map_walks=0;}
 uint32_t platform_test_hsw_read(unsigned off) {
     if(hsw_survey_window) {
         assert(test_candidate && hsw_vmm_live && hsw_vmm_pa==gpu_base+hsw_survey_window);
+        if(test_ownership) {
+            assert(survey_reads<32 && off==0x218000u+4*(survey_reads%16));
+            unsigned index=survey_reads++;
+            if(survey_route_drop_at==survey_reads)candidate_bad_route=true;
+            if(survey_ones)return UINT32_MAX;
+            if(ownership_empty && index%16==3)return 0;
+            if(survey_drift && index==16)return 0x8ea01001;
+            return index%16==15 ? 0x8ea00001 : 0x8da00001;
+        }
         if(test_sweep) {
             unsigned slot=(off-0x200000u)/4u, page=slot/1024u;
             assert(slot>4096 && slot<65536 && slot!=16385);
@@ -198,7 +208,8 @@ uint32_t platform_test_hsw_read(unsigned off) {
 static unsigned dependency_reports,hda_reports,dry_reports;
 void console_printf(const char *fmt,...) {
     if(!strncmp(fmt,"hsw-backing",11) || !strncmp(fmt,"hsw-candidate",13) || !strncmp(fmt,"hsw-access",10) ||
-       !strncmp(fmt,"hsw-live",8) || !strncmp(fmt,"hsw-survey",10) || !strncmp(fmt,"hsw-sweep",9)) {
+       !strncmp(fmt,"hsw-live",8) || !strncmp(fmt,"hsw-survey",10) || !strncmp(fmt,"hsw-sweep",9) ||
+       !strncmp(fmt,"hsw-ownership",13)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {

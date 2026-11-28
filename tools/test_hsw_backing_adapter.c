@@ -149,7 +149,7 @@ static void survey_setup(void) {
 }
 static void survey_tests(void) {
  survey_setup();
- hsw_survey_window=0x208000;
+ hsw_survey_window=0x208000;hsw_survey_window_end=0x209000;
  uint32_t word;
  assert(!hsw_map(NULL,0x204000) && !hsw_map(NULL,0x210000));
  assert(hsw_map(NULL,0x208000));
@@ -182,9 +182,9 @@ static void sweep_setup(void) {
 static void sweep_tests(void) {
  sweep_setup();
  uint32_t word;
- hsw_survey_window=0x204000;
+ hsw_survey_window=0x204000;hsw_survey_window_end=0x205000;
  assert(hsw_map(NULL,0x204000) && !hsw_read(NULL,0x204000,&word) && hsw_unmap(NULL));
- hsw_survey_window=0x210000;
+ hsw_survey_window=0x210000;hsw_survey_window_end=0x211000;
  assert(hsw_map(NULL,0x210000) && !hsw_read(NULL,0x210004,&word) && hsw_unmap(NULL));
  hsw_survey_window=0;
  assert(!sweep_reads);
@@ -193,8 +193,48 @@ static void sweep_tests(void) {
  assert(hsw_sweep.complete==1 && hsw_sweep.attempted==2 && sweep_reads==8191 && !hsw_window_live);
  assert(hsw_sweep.row[1].batch.pass[0].retired==1 && !hsw_sweep.row[1].shortlisted);
 }
+static void ownership_setup(void) {
+ survey_setup();
+ test_ownership=true;
+ ownership_empty=false;
+ hsw_ownership_image_aliases=0;
+}
+static void ownership_tests(void) {
+ ownership_setup();
+ uint32_t word;
+ hsw_survey_window=0x218000;hsw_survey_window_end=0x218040;
+ assert(!hsw_map(NULL,0x204000) && !hsw_map(NULL,0x210000) && !hsw_map(NULL,0x200000));
+ assert(hsw_map(NULL,0x218000) && !hsw_read(NULL,0x218040,&word) && hsw_unmap(NULL));
+ hsw_survey_window=hsw_survey_window_end=0;
+ assert(!survey_reads);
+ ownership_setup();survey_drift=true;
+ assert(!hsw_ownership_run() && hsw_survey.status==HSW_SURVEY_CHANGED && survey_reads==17);
+ assert(hsw_survey.pass[1].retired==1 && !hsw_window_live);
+ ownership_setup();ownership_empty=true;
+ assert(!hsw_ownership_run() && hsw_survey.status==HSW_SURVEY_NOT_POPULATED && survey_reads==32 && !hsw_window_live);
+ ownership_setup();survey_ones=true;
+ assert(!hsw_ownership_run() && hsw_survey.status==HSW_SURVEY_ACCESS && survey_reads==1 && !hsw_window_live);
+ ownership_setup();candidate_late=true;
+ assert(!hsw_ownership_run() && hsw_survey.status==HSW_SURVEY_DEADLINE && survey_reads==16);
+ ownership_setup();survey_route_drop_at=16;
+ assert(!hsw_ownership_run() && hsw_survey.status==HSW_SURVEY_ACCESS && survey_reads==16 && !hsw_window_live);
+ ownership_setup();candidate_frozen=true;
+ assert(!hsw_ownership_run() && hsw_survey.status==HSW_SURVEY_CHANGED && survey_reads==32 && !hsw_window_live);
+ ownership_setup();hsw_vmm_unmap_fail=1;
+ assert(!hsw_ownership_run() && hsw_survey.status==HSW_SURVEY_RETAINED && survey_reads==16);
+ assert(hsw_window_poison && hsw_window_live && !hsw_survey.pass[0].retired);
+}
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"ownership")) {
+  ownership_tests();
+  ownership_setup();assert(hsw_ownership_run() && survey_reads==32 && hsw_ownership_image_aliases==15);
+  assert(hsw_vmm_maps==12 && hsw_vmm_unmaps==12 && candidate_frames==2 && !hsw_window_live);
+  hsw_emit=1;hsw_report();hsw_ownership_report();
+  puts("laptop-capture: boot options=srvros.hsw-ownership=read-only");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
  if(argc==2 && (!strcmp(argv[1],"sweep") || !strcmp(argv[1],"sweep-max") || !strcmp(argv[1],"sweep-failed"))) {
   sweep_tests();
   sweep_setup();sweep_max_zeros=!strcmp(argv[1],"sweep-max");

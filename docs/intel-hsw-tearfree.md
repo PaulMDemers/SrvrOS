@@ -596,13 +596,30 @@ interrupts scanout and falls outside the live Pipe A contract.
    and both backings for controlled recovery. [Haswell planner](../kernel/diagnostics/intel_hsw_ggtt.c)
    · [i915 Gen6/7 invalidation](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L177-L184)
 
-The next read-only checkpoint can exercise a scoped ownership refusal
-receipt against the archived Air6,1 baseline. It should distinguish
-screen preservation, possible old users, unavailable awake engine state,
-and missing firmware authorization. Positive fixtures can model a
-supplied grant and test loan lifetime and refusal, while native evidence
-continues to leave the range unavailable. No populated slot is selected
-for replacement in this investigation.
+#### Read-only ownership refusal boot
+
+The v9 Haswell backing profile verifies refusal for slots 24576–24591,
+starting at GPU offset `0x06000000` and BAR0+`0x218000`. The preceding
+survey observed this region populated with aliases of the inherited
+framebuffer. The new boot compares two 16-entry samples, at least 20 ms
+apart and within the existing 100 ms window. Pipe A must advance on the
+same inherited surface and each temporary read-only alias must retire.
+The MMIO reader is limited to those 16 entries. The inherited fence
+and slots 4096 and 16385 stay protected. Backing addresses are compared
+with the saved image vector and are never dereferenced by the probe.
+
+A verified refusal requires all entries present and both raw samples
+matching. It reports how many addresses alias the inherited image, then
+records the unavailable range grant, requester hold and awake engine
+state and the unverified DMA drain and firmware exclusion. A changed,
+non-present or incomplete sample cannot produce a verified refusal.
+The host checks the raw vector, hashes, image alias count, frame
+progress and both retirements. The profile has no range grant or hardware
+control path.
+
+Stage with `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-ownership-refusal`.
+Decode the matched `exit.log` with `tools/hardware_haswell_ownership.py`.
 
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers

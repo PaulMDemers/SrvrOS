@@ -8,7 +8,7 @@ static const uint32_t hsw_survey_first[HSW_SURVEY_PAGES] = {8192, 24576, 40960, 
 
 enum hsw_survey_status {
     HSW_SURVEY_REFUSED, HSW_SURVEY_OBSERVED, HSW_SURVEY_ACCESS,
-    HSW_SURVEY_CHANGED, HSW_SURVEY_DEADLINE, HSW_SURVEY_RETAINED,
+    HSW_SURVEY_CHANGED, HSW_SURVEY_DEADLINE, HSW_SURVEY_RETAINED, HSW_SURVEY_NOT_POPULATED,
 };
 struct hsw_survey_pass {
     uint64_t begin, end, hash;
@@ -55,14 +55,15 @@ static bool hsw_survey_display(void) {
     return hsw_survey_tick();
 }
 
-static bool hsw_survey_page(unsigned phase, unsigned page, uint32_t mmio) {
+static bool hsw_survey_page(unsigned phase, unsigned page, uint32_t mmio, unsigned words) {
     struct hsw_survey_pass *pass = &hsw_survey.pass[phase];
     if (!hsw_survey_display()) return false;
     hsw_survey_window = mmio;
+    hsw_survey_window_end = mmio + words * 4;
     bool mapped_page = hsw_map(NULL, mmio);
     bool ok = mapped_page && hsw_survey_display();
     if (mapped_page) pass->maps++;
-    for (unsigned i = 0; ok && i < HSW_SURVEY_WORDS; i++) {
+    for (unsigned i = 0; ok && i < words; i++) {
         if (!(i % 32) && !hsw_survey_tick()) {ok = false; break;}
         uint32_t off = mmio + i * 4;
         if (hsw_survey_protected(off)) continue;
@@ -81,6 +82,7 @@ static bool hsw_survey_page(unsigned phase, unsigned page, uint32_t mmio) {
     }
     if (mapped_page && hsw_unmap(NULL)) pass->retired++;
     hsw_survey_window = 0;
+    hsw_survey_window_end = 0;
     if (hsw_window_poison) {
         hsw_survey.status = HSW_SURVEY_RETAINED;
         return false;
@@ -88,14 +90,16 @@ static bool hsw_survey_page(unsigned phase, unsigned page, uint32_t mmio) {
     return ok && hsw_survey_display();
 }
 
-static bool hsw_survey_batch(const uint32_t first[HSW_SURVEY_PAGES]) {
+static bool hsw_survey_batch(const uint32_t *first, unsigned pages, unsigned words) {
+    if (!pages || pages > HSW_SURVEY_PAGES || !words || words > HSW_SURVEY_WORDS) return false;
     uint32_t mmio[HSW_SURVEY_PAGES];
-    for (unsigned i = 0; i < HSW_SURVEY_PAGES; i++) {
-        uint32_t start = first[i], end = start + HSW_SURVEY_WORDS;
+    for (unsigned i = 0; i < pages; i++) {
+        uint32_t start = first[i];
         uint32_t last;
+        if (start >= 65536 || words > 65536 - start) return false;
         if (!intel_hsw_ggtt_candidate(&hsw_result, start * 4096u, &mmio[i]) ||
-            !intel_hsw_ggtt_candidate(&hsw_result, (end - 1) * 4096u, &last) ||
-            (mmio[i] & 4095u) || last != mmio[i] + 4092u) return false;
+            !intel_hsw_ggtt_candidate(&hsw_result, (start + words - 1) * 4096u, &last) ||
+            (mmio[i] & 4095u) || last != mmio[i] + (words - 1) * 4u) return false;
     }
     hsw_survey.begin = hsw_survey.end = timer_monotonic_us();
     hsw_survey.status = HSW_SURVEY_ACCESS;
@@ -110,8 +114,8 @@ static bool hsw_survey_batch(const uint32_t first[HSW_SURVEY_PAGES]) {
         }
         pass->begin = hsw_survey.end;
         pass->hash = 14695981039346656037ull;
-        for (unsigned page = 0; page < HSW_SURVEY_PAGES; page++)
-            if (!hsw_survey_page(phase, page, mmio[page])) return false;
+        for (unsigned page = 0; page < pages; page++)
+            if (!hsw_survey_page(phase, page, mmio[page], words)) return false;
         pass->end = hsw_survey.end;
     }
     hsw_survey.frames[1] = resource_read(0x70040);
@@ -123,7 +127,7 @@ static bool hsw_survey_batch(const uint32_t first[HSW_SURVEY_PAGES]) {
 
 static bool hsw_survey_run(void) {
     console_write("hsw-survey-progress: two read-only GGTT passes with inherited Pipe A; no input needed\n");
-    return hsw_survey_batch(hsw_survey_first);
+    return hsw_survey_batch(hsw_survey_first, HSW_SURVEY_PAGES, HSW_SURVEY_WORDS);
 }
 
 static void hsw_survey_report(void) {
@@ -199,7 +203,7 @@ static bool hsw_sweep_run(void) {
     for (unsigned i = 0; i < HSW_SWEEP_BATCHES; i++) {
         struct hsw_sweep_row *row = &hsw_sweep.row[i];
         hsw_survey = (struct hsw_survey_batch){0};
-        bool ok = hsw_survey_batch(row->first);
+        bool ok = hsw_survey_batch(row->first, HSW_SURVEY_PAGES, HSW_SURVEY_WORDS);
         row->batch = hsw_survey;
         hsw_sweep.attempted++;
         if (!ok) {
@@ -236,4 +240,54 @@ static void hsw_sweep_report(void) {
         for (unsigned j = 0; j < row->shortlisted; j++)
             console_printf("hsw-sweep-zero: index=%u slot=%u\n", (uint64_t)i, (uint64_t)row->shortlist[j]);
     }
+}
+
+/* One populated range at GPU address 96 MiB, on the already surveyed page.
+ * A complete observation produces a refusal receipt, never a range loan. */
+#define HSW_OWNERSHIP_FIRST 24576u
+#define HSW_OWNERSHIP_WORDS 16u
+static unsigned hsw_ownership_image_aliases;
+
+static bool hsw_ownership_run(void) {
+    const uint32_t first = HSW_OWNERSHIP_FIRST;
+    console_write("hsw-ownership-progress: checking populated GGTT range without hardware writes; Pipe A stays active\n");
+    if (!hsw_survey_batch(&first, 1, HSW_OWNERSHIP_WORDS)) return false;
+    for (unsigned i = 0; i < HSW_OWNERSHIP_WORDS; i++)
+        if (!(hsw_survey_words[0][i] & 1u)) {
+            hsw_survey.status = HSW_SURVEY_NOT_POPULATED;
+            return false;
+        }
+    const struct hwb_sample *image = &hsw_result.sample[0];
+    for (unsigned i = 0; i < HSW_OWNERSHIP_WORDS; i++) {
+        uint64_t address = intel_hsw_ggtt_address(hsw_survey_words[0][i]);
+        for (unsigned j = 0; j < image->count; j++)
+            if (address == intel_hsw_ggtt_address(image->pte[j])) {
+                hsw_ownership_image_aliases++;
+                break;
+            }
+    }
+    return true;
+}
+
+static void hsw_ownership_report(void) {
+    console_printf("hsw-ownership: v=1 status=%u first=%u count=%u begin=%u end=%u frames=%u,%u writes=0 authority=none\n",
+                   (uint64_t)hsw_survey.status, (uint64_t)HSW_OWNERSHIP_FIRST, (uint64_t)HSW_OWNERSHIP_WORDS,
+                   hsw_survey.begin, hsw_survey.end, (uint64_t)hsw_survey.frames[0], (uint64_t)hsw_survey.frames[1]);
+    for (unsigned i = 0; i < 2; i++) {
+        const struct hsw_survey_pass *p = &hsw_survey.pass[i];
+        console_printf("hsw-ownership-pass: phase=%u begin=%u end=%u reads=%u maps=%u retired=%u hash=%u\n",
+                       (uint64_t)i, p->begin, p->end, (uint64_t)p->reads, (uint64_t)p->maps,
+                       (uint64_t)p->retired, p->hash);
+    }
+    if (hsw_survey.status != HSW_SURVEY_OBSERVED) return;
+    /* There is no live grant or maintained requester provider in this
+     * profile. Report those gaps independently of the observed aliases. */
+    console_printf("hsw-ownership-refusal: admission=refused image_aliases=%u range_grant=unavailable requester_hold=unavailable drain=unverified awake_engines=unavailable firmware_exclusion=unverified\n",
+                   (uint64_t)hsw_ownership_image_aliases);
+    uint8_t raw[HSW_OWNERSHIP_WORDS * 4];
+    char data[sizeof(raw) * 4 / 3 + 5];
+    unsigned n = 0;
+    for (unsigned i = 0; i < HSW_OWNERSHIP_WORDS; i++) hda_put(raw, &n, hsw_survey_words[0][i], 4);
+    hsw_b64(raw, n, data);
+    console_printf("hsw-ownership-data: data=%s\n", data);
 }
