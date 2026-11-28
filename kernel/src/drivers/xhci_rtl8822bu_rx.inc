@@ -555,7 +555,7 @@ static const char *bu_receive(struct bu_upload *up,struct bu_rx *rx) {
 static bool bu_rx_finish(struct bu_rx *rx,const char *failure) {
     if(!rx->configured)return true;
     struct xhci_device *d=rx->device;
-    bool gated=bu_write(d,BU_CR,1,0) && bu_phy_tx_inhibited(d);
+    bool gated=bu_write(d,BU_CR,1,0) && bu_phy_reassert_tx_pause(d,"retire");
     bool stopped=bu_rx_stop(rx);
     bool fifo_restored=!rx->fifo.touched || (gated && stopped && bu_rx_fifo_restore(d,&rx->fifo));
     bool restored=bu_rx_restore_security(d,&rx->security);

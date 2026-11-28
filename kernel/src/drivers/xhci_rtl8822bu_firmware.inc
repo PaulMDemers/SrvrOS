@@ -515,7 +515,7 @@ static bool bu_capture(const uint8_t *image,uint64_t size,enum bu_mode mode,
                     phy_failure="profile";
                     if(bu_phy_profile_valid(phy,phy_size)) {
                         phy_failure="tx-pause";
-                        if(mode==BU_PASSIVE?bu_phy_tx_inhibited(d):bu_write(d,BU_TXPAUSE,1,0xff)) {
+                        if(mode==BU_PASSIVE?bu_phy_reassert_tx_pause(d,"phy-entry"):bu_write(d,BU_TXPAUSE,1,0xff)) {
                             console_write("rtl8822bu-phy-progress: loading RFE type 3 tables with MAC traffic disabled\n");
                             phy_failure=bu_phy_run(&up,phy,&phy_written,&phy_touched);
                             if(mode==BU_PASSIVE && !phy_failure)rx_failure=bu_receive(&up,&rx);

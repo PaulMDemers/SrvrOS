@@ -20,6 +20,17 @@ static bool bu_phy_tx_inhibited(struct xhci_device *d) {
     return bu_read(d,BU_CR,1,&cr) && !cr && bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff;
 }
 
+static bool bu_phy_reassert_tx_pause(struct xhci_device *d,const char *phase) {
+    uint32_t cr=UINT32_MAX,before=UINT32_MAX,after=UINT32_MAX;
+    bool ctrl=bu_read(d,BU_CR,1,&cr);
+    bool read=bu_read(d,BU_TXPAUSE,1,&before);
+    bool ok=ctrl && !cr && read && (before==0xff || bu_write(d,BU_TXPAUSE,1,0xff)) &&
+        bu_read(d,BU_CR,1,&cr) && !cr && bu_read(d,BU_TXPAUSE,1,&after) && after==0xff;
+    console_printf("rtl8822bu-tx-pause: phase=%s cr=%x before=%x after=%x verified=%u\n",
+        phase,(uint64_t)cr,(uint64_t)before,(uint64_t)after,(uint64_t)ok);
+    return ok;
+}
+
 static bool bu_phy_powered(struct xhci_device *d) {
     uint32_t bb,rf,wlrf;
     return bu_read(d,2,1,&bb) && (bb&3)==3 && bu_read(d,0x1f,1,&rf) && (rf&7)==7 &&
