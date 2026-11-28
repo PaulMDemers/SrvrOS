@@ -1238,6 +1238,8 @@ through GRUB. On the MacBook, keep the Ethernet cable and selected flash
 drive attached. The one-shot probe reads BCM4331 ChipCommon and enumeration
 ROM with temporary PCI access. It fences inherited bus mastering before
 changing the selector and verifies PCI access restoration before rebooting.
+It also samples the clocked PHY and attempts board ROM validation with
+temporary pin selection and verified restoration.
 Check `ehci-wifi4331-RELEASE-startup.txt` and
 `ehci-wifi4331-RELEASE.txt` under `srvros-work`. The topology probe precedes
 firmware startup and requires no network credentials or operator input.

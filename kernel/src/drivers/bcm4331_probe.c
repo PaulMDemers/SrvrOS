@@ -11,9 +11,13 @@ enum {
     PCI_BAR0_WINDOW = 0x80,
     PCI_EXP_CAP = 0xd0, PCI_EXP_STATUS = 0xda, PCI_EXP_PENDING = 0x20,
     PAGE_BYTES = 4096, BAR_BYTES = 4 * PAGE_BYTES, CHIPCOMMON_PAGE = 3 * PAGE_BYTES,
-    CHIP_ID = 0x00, CHIP_CAP = 0x04, CHIP_EROM = 0xfc, CHIP_SROM_CONTROL = 0x190,
+    CHIP_ID = 0x00, CHIP_CAP = 0x04, CHIP_CONTROL = 0x28, CHIP_STATUS = 0x2c,
+    CHIP_EROM = 0xfc, CHIP_SROM_CONTROL = 0x190,
     CHIP_SROM = 0x800, CHIP_CAP_SROM = 1u << 30,
+    CHIP_STATUS_SPROM = 1u << 1, CHIP_PA_PINS = (1u << 4) | (1u << 7) | (1u << 12),
     CORE_IO_CONTROL = 0x408, CORE_IO_STATUS = 0x500, CORE_RESET_CONTROL = 0x800, CORE_RESET_STATUS = 0x804,
+    CORE_CLOCK = 1, CORE_FORCE_CLOCK = 2, D11_PHY_CLOCK = 4, CORE_RESET = 1,
+    D11_MAC_CONTROL = 0x120, D11_PHY_VERSION = 0x3e0,
     EROM_VALID = 1, EROM_ADDR_TAG = 0x06, EROM_END = 0x0f,
     EROM_MASTER_PORT = 3, EROM_ADDRESS = 5, EROM_ADDR_SIZE = 0x30,
     EROM_SIZE_DESCRIPTOR = 0x30, EROM_ADDR_64 = 8,
@@ -121,7 +125,7 @@ static uint8_t srom_crc_byte(uint8_t crc, uint8_t byte) {
     return crc;
 }
 
-static void inspect_srom(const volatile uint16_t *rom) {
+static bool inspect_srom(const volatile uint16_t *rom) {
     static const unsigned lengths[] = {220, 230, 234};
     for (unsigned i = 0; i < sizeof lengths / sizeof lengths[0]; i++) {
         unsigned count = lengths[i];
@@ -135,10 +139,45 @@ static void inspect_srom(const volatile uint16_t *rom) {
         crc = srom_crc_byte(crc, revision) ^ 0xff;
         if (crc == footer >> 8 && revision >= 8 && revision <= 11) {
             console_printf("bcm4331: sprom words=%u revision=%u crc=valid\n", (uint64_t)count, (uint64_t)revision);
-            return;
+            return true;
         }
     }
-    console_write("bcm4331: SPROM shadow CRC unverified with current pin state\n");
+    return false;
+}
+
+static bool inspect_board_rom(volatile uint32_t *cc, bool *restored) {
+    uint32_t original = cc[CHIP_CONTROL / 4];
+    if (original == UINT32_MAX) return false;
+    /* BCM4331 multiplexes these external PA lines with the SPROM pins.
+     * Touch just that mux and restore the complete original register. */
+    uint32_t sprom_pins = original & ~CHIP_PA_PINS;
+    if (sprom_pins != original) cc[CHIP_CONTROL / 4] = sprom_pins;
+    bool pins_selected = cc[CHIP_CONTROL / 4] == sprom_pins;
+    bool verified = pins_selected && inspect_srom((const volatile uint16_t *)((uintptr_t)cc + CHIP_SROM));
+    if (sprom_pins != original) cc[CHIP_CONTROL / 4] = original;
+    *restored = cc[CHIP_CONTROL / 4] == original;
+    console_printf("bcm4331: sprom pins_selected=%u pins_restored=%u crc_verified=%u\n",
+        (uint64_t)pins_selected, (uint64_t)*restored, (uint64_t)verified);
+    return verified;
+}
+
+static bool inspect_d11(const struct pci_device *p, const struct bcma_core *core, const volatile uint32_t *words) {
+    pci_write_config32(p, PCI_BAR0_WINDOW, core->wrapper);
+    if (pci_read_config32(p, PCI_BAR0_WINDOW) != core->wrapper) return false;
+    uint32_t ioctl = words[CORE_IO_CONTROL / 4], iost = words[CORE_IO_STATUS / 4];
+    uint32_t reset = words[CORE_RESET_CONTROL / 4], status = words[CORE_RESET_STATUS / 4];
+    console_printf("bcm4331: d11_wrapper ioctl=%x iost=%x reset=%x reset_status=%x\n",
+        (uint64_t)ioctl, (uint64_t)iost, (uint64_t)reset, (uint64_t)status);
+    if (status || (reset & CORE_RESET) || (ioctl & (CORE_CLOCK | CORE_FORCE_CLOCK | D11_PHY_CLOCK)) !=
+        (CORE_CLOCK | D11_PHY_CLOCK)) return false;
+    pci_write_config32(p, PCI_BAR0_WINDOW, core->address);
+    if (pci_read_config32(p, PCI_BAR0_WINDOW) != core->address) return false;
+    uint32_t mac_control = words[D11_MAC_CONTROL / 4];
+    uint16_t phy = ((const volatile uint16_t *)words)[D11_PHY_VERSION / 2];
+    console_printf("bcm4331: phy=%x analog=%u type=%u revision=%u mac_control=%x\n",
+        (uint64_t)phy, (uint64_t)(phy >> 12), (uint64_t)((phy >> 8) & 0xf), (uint64_t)(phy & 0xff),
+        (uint64_t)mac_control);
+    return mac_control != UINT32_MAX && phy == 0x9701;
 }
 
 enum bcm4331_probe_result bcm4331_probe(void) {
@@ -179,19 +218,17 @@ enum bcm4331_probe_result bcm4331_probe(void) {
     if (!drained) return BCM4331_UNSAFE;
 
     const uint64_t flags = VMM_PAGE_CACHE_DISABLE | VMM_PAGE_NO_EXECUTE;
-    if (!vmm_map_page_in_space(root, fixed, bar + CHIPCOMMON_PAGE, flags)) return BCM4331_INCOMPLETE;
+    if (!vmm_map_page_in_space(root, fixed, bar + CHIPCOMMON_PAGE, flags | VMM_PAGE_WRITABLE)) return BCM4331_INCOMPLETE;
     uint16_t enabled = fenced | PCI_MEMORY;
     if (enabled != fenced) pci_write_config16(p, PCI_COMMAND, enabled);
-    bool mapped = false, switched = false, matched = false;
+    bool mapped = false, switched = false, matched = false, pins_restored = true, srom_ready = false, phy_ready = false;
     if (pci_read_config16(p, PCI_COMMAND) == enabled) {
-        const volatile uint32_t *cc = (const volatile uint32_t *)fixed;
+        volatile uint32_t *cc = (volatile uint32_t *)fixed;
         uint32_t id = cc[CHIP_ID / 4], cap = cc[CHIP_CAP / 4], erom = cc[CHIP_EROM / 4];
         uint32_t srom = cc[CHIP_SROM_CONTROL / 4];
         console_printf("bcm4331: chip=%x capabilities=%x erom=%x srom_control=%x\n",
             (uint64_t)id, (uint64_t)cap, (uint64_t)erom, (uint64_t)srom);
         if (id == 0x13924331 && erom == 0x18107000) {
-            if ((cap & CHIP_CAP_SROM) && (srom & 1) && !(srom & (1u << 31)))
-                inspect_srom((const volatile uint16_t *)(fixed + CHIP_SROM));
             mapped = vmm_map_page_in_space(root, bcm4331_window, bar, flags);
             if (mapped) {
                 pci_write_config32(p, PCI_BAR0_WINDOW, erom);
@@ -205,11 +242,10 @@ enum bcm4331_probe_result bcm4331_probe(void) {
                         console_printf("bcm4331: core=%x revision=%x address=%x wrapper=%x\n",
                             (uint64_t)captured_cores[i].id, (uint64_t)captured_cores[i].revision,
                             (uint64_t)cores[i].address, (uint64_t)cores[i].wrapper);
-                    pci_write_config32(p, PCI_BAR0_WINDOW, cores[1].wrapper);
-                    if (pci_read_config32(p, PCI_BAR0_WINDOW) == cores[1].wrapper)
-                        console_printf("bcm4331: d11_wrapper ioctl=%x iost=%x reset=%x reset_status=%x\n",
-                            (uint64_t)words[CORE_IO_CONTROL / 4], (uint64_t)words[CORE_IO_STATUS / 4],
-                            (uint64_t)words[CORE_RESET_CONTROL / 4], (uint64_t)words[CORE_RESET_STATUS / 4]);
+                    phy_ready = inspect_d11(p, &cores[1], words);
+                    if ((cap & CHIP_CAP_SROM) && (cc[CHIP_STATUS / 4] & CHIP_STATUS_SPROM) &&
+                        (srom & 1) && !(srom & (1u << 31)))
+                        srom_ready = inspect_board_rom(cc, &pins_restored);
                 } else if (selected) {
                     console_write("bcm4331: enumeration ROM did not match the captured topology\n");
                     for (unsigned i = 0; i < 48; i++)
@@ -227,8 +263,9 @@ enum bcm4331_probe_result bcm4331_probe(void) {
     uint64_t physical;
     bool unmapped = vmm_unmap_page_in_space(root, fixed, &physical) && physical == bar + CHIPCOMMON_PAGE;
     if (mapped) unmapped = (vmm_unmap_page_in_space(root, bcm4331_window, &physical) && physical == bar) && unmapped;
-    console_printf("bcm4331: mapping=%s pci_windows_restored=%u bus_master_off=%u dma_pages=0 radio_writes=0\n",
-        unmapped ? "released" : "unverified", (uint64_t)restored, (uint64_t)bus_master_off);
-    if (!restored || !unmapped) return BCM4331_UNSAFE;
+    console_printf("bcm4331: mapping=%s pci_windows_restored=%u bus_master_off=%u pins_restored=%u dma_pages=0 mac_writes=0\n",
+        unmapped ? "released" : "unverified", (uint64_t)restored, (uint64_t)bus_master_off, (uint64_t)pins_restored);
+    if (!restored || !unmapped || !pins_restored) return BCM4331_UNSAFE;
+    if (matched) console_printf("bcm4331: board_data=%u phy_identified=%u\n", (uint64_t)srom_ready, (uint64_t)phy_ready);
     return matched ? BCM4331_TOPOLOGY_OK : BCM4331_INCOMPLETE;
 }

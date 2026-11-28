@@ -482,6 +482,16 @@ verified. The retry clears BME and checks PCIe transaction drain before
 switching the BAR window. It restores the original selector and memory
 decode, with DMA fenced through the return to Ubuntu.
 
+The retry `dbe360115542ce8e` fenced DMA and read the EROM. Its parser
+stopped at the PCIe core's 64-bit bridge aperture. Release
+`a562b8bab2297e39` consumes those descriptors while admitting only the
+captured 4 KiB core windows. It verified ChipCommon, D11 and PCIe at
+`18000000`, `18001000` and `18002000` and the D11 wrapper at `18101000`.
+The wrapper reported the inherited D11 clock enabled and reset clear.
+All six reports from these three boots saved and Ubuntu verified each
+return. The board-data follow-up samples the clocked PHY and temporarily
+selects the board ROM pins with verified restoration before firmware work.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
@@ -1499,7 +1509,7 @@ Offline allocation passed for 143 files with zero writes.
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
-| Wi-Fi | Linux inventory captured | Qualify the native BCM4331 provider |
+| Wi-Fi | Ubuntu `b43` joined the 2.4 GHz test network and passed interface-bound traffic. SrvrOS verified BCM4331 PCIe and BCMA topology and fenced inherited DMA on `a562b8bab2297e39` | Qualify board ROM and PHY, firmware startup, then wireless scan and connection |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native
