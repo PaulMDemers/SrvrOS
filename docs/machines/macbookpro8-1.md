@@ -924,10 +924,17 @@ S3 and physical lid wake remain open.
 
 The follow-up on `76b1299d` targets the native EHCI workspace lifecycle
 and Apple SCI mode entry and rollback. The exact FADT, masked APIC route
-and idle ACPI event enables are dependencies. The isolated trial saves the
+and captured ACPI event enables are dependencies. The isolated trial saves the
 startup report, retires the first USB owner, exercises the Apple firmware
 mode change while awake, and checks a fresh EHCI owner before saving the
 final report. The Ubuntu S3 reference traces firmware and EHCI phases.
+
+The awake run `1cca8f213269593c` flushed and retired the first EHCI
+attachment and rediscovered the same workspace through a second USB
+owner. Its ACPI mode check refused before an SMI command because
+firmware left GPE 6 enabled. Both flash reports and Ubuntu recovery
+verified. The bounded repeat preserves that observed enable bit, keeps
+SCI delivery masked, and requires the original register values on return.
 
 ## Bring-up sequence
 

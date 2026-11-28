@@ -156,7 +156,9 @@ bool s3_pro81_mode_roundtrip(void) {
     uint32_t route_low, route_high;
     uint16_t control = inw(0x404), fixed = inw(0x402);
     uint64_t gpe = apple_gpe_enables();
-    if (control || fixed || gpe || !ioapic_read_gsi(gsi, &route_low, &route_high) ||
+    /* The MacBook firmware can leave GPE 6 enabled in legacy mode. Leave
+     * its enable and status alone and keep SCI delivery masked throughout. */
+    if (control || fixed || (gpe & ~(1ull << 6)) || !ioapic_read_gsi(gsi, &route_low, &route_high) ||
         !(route_low & (1u << 16)) || (route_low & ((1u << 12) | (1u << 14)))) {
         console_printf("pro81-s3-mode: refused control=%x fixed_enable=%x gpe_enable=%x gsi=%u\n",
             (uint64_t)control, (uint64_t)fixed, gpe, (uint64_t)gsi);
@@ -174,8 +176,8 @@ bool s3_pro81_mode_roundtrip(void) {
     bool route_restored = ioapic_read_gsi(gsi, &final_low, &final_high) &&
         route_low == final_low && route_high == final_high;
     bool restored = exited && final_control == control && final_fixed == fixed && final_gpe == gpe && route_restored;
-    console_printf("pro81-s3-mode: entered=%u restored=%u active_control=%x active_fixed=%x active_gpe=%x\n",
-        (uint64_t)entered, (uint64_t)restored, (uint64_t)active_control, (uint64_t)active_fixed, active_gpe);
+    console_printf("pro81-s3-mode: entered=%u restored=%u active_control=%x active_fixed=%x active_gpe=%x initial_gpe=%x\n",
+        (uint64_t)entered, (uint64_t)restored, (uint64_t)active_control, (uint64_t)active_fixed, active_gpe, gpe);
     console_printf("pro81-s3-mode: final_control=%x final_fixed=%x final_gpe=%x route_restored=%u\n",
         (uint64_t)final_control, (uint64_t)final_fixed, final_gpe, (uint64_t)route_restored);
     return entered && restored;
