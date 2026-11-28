@@ -900,6 +900,35 @@ class InstallTests(unittest.TestCase):
                 raise subprocess.CalledProcessError(1, command)
         return subprocess.CompletedProcess(command, 0)
 
+    def test_haswell_efi_inventory_is_sealed_and_only_runs_for_current(self):
+        recovery = self.payload("recovery")
+        boot.install(recovery)
+        for name in ("limine-binary/BOOTX64.EFI", "ap-probe/srvros.elf",
+                     "initramfs.tar", "haswell-firmware/HSWFW.EFI"):
+            path = self.root / "build" / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(name)
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                 side_effect=["test-revision\n", ""]):
+            release = boot.stage(laptop_probe_volume="6ada85bb", haswell_backing_capture=True,
+                                 haswell_tilectl=True, haswell_linux_fences=True,
+                                 haswell_completion_page=True, haswell_efi_exclusion=True)
+        profile = "ram-usb-v20-hsw-laptop-probe-6ada85bb-auto-return"
+        self.assertEqual(boot.limine_config(release, profile),
+                         boot.limine_config(release, profile.replace("v20-", "v19-")))
+        self.assertIn(boot.HSW_EFI_FILE, boot.verify(self.stage / release)["sha256"])
+        boot.install(release)
+        current, previous = self.snippet.read_text().split("--id srvros-previous")
+        efi = f"chainloader /EFI/srvros/{release}/{boot.HSW_EFI_FILE}; then\n        if boot; then"
+        self.assertLess(current.index(efi), current.index(f"{release}/loader/BOOTX64.EFI"))
+        self.assertIn(f"{recovery}/loader/BOOTX64.EFI", previous)
+        self.assertNotIn(boot.HSW_EFI_FILE, previous)
+        (self.stage / release / boot.HSW_EFI_FILE).write_text("changed")
+        with self.assertRaises(ValueError):
+            boot.verify(self.stage / release)
+        with self.assertRaises(ValueError):
+            boot.stage(haswell_efi_exclusion=True)
+
     def payload(self, version, config_version=boot.CONFIG_VERSION):
         hashes = {name: hashlib.sha256((name + version).encode()).hexdigest()
                   for name in boot.FILES if not name.endswith("limine.conf")}

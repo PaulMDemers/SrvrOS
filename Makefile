@@ -1935,6 +1935,10 @@ hardware-smoke: hardware-stage test-core
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_boot.py
 	$(PYTHON) tools/hardware_boot_smoke.py --qemu $(QEMU) --console-check --responsiveness-check
 
+build/haswell-firmware/HSWFW.EFI: boot/haswell-firmware/main.zig $(ZIG)
+	@mkdir -p $(@D)
+	$(ZIG) build-exe -target x86_64-uefi -O ReleaseSmall $< -femit-bin=$@
+
 .PHONY: test-xhci
 test-xhci: build/tests/xhci-host$(HOST_EXE)
 	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin tools/fixtures/apple-05ac-0290-config.bin

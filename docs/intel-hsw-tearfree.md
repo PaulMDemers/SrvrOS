@@ -1234,3 +1234,39 @@ synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two
 surfaces. Keep the inherited framebuffer as the fallback through physical
 validation.
+
+#### EFI firmware exclusion investigation
+
+The Air7,2 probe in PR301 inventories the active GOP, PCI I/O driver bindings
+and private EFI protocols. Its backlight, connector and panel AUX findings
+describe boot firmware display services. They supply no agreement to stop
+firmware submissions or hardware memory access after ExitBootServices.
+EFI's protocol database describes Boot Services relationships. The UEFI PI
+specification defines MM/SMM separately, including ExitBootServices
+notification. A successful ExitBootServices, an empty agent list or the
+presence of a private GUID therefore carries no exclusion authority.
+
+The Air6,1 v20 release runs `HSWFW.EFI` in GRUB before the exact v19
+completion-page kernel profile. It accepts PCI `0000:00:02.0` with
+`8086:0a26` revision 09 and `106b:011a`. It records the controller's protocol
+GUIDs, driver and child-controller opens, related firmware file GUIDs, and
+inherited 1366×768 GOPs in the GPU aperture. Handle IDs are local to the
+receipt. The probe gets standard EFI interfaces and inspects installed
+protocols. The GPU participates through PCI configuration reads and reported
+GOP state. There are no private method calls, mode switches, disconnects,
+blits, MMIO accesses or GGTT accesses in the EFI application. The existing
+post-ExitBootServices capture checks Pipe A and refuses completion-page
+writes at the firmware exclusion gate.
+
+The app requires a fresh, fixed 4 KiB `HSW-EFI.LOG` on its EFI partition.
+The launch record binds the seed to a release and nonce. The app leaves a
+checksummed inventory, an explicit unavailable result or a foreign-platform
+result. A seed error stops the audit entry before Limine. Ubuntu and the
+previous SrvrOS entry take their ordinary paths. The inventory can identify
+a provider for further investigation. Completion-page ownership still
+requires an explicit, maintained guarantee covering both boot firmware and
+post-exit SMM access for the entire ownership interval.
+
+[UEFI handle database and protocol services](https://github.com/tianocore-docs/edk2-UefiDriverWritersGuide/blob/main/5_uefi_services/51_services_that_uefi_drivers_commonly_use/513_handle_database_and_protocol_services.md) ·
+[UEFI PI MM protocols](https://uefi.org/specs/PI/1.8/V4_MM_Protocols.html) ·
+[Air7,2 PR301](https://github.com/PaulMDemers/SrvrOS/pull/301)

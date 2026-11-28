@@ -122,7 +122,7 @@ def make_disk(path, loader, source, release, extra_files=None):
     srvros = fat.add_dir(efi, "srvros")
     payload = fat.add_dir(srvros, release)
     loader_dir = fat.add_dir(payload, "loader")
-    for name in boot.FILES:
+    for name in boot.payload_files(json.loads((source / "manifest.json").read_text()).get("config_version")):
         parent = loader_dir if name.startswith("loader/") else payload
         fat.add_file(parent, Path(name).name, (source / name).read_bytes())
     for name, data in (extra_files or {}).items():
@@ -308,7 +308,7 @@ def main():
         assert not any(t in config for t in ("srvros.wifi-join5=1","srvros.wifi-eapol5=1","srvros.wifi-wpa5=1","srvros.wifi-data5=1","srvros.wifi-provider5=1","srvros.wifi-reuse5=1"))
 
     hfw_capture=bool(probe and manifest["config_version"].startswith(HFW_PROFILES))
-    hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-","ram-usb-v4-hsw-","ram-usb-v5-hsw-","ram-usb-v6-hsw-","ram-usb-v7-hsw-","ram-usb-v8-hsw-","ram-usb-v9-hsw-","ram-usb-v10-hsw-","ram-usb-v11-hsw-","ram-usb-v12-hsw-","ram-usb-v13-hsw-","ram-usb-v14-hsw-","ram-usb-v15-hsw-","ram-usb-v16-hsw-","ram-usb-v17-hsw-","ram-usb-v18-hsw-","ram-usb-v19-hsw-")))
+    hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-","ram-usb-v4-hsw-","ram-usb-v5-hsw-","ram-usb-v6-hsw-","ram-usb-v7-hsw-","ram-usb-v8-hsw-","ram-usb-v9-hsw-","ram-usb-v10-hsw-","ram-usb-v11-hsw-","ram-usb-v12-hsw-","ram-usb-v13-hsw-","ram-usb-v14-hsw-","ram-usb-v15-hsw-","ram-usb-v16-hsw-","ram-usb-v17-hsw-","ram-usb-v18-hsw-","ram-usb-v19-hsw-",boot.HSW_EFI_PROFILE)))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     if args.ap_c3_sim and not coord_capture: parser.error("C3 simulation requires coordinated diagnostic stage")
@@ -349,6 +349,20 @@ def main():
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
     scaled_desktop=retina_desktop or bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-")))
     workspace=desktop or probe
+    hsw_efi = boot.HSW_EFI_FILE in manifest["sha256"]
+    if hsw_efi:
+        from hardware_haswell_efi import decode, seed, ESP_NAME
+        efi_nonce = "8b7a6258ce133ed54ea6b081fca8c759"
+        efi_path = logs / ("haswell-efi-no-usb.bin" if args.probe_missing_workspace else "haswell-efi-usb.bin")
+        efi_path.unlink(missing_ok=True)
+
+        def verify_efi_inventory(disk):
+            subprocess.run(["mcopy", "-i", str(disk) + "@@1048576",
+                            "::/" + ESP_NAME, str(efi_path)], check=True)
+            observation = decode(efi_path.read_bytes(), release, efi_nonce)
+            assert observation["status"] == "absent", observation
+            print("Haswell EFI inventory: foreign platform receipt verified")
+
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix="srvros-grub-") as tmp:
@@ -356,7 +370,8 @@ def main():
         cfg = temp / "grub.cfg"
         cfg.write_text("serial --unit=0 --speed=115200\nterminal_output console serial\n"
                        "echo SRVROS_GRUB_CHAINLOAD_TEST\nset default=srvros-current\n" +
-                       boot.grub_config("5352-5652", release))
+                       boot.grub_config("5352-5652", release,
+                                        haswell_efi_releases=(release,) if hsw_efi else ()))
         subprocess.run(["grub-script-check", str(cfg)], check=True)
         loader = temp / "BOOTX64.EFI"
         subprocess.run(["grub-mkstandalone", "-O", "x86_64-efi", "--locales=", "--fonts=",
@@ -371,7 +386,7 @@ def main():
                 p=vm_source/name;marker="srvros.ap=c3-test" if coord_capture else "srvros.capture=ap-ownership"
                 extra=(" srvros.ap-protocol=simulate" if args.ap_c3_sim else "")+(f" srvros.ap-inject={args.ap_inject}" if args.ap_inject else "")
                 p.write_text(p.read_text().replace(marker,marker+extra))
-        make_disk(disk, loader, vm_source, release)
+        make_disk(disk, loader, vm_source, release, {ESP_NAME: seed(release, efi_nonce)} if hsw_efi else None)
         qmp_path = temp / "qmp.sock"
         command = [args.qemu, "-M", "q35", "-m", "2G",
                    "-drive", f"if=pflash,format=raw,readonly=on,file={args.ovmf}",
@@ -546,17 +561,19 @@ def main():
                         assert "laptop-capture: saved=NO unmounted=NO" in text
                         if manifest['config_version'].startswith('ram-usb-v15-hsw-'):
                             assert 'hsw-ownership-progress:' not in text and 'hsw-requester-hold:' not in text
-                        if manifest['config_version'].startswith(('ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-')):
+                        if manifest['config_version'].startswith(('ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                             assert 'hsw-forcewake-progress:' not in text and 'hsw-reset-free-audit:' not in text
-                        if manifest['config_version'].startswith(('ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-')):
+                        if manifest['config_version'].startswith(('ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                             assert 'hsw-engine-hold:' not in text
-                        if manifest['config_version'].startswith(('ram-usb-v18-hsw-', 'ram-usb-v19-hsw-')):
+                        if manifest['config_version'].startswith(('ram-usb-v18-hsw-', 'ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                             assert 'hsw-blitter-provider:' not in text
-                        if manifest['config_version'].startswith('ram-usb-v19-hsw-'):
+                        if manifest['config_version'].startswith(('ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                             assert 'hsw-completion-page:' not in text
                         if wifi_firmware and not auto_return:
                             assert "wifi-held: logging=0" in text
                             assert "Hold the power button until off" in text
+                        if hsw_efi:
+                            verify_efi_inventory(disk)
                         print(f"laptop-probe-smoke: PASS ({release}); missing workspace " + ("returns without starting probe" if auto_return else "halts without reboot"))
                         return
                     if keyboard_capture:
@@ -742,7 +759,7 @@ def main():
                         result=backing_result(exit_log)
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         if manifest['config_version'].startswith('ram-usb-v2-hsw-'):assert result['source_version']==2
-                        if manifest['config_version'].startswith(('ram-usb-v3-hsw-', 'ram-usb-v4-hsw-', 'ram-usb-v5-hsw-', 'ram-usb-v6-hsw-', 'ram-usb-v7-hsw-', 'ram-usb-v8-hsw-', 'ram-usb-v9-hsw-', 'ram-usb-v10-hsw-', 'ram-usb-v11-hsw-', 'ram-usb-v12-hsw-', 'ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v15-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-')):
+                        if manifest['config_version'].startswith(('ram-usb-v3-hsw-', 'ram-usb-v4-hsw-', 'ram-usb-v5-hsw-', 'ram-usb-v6-hsw-', 'ram-usb-v7-hsw-', 'ram-usb-v8-hsw-', 'ram-usb-v9-hsw-', 'ram-usb-v10-hsw-', 'ram-usb-v11-hsw-', 'ram-usb-v12-hsw-', 'ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v15-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                             assert result['source_version']==3
                         if manifest['config_version'].startswith(('ram-usb-v4-hsw-', 'ram-usb-v5-hsw-', 'ram-usb-v6-hsw-')):
                             from hardware_haswell_candidate import candidate_result
@@ -781,35 +798,35 @@ def main():
                             assert prereqs and prereqs['status']=='UNAVAILABLE'
                             assert not prereqs['rows'] and not prereqs['maps']
                             assert 'hsw-engine-prereqs-progress:' not in text and 'init: started' not in text
-                        if manifest['config_version'].startswith(('ram-usb-v11-hsw-', 'ram-usb-v12-hsw-', 'ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-')):
+                        if manifest['config_version'].startswith(('ram-usb-v11-hsw-', 'ram-usb-v12-hsw-', 'ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                             from hardware_haswell_forcewake import forcewake_result
                             wake = forcewake_result(exit_log)
                             assert wake and wake['status'] == 'UNAVAILABLE'
                             assert not wake['maps'] and not wake['stores']
-                            if manifest['config_version'].startswith(('ram-usb-v12-hsw-', 'ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v12-hsw-', 'ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                                 drain = wake['engine_drain']
                                 assert not drain['samples'] and not drain['maps'] and not drain['reads']
                                 if 'timing' in drain:
                                     assert not drain['timing']['entered'] and drain['timing']['stop'] == 'none'
-                            if manifest['config_version'].startswith(('ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                                 assert 'timing' in drain
                                 audit = wake['exclusion_audit']
                                 assert not audit['samples'] and audit['pch_smi_route'] == 'unavailable'
-                            if manifest['config_version'].startswith(('ram-usb-v14-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v14-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                                 handoff = wake['handoff_audit']
                                 assert not handoff['samples'] and handoff['firmware_handoff'] == 'unavailable'
-                            if manifest['config_version'].startswith(('ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v16-hsw-', 'ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                                 reset_free = wake['reset_free_audit']
                                 assert not reset_free['samples'] and not reset_free['instpm_reads']
                                 assert not reset_free['ring_stop_stores'] and not reset_free['flush_stores'] and not reset_free['reset_stores']
-                            if manifest['config_version'].startswith(('ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v17-hsw-', 'ram-usb-v18-hsw-', 'ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                                 hold = wake['engine_hold']
                                 assert hold['state'] == 'unavailable' and hold['reason'] == 'baseline'
                                 assert not hold['attempted'] and not hold['completion_us']
-                            if manifest['config_version'].startswith(('ram-usb-v18-hsw-', 'ram-usb-v19-hsw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v18-hsw-', 'ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                                 provider = wake['blitter_provider']
                                 assert not provider['samples'] and not provider['reads'] and not provider['mapped']
-                            if manifest['config_version'].startswith('ram-usb-v19-hsw-'):
+                            if manifest['config_version'].startswith(('ram-usb-v19-hsw-', boot.HSW_EFI_PROFILE)):
                                 page = wake['completion_page']
                                 assert page['state'] == 'unavailable' and page['reason'] == 'baseline'
                                 assert not page['zero_attempts'] and not page['pte_attempts'] and not page['pga_attempts']
@@ -957,10 +974,12 @@ def main():
                         decoded=Image.open(io.BytesIO(image));decoded.load()
                         assert decoded.width>=640 and decoded.height>=480
                         (logs/"desktop-idle.bmp").write_bytes(image)
+                    if hsw_efi:
+                        verify_efi_inventory(disk)
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_home_work":battery_home_work,"battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "haswell_firmware_capture":hfw_capture,"haswell_backing_capture":hsw_capture,"ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (hfw_capture or hsw_capture or ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"audio_listen":audio_listen,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_only_capture":storage_only_capture,"storage_wait_capture":storage_wait_capture,"wifi_capture":wifi_capture,"wifi_nop5":wifi_nop5,"wifi_stream5":wifi_stream5,"wifi_stream5_dhcp":wifi_stream5_dhcp,"wifi_http5":wifi_http5,"wifi_reconnect5":wifi_reconnect5,"wifi_early5":wifi_early5,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "haswell_firmware_capture":hfw_capture,"haswell_backing_capture":hsw_capture,"haswell_efi_inventory":hsw_efi,"ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (hfw_capture or hsw_capture or ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"audio_listen":audio_listen,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_only_capture":storage_only_capture,"storage_wait_capture":storage_wait_capture,"wifi_capture":wifi_capture,"wifi_nop5":wifi_nop5,"wifi_stream5":wifi_stream5,"wifi_stream5_dhcp":wifi_stream5_dhcp,"wifi_http5":wifi_http5,"wifi_reconnect5":wifi_reconnect5,"wifi_early5":wifi_early5,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "held Wi-Fi failure" if wifi_firmware and not auto_return else "automatic reset"))
