@@ -2429,7 +2429,9 @@ int main(int argc,char **argv) {
     int ehci_settings_trial=argc==2 && (!strcmp(argv[1],"--ehci-brightness-trial") || !strcmp(argv[1],"--ehci-audio-trial"));
     int ehci_wifi_gap=argc==2 && !strcmp(argv[1],"--ehci-wifi-gap-trial");
     int ehci_wifi_range=argc==2 && !strcmp(argv[1],"--ehci-wifi-range-trial");
-    int ehci_wifi_trial=ehci_wifi_range || ehci_wifi_gap || (argc==2 && !strcmp(argv[1],"--ehci-wifi-trial"));
+    int ehci_wifi_startup=argc==2 && !strcmp(argv[1],"--ehci-wifi-startup-trial");
+    int ehci_wifi_trial=ehci_wifi_startup || ehci_wifi_range || ehci_wifi_gap ||
+        (argc==2 && !strcmp(argv[1],"--ehci-wifi-trial"));
     int ehci_topcase_trial=ehci_wifi_trial || ehci_file_trial || ehci_settings_trial || ehci_telemetry_trial || ehci_battery_trial || ehci_ethernet_trial ||
         (argc==2 && !strcmp(argv[1],"--ehci-topcase-trial"));
     int ehci_trial=ehci_topcase_trial || (argc==2 && !strcmp(argv[1],"--ehci-trackpad-trial"));
@@ -2538,7 +2540,7 @@ int main(int argc,char **argv) {
     if(battery_guided)strcpy(s.scene.notice,"1/3 Keep AC and USB connected. Waiting for three fresh battery readings.");
     if(ehci_battery_trial)strcpy(s.scene.notice,"1/3 Keep the charger and USB connected. Battery percentage is from the SMC.");
     if(ehci_wifi_range)strcpy(s.scene.notice,"Connecting to Demers2.4. Wait for the move prompt.");
-    if(ehci_ethernet_trial || ehci_wifi_range)s.scene.automatic_test=1;
+    if(ehci_ethernet_trial || ehci_wifi_range || ehci_wifi_startup)s.scene.automatic_test=1;
     if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
     /* Diagnostic: no app menus, preferences, Home or screenshot jobs.
      * The study client exercises independent IPC/surface publication. Generated
@@ -2608,12 +2610,13 @@ int main(int argc,char **argv) {
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     uint64_t ehci_deadline=ehci_trial?(uint64_t)srv_monotonic_us()+
-        (ehci_wifi_range?300000000u:wired_disconnected?240000000u:ehci_wifi_gap?90000000u:ehci_wifi_trial?180000000u:
+        (ehci_wifi_startup?55000000u:ehci_wifi_range?300000000u:wired_disconnected?240000000u:
+         ehci_wifi_gap?90000000u:ehci_wifi_trial?180000000u:
          ehci_telemetry_trial?25000000u:ehci_settings_trial?150000000u:90000000u):0;
     unsigned remaining_seconds=0;
     unsigned wifi_range_phase=0;
     uint64_t wifi_range_next=0,wifi_range_since=0;
-    bool wifi_range_complete=false;
+    bool wifi_range_complete=false,wifi_startup_complete=false;
     unsigned ehci_axes=0,ehci_zoom_clicks=0,ehci_pointer_exit=0,ehci_timeout=0;
     const char ehci_expected[]="Ehci-42";
     unsigned ehci_typed=0,ehci_find_open=0,ehci_keyboard=0;
@@ -2632,7 +2635,7 @@ int main(int argc,char **argv) {
     if(!failed) ui_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
         uint64_t loop_now=(uint64_t)srv_monotonic_us();
-        if(ehci_wifi_range && !s.exiting && loop_now>=wifi_range_next) {
+        if((ehci_wifi_range || ehci_wifi_startup) && !s.exiting && loop_now>=wifi_range_next) {
             wifi_range_next=loop_now+250000u;
             struct srv_net_status_info network;
             bool known=srv_net_status_info(&network)==0 && network.worker_started &&
@@ -2642,8 +2645,13 @@ int main(int argc,char **argv) {
             if(!wifi_range_phase && up) {
                 struct srv_wifi_snapshot wifi;
                 if(srv_wifi_snapshot(0,&wifi)==SRV_WIFI_OK && (wifi.flags&SRV_WIFI_CONNECTED)) {
-                    wifi_range_phase=1;
-                    notice="Move out of range now. Keep the MacBook open and USB attached.";
+                    if(ehci_wifi_startup) {
+                        wifi_startup_complete=true;
+                        global_menu_action(&s,GLOBAL_EXIT);
+                    } else {
+                        wifi_range_phase=1;
+                        notice="Move out of range now. Keep the MacBook open and USB attached.";
+                    }
                 }
             } else if(wifi_range_phase==1 && known && !up) {
                 wifi_range_phase=2;wifi_range_since=loop_now;
@@ -2668,24 +2676,29 @@ int main(int argc,char **argv) {
                 global_menu_action(&s,GLOBAL_EXIT);
             }
         }
-        if((ehci_telemetry_trial || ehci_wifi_gap) && !s.exiting && loop_now<ehci_deadline) {
+        if((ehci_telemetry_trial || ehci_wifi_gap || ehci_wifi_startup) && !s.exiting && loop_now<ehci_deadline) {
             unsigned remaining=(unsigned)((ehci_deadline-loop_now+999999)/1000000);
             if(remaining!=remaining_seconds) {
                 remaining_seconds=remaining;
-                snprintf(s.scene.notice,sizeof(s.scene.notice),ehci_wifi_gap?
+                snprintf(s.scene.notice,sizeof(s.scene.notice),(ehci_wifi_gap || ehci_wifi_startup)?
                     "Testing Wi-Fi for %u more seconds. Leave USB connected.":
                     "Sampling CPU and fan for %u more seconds. Leave USB connected.",remaining);
                 desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
             }
         }
         if(ehci_trial && !ehci_battery_trial && (!s.exiting ||
-            (ehci_topcase_trial && !ehci_telemetry_trial && !ehci_wifi_gap && !ehci_wifi_range)) && loop_now>=ehci_deadline) {
+            (ehci_topcase_trial && !ehci_telemetry_trial && !ehci_wifi_gap && !ehci_wifi_range && !ehci_wifi_startup)) &&
+            loop_now>=ehci_deadline) {
             ehci_timeout=1;
             /* Only this RAM trial may force cleanup of an unresponsive checklist. */
-            if(ehci_topcase_trial && !ehci_telemetry_trial && !ehci_wifi_gap && !ehci_wifi_range) { quit=1;break; }
+            if(ehci_topcase_trial && !ehci_telemetry_trial && !ehci_wifi_gap && !ehci_wifi_range && !ehci_wifi_startup) {
+                quit=1;break;
+            }
             global_menu_action(&s,GLOBAL_EXIT);
         }
-        if((ehci_wifi_gap || ehci_wifi_range) && s.exiting && loop_now>=ehci_deadline+5000000u) { failed=1;break; }
+        if((ehci_wifi_gap || ehci_wifi_range || ehci_wifi_startup) && s.exiting && loop_now>=ehci_deadline+5000000u) {
+            failed=1;break;
+        }
         if(audio_io && (audio_io_pid || audio_io_finished)) {
             uint64_t gap=loop_sample(&loop_last,&loop_max,loop_now);
             loop_trace_end(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
@@ -3895,6 +3908,10 @@ int main(int argc,char **argv) {
     } else if(ehci_telemetry_trial) {
         if(!ehci_timeout || s.child_errors)failed=1;
         desk_log("ehci-desktop-telemetry-ui: result=%s planned-exit=%u\n",failed?"INCOMPLETE":"PASS",ehci_timeout);
+    } else if(ehci_wifi_startup) {
+        if(!wifi_startup_complete || ehci_timeout || s.child_errors)failed=1;
+        desk_log("ehci-desktop-wifi-startup-ui: result=%s connected=%u timeout=%u\n",
+            failed?"INCOMPLETE":"PASS",wifi_startup_complete,ehci_timeout);
     } else if(ehci_wifi_range) {
         if(!wifi_range_complete || ehci_timeout || s.child_errors)failed=1;
         desk_log("ehci-desktop-wifi-range-ui: result=%s phase=%u timeout=%u\n",

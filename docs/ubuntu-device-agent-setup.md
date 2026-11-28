@@ -1330,6 +1330,14 @@ records the associated AP's beacon gap, the WPA2 and DHCP epochs, and
 gateway replies after return. Recovery on the original association and
 recovery through a new association provide different evidence.
 
+Use `--ehci-desktop-wifi-startup` for repeated unattended startup checks.
+The startup report records separate PCI identity, reference clock, kernel
+root, and MMIO window results. After saving it, the desktop automatically
+connects and tests the gateway. It returns to Ubuntu after a successful
+connection or a bounded wait. Verify `STARTUP_OK`, WPA2, a DHCP ACK,
+14 gateway replies, and clean retirement in the final report. Keep the
+reports from each distinct boot, including any failure.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal

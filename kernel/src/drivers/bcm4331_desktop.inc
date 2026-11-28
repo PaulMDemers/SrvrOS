@@ -111,7 +111,16 @@ static bool desktop_wifi_take(struct bcm4331_station *s, struct wifi_service_com
     return taken;
 }
 
-static void desktop_wifi_connect_if_due(void) {
+static const char *desktop_wifi_automatic_trial_name(void) {
+    switch (bcm_desktop.trial) {
+    case BCM4331_DESKTOP_LOCAL_GAP: return "local-gap";
+    case BCM4331_DESKTOP_RANGE: return "range";
+    case BCM4331_DESKTOP_STARTUP: return "startup";
+    default: return NULL;
+    }
+}
+
+static void desktop_wifi_connect_if_due(const char *trial_name) {
     if (!bcm_desktop.auto_connect_at || timer_monotonic_us() < bcm_desktop.auto_connect_at) return;
     uint64_t flags = station_irq_save();
     bcm_desktop.auto_connect_at = 0;
@@ -121,8 +130,7 @@ static void desktop_wifi_connect_if_due(void) {
     };
     bool queued = wifi_service_request(SRV_WIFI_CONNECT, &request) == SRV_WIFI_OK;
     station_irq_restore(flags);
-    console_printf("bcm4331-%s: connect_queued=%u\n",
-        bcm_desktop.trial == BCM4331_DESKTOP_RANGE ? "range" : "local-gap", (uint64_t)queued);
+    console_printf("bcm4331-%s: connect_queued=%u\n", trial_name, (uint64_t)queued);
 }
 
 static bool desktop_wifi_finish_request(struct bcm4331_station *s, const struct wifi_service_command *command,
@@ -168,14 +176,14 @@ static bool desktop_wifi_connect(struct bcm4331_station *s, struct bcm4331_deskt
         link->io = (struct net_bounded_probe_io){s, station_dhcp_current, station_dhcp_retry};
         bool admitted = net_bounded_probe_init_connection(&link->scope, &link->io, provider, s->epoch,
             timer_monotonic_us() + 10000000);
-        bool automatic_trial = bcm_desktop.trial == BCM4331_DESKTOP_LOCAL_GAP || s->range_trial;
-        lease = admitted && (automatic_trial ? net_dhcp_request_bounded_paced_retry_request(&link->scope) :
+        const char *trial_name = desktop_wifi_automatic_trial_name();
+        lease = admitted && (trial_name ? net_dhcp_request_bounded_paced_retry_request(&link->scope) :
             net_dhcp_request_bounded_paced(&link->scope)) > 0;
         link->worker = lease && net_bounded_connection_start_worker(&link->scope, NULL);
-        if (automatic_trial) {
+        if (trial_name) {
             const struct net_dhcp_observation *dhcp = &link->scope.dhcp_observation;
             console_printf("bcm4331-%s-dhcp: admitted=%u discovers=%u offers=%u requests=%u acks=%u observed_acks=%u naks=%u last_reject=%u end=%u\n",
-                s->range_trial ? "range" : "local-gap", (uint64_t)admitted,
+                trial_name, (uint64_t)admitted,
                 dhcp->discover_queued, dhcp->accepted_offer, dhcp->request_queued,
                 dhcp->accepted_ack, dhcp->acks, dhcp->naks, dhcp->last_reject, dhcp->end_reason);
         }
@@ -222,6 +230,7 @@ static bool station_desktop(struct bcm4331_station *s, const uint8_t *key) {
     struct net_device_ops provider = station_provider(s);
     struct bcm4331_signal_trial signal = {0};
     struct bcm4331_local_gap gap = {0};
+    const char *trial_name = desktop_wifi_automatic_trial_name();
     bool local_gap = bcm_desktop.trial == BCM4331_DESKTOP_LOCAL_GAP;
     s->range_trial = bcm_desktop.trial == BCM4331_DESKTOP_RANGE;
     s->signal_trial = local_gap || s->range_trial || bcm_desktop.trial == BCM4331_DESKTOP_SIGNAL_LOSS;
@@ -242,7 +251,7 @@ static bool station_desktop(struct bcm4331_station *s, const uint8_t *key) {
     struct bcm4331_desktop_link *link = NULL;
     bool healthy = bcm_desktop.published;
     while (healthy && !bcm_desktop.stop && !s->fault) {
-        if (local_gap || s->range_trial) desktop_wifi_connect_if_due();
+        if (trial_name) desktop_wifi_connect_if_due(trial_name);
         struct wifi_service_command command;
         if (!desktop_wifi_take(s, &command)) {
             if (s->signal_trial && link && s->epoch == 1) {
@@ -293,6 +302,8 @@ static bool station_desktop(struct bcm4331_station *s, const uint8_t *key) {
         signal.issued == 5 && signal.replies == signal.issued :
         bcm_desktop.connects == 2 && bcm_desktop.disconnects == 1;
     if (local_gap) goal = goal && gap.duration && s->muted_frames && gap.echo_blocked;
+    if (bcm_desktop.trial == BCM4331_DESKTOP_STARTUP)
+        goal = bcm_desktop.connects == 1 && !bcm_desktop.disconnects;
     bcm_desktop.passed = healthy && !s->fault && !s->provider_pinned && goal;
     return healthy && !s->fault && !s->provider_pinned;
 }
@@ -335,12 +346,11 @@ bool bcm4331_desktop_start(enum bcm4331_desktop_trial trial) {
 
 void bcm4331_desktop_begin_automatic_trial(void) {
     uint64_t flags = station_irq_save();
-    bool armed = (bcm_desktop.trial == BCM4331_DESKTOP_LOCAL_GAP || bcm_desktop.trial == BCM4331_DESKTOP_RANGE) &&
-        bcm_desktop.published && !bcm_desktop.stop && !bcm_desktop.auto_connect_at;
+    const char *trial_name = desktop_wifi_automatic_trial_name();
+    bool armed = trial_name && bcm_desktop.published && !bcm_desktop.stop && !bcm_desktop.auto_connect_at;
     if (armed) bcm_desktop.auto_connect_at = timer_monotonic_us() + 18000000;
     station_irq_restore(flags);
-    console_printf("bcm4331-%s: armed=%u\n",
-        bcm_desktop.trial == BCM4331_DESKTOP_RANGE ? "range" : "local-gap", (uint64_t)armed);
+    if (trial_name) console_printf("bcm4331-%s: armed=%u\n", trial_name, (uint64_t)armed);
 }
 
 bool bcm4331_desktop_finish(bool *retired) {

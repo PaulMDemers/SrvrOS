@@ -121,9 +121,7 @@ static bool read_erom(const volatile uint32_t *words, unsigned count, struct bcm
 static const struct pci_device *bcm4331_controller(void) {
     for (uint64_t i = 0; i < pci_device_count(); i++) {
         const struct pci_device *p = pci_device_at(i);
-        if (p->bus == 3 && !p->device && !p->function && p->vendor_id == 0x14e4 &&
-            p->device_id == 0x4331 && p->class_code == 2 && p->subclass == 0x80 && p->revision == 2 &&
-            p->header_type == 0 && pci_read_config32(p, PCI_SUBSYSTEM) == 0x433114e4) return p;
+        if (p->bus == 3 && !p->device && !p->function) return p;
     }
     return 0;
 }
@@ -395,11 +393,31 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
         }
     }
     const struct pci_device *p = bcm4331_controller();
-    uint64_t root = vmm_kernel_address_space(), occupied;
+    uint64_t root = vmm_kernel_address_space(), d11_physical = 0, chipcommon_physical = 0;
     const uint64_t fixed = bcm4331_window + CHIPCOMMON_PAGE;
-    if (!p || !timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root) ||
-        vmm_virt_to_phys_in_space(root, bcm4331_window, &occupied) || vmm_virt_to_phys_in_space(root, fixed, &occupied)) {
-        console_write("bcm4331: refused PCI identity or mapping context\n");
+    uint32_t subsystem = p ? pci_read_config32(p, PCI_SUBSYSTEM) : UINT32_MAX;
+    bool identity = p && p->vendor_id == 0x14e4 && p->device_id == 0x4331 &&
+        p->class_code == 2 && p->subclass == 0x80 && p->revision == 2 &&
+        p->header_type == 0 && subsystem == 0x433114e4;
+    bool clock = timer_reference_ready(), sole_root = vmm_diagnostic_sole_kernel_root(root);
+    bool d11_occupied = sole_root && vmm_virt_to_phys_in_space(root, bcm4331_window, &d11_physical);
+    bool chipcommon_occupied = sole_root && vmm_virt_to_phys_in_space(root, fixed, &chipcommon_physical);
+    console_printf("bcm4331-admission: enumerated=%u identity=%u clock=%u sole_root=%u d11_occupied=%u chipcommon_occupied=%u\n",
+        (uint64_t)(p != NULL), (uint64_t)identity, (uint64_t)clock, (uint64_t)sole_root,
+        (uint64_t)d11_occupied, (uint64_t)chipcommon_occupied);
+    if (p && !identity)
+        console_printf("bcm4331-admission: cached_vendor=%x cached_device=%x class=%x subclass=%x revision=%x header=%x subsystem=%x live_identity=%x live_class=%x live_header=%x\n",
+            (uint64_t)p->vendor_id, (uint64_t)p->device_id, (uint64_t)p->class_code, (uint64_t)p->subclass,
+            (uint64_t)p->revision, (uint64_t)p->header_type, (uint64_t)subsystem,
+            (uint64_t)pci_read_config32(p, 0), (uint64_t)pci_read_config32(p, 8),
+            (uint64_t)pci_read_config8(p, 0x0e));
+    if (d11_occupied || chipcommon_occupied)
+        console_printf("bcm4331-admission: existing_d11_physical=%x existing_chipcommon_physical=%x\n",
+            d11_physical, chipcommon_physical);
+    if (!identity || !clock || !sole_root || d11_occupied || chipcommon_occupied) {
+        const char *reason = !identity ? "PCI identity" : !clock ? "reference clock" :
+            !sole_root ? "kernel root context" : "occupied MMIO window";
+        console_printf("bcm4331: refused %s\n", reason);
         return BCM4331_REFUSED;
     }
 
