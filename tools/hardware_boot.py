@@ -87,11 +87,12 @@ EHCI_DESKTOP_WIFI_LOSS_CHECKLIST = b"""MacBookPro8,1 Wi-Fi signal-loss trial
 Leave Ethernet and the USB flash drive attached.
 Open Settings from the dock, then open Wi-Fi.
 Select Demers2.4 and click Connect. Wait for Connected.
-Wait five more seconds, then turn off the Demers2.4 radio.
-After about 15 seconds, turn it back on.
-Leave Settings alone and wait 30 seconds for the recovery check.
-
-Press Ctrl-Alt-Esc to save the result and return to Ubuntu.
+Wait five more seconds. Use a separate device to turn off
+the Demers2.4 radio at the router or access point.
+After about 15 seconds, turn that radio back on.
+Leave the SrvrOS connection alone throughout both steps.
+Wait 30 seconds after restoring the radio, then press Ctrl-Alt-Esc.
+This saves the result and returns to Ubuntu.
 If a step fails, restore the radio first and use the same shortcut.
 """
 EHCI_DESKTOP_WIRED_CHECKLISTS = {

@@ -695,6 +695,15 @@ The run is incomplete before the outage step. Both flash reports were
 verified, the offline allocation check passed with 210 files and no leaks,
 and Ubuntu return and private-payload cleanup were confirmed.
 
+The retry `575c07efdf1118a4` (`a13b854d`) recorded the Settings
+connection, WPA2, DHCP, baseline beacon tracking and 14 gateway replies.
+It then recorded a manual disconnect and reconnect from System, and all
+14 gateway echoes succeeded again in the new epoch. No beacon outage was
+measured during the original connection, so RF recovery remains open.
+Both flash reports and Ubuntu return were verified, and the exFAT check
+passed with 212 files and no leaks. The checklist now identifies the
+router or access point as the control for the outage.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
