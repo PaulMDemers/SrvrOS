@@ -743,6 +743,14 @@ passed with 218 files and no leaks. Ubuntu returned and the collector
 removed the temporary private payload. The access point stayed online,
 so reacquisition after an access-point shutdown remains open.
 
+The attended out-of-range trial starts from `94360dfd` and integration
+baseline `24feebdd` on PR #568. The MacBook will leave and return to the
+coverage of the associated Demers2.4 AP with the same flash workspace.
+The BCM4331 trial records a measured beacon gap, post-return gateway
+traffic and the connection epoch. The existing station recovery behavior
+is the subject of the test. Scope covers the trial boot recipe, status
+and reports. The Pro11,2 USB provider has separate hardware and scope.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
