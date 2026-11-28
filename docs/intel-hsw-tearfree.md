@@ -678,6 +678,24 @@ Stage with `--laptop-probe-volume UUID --haswell-backing-capture
 --haswell-tilectl --haswell-linux-fences --haswell-engine-prereqs`.
 Decode `exit.log` with `tools/hardware_haswell_engine_prereqs.py`.
 
+#### Native engine and requester observation
+
+The MacBookAir6,1 receipt on source `0220fb23` and release
+`5cb53191c13342ba` verified both endpoints in 20.067 ms. Pipe A stayed
+active on the inherited surface and advanced from frame 924 to 925.
+Both temporary ACK aliases retired. The probe recorded zero hardware
+writes, zero ring reads and zero reads of protected slots 4096 and 16385.
+
+Both endpoints recorded ACK `0x00000000`, GT thread status
+`0x00030303` and GT core status `0x11800303`. The thread sample did
+not show C0. IGD was in D0 with bus mastering enabled and the PCI
+Advanced Features Transactions Pending bit clear at both reads. CPU0's
+SMI count stayed at 13. Awake ownership was unavailable, and requester
+hold, DMA drain and firmware exclusion remain unverified.
+
+Ubuntu returned with the one-shot consumed. The exit snapshot, installed
+recovery and offline USB check verified.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two
