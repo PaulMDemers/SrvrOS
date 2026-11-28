@@ -168,11 +168,8 @@ def exercise_desktop(command, temp, logs, release, log_volume, mode, keyboard_ch
                         ui.mouse(0, 0, 0)
 
                     click(790, 750)
-                    settings = wait_for(serial, lambda s: re.search(r"desktools: window-request role=settings pid=(\d+)", s), vm, 15)
-                    pid = re.search(r"desktools: window-request role=settings pid=(\d+)", settings)[1]
-                    setting_frame = geometry.replace(r"pid=\d+", f"pid={pid}", 1)
-                    settings = wait_for(serial, lambda s: re.search(setting_frame, s), vm, 15)
-                    x, y, width, _ = map(int, re.search(setting_frame, settings).groups())
+                    settings = wait_for(serial, lambda s: len(re.findall(geometry, s)) >= 2, vm, 15)
+                    x, y, width, _ = map(int, re.findall(geometry, settings)[1])
                     time.sleep(.5)
                     click(x + width - 62, y + 74, (790, 750))
                     wait_for(serial, lambda s: "desktools: settings-page=wifi" in s, vm, 15)
