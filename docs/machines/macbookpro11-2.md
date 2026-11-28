@@ -471,8 +471,22 @@ mailbox writes before the first successful bulk IN on endpoint 0x84
 at 697.243 ms, with 391 bytes returned from a 32 KiB request. A passive
 scan found both Demers networks. The cold comparison isolates the two
 board information packets.
+Sources include the
 [Linux rtw88 firmware commands](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/fw.c)
 and [USB packet framing](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/usb.c).
+
+Release `5ba5ed4e7dede568` on `7e2ef5d3` adds the firmware command
+queue after receive admission and before the first receive window. It
+temporarily enables host TX DMA for the two fixed Linux USB packets,
+checks the queue pointers, then restores RX-only control. MAC TX stays
+disabled and TXPAUSE stays at `0xff`. The logs record each USB
+completion separately from queue movement and retirement. The xHCI
+fixture checked the exact 80-byte packets and register order, a nonempty
+initial queue, short or missing OUT, an undrained queue and a refused
+RX-only restore. The xHCI lifecycle and both sibling desktop regressions,
+329 boot and trial tests and all five exact-image VM rehearsals passed.
+The cold run uses `build/bringup/pro112-rtl8822bu-h2c/run.json` on the same
+hub, workspace `0E53-5900` and recovery `74da74e0b57afbb8`.
 
 #### RTL8188CUS identity checkpoint
 
