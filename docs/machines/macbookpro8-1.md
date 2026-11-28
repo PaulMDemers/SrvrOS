@@ -758,6 +758,9 @@ reassociation was observed. The operator reported that walking out of
 coverage was impractical. Both flash reports matched their checksums.
 The offline allocation check passed with 220 files and the prior files
 intact. Ubuntu returned and the collector retired the private payload.
+Access-point disappearance and automatic reassociation testing are
+deferred at the operator's request. The initialization refusal in this
+boot remains open.
 
 ## Bring-up sequence
 
@@ -1776,7 +1779,7 @@ Offline allocation passed for 143 files with zero writes.
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
-| Wi-Fi | Settings Connect, Disconnect, and reconnect passed on BCM4331 against `Demers2.4` in `d6defd5b7a97090b`. The original association resumed gateway traffic after a 15-second driver receive gap in `c809111f83871175`. Both trials saved both reports | Qualify reacquisition after an access-point or RF outage |
+| Wi-Fi | Settings Connect, Disconnect, and reconnect passed on BCM4331 against `Demers2.4` in `d6defd5b7a97090b`. The original association resumed gateway traffic after a 15-second driver receive gap in `c809111f83871175`. Both trials saved both reports | Access-point outage and automatic reassociation testing deferred. Investigate the startup refusal if it recurs |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native
