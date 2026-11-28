@@ -959,6 +959,27 @@ hardware writes, with Pipe A continuity and the 4 ms, 20 ms and
 --haswell-linux-fences --haswell-handoff-audit`. Collect the matched
 `exit.log` and decode it with `tools/hardware_haswell_forcewake.py`.
 
+#### Native OpRegion and requester observations
+
+Air6,1 release `5e395aeb45b7ba0a` from source `35e76b8b` completed
+both passes in 364 µs in session `session-00066153863f2898-00`.
+Both samples recorded stable `ASLS=0x8cd18190`, with the nominal
+8 KiB extent covered by one ACPI NVS descriptor. `SWSCI=0x8000`
+selected SCI with the trigger clear. The audit accessed only the
+PCI configuration and boot memory-map metadata for these observations.
+
+All four engines reported idle. IGD Advanced Features and display
+HDA PCIe Transactions Pending were clear at both samples with bus
+mastering enabled. PCH global SMI remained enabled with the lock
+clear. The sampled CPU0 SMI count stayed at 13. These observations
+leave the maintained requester hold and firmware handoff unavailable.
+
+Pipe A advanced from frame 918 to 920 on the inherited surface.
+The probe left slots 4096 and 16385 untouched. Forcewake ACK cleared
+in 4 µs after release and all six temporary aliases retired. The
+installed release, final snapshot, archived replay, installed recovery
+and offline USB check verified after the one-shot returned to Ubuntu.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

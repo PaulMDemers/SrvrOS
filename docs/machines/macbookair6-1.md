@@ -274,13 +274,17 @@ inherited surface and protected slots 4096 and 16385 stayed untouched.
 Requester drain and firmware exclusion remain unverified. The exit
 snapshot, installed recovery and offline USB check verified.
 
-The next PR567 checkpoint adds IGD OpRegion and software SCI
-observations to the held-engine audit. Scope is the Air6,1 boot
-adapter and receipt verifier on `15e529c3`, reviewed against
-integration head `117a0294` and Air7,2 PR301 at `a4caecc7`.
-Pipe A stays on the inherited surface and slots 4096 and 16385
-stay protected. The checkpoint records what is available for
-requester hold and firmware handoff admission.
+The [native Haswell handoff audit](../intel-hsw-tearfree.md#native-opregion-and-requester-observations)
+verified on `35e76b8b` / `5e395aeb45b7ba0a` (PR567). Both passes
+completed in 364 µs and observed a stable IGD OpRegion pointer with
+its nominal extent in ACPI NVS. Software SCI was selected with the
+trigger clear. All four engines reported idle and both requester
+pending indications were clear at the samples. Global SMI delivery
+remained enabled with the lock clear. Pipe A advanced two frames on
+the inherited surface, and slots 4096 and 16385 stayed untouched.
+The exit snapshot, installed recovery, automatic Ubuntu return and
+offline USB check verified. The maintained requester hold and
+firmware handoff remain unavailable.
 
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
