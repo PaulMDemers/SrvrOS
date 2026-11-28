@@ -751,6 +751,14 @@ traffic and the connection epoch. The existing station recovery behavior
 is the subject of the test. Scope covers the trial boot recipe, status
 and reports. The Pro11,2 USB provider has separate hardware and scope.
 
+The out-of-range boot `6a40ad67a02ce1a9` (`c090766c`) returned
+`INCOMPLETE`. The BCM4331 refused PCI identity or mapping context before
+Connect was queued, and the desktop exited at phase zero. No RF gap or
+reassociation was observed. The operator reported that walking out of
+coverage was impractical. Both flash reports matched their checksums.
+The offline allocation check passed with 220 files and the prior files
+intact. Ubuntu returned and the collector retired the private payload.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
