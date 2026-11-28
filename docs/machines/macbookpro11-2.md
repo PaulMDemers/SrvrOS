@@ -488,6 +488,18 @@ RX-only restore. The xHCI lifecycle and both sibling desktop regressions,
 The cold run uses `build/bringup/pro112-rtl8822bu-h2c/run.json` on the same
 hub, workspace `0E53-5900` and recovery `74da74e0b57afbb8`.
 
+Physical session `session-0006614f779cffce-00` completed all 40 firmware
+download OUTs, board setup, PHY programming and RX admission. Both H2C
+queue pointers read `0x3fa00` at entry. The first 80-byte General Info
+OUT remained pending after 268.950 ms with no xHCI transfer completion.
+The diagnostic skipped PHYDM Info and the USB IN window after that
+timeout, so this run leaves firmware queue consumption and passive
+discovery unverified. RX-only control was restored, both USB endpoints
+retired, and the radio parked. The workspace exit log and EFI journal
+agree, all seven journal phases verified, all three dongles enumerated,
+all 694 workspace files matched, and SrvrOS requested return to Ubuntu.
+The payload and logs are preserved under `evidence-5ba5ed4e7dede568`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
