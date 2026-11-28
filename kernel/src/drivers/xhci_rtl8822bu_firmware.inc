@@ -320,11 +320,6 @@ static bool bu_load_section(struct bu_upload *up,const uint8_t *image,unsigned l
 static const char *bu_download(struct bu_upload *up,const uint8_t *image) {
     struct xhci_device *d=up->device;
     uint32_t coex,hpq,cr,pages,rqpn,beacon,mcu;
-    const char *power=bu_power_on(up);
-    if(power) {
-        console_printf("rtl8822bu-power: stage=%s ok=0\n",power);
-        return "digital-power";
-    }
     console_write("rtl8822bu-firmware-progress: digital power ready; preparing firmware DMA\n");
     if(!bu_write(d,0x01a0,1,0xfd) ||
        !bu_poll(d,0x1700,4,1u<<29,1u<<29,100,&coex) ||
@@ -473,13 +468,14 @@ static bool bu_capture(const uint8_t *image,uint64_t size,enum bu_mode mode,
     const char *phy_failure="not-run";
     const char *rx_failure="not-run";
     unsigned phy_written=0;
-    bool radio_parked=true,rx_retired=true;
+    bool phy_touched=false,radio_parked=true,rx_retired=true;
     uint64_t flags=event_irq_save();
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         if(xhci.devices[i].rtl8822bu_identified){up.device=&xhci.devices[i];break;}
     }
     *return_safe=true;
     struct xhci_device *d=up.device;
+    struct bu_rx rx={.device=d};
     if(d) {
         up.hub=device_by_slot(d->parent_slot_id);
         failure="admission";
@@ -492,7 +488,25 @@ static bool bu_capture(const uint8_t *image,uint64_t size,enum bu_mode mode,
             if(bu_image_valid(image,size)) {
                 d->rtl8822bu_firmware_active=true;
                 failure="endpoint";
-                if(wifi_hub_check_port(d,up.hub) && bu_configure_out(&up))failure=bu_download(&up,image);
+                if(wifi_hub_check_port(d,up.hub) && bu_configure_out(&up)) {
+                    const char *power=bu_power_on(&up);
+                    failure=NULL;
+                    if(power) {
+                        console_printf("rtl8822bu-power: stage=%s ok=0\n",power);
+                        failure="digital-power";
+                    } else if(mode==BU_PASSIVE) {
+                        rx_failure=bu_rx_prequeue(&up,&rx);
+                        if(rx_failure)failure="rx-prequeue";
+                    }
+                    if(!failure) {
+                        failure=bu_download(&up,image);
+                        if(mode==BU_PASSIVE) {
+                            bu_rx_checkpoint(&rx,"post-firmware");
+                            if(!failure && rx.failed)failure="rx-startup-event";
+                            if(failure)rx_failure=failure;
+                        }
+                    }
+                }
                 if(mode!=BU_FIRMWARE_ONLY && !failure) {
                     console_write("rtl8822bu-board-progress: reading eFuse and firmware features\n");
                     board_failure=bu_capture_board(&up);
@@ -501,15 +515,19 @@ static bool bu_capture(const uint8_t *image,uint64_t size,enum bu_mode mode,
                     phy_failure="profile";
                     if(bu_phy_profile_valid(phy,phy_size)) {
                         phy_failure="tx-pause";
-                        if(bu_write(d,BU_TXPAUSE,1,0xff)) {
+                        if(mode==BU_PASSIVE?bu_phy_tx_inhibited(d):bu_write(d,BU_TXPAUSE,1,0xff)) {
                             console_write("rtl8822bu-phy-progress: loading RFE type 3 tables with MAC traffic disabled\n");
-                            bool phy_touched=false;
                             phy_failure=bu_phy_run(&up,phy,&phy_written,&phy_touched);
-                            if(mode==BU_PASSIVE && !phy_failure)rx_failure=bu_receive(&up,&rx_retired);
-                            if(phy_touched)radio_parked=bu_phy_park(&up);
+                            if(mode==BU_PASSIVE && !phy_failure)rx_failure=bu_receive(&up,&rx);
                         }
                     }
                 }
+                if(rx.configured) {
+                    if(!rx_failure)rx_failure=failure?failure:board_failure?board_failure:phy_failure;
+                    rx_retired=bu_rx_finish(&rx,rx_failure);
+                    if(!rx_retired)rx_failure="rx-retirement";
+                }
+                if(phy_touched)radio_parked=bu_phy_park(&up);
                 up.stopped=bu_stop(&up);
                 up.parked=up.stopped && bu_park(&up);
                 *return_safe=radio_parked && rx_retired && up.stopped && !d->ep0_quarantined && !xhci.command_failed &&

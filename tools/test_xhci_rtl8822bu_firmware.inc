@@ -7,8 +7,8 @@ enum bu_firmware_fault {
     BU_PHY_OK,BU_PHY_BAD_PROFILE,BU_PHY_BAD_CRYSTAL,BU_PHY_STUCK_RF,
     BU_RX_OK,BU_RX_TIMEOUT,BU_RX_WRONG_EVENT,BU_RX_BAD_STOP,BU_RX_TUNE_FAIL,BU_RX_CLOSING,
     BU_RX_LLT_STUCK,BU_RX_FILTER_DRIFT,
-    BU_RX_DEPTH_OK,BU_RX_DEPTH_TIMEOUT,BU_RX_DEPTH_TRANSITION,BU_RX_DEPTH_DRIFT,BU_RX_SEC_RESTORE_DRIFT,BU_RX_SEC_SETUP_DRIFT,
-    BU_RX_FIFO_BOUNDARY_DRIFT,BU_RX_FIFO_RESTORE_DRIFT,BU_RX_EP_AVG_DRIFT,BU_RX_DEPTH_DUPLICATE,
+    BU_RX_DEPTH_OK,BU_RX_DEPTH_TIMEOUT,BU_RX_DEPTH_TRANSITION,BU_RX_EARLY_VALID,BU_RX_SEC_RESTORE_DRIFT,BU_RX_SEC_SETUP_DRIFT,
+    BU_RX_FIFO_BOUNDARY_DRIFT,BU_RX_FIFO_RESTORE_DRIFT,BU_RX_EP_AVG_DRIFT,BU_RX_DEPTH_DUPLICATE,BU_RX_EARLY_STALE,BU_RX_EARLY_FW_SHORT,
     BU_H2C_BAD_LIMIT,BU_H2C_INIT_STUCK,BU_H2C_BAD_ENTRY,BU_H2C_OUT_SHORT,BU_H2C_OUT_MISSING,
     BU_H2C_OUT_WRONG_TRB,BU_H2C_UNDRAINED,BU_H2C_RESTORE_DRIFT,
 };
@@ -57,8 +57,9 @@ static void bu_model_command(struct xhci_device *d) {
                       (uint64_t)context_read32(d->input_context,dci+1,3)<<32;
         assert((ring&4095)==1);
         if(dci==BU_RX_DCI) {
-            assert(bu_model.configure==2 && bu_model.channel_writes==4 && !bu_model_read(BU_CR,1));
-            assert(bu_model.cursor==bu_model.ring+40*16 && bu_out_dequeue(d)==bu_model.ring);
+            assert(bu_model.configure==2 && !bu_model.channel_writes && !bu_model_read(BU_CR,1));
+            assert(bu_model.cursor==bu_model.ring && bu_out_dequeue(d)==bu_model.ring &&
+                   !bu_model.ddma && bu_model_read(BU_TXPAUSE,1)==0xff);
             assert(context_read32(d->input_context,dci+1,4)==0);
             bu_model.rx_ring=bu_model.rx_cursor=ring;
             context_write32(d->output_context,dci,1,0x02000036);
@@ -80,7 +81,7 @@ static void bu_model_command(struct xhci_device *d) {
         assert(type==XHCI_TRB_TYPE_STOP_ENDPOINT);
         if(dci==BU_RX_DCI) {
             assert(!bu_model.rx_stops++ && !bu_model_read(BU_CR,1));
-            cursor=bu_model.rx_cursor+(bu_model.fault==BU_RX_BAD_STOP?64:0);
+            cursor=bu_model.rx_cursor+(bu_model.fault==BU_RX_BAD_STOP?80:0);
         } else {
             assert(dci==BU_OUT_DCI && !bu_model.stop++);
             cursor=bu_model.cursor;
@@ -100,8 +101,12 @@ static unsigned bu_model_block_size(unsigned index) {
     return end-bu_model.written>4096?4096:end-bu_model.written;
 }
 
+static void bu_model_receive_event(bool closing,unsigned ahead);
+
 static void bu_model_bulk(struct xhci_device *d) {
-    assert(bu_model.configure==1 && !bu_model.stop && bu_model.posted==bu_model.ddma);
+    bool passive=bu_model.fault>=BU_RX_OK;
+    assert(bu_model.configure==(passive?2u:1u) && !bu_model.stop && bu_model.posted==bu_model.ddma);
+    if(passive)assert(bu_rx_owner && bu_model.rx_posts==4 && bu_model_read(BU_TXPAUSE,1)==0xff);
     assert(bu_model_read(0x100,2)==0x105 && !(bu_model_read(0x550,1)&8) &&
            (bu_model_read(0x80,1)&1) && !(bu_model_read(3,1)&4) && !(bu_model_read(0x1d,1)&1));
     assert(bu_model_read(0xec,4)==0x18000004u);
@@ -121,10 +126,16 @@ static void bu_model_bulk(struct xhci_device *d) {
     bu_model.posted++;
     if(bu_model.fault==BU_FW_MISSING)return;
     bu_model.cursor+=16;
-    unsigned cc=bu_model.fault==BU_FW_SHORT?13:1;
-    xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){
+    unsigned cc=bu_model.fault==BU_FW_SHORT || bu_model.fault==BU_RX_EARLY_FW_SHORT?13:1;
+    bool early=bu_model.posted==1 &&
+        (bu_model.fault==BU_RX_EARLY_VALID || bu_model.fault==BU_RX_EARLY_STALE);
+    if(early)bu_model_receive_event(true,0);
+    unsigned index=xhci.event_dequeue+early;
+    bool cycle=xhci.event_cycle;
+    if(index==XHCI_EVENT_TRB_COUNT){index=0;cycle=!cycle;}
+    xhci.event_ring[index]=(struct xhci_trb){
         .parameter_low=(uint32_t)d->bulk_trb,.parameter_high=d->bulk_trb>>32,
-        .status=(cc<<24)|(cc==13?1:0),.control=(32u<<10)|(4u<<24)|(10u<<16)|xhci.event_cycle};
+        .status=(cc<<24)|(cc==13?1:0),.control=(32u<<10)|(4u<<24)|(10u<<16)|cycle};
     bu_model_store(0x204,2,0x8000);
 }
 
@@ -136,7 +147,7 @@ static void bu_model_h2c(struct xhci_device *d) {
          [54]=1,[56]=3,[57]=2,[58]=3,[59]=0x33},
     };
     unsigned seq=bu_model.h2c_posts++;
-    assert(seq<2 && !bu_model.rx_posts && bu_model.ddma==40 && bu_model.configure==2 && bu_model.h2c_setup==6);
+    assert(seq<2 && bu_model.rx_posts==4 && bu_model.ddma==40 && bu_model.configure==2 && bu_model.h2c_setup==6);
     assert(bu_model_read(BU_CR,1)==0x9f && bu_model_read(BU_TXPAUSE,1)==0xff && d->bulk_pending);
     assert(bu_model.h2c_status_writes==1 && bu_model.h2c_status_reads==2 &&
            bu_model_read(BU_H2C_INFO,1)==0x09 && bu_model_read(BU_H2C_TAIL,4)==0x3fe00);
@@ -194,28 +205,27 @@ static void bu_model_control(void) {
         if(bu_rx_owner && cr==0xbf && (reg==0xfcc || bu_model.rx_samples%10)) {
             static const unsigned registers[]={0xfcc,0xf08,0xf04,0xf14,0xf10,0xf0c,0x284,0x288,0x28c,0x2b0};
             unsigned i=bu_model.rx_samples++;
-            assert(i<40 && reg==registers[i%10] && width==4 &&
+            assert(i<20 && reg==registers[i%10] && width==4 &&
                 bu_model_read(BU_CR,2)==0x06bf && bu_model_read(BU_RX_SECCFG,2)==0x31cf &&
                 bu_model_read(BU_TXPAUSE,1)==0xff && bu_model_read(0x11c,4)==0x5eff &&
                 bu_model_read(0x10c,2)==0xf5a1 && bu_model_read(0x280,4)==0x2003);
-            assert((bu_model.rx_posts!=0)==(i>=10));
+            assert(bu_model.rx_posts>=4);
             uint32_t observed=i%20>=10?0x000b0005:0x00020003;
-            if(bu_model.fault>=BU_RX_DEPTH_OK && i%10>=6)observed=reg==0x284?BU_RX_DMA_IDLE:0;
+            if(bu_model.fault>=BU_RX_DEPTH_OK && i%10>=6)observed=reg==0x284?0x20000:0;
             bu_model_store(reg,width,observed);
-            closing=(i==10 && bu_model.fault==BU_RX_CLOSING) || (i==20 && bu_model.fault==BU_RX_DEPTH_TRANSITION);
+            closing=(i==10 && bu_model.fault==BU_RX_CLOSING) || (i==0 && bu_model.fault==BU_RX_DEPTH_TRANSITION);
         }
         if(bu_model.rx_llt_requested && reg==BU_RX_LLT && width==4)bu_model.rx_llt_polls++;
         if(reg==0x11c && cr==0xbf && bu_model.fault==BU_RX_FIFO_BOUNDARY_DRIFT)
             bu_model_store(reg,width,0x6000);
         memcpy(d->descriptor_buffer,bu_model.reg+reg,width);
-        if(reg==0x290 && cr==0xbf && bu_model.rx_samples==20 && bu_model.fault==BU_RX_DEPTH_DRIFT)
-            d->descriptor_buffer[0]^=2;
     } else {
         bu_model.register_writes++;
         uint32_t value=0;
         for(unsigned i=0;i<width;i++)value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
         if(reg==BU_TXPAUSE) {
-            assert(bu_model.fault>=BU_PHY_OK && bu_model.feature_acks==1 && value==0xff && !bu_model.phy_started);
+            assert(bu_model.fault>=BU_PHY_OK && value==0xff && !bu_model.phy_started &&
+                bu_model.feature_acks==(bu_model.fault>=BU_RX_OK?0u:1u));
             bu_model.phy_started=true;
         }
         if(reg==2 && (value&3))assert(bu_model.phy_started && (value&3)==3);
@@ -238,19 +248,19 @@ static void bu_model_control(void) {
             if(width==2) {
                 assert(!bu_model.rx_security_written && bu_model.h2c_posts==2 &&
                     bu_model_read(BU_CR,2)==0x049a && value==0x069a && bu_model_read(BU_TXPAUSE,1)==0xff &&
-                    !bu_model.rx_samples && !bu_model.rx_posts && bu_rx_owner && !bu_rx_owner->posted);
+                    !bu_model.rx_samples && bu_model.rx_posts==4 && bu_rx_owner);
                 bu_model.rx_security_written=true;
             } else if(value==0xbf) {
                 assert(!bu_model.rx_dma_written && bu_model.rx_security_rcr_reloaded &&
                     bu_model_read(BU_CR,2)==0x069a && bu_model_read(BU_RX_SECCFG,2)==0x31cf &&
                     bu_model_read(BU_TXPAUSE,1)==0xff && !bu_model.rx_samples &&
-                    !bu_model.rx_posts && bu_rx_owner && !bu_rx_owner->posted);
+                    bu_model.rx_posts==4 && bu_rx_owner);
                 bu_model.rx_dma_written=true;
             } else if(value==0x9f) {
                 assert(previous==0 && bu_model.rx_queue_mapped && !bu_model.rx_page_writes &&
-                    bu_model_read(BU_TXPAUSE,1)==0xff && !bu_model.h2c_setup && !bu_model.rx_posts);
+                    bu_model_read(BU_TXPAUSE,1)==0xff && !bu_model.h2c_setup && bu_model.rx_posts==4);
             } else if(value==0x9a && previous==0x9f) {
-                assert(bu_model.h2c_setup==6 && !bu_model.rx_posts);
+                assert(bu_model.h2c_setup==6 && bu_model.rx_posts==4);
                 if(bu_model.fault==BU_H2C_RESTORE_DRIFT)value=0x9f;
             } else assert(value==0 || value==5);
         }
@@ -266,7 +276,7 @@ static void bu_model_control(void) {
             if(!bu_model_read(BU_CR,1)) {
                 assert(i>=3 && bu_model.rx_stops==1 && value==original[i%3]);
                 if(reg==0x280 && bu_model.fault==BU_RX_FIFO_RESTORE_DRIFT)value^=1;
-            } else assert(i<3 && value==control[i] && !bu_model.rx_posts && !bu_model.rx_samples);
+            } else assert(i<3 && value==control[i] && bu_model.rx_posts==4 && !bu_model.rx_samples);
         }
         if(reg==BU_RX_SECCFG) {
             unsigned i=bu_model.rx_security_policy_writes++;
@@ -307,14 +317,14 @@ static void bu_model_control(void) {
             assert(value==0xf5a0 && !bu_model_read(BU_CR,1) && !bu_model.rx_queue_mapped);
             bu_model.rx_queue_mapped=true;
         }
-        if(bu_rx_owner && reg>=0x230 && reg<=0x240) {
+        if(bu_rx_owner && bu_model_read(BU_CR,1)==0x9f && reg>=0x230 && reg<=0x240) {
             static const unsigned pages[]={0x40,0x40,0x40,0,0x70b};
             unsigned i=bu_model.rx_page_writes++;
             assert(i<5 && reg==0x230+4*i && width==2 && value==pages[i]);
             assert(bu_model_read(BU_CR,1)==0x9f && bu_model_read(0x10c,2)==0xf5a1 &&
                    bu_model.h2c_status_writes==1 && bu_model.h2c_status_reads==2);
         }
-        if(bu_rx_owner && reg==BU_RX_LLT && (value&1)) {
+        if(bu_rx_owner && bu_model_read(BU_CR,1)==0x9f && reg==BU_RX_LLT && (value&1)) {
             assert(width==1 && !bu_model.rx_llt_requested && bu_model.rx_page_writes==5 &&
                 bu_model_read(0x11c,4)==0x5eff && bu_model_read(0x20b,1)==3 && (bu_model_read(0x20d,1)&2));
             bu_model.rx_llt_requested=true;
@@ -324,7 +334,7 @@ static void bu_model_control(void) {
             assert(width==4 && value==0xf410400e && bu_model.rx_security_policy_writes==1 &&
                    bu_model_read(BU_CR,2)==0x069a && !bu_model.rx_security_rcr_reloaded);
             bu_model.rx_security_rcr_reloaded=true;
-        } else if(bu_rx_owner && reg==0x608) {
+        } else if(bu_rx_owner && bu_model_read(BU_CR,1)==0x9f && reg==0x608) {
             assert(width==4 && value==0xf410400e && bu_model.rx_llt_polls==1 && !(bu_model_read(BU_RX_LLT,1)&1) &&
                 bu_model_read(0x6a0,4)==0xffffffffu && bu_model_read(0x6a4,2)==0xffff &&
                 bu_model.h2c_setup==6 && bu_model_read(BU_H2C_INFO,1)==0x09);
@@ -418,7 +428,8 @@ static void bu_model_receive_event(bool closing,unsigned ahead) {
     struct bu_rx *rx=bu_rx_owner;
     unsigned n=(unsigned)((bu_model.rx_cursor-bu_model.rx_ring)/16);
     assert(rx && n<rx->posted && rx->completed<=n && rx->posted-rx->consumed<=4);
-    assert(bu_model_read(BU_CR,2)==0x06bf && bu_model_read(BU_TXPAUSE,1)==0xff);
+    assert((bu_model_read(BU_CR,2)==0x06bf ||
+            (!bu_model.rx_samples && bu_model_read(BU_CR,1)==5)) && bu_model_read(BU_TXPAUSE,1)==0xff);
     uint64_t pointer=bu_model.rx_cursor&~1ull;
     const struct xhci_trb *trb=(const void *)(uintptr_t)pointer;
     uint64_t phys=trb->parameter_low|(uint64_t)trb->parameter_high<<32;
@@ -430,8 +441,8 @@ static void bu_model_receive_event(bool closing,unsigned ahead) {
     data[24]=0x80;
     memcpy(data+60,"\x00\x09" "Demers2.4" "\x03\x01\x0a",14);
     if(!n && !closing)data[1]=0x40;
-    unsigned actual=n==1 && bu_model.fault==BU_RX_OK?26:78;
-    if(bu_model.fault==BU_RX_WRONG_EVENT)pointer+=16;
+    unsigned actual=78;
+    if(bu_model.fault==BU_RX_WRONG_EVENT || bu_model.fault==BU_RX_EARLY_STALE)pointer+=16;
     else if(ahead && bu_model.fault==BU_RX_DEPTH_DUPLICATE)pointer-=16;
     else {
         bu_model.rx_cursor+=16;
@@ -452,27 +463,30 @@ static void bu_model_receive_completion(bool closing) {
 
 static void bu_model_receive(void) {
     struct bu_rx *rx=bu_rx_owner;
-    assert((bu_model.rx_samples==10 || bu_model.rx_samples==30) && bu_model.rx_filters_written && bu_model_read(0x608,4)==0xf410400e &&
-        bu_model_read(0x290,1)==0x1e && (bu_model_read(0x20c,2)&0x200) && bu_model_read(0x60f,1)==4);
-    assert(bu_model.h2c_posts==2 && bu_model_read(BU_H2C_WP,4)==BU_H2C_START+64 &&
-           bu_model_read(BU_H2C_RP,4)==BU_H2C_START+64);
     unsigned n=bu_model.rx_posts++;
-    assert(rx && rx->posted==n+1 && rx->posted-rx->consumed<=(bu_model.rx_samples==10?1u:4u));
+    assert(rx && rx->posted==n+1 && rx->posted-rx->consumed<=4);
+    assert(bu_model_read(BU_TXPAUSE,1)==0xff);
+    if(n<4) {
+        assert(!bu_model.rx_samples && !bu_model.ddma && !bu_model.posted && !bu_model_read(BU_CR,1));
+    } else {
+        assert(bu_model.rx_samples==10 && bu_model.rx_filters_written &&
+               bu_model_read(BU_CR,2)==0x06bf && bu_model_read(0x608,4)==0xf410400e);
+        assert(bu_model.h2c_posts==2 && bu_model_read(BU_H2C_WP,4)==BU_H2C_START+64 &&
+               bu_model_read(BU_H2C_RP,4)==BU_H2C_START+64);
+    }
     const struct xhci_trb *td=(const void *)(uintptr_t)(bu_model.rx_ring-1+n*16);
     uint64_t phys=td->parameter_low|(uint64_t)td->parameter_high<<32;
     assert(td->status==32768 && phys==rx->phys+(n%4)*32768 && !(phys&32767));
-    if(bu_model.fault<BU_RX_DEPTH_OK && bu_model.fault!=BU_RX_TIMEOUT && bu_model.fault!=BU_RX_BAD_STOP &&
-       bu_model.fault!=BU_RX_CLOSING)
-        bu_model_receive_completion(false);
 }
 
 static void bu_model_depth_tick(void) {
-    if((bu_model.fault==BU_RX_DEPTH_OK || bu_model.fault==BU_RX_DEPTH_DUPLICATE) &&
-       bu_model.rx_samples==30 && !strict_control.device &&
-       bu_rx_owner && bu_rx_owner->posted==4 && !bu_model.rx_depth_event) {
+    if(bu_model.fault!=BU_RX_OK && bu_model.fault!=BU_RX_DEPTH_OK && bu_model.fault!=BU_RX_DEPTH_DUPLICATE &&
+       bu_model.fault!=BU_RX_WRONG_EVENT)return;
+    if(bu_model.rx_samples==10 && !strict_control.device && bu_rx_owner &&
+       bu_rx_owner->posted==4 && !bu_model.rx_depth_event) {
         bu_model.rx_depth_event=true;
         bu_model_receive_event(false,0);
-        bu_model_receive_event(false,1);
+        if(bu_model.fault!=BU_RX_WRONG_EVENT)bu_model_receive_event(false,1);
     }
 }
 
@@ -480,7 +494,7 @@ static void bu_model_mmio(uint64_t offset,uint32_t value) {
     struct xhci_device *d=&xhci.devices[3];
     if(offset==xhci.db_base && !value)bu_model_command(d);
     else if(offset==xhci.db_base+16 && value==10) {
-        if(bu_model.configure==2)bu_model_h2c(d);
+        if(bu_model.ddma==40)bu_model_h2c(d);
         else bu_model_bulk(d);
     }
     else if(offset==xhci.db_base+16 && value==BU_RX_DCI)bu_model_receive();
@@ -558,28 +572,31 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
             assert(xhci_rtl8822bu_capture_passive(image,sizeof image,phy,sizeof phy,&safe)==success);
             test_console_printf_hook=NULL;
             assert(!bu_rx_owner && !bu_model_read(BU_CR,1) && (bu_model_read(0x1f,1)&7)==0);
-            assert(bu_model.channel_writes==(fault==BU_RX_TUNE_FAIL?2:4));
-            bool endpoint=fault!=BU_RX_TUNE_FAIL && fault!=BU_RX_EP_AVG_DRIFT;
-            bool firmware_ready=endpoint && fault!=BU_RX_LLT_STUCK && fault!=BU_RX_FILTER_DRIFT &&
-                fault<BU_H2C_BAD_LIMIT;
+            assert(bu_model.channel_writes==(fault==BU_RX_EP_AVG_DRIFT || fault==BU_RX_EARLY_STALE ||
+                fault==BU_RX_EARLY_FW_SHORT?0:fault==BU_RX_TUNE_FAIL?2:4));
+            bool armed=fault!=BU_RX_EP_AVG_DRIFT;
+            bool uploaded=armed && fault!=BU_RX_EARLY_FW_SHORT;
+            bool board_ready=uploaded && fault!=BU_RX_EARLY_STALE;
+            bool firmware_ready=board_ready && fault!=BU_RX_TUNE_FAIL && fault!=BU_RX_LLT_STUCK &&
+                fault!=BU_RX_FILTER_DRIFT && fault<BU_H2C_BAD_LIMIT;
             bool dma_ready=firmware_ready && fault!=BU_RX_SEC_SETUP_DRIFT;
             bool admitted=dma_ready && fault!=BU_RX_FIFO_BOUNDARY_DRIFT;
-            bool compared=admitted && fault>=BU_RX_DEPTH_OK && fault!=BU_RX_DEPTH_DRIFT;
-            unsigned posts=compared?(fault==BU_RX_DEPTH_OK || fault==BU_RX_DEPTH_DUPLICATE ||
-                fault==BU_RX_DEPTH_TRANSITION?5u:4u):fault==BU_RX_OK?3u:admitted?1u:0u;
-            assert(bu_model.rx_posts==posts);
+            unsigned extra=(fault==BU_RX_OK || fault==BU_RX_DEPTH_OK || fault==BU_RX_DEPTH_DUPLICATE ||
+                            fault==BU_RX_DEPTH_TRANSITION || fault==BU_RX_EARLY_VALID);
+            assert(bu_model.rx_posts==(armed?4u+extra:0u));
             unsigned commands=firmware_ready || fault>=BU_H2C_UNDRAINED?2:
                 fault>=BU_H2C_OUT_SHORT && fault<=BU_H2C_OUT_WRONG_TRB?1:0;
             assert(bu_model.h2c_posts==commands && !d->bulk_pending);
-            assert(bu_model.out_event_logs==1+commands);
-            assert(bu_model.out_state_logs==(fault==BU_RX_TUNE_FAIL?2:4)+2*commands);
+            assert(bu_model.out_event_logs==(unsigned)uploaded+commands);
+            assert(bu_model.out_state_logs==3u+uploaded+2*commands);
             assert(bu_model.out_device_logs==(fault>=BU_H2C_OUT_SHORT && fault<=BU_H2C_OUT_WRONG_TRB));
-            assert(bu_model.h2c_status_writes==endpoint);
+            bool queue_setup=board_ready && fault!=BU_RX_TUNE_FAIL;
+            assert(bu_model.h2c_status_writes==queue_setup);
             assert(bu_model.h2c_status_reads==2*bu_model.h2c_status_writes+bu_model.out_device_logs);
-            assert(bu_model.rx_filters_written==(endpoint && fault!=BU_RX_LLT_STUCK &&
+            assert(bu_model.rx_filters_written==(queue_setup && fault!=BU_RX_LLT_STUCK &&
                 fault!=BU_H2C_BAD_LIMIT && fault!=BU_H2C_INIT_STUCK));
-            assert(bu_model.rx_stops==(fault==BU_RX_TUNE_FAIL?0:1));
-            assert(bu_model.rx_samples==(compared?40:admitted?20:0));
+            assert(bu_model.rx_stops==1);
+            assert(bu_model.rx_samples==(admitted?20:0));
             assert(bu_model.rx_security_written==firmware_ready);
             assert(bu_model.rx_dma_written==dma_ready);
             unsigned fifo_writes=admitted?6u:0u;
@@ -591,8 +608,9 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
                    bu_model.rx_security_rcr_reloaded==bu_model.rx_security_written &&
                    bu_model.rx_security_cr_restored==bu_model.rx_security_written);
             assert(bu_model_read(BU_RX_SECCFG,2)==(fault==BU_RX_SEC_RESTORE_DRIFT?0x31cfu:0x3100u));
-            assert(bu_model.rx_depth_event==(fault==BU_RX_DEPTH_OK || fault==BU_RX_DEPTH_DUPLICATE));
-            assert(bu_model.rx_llt_polls==(!endpoint?0:fault==BU_RX_LLT_STUCK?100:1));
+            assert(bu_model.rx_depth_event==(fault==BU_RX_OK || fault==BU_RX_DEPTH_OK ||
+                fault==BU_RX_DEPTH_DUPLICATE || fault==BU_RX_WRONG_EVENT));
+            assert(bu_model.rx_llt_polls==(!queue_setup?0:fault==BU_RX_LLT_STUCK?100:1));
             if(fault==BU_RX_CLOSING)assert(bu_model.rx_cursor==bu_model.rx_ring+16);
         } else if(fault>=BU_PHY_OK) {
             if(fault==BU_PHY_BAD_PROFILE)phy[2]^=1;
@@ -618,7 +636,10 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
         assert(bu_model.latch_clears==bu_model_cold_board());
         if(fault==BU_FW_PLATFORM_MCU)assert(!bu_model.posted && bu_model_read(0x80,2)==0xc078);
         if(fault==BU_FW_SHORT || fault==BU_FW_MISSING)assert(bu_model.posted==1 && !bu_model.ddma && !d->bulk_pending);
-        if(board) {
+        if(fault==BU_RX_EP_AVG_DRIFT || fault==BU_RX_EARLY_FW_SHORT || fault==BU_RX_EARLY_STALE) {
+            assert(!bu_model.feature_acks && !bu_model.efuse_reads && bu_model.stop==1);
+            assert(bu_model.posted==(fault==BU_RX_EARLY_STALE?40u:fault==BU_RX_EARLY_FW_SHORT?1u:0u));
+        } else if(board) {
             unsigned reads=BU_EFUSE_BYTES;
             if(fault==BU_BOARD_BAD_BANK || fault==BU_BOARD_BAD_MODE)reads=0;
             if(fault==BU_BOARD_WRONG_ADDR)reads=1;
@@ -643,7 +664,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
     if(passive)puts("rtl8822bu: PASS native tuning, 32 KiB bulk IN, beacon parsing, stale/timeout and retirement refusal");
     if(passive)puts("rtl8822bu: PASS read-only pre/post PHY and DMA counters and closing completion excluded from discovery");
     if(passive)puts("rtl8822bu: PASS Linux RX admission order, MAC TX disabled, LLT completion, and filter readback refusal");
-    if(passive)puts("rtl8822bu: PASS Netgear Linux bulk-IN context, depths one and four, ordered buffer reuse, and stale event refusal");
+    if(passive)puts("rtl8822bu: PASS Netgear four bulk-IN owners before firmware, startup discard, stale event refusal, and early cleanup");
     if(passive)puts("rtl8822bu: PASS native firmware commands, Linux USB bytes, queue entry/drain, short/missing OUT and RX-only restoration");
     if(passive)puts("rtl8822bu: PASS Netgear OUT ring and completion tracing, stale running context, and wrong-TRB refusal");
     if(passive)puts("rtl8822bu: PASS Netgear queue setup order, unavailable status, boundary drift and stuck initialization");
