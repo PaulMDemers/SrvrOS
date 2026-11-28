@@ -806,6 +806,12 @@ file hashes and a clean offline exFAT check. The next diagnostic must
 record each closing check separately. Native drain and write ownership
 remain open.
 
+The closing-check retry starts at `e0d6dfc4` with main `24feebdd` and
+Air6,1 PR 567 `b9121084` reviewed. It covers the Broadwell slot 16385
+closing checks, their USB receipt and the paired parser and host fixture.
+It uses the same pinned scanout and read-only traffic observations. The
+report distinguishes explicit open-client evidence from an unverified drain.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
