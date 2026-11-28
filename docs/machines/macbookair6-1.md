@@ -203,6 +203,14 @@ completed in 310.308 ms, with Pipe A frame progress in each batch,
 were present, leaving no exact-zero candidate. The exit snapshot,
 installed recovery and offline USB check verified on return.
 
+The [populated range takeover review](../intel-hsw-tearfree.md#populated-range-takeover-with-pipe-a-active)
+compares this sweep with Air7,2 PR301 at `0fc30fd5`. A future Haswell
+owner needs an exact-range hardware grant, maintained requester and
+firmware exclusion, and a Haswell-specific translation and rollback
+path while the original Plane A surface stays pinned. Scope is the
+documented ownership contract and archived evidence. No native range
+has been granted.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

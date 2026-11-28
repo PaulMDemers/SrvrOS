@@ -513,14 +513,96 @@ The exact-zero shortlist was empty. Ubuntu returned with the one-shot
 consumed, and the exit snapshot, installed recovery and offline USB
 check verified.
 
-### Private bind prerequisites
+### Populated range takeover with Pipe A active
 
-A later write trial requires an owner that maintains exclusion from
-admission through a posted DWORD store, Gen7 translation completion and
-exact rollback. Linux i915's Gen6/7 path follows the DWORD store with a
-flush-control write and posting read under the uncore lock. That is a
-reference for ordering; SrvrOS still needs its own native admission and
-completion evidence. [Linux i915 Gen6/7 GGTT invalidation](https://code.googlesource.com/linux/torvalds/linux/%2B/3ca112b71f35dd5d99fc4571a56b5fc6f0c15814/drivers/gpu/drm/i915/gt/intel_ggtt.c#192)
+The Air6,1 surveys found all 61,438 eligible entries in the 256 MiB CPU
+aperture present. An entry that points to the first framebuffer page
+reveals its backing address and leaves its users unknown. The sweep
+also reports entries outside the captured stolen-memory range, with
+their ownership unresolved. The archived backing receipt reports a
+2 MiB GGTT table. The CPU aperture survey covers its first 256 MiB of
+GPU address space. A GPU-only address would require a separate
+display-addressability and verification path. For this checkpoint,
+keep the full 16 MiB fence, slots 4096 and 16385, and their backing
+protected. [Intel Haswell memory views, pp. 34–35 and 46](https://cdrdv2-public.intel.com/690966/intel-gfx-prm-osrc-hsw-memory-views.pdf)
+
+#### What Air7,2 establishes
+
+PR301's live path keeps the inherited framebuffer pinned across a
+GT-only reset, memory maintenance and requester checks. On the
+native Air7,2, slot 16385 still pointed to the first framebuffer page
+after reset and memory maintenance, before bus mastering reopened.
+The modeled one-page writer holds one driver range loan through
+scratch publication, bind and rollback. Its first-publication path
+requires an exact-zero PTE inside a previously granted range.
+The software registry accounts for competing leases once a hardware
+owner supplies that grant. [Air7,2 live range qualification](https://github.com/PaulMDemers/SrvrOS/blob/0fc30fd5/docs/intel-tearfree-roadmap.md#driver-owned-range-qualification)
+· [Range registry](https://github.com/PaulMDemers/SrvrOS/blob/0fc30fd5/kernel/include/srvros/scanout_space.h)
+
+PR301 at `0fc30fd5` also exercises a separate panel-dark recovery
+path with memory decoding on and bus mastering off. Native recovery
+restored the framebuffer and both CRCs, but its latest census
+refused the first alias check and read zero entries. That path
+interrupts scanout and falls outside the live Pipe A contract.
+[Air7,2 native status](https://github.com/PaulMDemers/SrvrOS/blob/0fc30fd5/docs/machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
+
+#### Haswell admission and rollback conditions
+
+1. **Pin the inherited display under one boot owner.** Bind the owner
+   to the exact device, boot epoch, BARs, original route, programmed and
+   live surface addresses, fence, backing pages and fetch padding.
+   Serialize SrvrOS graphics and CPU aperture clients before admission.
+   Keep Pipe A fetching the original surface through the entire later
+   transaction. Reserve a separate GPU address extent, including any
+   required guard pages, and keep its old backing alive. The future
+   destination must be independently pinned OS RAM. Linux i915 pins
+   the initial plane during its own device takeover. [i915 initial-plane pinning](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_plane_initial.c#L212-L231)
+2. **Obtain and maintain hardware exclusion for that exact range.**
+   Establish who can submit or modify translations before acquiring the
+   range and what prevents them from doing so through retirement.
+   Account for each enabled engine and requester, posted transactions
+   and prefetch, display readers outside the pinned surface, and
+   firmware or SMM. Clear VT-d command bits, clear PCI Transactions
+   Pending and an unchanged SMI count remain endpoint evidence. GOP
+   describes the inherited framebuffer and `ExitBootServices` ends boot
+   services. The range grant would need a separately established
+   firmware handoff contract or enforcement that covers all relevant
+   writers and readers. No such grant is available on this Air6,1.
+   [UEFI boot services handoff](https://uefi.org/specs/UEFI/2.10/07_Services_Boot_Services.html#efi-boot-services-exitbootservices)
+3. **Qualify the Haswell hardware boundaries separately.** Before a
+   future write trial, establish an awake register-access contract and
+   the exact engine inventory. Qualify any GT-only reset under a maintained
+   owner with fresh scope, completion and live-display evidence.
+   i915 selects its Gen6-style reset path for Haswell and Gen8 reset
+   preparation for Broadwell. Forcewake acknowledgement permits
+   register access and reset acknowledgement attests to the targeted
+   reset. Outgoing DMA, cache, prefetch and reader retirement each need
+   separate evidence. Air6,1 has no native evidence for live scanout
+   under a function-wide bus-mastering hold. Keep IGD bus mastering,
+   forcewake and reset controls untouched in the read-only checkpoint.
+   [i915 reset dispatch](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_reset.c#L630-L651)
+   · [i915 Haswell forcewake setup](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_uncore.c#L2106-L2109)
+4. **Use one future range loan for replacement and restoration.** Once
+   a hardware grant exists, snapshot and recheck the original populated
+   DWORD under the hold. The current Haswell planner can encode a
+   proposed private page and retain the rollback word. A future writer
+   needs an owned alias, an ordered Gen7 invalidate and a translation
+   witness before any aperture access. A first bind should target one
+   page and verify the private observation, then restore and verify the
+   exact original word and reader retirement before returning the loan
+   or releasing the private backing. i915's Gen6/7 invalidate uses a
+   flush-control write and posting read under the uncore lock. This supplies an ordering
+   reference. If the hold or rollback becomes uncertain, pin the loan
+   and both backings for controlled recovery. [Haswell planner](../kernel/diagnostics/intel_hsw_ggtt.c)
+   · [i915 Gen6/7 invalidation](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L177-L184)
+
+The next read-only checkpoint can exercise a scoped ownership refusal
+receipt against the archived Air6,1 baseline. It should distinguish
+screen preservation, possible old users, unavailable awake engine state,
+and missing firmware authorization. Positive fixtures can model a
+supplied grant and test loan lifetime and refusal, while native evidence
+continues to leave the range unavailable. No populated slot is selected
+for replacement in this investigation.
 
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
