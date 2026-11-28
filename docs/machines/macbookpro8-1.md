@@ -11,7 +11,8 @@ USB report. The native desktop verified pointer movement, physical clicks,
 Ubuntu return, and the USB report. The instrumented retry passed with zero
 malformed frames. The earlier malformed frame remains unexplained. The
 BCM4331 native trials verified channel 10 radio initialization, beacons,
-association, WPA2-PSK/CCMP and DHCP on `Demers2.4`.**
+association, WPA2-PSK/CCMP, DHCP, and same-boot disconnect and reconnect
+with gateway traffic on `Demers2.4`.**
 
 ## Identity and baseline
 
@@ -635,6 +636,20 @@ The other Pro's external USB transport remains independent. PR #568
 carries the device branch. There is no overlap with the current graphics
 and runtime work. Keep the accepted passive and association payloads and
 Ubuntu recovery available.
+
+Release `c0aab7606708081f` (`b75e7929`) passed the exact-stage VM
+rehearsal and returned `RECONNECT_OK` on the MacBook. The first
+connection completed WPA2 and DHCP and received five of five matched
+gateway echoes. The disconnect was acknowledged, cleared IPv4 and the
+default route, and retired the software keys. After a 500 ms interval
+with the network link down, the station rejoined the same AP. It verified
+a distinct authenticator nonce, completed a fresh DHCP exchange, and
+received five of five gateway replies again. The final disconnect and
+provider retirement completed, all 26 transmissions had acknowledgments,
+and both DMA queues stopped with no retained pages. Both flash reports
+verified and the offline allocation check passed with 206 files and zero
+leaks. Ubuntu returned with both links up. The collector restored the
+credential-free association entry and removed the temporary payload.
 
 ## Bring-up sequence
 
@@ -1653,7 +1668,7 @@ Offline allocation passed for 143 files with zero writes.
 | Fan and CPU temperature | Read-only internal fan, core and package readings verified on `5e4d9efffb95d338` | Retain firmware fan control |
 | Battery and AC power | Connected, disconnected and reconnected readings verified on `0cb82183e1678a63` | Retain read-only charger and battery coverage |
 | Wired Ethernet | The production BCM57765 provider passed connected and disconnected desktop startup on `657931e51d2152c8` and `e0c0bff8e7ef17ae`, including 1 Gb/s full-duplex DHCP, sustained gateway traffic, and three cable cycles | Retain both startup and cable recovery checks |
-| Wi-Fi | SrvrOS verified BCM4331 channel 10 beacons in `77845b0ad46fd3cb` and native `Demers2.4` association, WPA2-PSK/CCMP and DHCP in `5ae54bef0deab874` | Qualify gateway traffic and connection lifecycle |
+| Wi-Fi | Native `Demers2.4` association, WPA2-PSK/CCMP and DHCP on BCM4331 passed in `5ae54bef0deab874`. Same-boot disconnect and reconnect with five gateway replies per connection passed in `c0aab7606708081f` | Qualify desktop Connect and Disconnect controls and recovery after link loss |
 
 The local host checkpoint, exact VM evidence and first console return are in
 `build/review/`. Keyboard reports and trackpad input follow the native

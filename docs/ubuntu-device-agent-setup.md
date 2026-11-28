@@ -1279,6 +1279,15 @@ reports and manifest, restore a credential-free boot entry, and remove
 the private stage and installed payload. Keep credentials off the flash
 workspace and out of evidence archives.
 
+Use `--ehci-bcm4331-reconnect UUID` with the same station radio profile
+and a fresh private key record to qualify two connections in one
+unattended boot. Verify `RECONNECT_OK` and both epochs in the final
+report. Each must show WPA2, a DHCP offer and ACK, five matched probes
+of the Wi-Fi gateway, acknowledged disassociation, cleared IPv4 and
+route state, and key retirement. The second epoch must show a fresh
+authenticator nonce. Verify provider and DMA retirement, collect both
+flash reports, and use the same private-payload cleanup on return.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal
