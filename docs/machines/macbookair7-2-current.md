@@ -639,8 +639,20 @@ and the closing SMI and owner guards within the existing phase deadline. The
 45-test host suite passed, including occupied and drifting entries and guarded
 refusal. Four exact-stage OVMF runs using the unit's Ubuntu shim and GRUB passed
 the save/return, missing workspace, missing ACPI protocol and missing ACPI
-protocol with EFI vector cases. The discovery stage is uninstalled. Hardware
-vacancy and exclusive native reader ownership through rollback remain pending.
+protocol with EFI vector cases.
+
+The physical retry at source `bb459b98`, release `22098cdc89f8d227`,
+saved `session-0006614d4ff914ba-00` and returned automatically to Ubuntu.
+Both reads of slot 16385 returned `0x8c001001` in a 478 µs bracket. The
+same-boot backing guard identifies physical `0x8c001000` as the first page
+of the active framebuffer. PCI bus mastering was off during both reads,
+both MMIO aliases retired, and Pipe A's programmed and live surface matched
+the original. All five engine queues matched before and after bus mastering
+reopened. The diagnostic issued zero GGTT writes. Offline collection
+verified all four saved files, a clean unmount and zero allocation errors.
+Slot 16385 remains reserved because it aliases live backing. Native ownership
+of a writable range remains pending. Ubuntu is at 1% volume with no one-shot
+boot armed.
 [Driver-owned range qualification](../intel-tearfree-roadmap.md#driver-owned-range-qualification)
 
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB

@@ -282,6 +282,16 @@ that boundary. A stable nonzero preserves the occupied entry. Native range
 registration still requires proof that every reader is excluded or retired
 through the subsequent bind and rollback.
 
+Air7,2 release `22098cdc89f8d227` read `0x8c001001` at slot 16385 in
+both pre-reopen samples. The same-boot backing guard identifies the mapped
+physical page as the first page of the inherited framebuffer. The offset is
+outside the inherited fence, but the translation still aliases live scanout
+backing after GT reset and memory maintenance. Preserve that entry and keep
+the range ungranted. The next bind checkpoint needs a driver-owned interval
+established during takeover with the inherited framebuffer pinned and the
+old requesters for that interval retired.
+[Physical result](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
+
 The first-publication transaction takes an existing grant and requires an
 exact zero PTE inside it. It verifies the page under the same live Pipe A
 owner, seals the parent range until reboot, and installs one pinned scratch
