@@ -1010,6 +1010,16 @@ class InstallTests(unittest.TestCase):
             boot.stage(ehci_lid_volume="invalid")
         with self.assertRaises(ValueError):
             boot.stage(ehci_lid_volume="0d9b53a0", ehci_split_trial=True)
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_lid_run="0123456789abcdef")
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_lid_volume="0d9b53a0", ehci_lid_run="invalid")
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                side_effect=["test-revision\n", ""]):
+            repeated = boot.stage(ehci_lid_volume="0d9b53a0", ehci_lid_run="0123456789abcdef")
+        self.assertNotEqual(repeated, release)
+        self.assertEqual(boot.verify(self.stage / repeated, repeated)["config_version"],
+                         boot.EHCI_LID_VERSION + "0d9b53a0-run-0123456789abcdef")
 
     def test_ehci_bcm4331_probe_binds_release_and_workspace(self):
         for name in ("limine-binary/BOOTX64.EFI", "kernel/srvros.elf"):

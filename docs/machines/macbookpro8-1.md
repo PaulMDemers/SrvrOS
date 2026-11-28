@@ -877,7 +877,8 @@ offline allocation and Ubuntu recovery verified. The retry adds a sample
 count, elapsed time, and on-screen reminders during a 90-second capture.
 Release `383069e45f813bbe` reported 897 successful reads in 90.084 seconds
 with the lid value unchanged at `0`. The four expected edges remain
-unverified. Both reports matched their archived copies by SHA-256, and the
+unverified. The operator confirmed the lid stayed open during this run.
+Both reports matched their archived copies by SHA-256, and the
 workspace passed allocation and prior-file verification on both returns.
 Native sleep was disabled throughout the lid tests. The Ubuntu S3 baseline
 provides the reference for separate firmware wake testing.
