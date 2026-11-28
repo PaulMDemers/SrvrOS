@@ -892,6 +892,24 @@ Stage with `--laptop-probe-volume UUID --haswell-backing-capture
 The trial saves its receipt to USB and returns to Ubuntu. Decode
 the matched `exit.log` with `tools/hardware_haswell_forcewake.py`.
 
+##### Native requester and SMI observations
+
+The v13 audit on `6ed8f878` / `39155cff051f9264` completed both passes
+in 354 µs. Both PCH samples read `GEN_PMCON_1=0x1ae4`,
+`SMI_EN=0x33` and `SMI_STS=0x100`. Global SMI delivery was enabled
+and its lock bit was clear at both samples. CPU0's SMI count stayed
+at 13 across the sampling window.
+
+All four engines reported idle. IGD Advanced Features and display
+HDA PCIe Transactions Pending were clear at both samples. Both
+devices had bus mastering enabled. Requester drain and firmware
+exclusion remain unverified.
+
+Pipe A advanced from frame 918 to 919 on the inherited framebuffer.
+Forcewake released, all six aliases retired, and the protected slots
+4096 and 16385 stayed untouched. The exit snapshot, installed recovery
+and offline USB check verified after Ubuntu returned.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

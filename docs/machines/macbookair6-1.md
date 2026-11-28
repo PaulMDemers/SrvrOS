@@ -265,12 +265,14 @@ all six aliases retired, and GGTT slots 4096 and 16385 stayed untouched.
 Requester drain remains unverified. Air7,2 PR301 at `a6f88f77` owns
 the independent Broadwell work.
 
-The next PR567 checkpoint adds read-only Lynx Point-LP SMI routing and
-lock observations to the bounded held-engine sampler. Scope is the
-Air6,1 adapter, boot recipe and receipt verifier on `6c42e738`, reviewed
-against integration head `117a0294` and Air7,2 PR301 at `04d4fb19`.
-Pipe A remains on the inherited framebuffer, and slots 4096 and 16385
-stay protected. The audit records firmware-access prerequisites.
+The [native requester and SMI audit](../intel-hsw-tearfree.md#native-requester-and-smi-observations)
+verified on `6ed8f878` / `39155cff051f9264`. Both PCH samples showed
+global SMI delivery enabled with its lock clear. All four engines
+reported idle, and both available PCI pending bits were clear while
+bus mastering remained enabled. Pipe A advanced one frame on the
+inherited surface and protected slots 4096 and 16385 stayed untouched.
+Requester drain and firmware exclusion remain unverified. The exit
+snapshot, installed recovery and offline USB check verified.
 
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
