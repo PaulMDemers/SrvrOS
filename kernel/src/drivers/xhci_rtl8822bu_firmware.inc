@@ -20,6 +20,7 @@ struct bu_upload {
     uint8_t *packet;
     uint64_t packet_phys;
     unsigned bytes,packets;
+    bool trace_auth_stop;
     uint8_t station[6];
     uint32_t mcu;
     bool power_touched,unexpected_mcu,endpoint_ready,eapol_ready,stopped,parked,trace_out;
@@ -265,6 +266,13 @@ static bool bu_post_out(struct bu_upload *up,struct xhci_bulk_endpoint *ep,unsig
     bool ok=d->bulk_done && !d->bulk_pending && d->bulk_completion==1 && !d->bulk_remaining;
     uint64_t event_trb=observed.parameter_low|(uint64_t)observed.parameter_high<<32;
     if(command)ok=ok && events && event_trb==d->bulk_trb && !(observed.control&4);
+    if(up->eapol_ready && ep==&up->out && d->bulk_pending) {
+        const volatile struct xhci_trb *published=entry;
+        uint64_t buffer=published->parameter_low|((uint64_t)published->parameter_high<<32);
+        console_printf("rtl8822bu-out-wait: dci=%u us=%u buffer_match=%u status=%x control=%x\n",
+            (uint64_t)ep->dci,timer_monotonic_us()-start,(uint64_t)(buffer==up->packet_phys),
+            (uint64_t)published->status,(uint64_t)published->control);
+    }
     if(trace) {
         console_printf("rtl8822bu-out-event: length=%u control=%x count=%u ptr=%x cc=%u residue=%u ed=%u\n",
             (uint64_t)length,(uint64_t)(trb.control|cycle),(uint64_t)events,event_trb,
@@ -374,6 +382,10 @@ static bool bu_stop_pipe(struct bu_upload *up,struct xhci_bulk_endpoint *ep) {
        slot!=d->slot_id)return false;
     if(up->trace_out && ep->dci==BU_OUT_DCI)bu_out_state(up,"stopped");
     uint64_t cursor=bu_pipe_dequeue(d,ep->dci);
+    if(up->trace_auth_stop && ep->dci==BU_OUT_DCI)
+        console_printf("rtl8822bu-auth-stop: owned_before=%u done_after=%u cc=%u residue=%u deq=%x auth=%x end=%x\n",
+            (uint64_t)owned,(uint64_t)d->bulk_done,(uint64_t)d->bulk_completion,
+            (uint64_t)d->bulk_remaining,cursor,d->bulk_trb,end);
     if((context_read32(d->output_context,ep->dci,0)&7)!=3 ||
        (cursor!=(pending|1) && cursor!=(end|1)))return false;
     if(owned)d->bulk_pending=false;

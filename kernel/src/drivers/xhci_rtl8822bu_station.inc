@@ -42,6 +42,23 @@ static bool bu_station_radio(struct bu_upload *up,struct bu_rx *rx) {
         bu_write(d,BU_TXPAUSE,1,0) && bu_read(d,BU_TXPAUSE,1,&pause) && !pause;
 }
 
+/* Read only after the first management OUT times out, before disabling TX.
+ * EP0 may dispatch a late OUT event. Preserve the original failure. */
+static void bu_station_trace_auth(struct bu_upload *up) {
+    struct xhci_device *d=up->device;
+    uint32_t cr=0,pause=0,dma=0,empty=0,high=0,public_pages=0;
+    unsigned valid=0;
+    if(bu_read(d,BU_CR,2,&cr))valid|=1;
+    if(bu_read(d,BU_TXPAUSE,1,&pause))valid|=2;
+    if(bu_read(d,0x210,4,&dma))valid|=4; /* TXDMA_STATUS */
+    if(bu_read(d,0x41a,2,&empty))valid|=8; /* TXPKT_EMPTY */
+    if(bu_read(d,0x230,4,&high))valid|=16;
+    if(bu_read(d,0x240,4,&public_pages))valid|=32;
+    console_printf("rtl8822bu-auth-device: valid=%x cr=%x pause=%x dma=%x empty=%x hpq=%x pubq=%x pending=%u cc=%u\n",
+        (uint64_t)valid,(uint64_t)cr,(uint64_t)pause,(uint64_t)dma,(uint64_t)empty,
+        (uint64_t)high,(uint64_t)public_pages,(uint64_t)d->bulk_pending,(uint64_t)d->bulk_completion);
+}
+
 static bool bu_station_send(struct bu_upload *up,struct bu_rx *rx,enum rtl_cu_station_tx type,
                             const uint8_t *body,size_t size) {
     struct xhci_device *d=up->device;
@@ -73,6 +90,10 @@ static bool bu_station_send(struct bu_upload *up,struct bu_rx *rx,enum rtl_cu_st
     copy_bytes(tx+BU_DESC_BYTES,frame+32,length);
     rtl_cu_erase(frame,sizeof frame);
     bool sent=bu_post_out(up,ep,(unsigned)(length+BU_DESC_BYTES),true,"station");
+    if(!sent && type==RTL_CU_AUTH && d->bulk_pending) {
+        up->trace_auth_stop=true;
+        bu_station_trace_auth(up);
+    }
     if(!d->bulk_pending)rtl_cu_erase(tx,BU_DESC_BYTES+length);
     console_printf("rtl8822bu-station-tx: frame=%u dci=%u usb=%u cc=%u residue=%u pending=%u\n",
         (uint64_t)type,(uint64_t)ep->dci,(uint64_t)sent,(uint64_t)d->bulk_completion,

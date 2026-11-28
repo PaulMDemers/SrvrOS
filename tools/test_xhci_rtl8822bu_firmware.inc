@@ -19,7 +19,7 @@ enum bu_firmware_fault {
     BU_RX_GRANT_ADMIT_DRIFT,BU_RX_GRANT_LOST,BU_RX_GRANT_RESTORE_DRIFT,
     BU_H2C_BAD_LIMIT,BU_H2C_INIT_STUCK,BU_H2C_BAD_ENTRY,BU_H2C_OUT_SHORT,BU_H2C_OUT_MISSING,
     BU_H2C_OUT_WRONG_TRB,BU_H2C_UNDRAINED,BU_H2C_RESTORE_DRIFT,
-    BU_STA_OK,BU_STA_BAD_MIC,BU_STA_WRONG_OUT,
+    BU_STA_OK,BU_STA_BAD_MIC,BU_STA_WRONG_OUT,BU_STA_AUTH_PENDING,
 };
 
 static struct {
@@ -39,7 +39,7 @@ static struct {
     unsigned rx_mac_writes,rx_mac_reads;
     unsigned rf_grant_writes,rf_scan_enables;
     uint32_t rf_grant;
-    unsigned station_posts,eapol_stop;
+    unsigned station_posts,eapol_stop,auth_device_logs,auth_stop_logs;
     bool rx_security_rcr_reloaded,rx_security_cr_restored,rx_dma_written;
     bool rx_queue_mapped,rx_llt_requested,rx_filters_written,rx_security_written,rx_depth_event;
     enum bu_firmware_fault fault;
@@ -198,6 +198,8 @@ static void bu_model_h2c(struct xhci_device *d) {
 }
 
 static void bu_model_out_log(const char *fmt) {
+    if(strstr(fmt,"rtl8822bu-auth-device:"))bu_model.auth_device_logs++;
+    if(strstr(fmt,"rtl8822bu-auth-stop:"))bu_model.auth_stop_logs++;
     if(!strncmp(fmt,"rtl8822bu-out-state:",20))bu_model.out_state_logs++;
     if(!strncmp(fmt,"rtl8822bu-out-event:",20))bu_model.out_event_logs++;
     if(!strncmp(fmt,"rtl8822bu-h2c-out-device:",25))bu_model.out_device_logs++;
@@ -625,6 +627,11 @@ static void bu_model_station_out(struct xhci_device *d,unsigned dci) {
         assert(!memcmp(frame+32,post==2?hs_m2:hs_m4,post==2?sizeof hs_m2:sizeof hs_m4));
     }
     uint64_t pointer=d->bulk_trb;
+    if(bu_model.fault==BU_STA_AUTH_PENDING) {
+        assert(post==0 && dci==BU_OUT_DCI);
+        test_time_step=10000;
+        return;
+    }
     bool wrong=post==2 && bu_model.fault==BU_STA_WRONG_OUT;
     if(wrong) {
         pointer+=16;
@@ -706,7 +713,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
         assert(file && fread(phy,1,sizeof phy,file)==sizeof phy && fgetc(file)==EOF && !fclose(file));
         assert(bu_phy_profile_valid(phy,sizeof phy));
     }
-    for(enum bu_firmware_fault fault=BU_FW_OK;fault<=(passive?BU_STA_WRONG_OUT:phy_path?BU_PHY_STUCK_RF:BU_BOARD_BAD_STOP);fault++) {
+    for(enum bu_firmware_fault fault=BU_FW_OK;fault<=(passive?BU_STA_AUTH_PENDING:phy_path?BU_PHY_STUCK_RF:BU_BOARD_BAD_STOP);fault++) {
         struct xhci_device *rtl=rtl_hub_fixture(),*d=&xhci.devices[3];
         d->device_bcd=0x0210;d->configuration_count=1;d->ep0_max_packet=64;
         uint8_t *command_memory;
@@ -750,6 +757,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
         if(fault==BU_FW_IMAGE)image[0]^=1;
         bool safe=false;
         if(fault>=BU_STA_OK) {
+            test_console_printf_hook=bu_model_out_log;
             uint8_t credential[52]={'S','R','B','U','W','P','A',1};
             memcpy(credential+8,hs_spa,6);
             memcpy(credential+14,hs_aa,6);
@@ -759,7 +767,14 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
             assert(safe && !bu_rx_owner && !d->bulk_pending && bu_model.configure==3);
             assert(bu_model.eapol_stop==1 && bu_model.stop==1 && bu_model.rx_stops==1 &&
                 bu_model.rf_grant_writes==3 && bu_model.rf_grant==0xdf03 && !bu_model_read(BU_CR,1));
-            assert(bu_model.station_posts==(fault==BU_STA_OK?5u:fault==BU_STA_BAD_MIC?4u:3u));
+            test_console_printf_hook=NULL;
+            if(fault==BU_STA_AUTH_PENDING) {
+                assert(bu_model.station_posts==1 && bu_model.cursor==(d->bulk_trb|1));
+            } else {
+                assert(bu_model.station_posts==(fault==BU_STA_OK?5u:fault==BU_STA_BAD_MIC?4u:3u));
+            }
+            assert(bu_model.auth_device_logs==(fault==BU_STA_AUTH_PENDING));
+            assert(bu_model.auth_stop_logs==(fault==BU_STA_AUTH_PENDING));
             continue;
         }
         bool success=fault==BU_FW_OK || fault==BU_FW_FLASH || fault==BU_FW_COLD_LATCH ||
