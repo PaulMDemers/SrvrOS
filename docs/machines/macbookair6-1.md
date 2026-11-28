@@ -255,12 +255,15 @@ released, all six aliases retired, and the protected slots were
 untouched. The exit snapshot, recovery and offline USB check verified.
 Air7,2 PR301 at `9827235e` owns its Broadwell full-GT work.
 
-The next PR567 checkpoint isolates the existing 4 ms held-engine
-sampler from CPU0 maskable interrupts and records timing around both
-passes. Scope is the Air6,1 sampler and its receipt tests on
-`70588176` against integration head `24feebdd`. The forcewake limits,
-Pipe A route and protected GGTT slot checks carry forward. Air7,2
-PR301 at `a6f88f77` owns the independent Broadwell work.
+The [native held-engine timing retry](../intel-hsw-tearfree.md#held-engine-timing-retry)
+verified on `69837e0d` / `0e13ef71a2ab8dad`. Both passes completed in
+335 µs with a 251 µs inter-pass gap. Timer ticks, preemptions and CPU0
+SMIs were unchanged across the samples. All four engines reported idle
+and both available PCI pending bits were clear at both endpoints.
+Pipe A advanced one frame on the inherited surface. Forcewake released,
+all six aliases retired, and GGTT slots 4096 and 16385 stayed untouched.
+Requester drain remains unverified. Air7,2 PR301 at `a6f88f77` owns
+the independent Broadwell work.
 
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,

@@ -824,6 +824,23 @@ the prior interrupt flag is restored. Both passes finish before
 delivery. A separate injected 10.688 ms elapsed gap while interrupts
 are masked still stops before pass two and runs verified release.
 
+The native retry on `69837e0d` / `0e13ef71a2ab8dad` verified both
+passes in 335 µs against the 4 ms budget. The passes took 46 and 37 µs,
+with 251 µs between them. CPU0's timer ticks stayed at 67, preemptions
+at 33 and SMI count at 13. The largest clock gap was 11 µs during
+pass one. The earlier timing failure's cause remains unconfirmed.
+
+ACK was set and GT thread C0 was observed at both ends of each pass.
+All four engines reported idle at both samples. IGD Advanced Features
+and display HDA PCIe Transactions Pending were clear at both samples,
+with bus mastering enabled for both devices. Requester drain and
+firmware exclusion remain unverified.
+
+Pipe A advanced from frame 925 to 926 on the inherited framebuffer.
+ACK cleared and all six aliases retired within the 20.472 ms overall
+trial. The protected slots were untouched. The exit snapshot, installed
+recovery and offline USB check verified after Ubuntu returned.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two
