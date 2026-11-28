@@ -225,8 +225,18 @@ Release `30a249384a9b9f08` on `94201a6d` cleared the observed latch in
 the native xHCI fixture, completed all 40 firmware transfers and parked
 the adapter. The fixture refused the changed signatures, running MCU and
 busy DMA. Both sibling desktop regressions, 329 boot and trial tests and
-all five exact-image VM rehearsals passed. Physical firmware startup is
-pending. Run record `build/bringup/pro112-rtl8822bu-cold-latch/run.json`.
+all five exact-image VM rehearsals passed.
+Run record `build/bringup/pro112-rtl8822bu-cold-latch/run.json`.
+
+Physical session `session-0006614aa2be6cd1-00` reproduced the cold entry
+state, cleared the latch after confirming idle ownership, uploaded
+161,176 bytes in all 40 USB transfers, and reached MCU ready
+(`MCUFW_CTRL=0x0060c078`). The adapter stopped and parked safely with
+all three adapters on the hub. The independent EFI journal and final
+workspace log agree. The workspace unmounted cleanly, all 680 existing
+files matched, and the system returned automatically to Ubuntu. The
+exact payload and logs are in `evidence-30a249384a9b9f08` in the recovery
+archive. Netgear radio initialization and passive discovery remain open.
 
 #### RTL8188CUS identity checkpoint
 
