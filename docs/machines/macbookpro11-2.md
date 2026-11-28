@@ -652,6 +652,17 @@ clear and TXPAUSE at `0xff`. Keep channel 10, the same 32 KiB bulk-IN
 request, and all three dongles on the hub. The transition must retain
 the pending IN owner and verify the transmit gates before sampling.
 
+Release `b176140dd88a0dab` on `9ed46bd3` applies the previous security
+settings after the firmware queue drains and before posting the control
+IN. On an eligible control timeout it compares low CR `0x9a` and
+`0xbf` with the same pending transfer. Cleanup gates CR, retires
+bulk IN and verifies restoration of the original security settings.
+The native fixture covered a second-window completion, an opening
+completion excluded from the count, no completion, refused readback
+and failed restoration. Both sibling adapter regressions, 329 boot
+and trial tests and all five exact-image VM rehearsals passed. Evidence
+and the run record use `build/bringup/pro112-rtl8822bu-dma-scheduler/`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
