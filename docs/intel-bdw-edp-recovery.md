@@ -690,6 +690,11 @@ a 500 ms budget within the existing PCI hold and grants no write access.
 Version 2 requires the matching second framebuffer digest before admitting
 the census. An incomplete survey records whether the owner, geometry, clock,
 cache, map, alias, read or retirement check stopped it.
+The sole-root alias walk runs with local interrupts masked. The verifier
+restores the caller's interrupt state before reading the GGTT or unmapping
+the alias. Native release `ffe69ac65cad6101` reached this walk and retired
+its first mapped page without reading any entries. The same run verified
+panel and framebuffer recovery and saved the refusal to USB.
 
 The joined takeover holds the original display exclusion from before
 shutdown through the first GGTT round trip. After Pipe A and the panel

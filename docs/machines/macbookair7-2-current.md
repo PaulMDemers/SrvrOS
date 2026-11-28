@@ -693,6 +693,15 @@ The retry starts from `b189f81a`, binds the census to that verified second
 sample, and records the precise admission or survey failure without changing
 the PCI, SMI or time guards. Main `24feebdd` and PR 567 were reviewed again.
 
+Release `ffe69ac65cad6101` saved `session-0006614e8d9b8471-00` to USB
+and returned automatically. The panel recovered with both CRCs matching,
+slot 12292 stayed unchanged and offline filesystem and allocation checks
+passed. At PCI Command `0x0402` the census mapped and retired its first
+register page and stopped at alias verification before reading any entries.
+The next retry masks local interrupts for each sole-root page-table walk
+and restores the prior interrupt state before the census reads. It retains
+the exact alias attribute checks, 500 ms budget and zero PTE writes.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

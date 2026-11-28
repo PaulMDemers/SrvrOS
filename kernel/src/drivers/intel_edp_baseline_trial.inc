@@ -865,10 +865,15 @@ static void edp_dark_census(struct edp_adapter *a)
             return;
         }
         ++c->maps;
+        /* The sole-root walk requires local IRQ exclusion. Restore the
+         * caller's state before reading MMIO or retiring the alias. */
+        uint64_t flags;
+        __asm__ volatile("pushfq; popq %0; cli" : "=r"(flags) :: "memory");
         bool ok = vmm_diagnostic_kernel_alias(a->backing.common.cr3,BACKING_VA,physical,1,
                                                cache.cpu.physical_bits,&alias,NULL) &&
                   alias.pages == 1 && alias.leaves == 1 && alias.pat_index == 2 &&
                   !alias.writable && !alias.user && alias.no_execute == 1 && alias.leaf_sizes == 1;
+        if (flags & (1ull << 9)) __asm__ volatile("sti" ::: "memory");
         c->stop = ok ? 0 : EDP_CENSUS_ALIAS;
         for (unsigned i = 0; !c->stop && i < entries_per_page; ++i) {
             uint64_t word, again;
