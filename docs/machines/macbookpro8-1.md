@@ -572,6 +572,12 @@ reports before Ubuntu returned. The next retry verifies the ring base
 before granting bus mastering, enables RX before posting descriptors,
 and can hold D11 in reset after fencing PCI if RX retirement stalls.
 
+Release `84541853f67eb293` verified normal RX shutdown, PCI fencing, and
+ring clearing with zero DMA pages retained. The active descriptor moved
+to `0x10`, but no frame completed. Both flash reports, workspace integrity
+and Ubuntu return verified. The next retry supplies the Linux driver's
+post-PHY MAC timing, capability and PHY information to the firmware.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

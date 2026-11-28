@@ -6,6 +6,11 @@ enum {
     DMA_ENABLE = 1, RX_DIRECT_FIFO = 0x100, RX_DMA_NO_PARITY = 0x800, DMA64_PCIE = 0x80000000u,
     D11_DMA0_REASON = 0x20, D11_DMA0_MASK = 0x24, D11_DMA0_EVENTS = 0x1fc00, D11_RX_DONE = 0x10000,
     D11_IRQ_DMA = 0x8000,
+    D11_RX_LAZY = 0x100, D11_MAC_CAP = 0x15c, D11_CFP_REP = 0x188, D11_CFP_START = 0x18c,
+    D11_POWERUP_DELAY = 0x6a8,
+    SHM_CORE_REV = 0x16, SHM_RX_PAD = 0x34, SHM_UCODE_STATE = 0x40,
+    SHM_PHY_REV = 0x50, SHM_PHY_TYPE = 0x52, SHM_PROBE_TIMEOUT = 0x74,
+    SHM_CHANNEL = 0xa0, SHM_MAC_CAP_LOW = 0xc0, SHM_MAC_CAP_HIGH = 0xc2,
     RADIO_SELECTOR = 0x3d8, RADIO_DATA = 0x3da, PHY_SELECTOR = 0x3fc, PHY_DATA = 0x3fe,
     PHY_RF_COMMAND = 0x810, PHY_RF_POWER = 2,
     MAC_BEACON_PROMISCUOUS = 0x100000, MAC_PROMISCUOUS = 0x1000000,
@@ -21,6 +26,11 @@ struct radio_assets {
 
 static uint16_t radio_le16(const uint8_t *p) { return (uint16_t)p[1] << 8 | p[0]; }
 static uint32_t radio_le32(const uint8_t *p) { return (uint32_t)radio_le16(p + 2) << 16 | radio_le16(p); }
+
+static volatile uint16_t *radio_shm(volatile uint32_t *regs, unsigned offset) {
+    regs[D11_SHM_CONTROL / 4] = (D11_SHM_SHARED << 16) | (offset / 4);
+    return (volatile uint16_t *)regs + ((offset & 2) ? D11_SHM_DATA_ODD : D11_SHM_DATA) / 2;
+}
 
 static bool apply_init_registers(volatile uint32_t *regs, const uint8_t *data, unsigned size, unsigned count) {
     unsigned index = 8;
@@ -235,11 +245,14 @@ static unsigned receive_beacons(const struct pci_device *p, volatile uint32_t *r
 
     unsigned matches = 0;
     if (posted) {
-        regs[D11_DMA0_MASK / 4] = D11_RX_DONE;
+        regs[D11_DMA0_MASK / 4] = D11_DMA0_EVENTS;
         regs[D11_MAC_CONTROL / 4] = mac | MAC_BEACON_PROMISCUOUS | MAC_PROMISCUOUS |
             MAC_AWAKE | MAC_DISCARD_PMQ | D11_MAC_ENABLED;
         regs[D11_IRQ_REASON / 4] = D11_MAC_SUSPENDED;
-        if (regs[D11_MAC_CONTROL / 4] & D11_MAC_ENABLED) matches = listen_for_beacons(regs, data);
+        if (regs[D11_MAC_CONTROL / 4] & D11_MAC_ENABLED) {
+            matches = listen_for_beacons(regs, data);
+            console_printf("bcm4331-radio: running_ucode_state=%u\n", (uint64_t)*radio_shm(regs, SHM_UCODE_STATE));
+        }
     }
     regs[D11_MAC_CONTROL / 4] = mac;
     bool stopped = wait_d11_register(regs, D11_MAC_CONTROL, D11_MAC_ENABLED, 0);
@@ -284,17 +297,24 @@ static bool passive_radio_trial(const struct pci_device *p, volatile uint32_t *r
         (uint64_t)initial, (uint64_t)powered, (uint64_t)phy_ready, (uint64_t)tuned);
     uint32_t mac = regs[D11_MAC_CONTROL / 4];
     uint32_t rx_control = regs[RX_DMA_CONTROL / 4];
-    console_printf("bcm4331-radio: receive_preflight mac=%x rxctl=%x rxstatus=%x\n",
-        (uint64_t)mac, (uint64_t)rx_control, (uint64_t)regs[RX_DMA_STATUS / 4]);
+    uint32_t mac_cap = regs[D11_MAC_CAP / 4];
+    console_printf("bcm4331-radio: receive_preflight mac=%x rxctl=%x rxstatus=%x mac_cap=%x\n",
+        (uint64_t)mac, (uint64_t)rx_control, (uint64_t)regs[RX_DMA_STATUS / 4], (uint64_t)mac_cap);
     unsigned matches = 0;
-    if (tuned && mac != UINT32_MAX && !(mac & D11_MAC_ENABLED) && rx_control != UINT32_MAX) {
+    if (tuned && mac != UINT32_MAX && !(mac & D11_MAC_ENABLED) && rx_control != UINT32_MAX && mac_cap == 0x30a06b05) {
         volatile uint16_t *half = (volatile uint16_t *)regs;
-        regs[D11_SHM_CONTROL / 4] = (D11_SHM_SHARED << 16) | (0x16 / 4);
-        half[D11_SHM_DATA_ODD / 2] = 29;
-        regs[D11_SHM_CONTROL / 4] = (D11_SHM_SHARED << 16) | (0xa0 / 4);
-        half[D11_SHM_DATA / 2] = BEACON_CHANNEL;
-        regs[D11_SHM_CONTROL / 4] = (D11_SHM_SHARED << 16) | (0x34 / 4);
-        half[D11_SHM_DATA / 2] = 0;
+        regs[D11_RX_LAZY / 4] = 0x01000000;
+        regs[D11_CFP_REP / 4] = 0x80000000;
+        regs[D11_CFP_START / 4] = 0x02000000;
+        half[D11_POWERUP_DELAY / 2] = 0x0e74;
+        *radio_shm(regs, SHM_CORE_REV) = 29;
+        *radio_shm(regs, SHM_CHANNEL) = BEACON_CHANNEL;
+        *radio_shm(regs, SHM_RX_PAD) = 0;
+        *radio_shm(regs, SHM_PHY_REV) = 1;
+        *radio_shm(regs, SHM_PHY_TYPE) = 7;
+        *radio_shm(regs, SHM_MAC_CAP_LOW) = (uint16_t)mac_cap;
+        *radio_shm(regs, SHM_MAC_CAP_HIGH) = (uint16_t)(mac_cap >> 16);
+        *radio_shm(regs, SHM_PROBE_TIMEOUT) = 1;
         matches = receive_beacons(p, regs, mac, retired, dma_memory);
     }
     if (initial) {
