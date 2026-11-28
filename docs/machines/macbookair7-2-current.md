@@ -608,6 +608,11 @@ vacant and the inherited plane stayed unchanged. The Air still lacks a
 native request source and matching range grant. Ubuntu stayed at 1% volume.
 [Separate-range traffic trial](../intel-tearfree-roadmap.md#native-rollback-admission-after-the-air-checkpoint)
 
+The held-bind checkpoint starts at `06c3f58e` with main `24feebdd`
+reviewed. It composes the Broadwell driver-range traffic test with the
+existing scratch and one-page writers under the same ticket and loan.
+The host and Q35 fixtures cover successful rollback and lost ownership.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
