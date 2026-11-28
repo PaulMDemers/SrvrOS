@@ -750,6 +750,20 @@ failed Stop proof. xHCI lifecycle, both sibling adapter regressions,
 The run record and Linux trace summary use
 `build/bringup/pro112-rtl8822bu-rx-depth/`.
 
+Physical session `session-0006615279afa551-00` verified EP4 IN
+(DCI 9) with `cfg=0x02000036` and Average TRB Length zero. H2C and
+the Linux FIFO control passed. The first channel 10 window held one
+32 KiB request and counted 4 valid PHY CRCs in 333 ms. The second
+retained that owner, added three requests of the same size and
+counted 7 valid CRCs in 352 ms. No USB IN completed in either window.
+All four were outstanding at Stop, which verified the dequeue at the
+oldest request and retired the endpoint. Both settings were restored,
+all three adapters appeared, and all 706 workspace files matched.
+The verified EFI phase-2 tail retains both windows and cleanup.
+The workspace exit log retains identity and the first OUT details
+that rolled out of the EFI tail. The payload and logs are preserved
+under `evidence-791018b16f30adab`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
