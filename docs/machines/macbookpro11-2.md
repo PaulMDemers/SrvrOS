@@ -639,6 +639,19 @@ all 700 existing workspace files matched, and all seven EFI journal
 phases verified. The payload and logs are under
 `evidence-bc47b6209efb614b`.
 
+#### RTL8822BU DMA and scheduler comparison
+
+Device scope from `62d8b109`, with main inspected at `24feebdd` and
+the wired Ethernet work in PR #568. Compare the Netgear's post-H2C
+receive control in the bounded xHCI diagnostic and native fixture.
+The captured working Linux control word is `0x06ff`. Hold the previously
+validated MAC security policy in both windows. Compare the original
+receive control against the same control plus HCI TXDMA, TXDMA and
+scheduler bits. The resulting low byte is `0xbf`, with MAC TX bit 6
+clear and TXPAUSE at `0xff`. Keep channel 10, the same 32 KiB bulk-IN
+request, and all three dongles on the hub. The transition must retain
+the pending IN owner and verify the transmit gates before sampling.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
