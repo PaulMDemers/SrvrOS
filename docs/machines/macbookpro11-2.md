@@ -927,6 +927,18 @@ workspace and EFI capture, with verified Ubuntu default and recovery
 Demers2.4 validation is pending. The Linux evidence is archived as
 `netgear-linux-rf-inhibit-reference`.
 
+Cold session `session-0006615989090b21-00` decoded a Demers2.4 beacon
+from bulk IN on channel 10. All four 32 KiB requests were queued before
+firmware and the driver replenished the opening completion before
+sampling. The matching beacon arrived during the 37.6 ms scan window.
+The RF grant was already forced low at `0xdd03` and verified at both
+ends of the window. CR was cleared and endpoint Stop verified before
+return. All three adapters remained on the hub. The workspace exit and
+EFI journal agree, all seven EFI checkpoints verified, and all 712
+existing files matched. This accepts cold native passive Demers2.4
+discovery on this Netgear. Association, WPA2 and data transfer are open.
+The payload and evidence are archived as `evidence-7d0941a5138371ea`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
