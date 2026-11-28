@@ -78,19 +78,32 @@ class EdpBaseline(unittest.TestCase):
         census = dict(v=1, first=8704, end_slot=65536, complete=1, entries=56832,
                       empty=1, first_empty=16385, framebuffer_aliases=50000, maps=111, retired=111,
                       begin_us=120, end_us=290, command=0x100402, pte_writes=0)
-        self.assertEqual(dark_census_result([census], points, hold, native=True),
+        self.assertEqual(dark_census_result([census], points, hold, [], native=True),
                          dict(survey=census, write_authority=False))
         partial = dict(census, complete=0, entries=64, empty=0, first_empty=0,
                        framebuffer_aliases=24, maps=1, retired=1)
-        self.assertFalse(dark_census_result([partial], points, hold, native=True)["survey"]["complete"])
-        self.assertIsNone(dark_census_result([], [], hold, native=True))
+        self.assertFalse(dark_census_result([partial], points, hold, [], native=True)["survey"]["complete"])
+        self.assertIsNone(dark_census_result([], [], hold, [], native=True))
         for change in (dict(command=0x100407), dict(maps=110), dict(pte_writes=1),
                        dict(first_empty=0), dict(framebuffer_aliases=56832),
                        dict(retired=110), dict(begin_us=105), dict(end_us=301)):
             with self.subTest(change=change), self.assertRaises(ValueError):
-                dark_census_result([dict(census, **change)], points, hold, native=True)
+                dark_census_result([dict(census, **change)], points, hold, [], native=True)
         with self.assertRaises(ValueError):
-            dark_census_result([census], points, hold, native=False)
+            dark_census_result([census], points, hold, [], native=False)
+
+        pixels = [dict(phase=phase, digest=42) for phase in range(2)]
+        saved = dict(census, v=2, stop=0)
+        line = "intel-edp-dark-census: " + " ".join(f"{key}={value}" for key, value in saved.items())
+        self.assertEqual(rows_of(line)["intel-edp-dark-census"], [saved])
+        self.assertEqual(dark_census_result([saved], points, hold, pixels, native=True)["stop"], "complete")
+        self.assertEqual(dark_census_result([dict(partial, v=2, stop=3)], points, hold, pixels,
+                                            native=True)["stop"], "clock")
+        with self.assertRaises(ValueError):
+            dark_census_result([dict(saved, stop=3)], points, hold, pixels, native=True)
+        for invalid in (pixels[:1], [pixels[0], dict(phase=1, digest=71)]):
+            with self.assertRaises(ValueError):
+                dark_census_result([saved], points, hold, invalid, native=True)
 
     def test_dark_rc6_receipt(self):
         hold = dict(v=4, samples=5, writes=4, elapsed_us=204000, settle_us=250)

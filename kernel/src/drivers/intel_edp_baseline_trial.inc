@@ -44,7 +44,13 @@ struct edp_dark_census {
     uint64_t begin, end;
     uint32_t command;
     unsigned entries, empty, first_empty, framebuffer_aliases, maps, retired;
+    unsigned stop;
     bool complete;
+};
+
+enum edp_census_stop {
+    EDP_CENSUS_OWNER = 1, EDP_CENSUS_GEOMETRY, EDP_CENSUS_CLOCK, EDP_CENSUS_CACHE,
+    EDP_CENSUS_MAP, EDP_CENSUS_ALIAS, EDP_CENSUS_READ, EDP_CENSUS_RETIRE,
 };
 
 struct edp_flr_preflight {
@@ -711,9 +717,8 @@ static bool edp_pci_hold_copy(void *context)
 
 /* The outer PCI hold and CPU backup span the temporary loss of the driver
  * request. This guard must therefore be independent of edp_source_held(). */
-static bool edp_recovery_held(void *context)
+static bool edp_pci_reopen_held(struct edp_adapter *a, unsigned pixel_samples)
 {
-    struct edp_adapter *a = context;
     if (!a->pci_backing_check || a->decode_closed || !a->flr || !a->image ||
         a->image->epoch != a->cycle_epoch || a->image->backing != &backing ||
         a->map_fault || trial_mapping_fault || !edp_held(a))
@@ -721,13 +726,18 @@ static bool edp_recovery_held(void *context)
     const struct edp_flr_preflight *f = a->flr;
     const struct bdw_pci_hold_report *h = &f->pci_hold;
     const struct pci_device *p = a->backing.common.gpu;
-    return f->exercise_pci && f->pci_samples == 1 && f->copy && f->pixel_samples == 1 &&
+    return f->exercise_pci && f->pci_samples == 1 && f->copy && f->pixel_samples == pixel_samples &&
            h->cpu_copy && h->retained && h->samples == 4 && h->writes == 3 &&
            !p->bus && p->device == 2 && !p->function &&
            pci_read_config32(p, 0) == 0x16268086u &&
            pci_read_config32(p, 4) == ((f->pci[0][3] & 0xffff0000u) | 0x402u) &&
            pci_read_config32(p, 0x10) == f->pci[0][4] && pci_read_config32(p, 0x14) == f->pci[0][5] &&
            pci_read_config32(p, 0xa8) == 0 && edp_held(a);
+}
+
+static bool edp_recovery_held(void *context)
+{
+    return edp_pci_reopen_held(context,1);
 }
 
 static enum intel_gt_write edp_recovery_write(void *context, uint32_t reg, uint32_t value)
@@ -755,11 +765,12 @@ static bool edp_recover_held_well(struct edp_adapter *a)
                              BDW_EDP_WELL_REQUEST | BDW_EDP_WELL_ON);
 }
 
-static bool edp_candidate_guard(struct edp_adapter *a, unsigned phase, struct bdw_pci_hold_sample *pci)
+static bool edp_candidate_guard(struct edp_adapter *a, unsigned phase, unsigned pixels,
+                                struct bdw_pci_hold_sample *pci)
 {
     bool dark = phase == 1;
     const struct edp_flr_preflight *f = a->flr;
-    if (!edp_source_held(a,a->image) || (dark && !edp_recovery_held(a)) ||
+    if (!edp_source_held(a,a->image) || (dark && !edp_pci_reopen_held(a,pixels)) ||
         !edp_pci_hold_sample(a,pci) || pci->af ||
         pci->command != ((f->pci[0][3] & 0xffff0000u) | (dark ? 0x402u : 7u)) ||
         !edp_expect(a,0xc7204,UINT32_MAX,dark ? 0u : 7u) ||
@@ -777,7 +788,7 @@ static void edp_candidate_sample(struct edp_adapter *a, unsigned phase)
     struct edp_candidate_sample *s = &f->candidate[f->candidate_samples++];
     struct bdw_pci_hold_sample before, after;
     s->begin = now(a);
-    if (!s->begin || !edp_candidate_guard(a,phase,&before)) return;
+    if (!s->begin || !edp_candidate_guard(a,phase,1,&before)) return;
     s->command = before.command;
     s->af = before.af;
     if (!edp_map_backing(a,EDP_CANDIDATE_OFFSET & ~4095u)) return;
@@ -787,7 +798,7 @@ static void edp_candidate_sample(struct edp_adapter *a, unsigned phase)
         s->pte[s->reads++] = word;
     }
     s->retired = edp_unmap_backing(a);
-    bool stable = s->retired && edp_candidate_guard(a,phase,&after) && before.command == after.command;
+    bool stable = s->retired && edp_candidate_guard(a,phase,1,&after) && before.command == after.command;
     s->end = now(a);
     s->complete = stable && s->reads == 3 && s->end > s->begin && s->end - s->begin < 100000u;
 }
@@ -808,6 +819,12 @@ static bool edp_census_clock(struct edp_adapter *a, struct edp_dark_census *cens
     return at - census->begin < EDP_CENSUS_LIMIT_US;
 }
 
+static bool edp_census_held(struct edp_adapter *a, struct bdw_pci_hold_sample *pci)
+{
+    const struct edp_flr_preflight *f = a->flr;
+    return edp_candidate_guard(a,1,2,pci) && f->pixels[0] && f->pixels[0] == f->pixels[1];
+}
+
 /* This diagnostic never maps the aperture or writes a translation. Sample the
  * GGTT only after recovery verified the inherited backing with BME still off. */
 static void edp_dark_census(struct edp_adapter *a)
@@ -818,13 +835,15 @@ static void edp_dark_census(struct edp_adapter *a)
     uint64_t raw = ((uint64_t)cfg[7] << 32) | cfg[6], aperture, bytes;
     struct bdw_pci_hold_sample pci;
     c->begin = c->end = now(a);
-    if (!c->begin || !edp_candidate_guard(a,1,&pci) ||
-        !intel_ggtt_aperture(pci_read_config8(gpu,0x62),raw,&aperture,&bytes) ||
+    c->stop = EDP_CENSUS_OWNER;
+    if (!c->begin || !edp_census_held(a,&pci)) return;
+    c->command = pci.command;
+    c->stop = EDP_CENSUS_GEOMETRY;
+    if (!intel_ggtt_aperture(pci_read_config8(gpu,0x62),raw,&aperture,&bytes) ||
         pci_read_config32(gpu,0x18) != cfg[6] || pci_read_config32(gpu,0x1c) != cfg[7] ||
         bytes != EDP_CENSUS_END * 4096ull || result.mmio_base != 0xc0000000u ||
         backing.ggtt_bytes < EDP_CENSUS_END * 8ull || backing.sample[1].fence[0] != 0x021ff02f00000001ull)
         return;
-    c->command = pci.command;
     const unsigned entries_per_page = 4096u / sizeof(uint64_t);
     for (unsigned first = EDP_CENSUS_FIRST; first < EDP_CENSUS_END; first += entries_per_page) {
         const uint32_t offset = 0x800000 + first * 8u;
@@ -832,9 +851,14 @@ static void edp_dark_census(struct edp_adapter *a)
         struct x86_cache_snapshot cache;
         struct vmm_alias_observation alias;
         unsigned mtrr, pat, effective;
-        if (!edp_census_clock(a,c) || !edp_candidate_guard(a,1,&pci) ||
-            !intel_cache_probe_context(&cache) || !x86_cache_page(&cache,physical,2,&mtrr,&pat,&effective) ||
+        c->stop = EDP_CENSUS_CLOCK;
+        if (!edp_census_clock(a,c)) return;
+        c->stop = EDP_CENSUS_OWNER;
+        if (!edp_census_held(a,&pci)) return;
+        c->stop = EDP_CENSUS_CACHE;
+        if (!intel_cache_probe_context(&cache) || !x86_cache_page(&cache,physical,2,&mtrr,&pat,&effective) ||
             mtrr || effective) return;
+        c->stop = EDP_CENSUS_MAP;
         if (!backing_map(&a->backing,offset)) {
             uint64_t existing;
             a->map_fault |= vmm_virt_to_phys_in_space(a->backing.common.cr3,BACKING_VA,&existing);
@@ -845,25 +869,39 @@ static void edp_dark_census(struct edp_adapter *a)
                                                cache.cpu.physical_bits,&alias,NULL) &&
                   alias.pages == 1 && alias.leaves == 1 && alias.pat_index == 2 &&
                   !alias.writable && !alias.user && alias.no_execute == 1 && alias.leaf_sizes == 1;
-        for (unsigned i = 0; ok && i < entries_per_page; ++i) {
+        c->stop = ok ? 0 : EDP_CENSUS_ALIAS;
+        for (unsigned i = 0; !c->stop && i < entries_per_page; ++i) {
             uint64_t word, again;
             const uint32_t entry = offset + 8 * i;
-            ok = ((i & 31u) || edp_census_clock(a,c)) && edp_read_pair(a,entry,&word) && word != UINT64_MAX;
-            if (!ok) break;
+            if (!(i & 31u) && !edp_census_clock(a,c)) {
+                c->stop = EDP_CENSUS_CLOCK;
+                break;
+            }
+            if (!edp_read_pair(a,entry,&word) || word == UINT64_MAX ||
+                (!word && (!edp_read_pair(a,entry,&again) || again))) {
+                c->stop = EDP_CENSUS_READ;
+                break;
+            }
             if (!word) {
-                ok = edp_read_pair(a,entry,&again) && !again;
-                if (!ok) break;
                 if (!c->empty) c->first_empty = first + i;
                 ++c->empty;
             }
             c->framebuffer_aliases += word == backing.pte[0];
             ++c->entries;
         }
-        if (!edp_unmap_backing(a)) return;
+        if (!edp_unmap_backing(a)) {
+            c->stop = EDP_CENSUS_RETIRE;
+            return;
+        }
         ++c->retired;
-        if (!ok) return;
+        if (c->stop) return;
     }
-    c->complete = edp_candidate_guard(a,1,&pci) && edp_census_clock(a,c) && c->end > c->begin;
+    c->stop = EDP_CENSUS_OWNER;
+    if (!edp_census_held(a,&pci)) return;
+    c->stop = EDP_CENSUS_CLOCK;
+    if (!edp_census_clock(a,c) || c->end == c->begin) return;
+    c->stop = 0;
+    c->complete = true;
 }
 
 static bool edp_pci_hold_backing(void *context)
@@ -1400,11 +1438,11 @@ bool intel_edp_baseline_probe(bool *retained, bool display_cycle, bool flr_prefl
                 }
                 const struct edp_dark_census *census = &flr.census;
                 if (census->begin)
-                    console_printf("intel-edp-dark-census: v=1 first=%u end_slot=%u complete=%u entries=%u empty=%u first_empty=%u framebuffer_aliases=%u maps=%u retired=%u begin_us=%u end_us=%u command=%x pte_writes=0\n",
+                    console_printf("intel-edp-dark-census: v=2 first=%u end_slot=%u complete=%u entries=%u empty=%u first_empty=%u framebuffer_aliases=%u maps=%u retired=%u begin_us=%u end_us=%u command=%x stop=%u pte_writes=0\n",
                         (uint64_t)EDP_CENSUS_FIRST, (uint64_t)EDP_CENSUS_END, (uint64_t)census->complete,
                         (uint64_t)census->entries, (uint64_t)census->empty, (uint64_t)census->first_empty,
                         (uint64_t)census->framebuffer_aliases, (uint64_t)census->maps, (uint64_t)census->retired,
-                        census->begin, census->end, (uint64_t)census->command);
+                        census->begin, census->end, (uint64_t)census->command, (uint64_t)census->stop);
                 ready = ready && p->complete && edp_candidate_preserved(&flr);
             }
             if (dark_well) {

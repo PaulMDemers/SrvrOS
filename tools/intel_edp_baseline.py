@@ -48,6 +48,7 @@ FLR_ROWS = ("intel-edp-flr-preflight", "intel-edp-flr-pixels", "intel-edp-flr-co
 WELL_ROWS = ("intel-edp-dark-well", "intel-edp-dark-well-word")
 HOLD_ROWS = ("intel-edp-pci-hold", "intel-edp-pci-hold-word")
 PPS_ROWS = ("intel-edp-pps", "intel-edp-pps-word")
+DARK_CENSUS_STOPS = ("complete", "owner", "geometry", "clock", "cache", "map", "alias", "read", "retire")
 
 
 def recipe(command, *, cycle=False, flr=False, dark_well=False, pci_hold=False, dark_pwm=False, dark_pps=False):
@@ -81,7 +82,12 @@ def rows_of(text):
                 raise ValueError("Malformed eDP field")
             row[key] = int(value, 16 if value.startswith("0x") else 10)
         versions = (1, 2, 3, 4, 5) if name == "intel-edp-pci-hold" else (1,)
-        if row.keys() != set(SCHEMAS[name].split()) or row["v"] not in versions or any(v >= 1 << 64 for v in row.values()):
+        keys = SCHEMAS[name].split()
+        if name == "intel-edp-dark-census":
+            versions = (1, 2)
+            if row["v"] == 2:
+                keys.append("stop")
+        if row.keys() != set(keys) or row["v"] not in versions or any(v >= 1 << 64 for v in row.values()):
             raise ValueError("Unsupported eDP row")
         rows[name].append(row)
     return rows
@@ -338,7 +344,7 @@ def candidate_result(points, config, hold, display, *, native):
     return dict(samples=points, preserved=preserved)
 
 
-def dark_census_result(rows, points, hold, *, native):
+def dark_census_result(rows, points, hold, pixels, *, native):
     if not rows:
         return None
     if not native or len(rows) != 1 or hold["samples"] < 4 or len(points) < 2:
@@ -364,7 +370,16 @@ def dark_census_result(rows, points, hold, *, native):
     if census["complete"] and (entries != limit or maps != limit // 512 or retired != maps or
                                not 0 < end - begin < 500000):
         raise ValueError("Incomplete dark GGTT census marked complete")
-    return dict(survey=census, write_authority=False)
+    report = dict(survey=census, write_authority=False)
+    if census["v"] == 2:
+        stop = census["stop"]
+        if (stop >= len(DARK_CENSUS_STOPS) or bool(census["complete"]) != (stop == 0) or
+                (stop == 8) != (maps != retired) or (not census["command"] and stop != 1) or
+                len(pixels) < 2 or [p["phase"] for p in pixels[:2]] != [0, 1] or
+                not pixels[0]["digest"] or pixels[0]["digest"] != pixels[1]["digest"]):
+            raise ValueError("Invalid dark GGTT census stop or framebuffer verification")
+        report["stop"] = DARK_CENSUS_STOPS[stop]
+    return report
 
 
 def pci_hold_result(rows, *, native, display):
@@ -579,7 +594,7 @@ def result(text, *, native=True, cycle=False, flr=False, dark_well=False, pci_ho
         candidate = candidate_result(rows["intel-edp-candidate"], rows["intel-edp-flr-config"], hold,
                                      observed, native=native)
         census = dark_census_result(rows["intel-edp-dark-census"], rows["intel-edp-candidate"], hold,
-                                    native=native)
+                                    rows["intel-edp-flr-pixels"], native=native)
         if census is None:
             del rows["intel-edp-dark-census"]
         if dark_rc6 is None:
