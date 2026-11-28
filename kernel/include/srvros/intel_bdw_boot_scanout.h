@@ -11,12 +11,17 @@
 enum bdw_boot_page_rights {
     BDW_PAGE_SCANOUT_PINNED = 1u << 0,
     BDW_PAGE_ENGINE_PORTS_SEALED = 1u << 1,
+    /* Includes outstanding GPU writes, reads, prefetch and cache traffic
+     * that may still reach the candidate. */
     BDW_PAGE_PRIOR_ACCESS_RETIRED = 1u << 2,
     BDW_PAGE_PROXY_EXCLUDED = 1u << 3,
     BDW_PAGE_FIRMWARE_EXCLUDED = 1u << 4,
     BDW_PAGE_ALIASES_PINNED = 1u << 5,
     BDW_PAGE_BACKING_VISIBLE = 1u << 6,
-    BDW_PAGE_REQUIRED = (1u << 7) - 1,
+    /* Device paths must stay excluded independently of engine submission.
+     * This does not witness completion of work already in flight. */
+    BDW_PAGE_REQUESTERS_EXCLUDED = 1u << 7,
+    BDW_PAGE_REQUIRED = (1u << 8) - 1,
 };
 
 struct bdw_boot_page;
@@ -57,8 +62,9 @@ struct bdw_boot_page_io {
     bool (*prove)(void *, const struct bdw_boot_page_source *, struct bdw_boot_page_proof *);
     uint64_t (*now)(void *);
     bool (*read_pte)(void *, uint32_t offset, uint64_t *);
-    /* The owner keeps the old and new RAM and the exact UC PTE, invalidate
-     * and aperture aliases pinned. The backend orders and posts invalidation. */
+    /* The owner keeps both RAM pages and all aliases pinned. The native
+     * backend rechecks the live requester and completion proofs immediately
+     * before the store, and orders and posts invalidation. */
     enum intel_gt_write (*exchange)(void *, uint32_t offset, uint64_t expected, uint64_t replacement);
     bool (*invalidate)(void *);
     /* Read the first and last QWORD via the admitted CPU aperture alias. */

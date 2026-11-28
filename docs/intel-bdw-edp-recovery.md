@@ -768,8 +768,12 @@ private page and restores scratch under the same loan. Each transition
 checks its ordered invalidation and aperture marker.
 An absent or stale grant allows recovery of the original display and
 prevents GGTT writes. An occupied entry at either check also refuses the
-bind and leaves the original display active. Any uncertain page rollback
-retains the range, backing and display exclusion.
+bind and leaves the original display active. The page proof requires both
+continuing device requester exclusion and retirement of earlier GPU
+accesses to the candidate. Engine-port sealing is checked independently.
+After scratch publication, loss of either proof retains the same exclusive
+loan, backing and display pin even if the private bind has issued no store.
+Uncertain rollback retains those resources as well.
 [Takeover core](../kernel/diagnostics/intel_bdw_display_takeover.c)
 
 The `smoke-intel-bdw-display-takeover` target runs this core, the existing
@@ -778,6 +782,10 @@ with modeled Broadwell MMIO. Native staging still requires a documented
 request provider that completes the real device drain and a grant under
 the post-reset owner. The Air's saved open-traffic responses refuse the
 reset in the model, and its EFI handoff still reports no GPU range grant.
+VT-d IOTLB read and write draining covers traffic already processed by the
+remapping unit and queued in the root complex. The GPU's internal requests,
+prefetch and caches need their own completion evidence.
+[Intel VT-d architecture specification](https://cdrdv2-public.intel.com/831418/vt-directed-io-spec.pdf)
 [Air status](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
 
 ### Display owner block lifetime

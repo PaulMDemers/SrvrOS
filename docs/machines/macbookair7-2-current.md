@@ -931,6 +931,28 @@ trial still needs a verified hardware traffic provider.
 · [i915 display AUX registers](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/display/intel_dp_aux_regs.h)
 · [i915 palette registers](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/gpu/drm/i915/display/intel_color_regs.h)
 
+The boot-owned range follow-up starts at `ebc50c7d`. Shared main
+`b062ba18` and Air6,1 PR 567 `3af7fde0` were reviewed. Scope is the
+Broadwell one-page publisher and joined takeover. The provider must prove
+continuing requester exclusion and prior GPU completion independently, with
+the original framebuffer pinned throughout. The Q35 fixture covers clean
+refusal before the initial store and retained ownership if either proof
+is lost after scratch publication.
+
+All 30 joined takeover cases passed on the host and in the SrvrOS Q35
+guest. Missing requester exclusion produced zero PTE stores. With either
+proof lost before private publication, the fixture kept the verified
+scratch translation, the exclusive range loan and the original display
+pin. The no-fault path verified all three stores and their invalidations,
+then restored scratch and returned the child loan. Host eDP recovery and
+scanout transfer regression suites passed.
+
+The native checkpoint remains the USB report for `5afb11538a09de41`.
+It verifies the original framebuffer but finds an occupied slot 16385,
+open WiDi and zero engine and L3 acknowledgements. The EFI firmware
+inventory established no allocator grant. There is no writable Air
+candidate from this qualification. Ubuntu remains the active system.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

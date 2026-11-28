@@ -6840,6 +6840,7 @@ BDW_EDP_TAKEOVER_CASES := takeover-roundtrip takeover-range-protected takeover-r
 BDW_EDP_TAKEOVER_CASES += takeover-rmrr-scratch takeover-rmrr-private
 BDW_EDP_TAKEOVER_CASES += takeover-framebuffer-alias takeover-late-framebuffer-alias takeover-dark-read-error
 BDW_EDP_TAKEOVER_CASES += takeover-backing-scratch takeover-backing-private
+BDW_EDP_TAKEOVER_CASES += takeover-requester-open takeover-requester-after-seed takeover-completion-after-seed
 BDW_EDP_GUEST_OBJECTS := $(addprefix $(SCANOUT_GUEST_DIR)/,$(patsubst %.c,%.o,tools/test_intel_bdw_edp.c $(BDW_EDP_HOST_SOURCES)))
 build/tests/intel-bdw-edp$(HOST_EXE): tools/test_intel_bdw_edp.c $(BDW_EDP_HOST_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(dir $@)

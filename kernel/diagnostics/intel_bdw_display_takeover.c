@@ -116,7 +116,9 @@ bool intel_bdw_display_takeover(struct bdw_display_takeover *t, const struct dis
     /* Keep the same loan across both transactions and all provider callbacks. */
     if (!intel_bdw_boot_page_in_loan(&t->seed,&t->seed_source,&io->page,&t->recovery_loan,true))
         return finish(&a,t->seed.state == BDW_PAGE_RETAINED ? BDW_TAKEOVER_RETAINED : BDW_TAKEOVER_REFUSED);
+    /* Scratch is already visible to the GPU. Even a refused second admission
+     * must keep the outer page loan, backing and display pin attached. */
     if (!intel_bdw_boot_page_in_loan(&t->page,&t->private_source,&io->page,&t->recovery_loan,false))
-        return finish(&a,t->page.state == BDW_PAGE_RETAINED ? BDW_TAKEOVER_RETAINED : BDW_TAKEOVER_REFUSED);
+        return finish(&a,BDW_TAKEOVER_RETAINED);
     return finish(&a,BDW_TAKEOVER_READY);
 }
