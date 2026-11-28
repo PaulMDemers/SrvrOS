@@ -1017,6 +1017,32 @@ successful comparisons still saw WiDi GO open and no L3 acknowledgement.
 The native test remains unarmed while the device requester provider and
 persistent WiDi hold are unverified.
 
+The boot-handoff follow-up in PR 301 starts at `db56c766` against main
+`b062ba18`. Air6,1 PR 567 covers separate Haswell bring-up. The Air7,2
+work covers the CoreEG2 controller/child stop paths, sustained WiDi
+checks in the Broadwell command owner and the joined Q35 fence and
+rollback fixture. Native admission requires a firmware handoff that
+preserves the active panel and a mechanism that keeps the WiDi requester
+out while the blitter runs.
+
+The matching CoreEG2 image exposes three Driver Binding instances. The
+instance that opens Broadwell EG2's private protocol uses Stop entry
+`0x4edc`. It looks up the controller and enters its full teardown at
+`0x187a` without inspecting the child count or handle list. The teardown
+closes the private protocol and walks both child lists. The framebuffer
+child path calls connector methods and uninstalls GOP and gamma before
+releasing its state. The two other Stop entry points also ignore the child
+arguments and tear down the passed controller. The reference Air has no
+verified child-only detach or requester hold through these entry points.
+No firmware driver was stopped. [UEFI Driver Binding Stop semantics](https://uefi.org/specs/UEFI/2.10_A/11_Protocols_UEFI_Driver_Model.html)
+
+The command owner now requires the WiDi GO acknowledgement to stay closed
+alongside its clock gate and lease while GAM reopens for BCS. The host
+and Q35 regressions cover reopened GO at execution admission, immediately
+before the fourth descriptor store, at completion, and after the first
+rollback store. The joined Q35 suite passed all 43 cases. The safe native
+reboot remains gated on a verified firmware and device handoff.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

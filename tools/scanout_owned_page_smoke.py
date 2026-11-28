@@ -58,7 +58,7 @@ def main():
     if args.blitter:
         cases.extend((mode, f'PASS {mode}') for mode in
                      ('premature-marker', 'premature-cursor', 'completion-device-lease', 'completion-widi-lease',
-                      'completion-marker-changed', 'completion-cursor-changed',
+                      'completion-marker-changed', 'completion-cursor-changed', 'completion-widi-go',
                       'stale-seventh', 'swapped-translations', 'unposted-invalidate', 'stale-restore',
                       'missing-engine-ack', 'early-l3', 'missing-l3', 'widi-escapes',
                       'changed-traffic-epoch', 'moving-scanout', 'missing-rollback-ack',
@@ -66,7 +66,8 @@ def main():
                       'peer-missing', 'peer-open', 'peer-rollback', 'peer-during-submit', 'writer-alias', 'writer-return',
                       'device-lease-before-trigger', 'widi-lease-before-trigger',
                       'widi-cached', 'widi-invalidate-race', 'widi-cached-rollback',
-                      'flush-before-engine-go', 'flush-before-engine-reply'))
+                      'flush-before-engine-go', 'flush-before-engine-reply',
+                      'widi-go-reopens', 'widi-go-before-trigger', 'widi-go-during-rollback'))
     if args.takeover:
         program = 'edptakeover'
         cases = [(mode, f'PASS {mode}') for mode in args.takeover]

@@ -2,7 +2,8 @@
 #include <srvros/intel_bdw_blitter.h>
 #include <srvros/intel_bdw_traffic.h>
 
-enum { WIN_CLOCK = 1u << 5, WTCR = 0x4278,
+enum { WIN_CLOCK = 1u << 5, MSG_IDLE_WIN = 0x8014, WIN_GO_OR_IDLE = 0x11,
+       WTCR = 0x4278,
        BWDTLB_VLD_0 = 0x4dc0, BWDTLB_VLD_1 = 0x4dc4 };
 
 static bool identity(struct bdw_command_hold *h)
@@ -14,13 +15,6 @@ static bool identity(struct bdw_command_hold *h)
         display_access_held(&t->exclusion) &&
         h->io.traffic.held_epoch(t,&h->owner->pages)==h->epoch &&
         h->io.widi_epoch(t,&h->owner->pages)==h->widi_epoch && intel_bdw_peer_ports_held(&h->routes);
-}
-
-bool intel_bdw_command_submission_owned(struct bdw_command_hold *h)
-{
-    return h && h->phase==BDW_CMD_EXECUTING && h->epoch && h->widi_epoch &&
-        identity(h) && h->transfer->device_publication==&h->owner->pages &&
-        intel_bdw_routes_held(&h->routes,h->transfer);
 }
 
 static bool sample_read(void *ctx,uint32_t offset,uint32_t *word)
@@ -65,6 +59,22 @@ static bool widi_clock_gated(struct bdw_command_hold *h)
         (ack&WIN_CLOCK)==WIN_CLOCK && (closing&WIN_CLOCK)==WIN_CLOCK;
 }
 
+static bool widi_excluded(struct bdw_command_hold *h)
+{
+    uint32_t before,after;
+    /* Global GAM reopens while BCS runs. Require the independent WIN
+     * response to stay closed and busy across its clock acknowledgement. */
+    return h->widi_epoch && sample_read(h,MSG_IDLE_WIN,&before) && !(before&WIN_GO_OR_IDLE) &&
+        widi_clock_gated(h) && sample_read(h,MSG_IDLE_WIN,&after) && !(after&WIN_GO_OR_IDLE);
+}
+
+bool intel_bdw_command_submission_owned(struct bdw_command_hold *h)
+{
+    return h && h->phase==BDW_CMD_EXECUTING && h->epoch &&
+        identity(h) && h->transfer->device_publication==&h->owner->pages &&
+        intel_bdw_routes_held(&h->routes,h->transfer) && widi_excluded(h);
+}
+
 /* Read WTCR on either side of both WiDi valid vectors after a GGTT
  * invalidation. Existing cached entries before invalidation are permissible. */
 bool intel_bdw_widi_translations_empty(struct bdw_command_hold *h)
@@ -86,12 +96,12 @@ static bool executing(struct bdw_command_hold *h)
         {0x800c,0x30,0x10},{0x8010,0x30,0x10},{0x8038,3,0},
         {0x8028,0x5f,BDW_GAM_CLIENTS},{0x40d0,0xff5f,BDW_GAM_CLIENTS},{BDW_RSTFCTLMSG,BDW_PREP_RST_WIDI_ACK,0}
     };
-    if (!h->widi_epoch || !widi_clock_gated(h)) return false;
+    if (!widi_excluded(h)) return false;
     for (unsigned i=0;i<sizeof(checks)/sizeof(checks[0]);i++) {
         uint32_t word;
         if (!sample_read(h,checks[i].offset,&word) || (word&checks[i].mask)!=checks[i].value) return false;
     }
-    return intel_bdw_widi_translations_empty(h) && widi_clock_gated(h) && intel_bdw_routes_held(&h->routes,h->transfer);
+    return intel_bdw_widi_translations_empty(h) && widi_excluded(h) && intel_bdw_routes_held(&h->routes,h->transfer);
 }
 
 static bool finish_drain(struct bdw_command_hold *h,uint64_t begin,bool after_execution)

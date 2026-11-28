@@ -28,7 +28,7 @@ static unsigned posted;
 static unsigned trigger_clocks, revoke_at;
 static bool revoked;
 enum completion_fault { COMPLETION_OK, EARLY_MARKER, EARLY_CURSOR, CLOSING_DEVICE,
-                        CLOSING_WIDI, CLOSING_MARKER, CLOSING_CURSOR };
+                        CLOSING_WIDI, CLOSING_MARKER, CLOSING_CURSOR, CLOSING_WIDI_GO };
 static enum completion_fault completion_fault;
 static unsigned completion_clocks, closing_fault_at;
 static _Alignas(4096) uint32_t invalidate_regs[1024], aperture[PAGES*1024];
@@ -224,7 +224,8 @@ static void reset_epoch(unsigned n,const struct display_access_token *exclusion,
 }
 enum traffic_fault { TRAFFIC_OK, LOST_ENGINE_ACK, EARLY_L3, NO_NEW_L3, WIDI_ESCAPES,
                      LOST_BLOCK_EPOCH, MOVED_PLANE, STALE_SECOND_DRAIN, AIR_RESET_REASONS, PARTIAL_GO,
-                     UNOWNED_CLOCK, AUDIO_REOPEN, LOST_RELEASE, PEER_MISSING, PEER_OPEN, PEER_ROLLBACK, PEER_DURING_SUBMIT, WRITER_ALIAS, WRITER_RETURN, FINAL_DEVICE_LEASE, FINAL_WIDI_LEASE, WIDI_CACHED, WIDI_INVALIDATING, WIDI_CACHED_ROLLBACK, EARLY_ENGINE_GO, EARLY_ENGINE_REPLY };
+                     UNOWNED_CLOCK, AUDIO_REOPEN, LOST_RELEASE, PEER_MISSING, PEER_OPEN, PEER_ROLLBACK, PEER_DURING_SUBMIT, WRITER_ALIAS, WRITER_RETURN, FINAL_DEVICE_LEASE, FINAL_WIDI_LEASE, WIDI_CACHED, WIDI_INVALIDATING, WIDI_CACHED_ROLLBACK, EARLY_ENGINE_GO, EARLY_ENGINE_REPLY,
+                     WIDI_GO_WHEN_REOPENED, WIDI_GO_BEFORE_TRIGGER, WIDI_GO_DURING_ROLLBACK };
 static enum traffic_fault traffic_fault;
 static struct {
     const struct scanout_transfer *transfer;
@@ -265,8 +266,14 @@ static bool traffic_read(const struct scanout_transfer *t,uint32_t offset,uint32
         break;
     case 0x8104: case 0x802c: *out=controller.widi_epoch &&
         !(traffic_fault==WIDI_ESCAPES && bcs && offset==0x802c) ? 0x20 : 0; break;
-    case 0x8014: *out=!blocked || (traffic_fault==EARLY_L3 && blocked) ||
-            (traffic_fault==WIDI_ESCAPES && bcs)?0x1f:0; break;
+    case 0x8014:
+        *out=!blocked || traffic_fault==EARLY_L3 || (traffic_fault==WIDI_ESCAPES && bcs)?0x1f:0;
+        if (bcs && (traffic_fault==WIDI_GO_WHEN_REOPENED ||
+                    (revoked && (traffic_fault==WIDI_GO_BEFORE_TRIGGER || completion_fault==CLOSING_WIDI_GO))))
+            *out|=0x10;
+        if (traffic_fault==WIDI_GO_DURING_ROLLBACK && controller.drains==2 && entries[0]==originals[0])
+            *out|=0x10;
+        break;
     case 0x4278:
         *out=++controller.tlb_controls==2 && traffic_fault==WIDI_INVALIDATING;
         break;
@@ -503,7 +510,8 @@ static void run_transfer(enum mapping_case which)
                !scanout_transfer_close(&transfer,&grant));
         return;
     }
-    if (traffic_fault==FINAL_DEVICE_LEASE || traffic_fault==FINAL_WIDI_LEASE) {
+    if (traffic_fault==FINAL_DEVICE_LEASE || traffic_fault==FINAL_WIDI_LEASE ||
+        traffic_fault==WIDI_GO_BEFORE_TRIGGER) {
         assert(revoked && mapping.request.port.p.attempts==4);
     }
     if (traffic_fault==PEER_DURING_SUBMIT || revoked) {
@@ -511,6 +519,14 @@ static void run_transfer(enum mapping_case which)
         assert(port_pin==&mapping && mapping.request.state==BDW_BLITTER_RETAINED && mapping.traffic.phase==BDW_CMD_RETAINED);
         assert(mapping.pages.writes==PAGES && mapping.pages.readers==&mapping.request.reader &&
                transfer.device_publication==&mapping.pages && !scanout_transfer_close(&transfer,&grant));
+        return;
+    }
+    if (traffic_fault==WIDI_GO_DURING_ROLLBACK) {
+        assert(!done && posted==4 && invalidates==1 && controller.drains==2 &&
+               mapping.traffic.phase==BDW_CMD_RETAINED && mapping.pages.state==PUB_FAULT &&
+               entries[0]==originals[0] && entries[1]==((BASE+4096u)|1u));
+        assert(port_pin==&mapping && transfer.device_publication==&mapping.pages &&
+               !scanout_transfer_close(&transfer,&grant));
         return;
     }
     if (traffic_fault==WIDI_CACHED || traffic_fault==WIDI_INVALIDATING || traffic_fault==WIDI_CACHED_ROLLBACK) {
@@ -631,17 +647,20 @@ int main(int argc,char **argv)
     const char *const traffic_failures[]={"missing-engine-ack","early-l3","missing-l3","widi-escapes",
                                          "changed-traffic-epoch","moving-scanout","missing-rollback-ack",
                                          "air-reset-reasons","partial-gam-go","unowned-widi-clock","wireless-audio-reopens","uncertain-release",
-                                         "peer-missing","peer-open","peer-rollback","peer-during-submit","writer-alias","writer-return","device-lease-before-trigger","widi-lease-before-trigger","widi-cached","widi-invalidate-race","widi-cached-rollback","flush-before-engine-go","flush-before-engine-reply"};
+                                         "peer-missing","peer-open","peer-rollback","peer-during-submit","writer-alias","writer-return","device-lease-before-trigger","widi-lease-before-trigger","widi-cached","widi-invalidate-race","widi-cached-rollback","flush-before-engine-go","flush-before-engine-reply",
+                                         "widi-go-reopens","widi-go-before-trigger","widi-go-during-rollback"};
     for (unsigned i=0;argc==2 && i<sizeof(traffic_failures)/sizeof(traffic_failures[0]);i++) {
         if (strcmp(argv[1],traffic_failures[i])) continue;
-        if (i+1==FINAL_DEVICE_LEASE || i+1==FINAL_WIDI_LEASE) {
+        if (i+1==FINAL_DEVICE_LEASE || i+1==FINAL_WIDI_LEASE || i+1==WIDI_GO_BEFORE_TRIGGER) {
             run_transfer(COLD_OK);
             revoke_at=trigger_clocks;
             assert(revoke_at>0);
             trigger_clocks=0;
         }
         traffic_fault=(enum traffic_fault)(i+1);
-        run_transfer((traffic_fault==STALE_SECOND_DRAIN || traffic_fault==PEER_ROLLBACK || traffic_fault==LOST_RELEASE || traffic_fault==WRITER_RETURN || traffic_fault==WIDI_CACHED_ROLLBACK)?MAP_OK:COLD_OK);
+        run_transfer((traffic_fault==STALE_SECOND_DRAIN || traffic_fault==PEER_ROLLBACK ||
+                      traffic_fault==LOST_RELEASE || traffic_fault==WRITER_RETURN ||
+                      traffic_fault==WIDI_CACHED_ROLLBACK || traffic_fault==WIDI_GO_DURING_ROLLBACK)?MAP_OK:COLD_OK);
         printf("PASS %s\n",traffic_failures[i]);
         return 0;
     }
@@ -669,7 +688,7 @@ int main(int argc,char **argv)
         return 0;
     }
     const char *const completion_failures[]={"premature-marker","premature-cursor","completion-device-lease",
-        "completion-widi-lease","completion-marker-changed","completion-cursor-changed"};
+        "completion-widi-lease","completion-marker-changed","completion-cursor-changed","completion-widi-go"};
     for (unsigned i=0;argc==2 && i<sizeof(completion_failures)/sizeof(completion_failures[0]);i++) {
         if (strcmp(argv[1],completion_failures[i])) continue;
         run_transfer(COLD_OK);

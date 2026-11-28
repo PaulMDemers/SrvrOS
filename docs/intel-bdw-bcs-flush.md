@@ -480,6 +480,15 @@ status-page setup and the fourth descriptor word, which triggers execution.
 Losing either epoch on the final clock callback leaves a three-word prefix
 in the port and the command pages pinned.
 
+Once global GAM traffic reopens, the command owner brackets the WiDi
+clock request and acknowledgement with two `MSG_IDLE_WIN` reads. Both
+must show GO closed and the WiDi client blocked. A gated clock and a
+valid software lease cannot accept an open GO acknowledgement. The same
+check runs before the descriptor stores and when accepting completion.
+The rollback path keeps the global drain and WiDi guard active through
+restoration. If WiDi reopens after the first restored entry, the next
+store is refused and the publication and framebuffer pin are retained.
+
 The fourth descriptor store also requires the original CSB cursors and
 zero data and completion words in the private result page. The completion
 check verifies both CSB events and the complete result page, then rechecks

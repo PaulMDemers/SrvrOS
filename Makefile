@@ -7452,6 +7452,7 @@ test-intel-bdw-blitter: build/tests/intel-bdw-blitter$(HOST_EXE)
 	$< completion-widi-lease
 	$< completion-marker-changed
 	$< completion-cursor-changed
+	$< completion-widi-go
 	$< stale-seventh
 	$< swapped-translations
 	$< unposted-invalidate
@@ -7481,6 +7482,9 @@ test-intel-bdw-blitter: build/tests/intel-bdw-blitter$(HOST_EXE)
 	$< widi-cached-rollback
 	$< flush-before-engine-go
 	$< flush-before-engine-reply
+	$< widi-go-reopens
+	$< widi-go-before-trigger
+	$< widi-go-during-rollback
 test-core: test-intel-bdw-blitter
 
 BDW_BLITTER_GUEST := build/tests/blitter-guest
