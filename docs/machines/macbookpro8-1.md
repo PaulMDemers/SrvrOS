@@ -543,6 +543,13 @@ PIO. Firmware retirement, both flash reports and Ubuntu return verified.
 The retry measures the initial control and status, checks disabled DMA
 separately, and changes only the direct-FIFO control bits.
 
+Release `c062a4edf12fc2ab` verified the control register's reset default
+`0x40`, inactive RX DMA and PIO admission. It delivered one frame with
+channel word `0x57`, which identifies channel 10 and HT PHY. It did not
+match the target beacon. Both reports and safe return verified. The
+next trial acknowledges receive events during polling and distinguishes
+beacon headers from complete checksum-valid beacons in the report.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

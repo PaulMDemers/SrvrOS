@@ -3,6 +3,8 @@ enum {
     PIO_RX_DIRECT = 0x220, PIO_DIRECT_FIFO = 0x100, RX_DMA_ENABLE = 1,
     RX_DMA_STATUS = 0x230,
     PIO_RX_CONTROL = 0x238, PIO_RX_DATA = 0x23c, PIO_FRAME_READY = 1, PIO_DATA_READY = 2,
+    D11_DMA0_REASON = 0x20, D11_DMA0_MASK = 0x24, D11_DMA0_EVENTS = 0x1fc00, D11_RX_DONE = 0x10000,
+    D11_IRQ_DMA = 0x8000,
     RADIO_SELECTOR = 0x3d8, RADIO_DATA = 0x3da, PHY_SELECTOR = 0x3fc, PHY_DATA = 0x3fe,
     PHY_RF_COMMAND = 0x810, PHY_RF_POWER = 2,
     MAC_BEACON_PROMISCUOUS = 0x100000, MAC_PROMISCUOUS = 0x1000000,
@@ -123,9 +125,16 @@ static void fifo_read(volatile uint32_t *reg, uint8_t *out, unsigned size) {
 
 static unsigned listen_for_beacons(volatile uint32_t *regs) {
     unsigned frames = 0, valid = 0, target = 0, timeouts = 0, last_rx_channel = 0;
+    unsigned beacon_headers = 0, beacon_checksums = 0, rx_events = 0;
+    unsigned first_length = 0, first_header = 0;
     uint64_t start = timer_monotonic_us();
-    for (unsigned poll = 0; poll < 60000 && frames < 1024 && target < 3; poll++) {
-        if (timer_monotonic_us() - start >= 6000000) break;
+    for (unsigned poll = 0; poll < 150000 && frames < 1024 && target < 3; poll++) {
+        if (timer_monotonic_us() - start >= 15000000) break;
+        uint32_t reason = regs[D11_IRQ_REASON / 4], dma = regs[D11_DMA0_REASON / 4];
+        if (reason == UINT32_MAX || dma == UINT32_MAX) break;
+        if (reason & D11_IRQ_DMA) regs[D11_IRQ_REASON / 4] = D11_IRQ_DMA;
+        if (dma & D11_DMA0_EVENTS) regs[D11_DMA0_REASON / 4] = dma & D11_DMA0_EVENTS;
+        if (dma & D11_RX_DONE) rx_events++;
         uint32_t control = regs[PIO_RX_CONTROL / 4];
         if (control == UINT32_MAX) break;
         if (!(control & PIO_FRAME_READY)) {
@@ -149,6 +158,14 @@ static unsigned listen_for_beacons(volatile uint32_t *regs) {
         }
         fifo_read(&regs[PIO_RX_DATA / 4], frame, length);
         valid++;
+        if (valid == 1) {
+            first_length = length;
+            if (length >= 8) first_header = radio_le16(frame + 6);
+        }
+        if (length >= 46 && frame[6] == 0x80) {
+            beacon_headers++;
+            if (beacon_fcs(frame + 6, length - 10) == radio_le32(frame + length - 4)) beacon_checksums++;
+        }
         /* In PIO the Linux receive path inserts its own alignment padding.
          * On the wire the hardware FIFO begins with the six-byte PLCP. */
         if (!(rx_channel & 0x1800) && ((rx_channel >> 3) & 0xff) == BEACON_CHANNEL &&
@@ -156,6 +173,8 @@ static unsigned listen_for_beacons(volatile uint32_t *regs) {
     }
     console_printf("bcm4331-radio: channel=10 pio_frames=%u valid_frames=%u target_beacons=%u timeouts=%u rx_channel=%x\n",
         (uint64_t)frames, (uint64_t)valid, (uint64_t)target, (uint64_t)timeouts, (uint64_t)last_rx_channel);
+    console_printf("bcm4331-radio: beacon_headers=%u beacon_checksums=%u rx_events=%u first_length=%u first_fc=%x\n",
+        (uint64_t)beacon_headers, (uint64_t)beacon_checksums, (uint64_t)rx_events, (uint64_t)first_length, (uint64_t)first_header);
     return target;
 }
 
@@ -194,16 +213,19 @@ static bool passive_radio_trial(volatile uint32_t *regs, const struct radio_asse
         bool direct = dma_disabled && (regs[PIO_RX_DIRECT / 4] & (RX_DMA_ENABLE | PIO_DIRECT_FIFO)) == PIO_DIRECT_FIFO;
         console_printf("bcm4331-radio: rx_dma_disabled=%u direct_fifo=%u\n", (uint64_t)dma_disabled, (uint64_t)direct);
         if (direct) {
-            regs[D11_IRQ_REASON / 4] = UINT32_MAX;
+            regs[D11_DMA0_MASK / 4] = D11_RX_DONE;
             regs[D11_MAC_CONTROL / 4] = mac | MAC_BEACON_PROMISCUOUS | MAC_PROMISCUOUS |
                 MAC_AWAKE | MAC_DISCARD_PMQ | D11_MAC_ENABLED;
+            regs[D11_IRQ_REASON / 4] = D11_MAC_SUSPENDED;
             if (regs[D11_MAC_CONTROL / 4] & D11_MAC_ENABLED) matches = listen_for_beacons(regs);
         }
         regs[D11_MAC_CONTROL / 4] = mac;
         bool mac_stopped = !(regs[D11_MAC_CONTROL / 4] & D11_MAC_ENABLED);
         bool suspended = mac_stopped && wait_d11_register(regs, D11_IRQ_REASON, D11_MAC_SUSPENDED, D11_MAC_SUSPENDED);
         regs[PIO_RX_DIRECT / 4] = idle;
-        *retired = mac_stopped && !(regs[PIO_RX_DIRECT / 4] & (RX_DMA_ENABLE | PIO_DIRECT_FIFO));
+        regs[D11_DMA0_MASK / 4] = 0;
+        *retired = mac_stopped && !regs[D11_DMA0_MASK / 4] &&
+            !(regs[PIO_RX_DIRECT / 4] & (RX_DMA_ENABLE | PIO_DIRECT_FIFO));
         console_printf("bcm4331-radio: mac_suspended_event=%u\n", (uint64_t)suspended);
     }
     if (initial) {
