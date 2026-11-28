@@ -22,6 +22,8 @@ enum {
     D11_MAC_CONTROL = 0x120, D11_PHY_VERSION = 0x3e0,
     D11_IRQ_REASON = 0x128, D11_IRQ_MASK = 0x12c, D11_MAC_SUSPENDED = 1,
     D11_SHM_CONTROL = 0x160, D11_SHM_DATA = 0x164, D11_SHM_DATA_ODD = 0x166,
+    D11_CLOCK_CONTROL = 0x1e0, D11_FORCE_HT = 2, D11_PLL_REQUEST = 0x300,
+    D11_HT_READY = 0x20000, D11_PLL_READY = 0x03000000,
     D11_MAC_ENABLED = 1, D11_PSM_RUN = 2, D11_PSM_JUMP_ZERO = 4,
     D11_SHM_ENABLED = 0x100, D11_IHR_ENABLED = 0x400, D11_INFRA = 0x20000,
     D11_GMODE = 0x80000000u,
@@ -202,6 +204,63 @@ static const uint8_t *firmware_image(void) {
     return file->data + UCODE_HEADER_BYTES;
 }
 
+static bool wait_d11_register(const volatile uint32_t *regs, unsigned offset, uint32_t mask, uint32_t expected) {
+    for (unsigned attempt = 0; attempt < 10000; attempt++) {
+        uint32_t value = regs[offset / 4];
+        if (value == UINT32_MAX) return false;
+        if ((value & mask) == expected) return true;
+        if (!timer_delay_us(10)) return false;
+    }
+    return false;
+}
+
+/* Clear the device's retained DMA and PSM state before uploading. Reuse the
+ * captured warm 20 MHz PHY/clock settings and never reenable host DMA. */
+static bool reset_d11(const struct pci_device *p, const struct bcma_core *core, volatile uint32_t *regs, bool *safe) {
+    pci_write_config32(p, PCI_BAR0_WINDOW, core->wrapper);
+    if (pci_read_config32(p, PCI_BAR0_WINDOW) != core->wrapper) return false;
+    uint32_t ioctl = regs[CORE_IO_CONTROL / 4];
+    if (ioctl != 0x2055 || !wait_d11_register(regs, CORE_RESET_STATUS, UINT32_MAX, 0)) return false;
+
+    regs[CORE_RESET_CONTROL / 4] = CORE_RESET;
+    bool asserted = wait_d11_register(regs, CORE_RESET_CONTROL, CORE_RESET, CORE_RESET);
+    bool released = false, clock_ready = false;
+    if (asserted) {
+        regs[CORE_IO_CONTROL / 4] = ioctl | CORE_FORCE_CLOCK;
+        if (regs[CORE_IO_CONTROL / 4] == (ioctl | CORE_FORCE_CLOCK)) {
+            regs[CORE_RESET_CONTROL / 4] = 0;
+            released = wait_d11_register(regs, CORE_RESET_CONTROL, CORE_RESET, 0) &&
+                wait_d11_register(regs, CORE_RESET_STATUS, UINT32_MAX, 0);
+        }
+        if (released) {
+            regs[CORE_IO_CONTROL / 4] = ioctl;
+            if (regs[CORE_IO_CONTROL / 4] == ioctl) {
+                pci_write_config32(p, PCI_BAR0_WINDOW, core->address);
+                if (pci_read_config32(p, PCI_BAR0_WINDOW) == core->address) {
+                    uint32_t clock = regs[D11_CLOCK_CONTROL / 4];
+                    if (clock != UINT32_MAX) {
+                        regs[D11_CLOCK_CONTROL / 4] = clock | D11_FORCE_HT | D11_PLL_REQUEST;
+                        clock_ready = wait_d11_register(regs, D11_CLOCK_CONTROL,
+                            D11_HT_READY | D11_PLL_READY, D11_HT_READY | D11_PLL_READY) &&
+                            ((const volatile uint16_t *)regs)[D11_PHY_VERSION / 2] == 0x9701;
+                    }
+                }
+            }
+        }
+    }
+    if (!clock_ready) {
+        pci_write_config32(p, PCI_BAR0_WINDOW, core->wrapper);
+        *safe = false;
+        if (pci_read_config32(p, PCI_BAR0_WINDOW) == core->wrapper) {
+            regs[CORE_RESET_CONTROL / 4] = CORE_RESET;
+            *safe = wait_d11_register(regs, CORE_RESET_CONTROL, CORE_RESET, CORE_RESET);
+        }
+    }
+    console_printf("bcm4331: d11_reset asserted=%u released=%u clocks_verified=%u safe=%u\n",
+        (uint64_t)asserted, (uint64_t)released, (uint64_t)clock_ready, (uint64_t)*safe);
+    return clock_ready;
+}
+
 /* Run only the D11 PSM bootstrap. Keep the MAC disabled, mask device IRQs,
  * and leave PCI bus mastering fenced. No rings or PHY tables are installed. */
 static bool firmware_trial(volatile uint32_t *regs, const uint8_t *ucode, bool *retired) {
@@ -326,10 +385,11 @@ enum bcm4331_probe_result bcm4331_probe(bool start_firmware) {
                     if ((cap & CHIP_CAP_SROM) && (cc[CHIP_STATUS / 4] & CHIP_STATUS_SPROM) &&
                         (srom & 1) && !(srom & (1u << 31)))
                         srom_ready = inspect_board_rom(cc, &pins_restored);
-                    firmware_attempted = start_firmware && phy_ready && srom_ready && pins_restored &&
-                        pci_read_config32(p, PCI_BAR0_WINDOW) == cores[1].address;
-                    if (firmware_attempted)
-                        firmware_ready = firmware_trial((volatile uint32_t *)bcm4331_window, ucode, &psm_retired);
+                    if (start_firmware && phy_ready && srom_ready && pins_restored) {
+                        volatile uint32_t *regs = (volatile uint32_t *)bcm4331_window;
+                        firmware_attempted = reset_d11(p, &cores[1], regs, &psm_retired);
+                        if (firmware_attempted) firmware_ready = firmware_trial(regs, ucode, &psm_retired);
+                    }
                 } else if (selected) {
                     console_write("bcm4331: enumeration ROM did not match the captured topology\n");
                     for (unsigned i = 0; i < 48; i++)

@@ -500,6 +500,13 @@ came back. The next isolated recipe pins Ubuntu's D11 microcode bytes and
 checks for a fresh `784.2` firmware response with the MAC disabled and DMA
 fenced. PHY initialization and the channel 10 network trial follow.
 
+Release `57f79380ace8e3fd` wrote all 10,804 microcode words. The warm
+D11 state immediately reasserted its DMA interrupt after the interrupt
+clear, so the probe stopped before it started the PSM. Both flash reports
+and Ubuntu return verified. The retry uses a bounded D11 reset to clear
+the inherited device state and verifies the HT and PLL clocks before
+loading the same microcode.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
