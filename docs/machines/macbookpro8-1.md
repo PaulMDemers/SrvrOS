@@ -847,6 +847,26 @@ with clean adapter and DMA retirement. The four corrected-build reports
 matched the flash and archive by SHA-256. Previous files, offline
 allocation, one-shot Ubuntu return and private payload removal verified.
 
+### Lid and suspend bring-up (November 28)
+
+The next work block starts from integrated `b062ba18` on the existing
+MacBookPro8,1 branch. In Ubuntu the ACPI lid device and Apple SMC `MSLD`
+agreed over two physical close/reopen cycles. `MSLD` is a one-byte `ui8`
+key with `0` open and `1` closed. The DSDT implements `_LID` through a
+cached GNVS field. The EC query `_Q20` updates the field and notifies the
+lid device. The first native trial uses the existing model-gated SMC
+transport to record two cycles and saves both EHCI workspace reports.
+Its implementation covers the SMC reader, isolated boot profile and
+report verification. It does not claim ownership of the EC or SCI.
+
+Ubuntu selected `deep`. After the lid closed, `systemctl suspend` drove
+S3 and the kernel logged low-level resume and suspend exit alongside the
+lid-open event. The boot ID and flash mount remained the same. The RTC
+fallback deadline had not elapsed and the temporary alarm was cleared.
+Native S3 still needs a waking vector and processor context restoration,
+firmware sleep and wake handling, and a verified device quiesce and
+resume sequence. The lid trial keeps those dependencies out of startup.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

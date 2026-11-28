@@ -1338,6 +1338,19 @@ connection or a bounded wait. Verify `STARTUP_OK`, WPA2, a DHCP ACK,
 14 gateway replies, and clean retirement in the final report. Keep the
 reports from each distinct boot, including any failure.
 
+### MacBookPro8,1 lid state trial
+
+Build the current kernel before staging `--ehci-lid-probe UUID`. Rehearse
+the exact stage with `tools/ehci_trial_smoke.py RELEASE`. The VM verifies
+foreign-platform refusal, both report files and the one-shot return.
+Use the verified Ubuntu recovery and run-record sequence for native use.
+Start with the lid open and the charger and flash drive attached. The
+guest prompts for two five-second close/reopen cycles and automatically
+returns to Ubuntu. Verify the release-matched `ehci-lidstate-*` startup
+and final reports, the four ordered edges, and clean flash retirement.
+The probe records lid state while the machine remains awake. Suspend to
+RAM requires separate qualification.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal

@@ -124,11 +124,13 @@ static bool prepare_flash_io(struct ehci_control_path *path, struct ehci_flash_i
 #define EHCI_TRACKPAD_REPORT "/work/srvros-work/ehci-trackpad-0000000000000000-startup.txt"
 #define EHCI_ETHERNET_REPORT "/work/srvros-work/ehci-ethernet-0000000000000000-startup.txt"
 #define EHCI_BCM4331_REPORT "/work/srvros-work/ehci-wifi4331-0000000000000000-startup.txt"
+#define EHCI_LID_REPORT "/work/srvros-work/ehci-lidstate-0000000000000000-startup.txt"
 
 static bool persist_flash_report(const char *release, bool startup, const char *path) {
     char filename[] = EHCI_TRACKPAD_REPORT;
     _Static_assert(sizeof(EHCI_TRACKPAD_REPORT) == sizeof(EHCI_ETHERNET_REPORT) &&
-        sizeof(EHCI_TRACKPAD_REPORT) == sizeof(EHCI_BCM4331_REPORT), "report path lengths");
+        sizeof(EHCI_TRACKPAD_REPORT) == sizeof(EHCI_BCM4331_REPORT) &&
+        sizeof(EHCI_TRACKPAD_REPORT) == sizeof(EHCI_LID_REPORT), "report path lengths");
     for (unsigned i = 0; i < sizeof filename; i++) filename[i] = path[i];
     const unsigned release_offset = sizeof("/work/srvros-work/ehci-trackpad-") - 1;
     for (unsigned i = 0; i < 16; i++) filename[release_offset + i] = release[i];

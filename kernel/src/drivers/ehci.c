@@ -1261,6 +1261,10 @@ bool ehci_ethernet_workspace_report(const char *release, bool startup) {
     return workspace_active() && persist_flash_report(release, startup, EHCI_ETHERNET_REPORT) && workspace_flush_committed();
 }
 
+bool ehci_lid_workspace_report(const char *release, bool startup) {
+    return workspace_active() && persist_flash_report(release, startup, EHCI_LID_REPORT) && workspace_flush_committed();
+}
+
 bool ehci_bcm4331_workspace_report(const char *release, bool startup) {
     return workspace_active() && persist_flash_report(release, startup, EHCI_BCM4331_REPORT) && workspace_flush_committed();
 }
