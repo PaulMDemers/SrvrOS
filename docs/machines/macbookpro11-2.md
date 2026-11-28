@@ -238,6 +238,17 @@ files matched, and the system returned automatically to Ubuntu. The
 exact payload and logs are in `evidence-30a249384a9b9f08` in the recovery
 archive. Netgear radio initialization and passive discovery remain open.
 
+#### Netgear A6150 radio prerequisites
+
+Continue from `eaeec9b4` with main `24feebdd`. Pro8,1 wired-Ethernet
+PR #568 has separate device scope. Use the captured Linux RTL8822BU USB
+startup to verify the board data before selecting PHY tables. This
+checkpoint owns the Netgear-only xHCI firmware continuation, the boot
+recipe and receipts. Test bounded Wi-Fi eFuse reads, the firmware feature
+reply, refusal paths and existing firmware/USB sibling behavior. Keep
+baseband and RF gated. Carry the same pinned firmware, three hub ports,
+independent EFI journal and workspace evidence into the cold run.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
