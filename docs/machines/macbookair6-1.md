@@ -265,6 +265,13 @@ all six aliases retired, and GGTT slots 4096 and 16385 stayed untouched.
 Requester drain remains unverified. Air7,2 PR301 at `a6f88f77` owns
 the independent Broadwell work.
 
+The next PR567 checkpoint adds read-only Lynx Point-LP SMI routing and
+lock observations to the bounded held-engine sampler. Scope is the
+Air6,1 adapter, boot recipe and receipt verifier on `6c42e738`, reviewed
+against integration head `117a0294` and Air7,2 PR301 at `04d4fb19`.
+Pipe A remains on the inherited framebuffer, and slots 4096 and 16385
+stay protected. The audit records firmware-access prerequisites.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly
