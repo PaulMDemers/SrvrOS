@@ -4,16 +4,18 @@ enum bu_firmware_fault {
     BU_FW_SHORT,BU_FW_MISSING,BU_FW_CHECKSUM,BU_FW_NOT_READY,BU_FW_BAD_STOP,BU_FW_BUSY,
     BU_BOARD_OK,BU_BOARD_BAD_BANK,BU_BOARD_BAD_MODE,BU_BOARD_WRONG_ADDR,
     BU_BOARD_WRONG_RFE,BU_BOARD_NO_REPLY,BU_BOARD_WRONG_FEATURE,BU_BOARD_NO_ACK,BU_BOARD_BAD_STOP,
+    BU_PHY_OK,BU_PHY_BAD_PROFILE,BU_PHY_BAD_CRYSTAL,BU_PHY_STUCK_RF,
 };
 
 static struct {
-    const uint8_t *image;
+    const uint8_t *image,*phy;
     uint8_t reg[65536];
     uint64_t ring,cursor,packet;
     uint32_t written;
     unsigned posted,ddma,configure,stop,echoes,register_writes,latch_clears,efuse_reads,feature_acks;
     uint8_t echo;
-    bool echo_expected;
+    bool echo_expected,phy_started;
+    unsigned phy_writes,phy_delays;
     enum bu_firmware_fault fault;
 } bu_model;
 
@@ -105,9 +107,25 @@ static void bu_model_control(void) {
         bu_model.register_writes++;
         uint32_t value=0;
         for(unsigned i=0;i<width;i++)value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
-        if(reg==2)assert(!(value&3));
-        if(reg==0x1f)assert(!(value&7));
-        if(reg==0xec)assert(value==0x18000004u);
+        if(reg==BU_TXPAUSE) {
+            assert(bu_model.fault>=BU_PHY_OK && bu_model.feature_acks==1 && value==0xff && !bu_model.phy_started);
+            bu_model.phy_started=true;
+        }
+        if(reg==2 && (value&3))assert(bu_model.phy_started && (value&3)==3);
+        if(reg==0x1f && (value&7))assert(bu_model.phy_started && (value&7)==7);
+        if(reg==0xec)assert(value==0x18000004u || (bu_model.phy_started && value==0x1f000004u));
+        if(bu_model.phy_started && bu_model.phy_writes<BU_PHY_ROWS && (bu_model.phy_writes || reg==0x29)) {
+            const uint8_t *row=bu_model.phy+BU_PHY_ROW_BYTES*bu_model.phy_writes;
+            uint32_t expected=0;
+            for(unsigned i=0;i<4;i++)expected|=(uint32_t)row[3+i]<<(8*i);
+            assert(reg==(unsigned)(row[0]|row[1]<<8) && width==row[2] && value==expected);
+            assert(!bu_model_read(BU_CR,1) && bu_model_read(BU_TXPAUSE,1)==0xff &&
+                (bu_model_read(2,1)&3)==3 && (bu_model_read(0x1f,1)&7)==7 &&
+                (bu_model_read(BU_WLRF1,4)&BU_WLRF1_BBRF)==BU_WLRF1_BBRF);
+            if(bu_model.phy_writes==2333)assert(bu_model.phy_delays==1);
+            if(bu_model.phy_writes==2696)assert(bu_model.phy_delays==2);
+            bu_model.phy_writes++;
+        }
         if(reg==0x100)assert(value==0 || value==5);
         if(reg==3 && (value&4) && bu_model.fault==BU_FW_FLASH)
             assert(!(bu_model_read(0x80,4)&(1u<<20)) && !(bu_model_read(0x40,4)&(1u<<19)));
@@ -118,6 +136,10 @@ static void bu_model_control(void) {
         }
         assert(reg<BU_EFUSE_LDO || reg>BU_EFUSE_LDO+3);
         bu_model_store(reg,width,value);
+        if(reg==0x28 && bu_model.fault==BU_PHY_BAD_CRYSTAL && bu_model.phy_writes==BU_PHY_ROWS)
+            bu_model_store(reg,width,value^2);
+        if(reg==0x1f && !value && bu_model.phy_started && bu_model.fault==BU_PHY_STUCK_RF)
+            bu_model_store(reg,width,7);
         if(reg==BU_EFUSE_CTRL) {
             static const uint8_t efuse[]={0x0e,0x29,0x81,0xef,0x2e,0x34,0x28,0x2f,0x3d,3,0xff,0xff};
             unsigned address=bu_model.efuse_reads++;
@@ -178,17 +200,27 @@ static void bu_model_mmio(uint64_t offset,uint32_t value) {
 }
 
 static bool bu_model_delay(uint64_t us) {
-    assert(us==1000 || us==50);
+    assert(us==1000 || us==50 || us==200000);
+    if(us==200000) {
+        assert(bu_model.phy_started && (bu_model.phy_writes==2333 || bu_model.phy_writes==2696));
+        bu_model.phy_delays++;
+    }
     test_time+=us;
     return true;
 }
 
-static void test_rtl8822bu_firmware(const char *path) {
+static void test_rtl8822bu_firmware(const char *path,const char *phy_path) {
     static uint8_t image[BU_FW_BYTES];
+    static uint8_t phy[BU_PHY_BYTES];
     FILE *file=fopen(path,"rb");
     assert(file && fread(image,1,sizeof image,file)==sizeof image && fgetc(file)==EOF && !fclose(file));
     assert(bu_image_valid(image,sizeof image));
-    for(enum bu_firmware_fault fault=BU_FW_OK;fault<=BU_BOARD_BAD_STOP;fault++) {
+    if(phy_path) {
+        file=fopen(phy_path,"rb");
+        assert(file && fread(phy,1,sizeof phy,file)==sizeof phy && fgetc(file)==EOF && !fclose(file));
+        assert(bu_phy_profile_valid(phy,sizeof phy));
+    }
+    for(enum bu_firmware_fault fault=BU_FW_OK;fault<=(phy_path?BU_PHY_STUCK_RF:BU_BOARD_BAD_STOP);fault++) {
         struct xhci_device *rtl=rtl_hub_fixture(),*d=&xhci.devices[3];
         d->device_bcd=0x0210;d->configuration_count=1;d->ep0_max_packet=64;
         uint8_t *command_memory;
@@ -197,7 +229,7 @@ static void test_rtl8822bu_firmware(const char *path) {
         test_time_step=1;bu_probe_case=BU_OK;bu_leaf_requests=bu_hub_reads=0;
         native_boundary_mmio_hook=rtl8822bu_probe_model;
         assert(xhci_rtl8822bu_capture_identity());
-        memset(&bu_model,0,sizeof bu_model);bu_model.image=image;bu_model.fault=fault;
+        memset(&bu_model,0,sizeof bu_model);bu_model.image=image;bu_model.phy=phy;bu_model.fault=fault;
         bu_model_store(0x100,1,fault==BU_FW_WARM?0:0xea);
         bu_model_store(0x6,1,3);bu_model_store(0x80,2,0x78);
         bu_model_store(0xec,4,0x1f000004);
@@ -226,11 +258,22 @@ static void test_rtl8822bu_firmware(const char *path) {
         native_boundary_mmio_hook=bu_model_mmio;
         if(fault==BU_FW_IMAGE)image[0]^=1;
         bool safe=false;
-        bool success=fault==BU_FW_OK || fault==BU_FW_FLASH || fault==BU_FW_COLD_LATCH || fault==BU_BOARD_OK;
-        assert((board?xhci_rtl8822bu_capture_board:xhci_rtl8822bu_capture_firmware)
-            (image,sizeof image,&safe)==success);
+        bool success=fault==BU_FW_OK || fault==BU_FW_FLASH || fault==BU_FW_COLD_LATCH ||
+            fault==BU_BOARD_OK || fault==BU_PHY_OK;
+        if(fault>=BU_PHY_OK) {
+            if(fault==BU_PHY_BAD_PROFILE)phy[2]^=1;
+            assert(xhci_rtl8822bu_capture_phy(image,sizeof image,phy,sizeof phy,&safe)==success);
+            if(fault==BU_PHY_BAD_PROFILE)phy[2]^=1;
+            assert(bu_model.phy_started==(fault!=BU_PHY_BAD_PROFILE));
+            assert(bu_model.phy_writes==(bu_model.phy_started?BU_PHY_ROWS:0));
+            assert(bu_model.phy_delays==(bu_model.phy_started?2:0));
+            assert((bu_model_read(0x1f,1)&7)==(fault==BU_PHY_STUCK_RF?7:0));
+        } else {
+            assert((board?xhci_rtl8822bu_capture_board:xhci_rtl8822bu_capture_firmware)
+                (image,sizeof image,&safe)==success);
+        }
         if(fault==BU_FW_IMAGE)image[0]^=1;
-        assert(safe==(fault!=BU_FW_BAD_STOP && fault!=BU_BOARD_BAD_STOP && fault!=BU_FW_BUSY &&
+        assert(safe==(fault!=BU_FW_BAD_STOP && fault!=BU_BOARD_BAD_STOP && fault!=BU_FW_BUSY && fault!=BU_PHY_STUCK_RF &&
             fault!=BU_FW_PLATFORM_MCU && fault!=BU_FW_COLD_DMA_BUSY));
         assert(!bu_model.echo_expected && !rtl->control_success && !xhci.devices[2].control_success && !network_count);
         if(success)assert(bu_model.posted==40 && bu_model.ddma==40 && !d->bulk_pending && bu_model.stop);
@@ -246,7 +289,7 @@ static void test_rtl8822bu_firmware(const char *path) {
             if(fault==BU_BOARD_BAD_BANK || fault==BU_BOARD_BAD_MODE)reads=0;
             if(fault==BU_BOARD_WRONG_ADDR)reads=1;
             bool ack=fault==BU_BOARD_OK || fault==BU_BOARD_WRONG_FEATURE ||
-                fault==BU_BOARD_NO_ACK || fault==BU_BOARD_BAD_STOP;
+                fault==BU_BOARD_NO_ACK || fault==BU_BOARD_BAD_STOP || fault>=BU_PHY_OK;
             assert(bu_model.posted==40 && bu_model.stop==1 && bu_model.efuse_reads==reads && bu_model.feature_acks==ack);
         }
     }
@@ -262,4 +305,5 @@ static void test_rtl8822bu_firmware(const char *path) {
     puts("rtl8822bu: PASS captured cold latch, CPU and DDMA ownership checks, and mismatched signature refusals");
     puts("rtl8822bu: PASS image and warm refusal, short/missing OUT, checksum, missing ready, wrong stop and busy DDMA");
     puts("rtl8822bu: PASS native board eFuse and firmware reply, no RF/program power, stale address and bad board/mailbox refusals");
+    if(phy_path)puts("rtl8822bu: PASS native RFE3 tables, two RF delays, TX inhibited, profile and crystal refusal, and RF retirement");
 }

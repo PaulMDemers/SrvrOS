@@ -411,10 +411,18 @@ static const char *bu_capture_board(struct bu_upload *up) {
     return wifi_hub_check_port(d,up->hub) && bu_radio_off(d)?NULL:"radio-exit";
 }
 
-static bool bu_capture(const uint8_t *image,uint64_t size,bool board,bool *return_safe) {
+#include "xhci_rtl8822bu_phy.inc"
+
+enum bu_mode { BU_FIRMWARE_ONLY, BU_BOARD_ONLY, BU_PHY_INIT };
+
+static bool bu_capture(const uint8_t *image,uint64_t size,enum bu_mode mode,
+                       const uint8_t *phy,uint64_t phy_size,bool *return_safe) {
     struct bu_upload up={0};
     const char *failure="identity";
     const char *board_failure="not-run";
+    const char *phy_failure="not-run";
+    unsigned phy_written=0;
+    bool radio_parked=true;
     uint64_t flags=event_irq_save();
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         if(xhci.devices[i].rtl8822bu_identified){up.device=&xhci.devices[i];break;}
@@ -434,13 +442,25 @@ static bool bu_capture(const uint8_t *image,uint64_t size,bool board,bool *retur
                 d->rtl8822bu_firmware_active=true;
                 failure="endpoint";
                 if(wifi_hub_check_port(d,up.hub) && bu_configure_out(&up))failure=bu_download(&up,image);
-                if(board && !failure) {
+                if(mode!=BU_FIRMWARE_ONLY && !failure) {
                     console_write("rtl8822bu-board-progress: reading eFuse and firmware features\n");
                     board_failure=bu_capture_board(&up);
                 }
+                if(mode==BU_PHY_INIT && !board_failure) {
+                    phy_failure="profile";
+                    if(bu_phy_profile_valid(phy,phy_size)) {
+                        phy_failure="tx-pause";
+                        if(bu_write(d,BU_TXPAUSE,1,0xff)) {
+                            console_write("rtl8822bu-phy-progress: loading RFE type 3 tables with MAC traffic disabled\n");
+                            bool phy_touched=false;
+                            phy_failure=bu_phy_run(&up,phy,&phy_written,&phy_touched);
+                            if(phy_touched)radio_parked=bu_phy_park(&up);
+                        }
+                    }
+                }
                 up.stopped=bu_stop(&up);
                 up.parked=up.stopped && bu_park(&up);
-                *return_safe=up.stopped && !d->ep0_quarantined && !xhci.command_failed &&
+                *return_safe=radio_parked && up.stopped && !d->ep0_quarantined && !xhci.command_failed &&
                     (!up.power_touched || up.parked);
                 if(!failure && !*return_safe)failure="retirement";
                 d->rtl8822bu_firmware_active=false;
@@ -451,14 +471,20 @@ static bool bu_capture(const uint8_t *image,uint64_t size,bool board,bool *retur
     console_printf("rtl8822bu-firmware: result=%s bytes=%u packets=%u mcu=%x stopped=%u parked=%u safe=%u\n",
         failure?failure:"ready",(uint64_t)up.bytes,(uint64_t)up.packets,(uint64_t)up.mcu,
         (uint64_t)up.stopped,(uint64_t)up.parked,(uint64_t)*return_safe);
-    if(board)console_printf("rtl8822bu-board: result=%s\n",board_failure?board_failure:"ready");
-    return !failure && (!board || !board_failure);
+    if(mode!=BU_FIRMWARE_ONLY)console_printf("rtl8822bu-board: result=%s\n",board_failure?board_failure:"ready");
+    if(mode==BU_PHY_INIT)console_printf("rtl8822bu-phy: result=%s writes=%u radio_parked=%u\n",
+        phy_failure?phy_failure:"ready",(uint64_t)phy_written,(uint64_t)radio_parked);
+    return !failure && (mode==BU_FIRMWARE_ONLY || !board_failure) && (mode!=BU_PHY_INIT || !phy_failure);
 }
 
 bool xhci_rtl8822bu_capture_firmware(const uint8_t *image,uint64_t size,bool *return_safe) {
-    return bu_capture(image,size,false,return_safe);
+    return bu_capture(image,size,BU_FIRMWARE_ONLY,NULL,0,return_safe);
 }
 
 bool xhci_rtl8822bu_capture_board(const uint8_t *image,uint64_t size,bool *return_safe) {
-    return bu_capture(image,size,true,return_safe);
+    return bu_capture(image,size,BU_BOARD_ONLY,NULL,0,return_safe);
+}
+
+bool xhci_rtl8822bu_capture_phy(const uint8_t *image,uint64_t size,const uint8_t *phy,uint64_t phy_size,bool *return_safe) {
+    return bu_capture(image,size,BU_PHY_INIT,phy,phy_size,return_safe);
 }

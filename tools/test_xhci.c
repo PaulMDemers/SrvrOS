@@ -9586,7 +9586,8 @@ static void test_repeated_init(void) {
     puts("xhci-init: PASS repeated entry preserves modeled controller/DMA/quarantine/worker state");
 }
 int main(int argc, char **argv) {
-    if(argc==3 && !strcmp(argv[1],"--rtl8822bu-firmware")){test_rtl8822bu_firmware(argv[2]);return 0;}
+    if(argc==3 && !strcmp(argv[1],"--rtl8822bu-firmware")){test_rtl8822bu_firmware(argv[2],NULL);return 0;}
+    if(argc==4 && !strcmp(argv[1],"--rtl8822bu-phy")){test_rtl8822bu_firmware(argv[2],argv[3]);return 0;}
     if(argc==2 && !strcmp(argv[1],"--rtl8822bu-identity")){test_rtl8822bu_probe();return 0;}
     if(argc==2 && !strcmp(argv[1],"--rtl8188cu-identity")){test_rtl8188cu_probe();return 0;}
     if(argc==3 && !strcmp(argv[1],"--rtl8188cu-firmware")){test_rtl8188cu_firmware(argv[2]);return 0;}
