@@ -777,6 +777,18 @@ Stop and verify the IN endpoint on every exit after configuration,
 including firmware failures. Keep all three adapters in the Genesys
 hub and preserve the workspace and independent journal.
 
+Release `eb22d584762b48d8` on `8a7002ff` posts all four requests after
+proving digital power, CR zero and TXPAUSE held, ahead of firmware
+DMA setup. The same owner stays registered through firmware and H2C.
+Queue checkpoints cover the pre-firmware post, firmware result and
+channel 10 scan. Completed startup buffers are discarded before
+parsing the scan window. The optimized native fixture passed normal
+and back-to-back scan completions, valid startup completion,
+stale startup event, short firmware OUT and failed Stop proof.
+Both sibling regressions, 329 boot and trial tests and five
+exact-image rehearsals passed. The run record uses
+`build/bringup/pro112-rtl8822bu-rx-prequeue/`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
