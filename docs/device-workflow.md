@@ -34,6 +34,14 @@ and register page. The guard excludes the inherited aperture and eight
 submission and WiDi ports while the independent reservation is held and returned.
 Native GPU write and traffic-drain acceptance remain separate.
 
+The Air7,2 `intel-gt-flush-v59` driver range receipt v2 records up to two
+powered GAM, engine, WiDi and L3 packets around the slot 16385 PTE reads
+before PCI bus mastering reopens. A complete bracket includes both packets
+and four retired traffic-register aliases. The collector compares the slot
+with the first pinned framebuffer page. These read-only observations do not
+establish fresh acknowledgements from a driver request or grant a write.
+Older runs keep the receipt version saved in their manifests.
+
 The Air7,2 `intel-private-range-v1` profile selects `--intel-private-range`.
 It uses the range probe's two existing deadlines and the common display and
 CPU guards. Its version 13 result records the aperture searched, allocation,

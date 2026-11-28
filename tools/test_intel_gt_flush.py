@@ -76,7 +76,7 @@ class FlushAcknowledgements(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'power policy bracket'):
             bootstrap_result(text.replace(current, current.replace('policy1=0xc5280000', 'policy1=0xc7280000')))
         legacy = re.sub(r' policy_samples=\d+ policy0=\w+ policy1=\w+', '', current.replace('v=3', 'v=1', 1))
-        old_text = re.sub(r'^intel-driver-range-preflight:.*\n', '', text, flags=re.M)
+        old_text = re.sub(r'^intel-driver-range-(?:preflight|traffic):.*\n', '', text, flags=re.M)
         old = bootstrap_result(old_text.replace(current, legacy))['flush']['boot_page_preflight']
         self.assertTrue(old['capture_complete'])
         self.assertNotIn('power_policy', old)
@@ -88,11 +88,30 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertEqual(preflight['pte'], 0)
         self.assertTrue(preflight['empty_encoding'])
         self.assertFalse(preflight['write_authority'])
+        traffic = preflight['traffic']
+        self.assertTrue(traffic['bracket_complete'])
+        self.assertFalse(traffic['request_issued'])
+        self.assertEqual([s['engine_ack_bits'] for s in traffic['samples']], [0, 0])
+        self.assertEqual([s['l3_message'] for s in traffic['samples']], [0, 0])
+        self.assertTrue(all(s['widi_go'] for s in traffic['samples']))
+
+        partial = bootstrap_result(observe('driver-traffic-read', 10))['flush']['boot_page_preflight']['driver_range']
+        self.assertFalse(partial['traffic']['bracket_complete'])
+        self.assertEqual(len(partial['traffic']['samples']), 1)
+        self.assertEqual(partial['pte'], 0)
+        sampled = bootstrap_result(observe('driver-traffic-vecs-ack', 1))['flush']['boot_page_preflight']['driver_range']
+        self.assertEqual(sampled['traffic']['samples'][0]['engine_ack_bits'], 4)
+        self.assertFalse(sampled['traffic']['request_issued'])
+        self.assertFalse(sampled['write_authority'])
 
         occupied = bootstrap_result(observe('driver-page-occupied', 1))['flush']['boot_page_preflight']['driver_range']
         self.assertEqual(occupied['pte'], 0x8f107001)
         self.assertFalse(occupied['empty_encoding'])
         self.assertFalse(occupied['write_authority'])
+        self.assertFalse(occupied['matches_pinned_framebuffer'])
+        alias = bootstrap_result(observe('driver-page-framebuffer', 1))['flush']['boot_page_preflight']['driver_range']
+        self.assertTrue(alias['matches_pinned_framebuffer'])
+        self.assertFalse(alias['write_authority'])
 
         for mode, position in (('driver-page-map', 2), ('driver-page-alias', 1),
                                ('driver-page-unmap', 2), ('driver-page-drift', 2), ('boot-page-plane', 5),
@@ -112,7 +131,11 @@ class FlushAcknowledgements(unittest.TestCase):
                             record.replace('authority=none', 'authority=write'), re.sub(r' b1=\S+', ' b1=0x1', record)):
             with self.assertRaisesRegex(ValueError, 'Driver range preflight'):
                 bootstrap_result(text.replace(record, replacement))
-        old_text = text.replace(record, '').replace('intel-boot-page-preflight: v=3 ', 'intel-boot-page-preflight: v=2 ')
+        packet = next(line for line in text.splitlines() if line.startswith('intel-driver-range-traffic:'))
+        with self.assertRaisesRegex(ValueError, 'Driver range preflight'):
+            bootstrap_result(text.replace(packet, ''))
+        old_text = re.sub(r'^intel-driver-range-(?:preflight|traffic):.*\n', '', text, flags=re.M)
+        old_text = old_text.replace('intel-boot-page-preflight: v=3 ', 'intel-boot-page-preflight: v=2 ')
         legacy = bootstrap_result(old_text)['flush']['boot_page_preflight']
         self.assertNotIn('driver_range', legacy)
 
@@ -712,7 +735,7 @@ class FlushAcknowledgements(unittest.TestCase):
         legacy = legacy.replace("intel-widi-device: v=2", "intel-widi-device: v=1")
         with self.assertRaises(ValueError):
             bootstrap_result(legacy)
-        legacy = re.sub(r"^(intel-boot-page-|intel-driver-range-preflight:).*\n", "", legacy, flags=re.M)
+        legacy = re.sub(r"^(intel-boot-page-|intel-driver-range-).*\n", "", legacy, flags=re.M)
         old = bootstrap_result(legacy.replace("intel-range-summary: v=8", "intel-range-summary: v=7"))
         self.assertTrue(old["complete"])
         self.assertNotIn("clock_ack", old["range"]["widi_messages"][0])
@@ -746,13 +769,15 @@ class FlushAcknowledgements(unittest.TestCase):
                     bootstrap_result(text.replace(line, ""))
 
     def test_profile_receipt_requirements_match_current_adapter(self):
-        observed = bootstrap_result(observe("pass"))["range"]
+        result = bootstrap_result(observe("pass"))
+        observed = result["range"]
         self.assertEqual(FLUSH_RECEIPTS, dict(
             independent_slot=observed["independent_slot"]["slot"],
             slot_backing_version=observed["slot_backing"]["v"],
             slot_widi_version=observed["widi_guard"]["v"],
             slot_reopened_version=observed["reopened_pte"]["v"],
             command_slots_version=observed["command_slots"]["v"], range_version=observed["summary"]["v"],
+            driver_range_version=result['flush']['boot_page_preflight']['driver_range']['summary']['v'],
         ))
 
     def test_pipe_a_writer_remains_exclusive_across_pci_reopen(self):
@@ -839,7 +864,7 @@ class FlushAcknowledgements(unittest.TestCase):
             "intel-slot-reopened: v=4 pinned=5 restored=5 ro_mask=0 writer=3 hwsp=0 hwstam=0xffffffff", "intel-slot-reopened: v=2")
         old = re.sub(r" clock_before=\w+ clock_ack=\w+ clock_after=\w+", "", old).replace(
             "intel-widi-device: v=2", "intel-widi-device: v=1")
-        old = re.sub(r"^(intel-boot-page-|intel-driver-range-preflight:).*\n", "", old, flags=re.M)
+        old = re.sub(r"^(intel-boot-page-|intel-driver-range-).*\n", "", old, flags=re.M)
         self.assertTrue(bootstrap_result(old)["complete"])
 
     def test_wireless_programming_guard_spans_requester_reopening(self):
@@ -882,7 +907,7 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
         legacy = re.sub(r"^intel-(?:command-slots|scanout-backing-guard|slot-queues|slot-reopened|slot-widi|widi-producers|widi-device|air-rc6|idle-change|idle-engine|park|park-frame):.*\n", "", text, flags=re.M).replace(row, "").replace("intel-range-summary: v=8 ", "intel-range-summary: v=3 ")
-        legacy = re.sub(r"^(intel-boot-page-|intel-driver-range-preflight:).*\n", "", legacy, flags=re.M)
+        legacy = re.sub(r"^(intel-boot-page-|intel-driver-range-).*\n", "", legacy, flags=re.M)
         self.assertTrue(bootstrap_result(legacy)["complete"])
 
     def test_primary_backing_with_independent_slot(self):
@@ -994,7 +1019,7 @@ class FlushAcknowledgements(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 bootstrap_result(text.replace(row, bad))
         old_power = re.sub(r"^intel-l3-(?:power|steer|bank):.*\n|^intel-gam-.*\n|^intel-flush-sample: v=5 n=2 .*\n", "", text, flags=re.M)
-        old_power = re.sub(r"^(intel-boot-page-|intel-driver-range-preflight:).*\n", "", old_power, flags=re.M)
+        old_power = re.sub(r"^(intel-boot-page-|intel-driver-range-).*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"^intel-(?:bcs-stop|air-rc6|idle-policy):.*\n", "", old_power, flags=re.M)
         old_power = re.sub(r"native_writes=(\d+)", lambda m: f"native_writes={int(m[1])-1}",
                            old_power, count=1)

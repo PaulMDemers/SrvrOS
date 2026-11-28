@@ -18,18 +18,26 @@ CPD_GAM_GO_MESSAGES = 1 << 25
 SMI_PREFIX = "intel-smi-guard:"
 SMI_FAULT = 2048
 DRIVER_RANGE_PREFIX = 'intel-driver-range-preflight:'
+DRIVER_TRAFFIC_PREFIX = 'intel-driver-range-traffic:'
 
 
-def driver_range_preflight_result(rows, parent):
+def driver_range_preflight_result(rows, traffic_rows, parent):
     if not rows:
+        if traffic_rows:
+            raise ValueError('Driver range preflight missing traffic bracket')
         return None
     suffix = ' authority=none'
     if len(rows) != 1 or not rows[0].endswith(suffix):
         raise ValueError('Driver range preflight authority or record count')
     words = ('a0', 'a1', 'a2', 'b0', 'b1', 'b2')
-    sample = fields(rows[0].removesuffix(suffix), DRIVER_RANGE_PREFIX,
-                    ('v', 'slot', 'begin', 'end', 'maps', 'retired', 'reads', 'live', 'samples', 'stable', *words),
-                    ('live', *words))
+    keys = ('v', 'slot', 'begin', 'end', 'maps', 'retired', 'reads', 'live', 'samples', 'stable', *words)
+    hexkeys = ('live', *words)
+    current = rows[0].startswith(DRIVER_RANGE_PREFIX + ' v=2 ')
+    if current:
+        keys += ('packets', 'traffic_maps', 'traffic_retired', 'traffic_reads', 'traffic_live')
+        hexkeys += ('traffic_live',)
+    sample = fields(rows[0].removesuffix(suffix), DRIVER_RANGE_PREFIX, keys, hexkeys,
+                    versions=(2,) if current else (1,))
     maps, retired, reads, count = (sample[key] for key in ('maps', 'retired', 'reads', 'samples'))
     if (sample['slot'] != 16385 or parent['stage'] not in (4, 5) or
             not parent['begin'] <= sample['begin'] <= sample['end'] <= parent['end'] or
@@ -43,8 +51,28 @@ def driver_range_preflight_result(rows, parent):
                    sample['end'] <= sample['begin'] or first != second or first[0] != first[2] or
                    0xffffffff in first):
         raise ValueError('Driver range preflight closing proof')
-    return dict(summary=sample, pte=(first[0] << 32 | first[1]) if stable else None,
-                empty_encoding=first == (0, 0, 0) if stable else None, write_authority=False)
+    report = dict(summary=sample, pte=(first[0] << 32 | first[1]) if stable else None,
+                  empty_encoding=first == (0, 0, 0) if stable else None, write_authority=False)
+    if current:
+        packets, maps, retired, reads, live = (sample[k] for k in
+            ('packets', 'traffic_maps', 'traffic_retired', 'traffic_reads', 'traffic_live'))
+        if (packets != len(traffic_rows) or not 0 <= packets <= 2 or
+                not packets * 2 <= retired <= maps <= 4 or not packets * 9 <= reads <= 18 or
+                (stable and (live or maps != retired)) or
+                (packets == 2 and (count, maps, retired, reads, live) != (2, 4, 4, 18, 0))):
+            raise ValueError('Driver range preflight traffic bracket')
+        keys = ('gam', 'reply', *ENGINES, 'widi', 'l3')
+        traffic = []
+        for n, line in enumerate(traffic_rows):
+            raw = fields(line, DRIVER_TRAFFIC_PREFIX, ('v', 'n', *keys), keys)
+            if raw['n'] != n or any(raw[k] >= 0xffffffff for k in keys):
+                raise ValueError('Driver range preflight traffic packet')
+            traffic.append(dict(raw=raw, engine_ack_bits=sum(1 << i for i, k in enumerate(ENGINES) if raw[k] & 0x20),
+                                l3_message=raw['l3'] & 3, widi_go=bool(raw['widi'] & 0x10)))
+        report['traffic'] = dict(samples=traffic, bracket_complete=packets == 2 and stable, request_issued=False)
+    elif traffic_rows:
+        raise ValueError('Driver range preflight unexpected traffic bracket')
+    return report
 
 
 def boot_page_preflight_result(text, parent, range_proof, primary, flush):
@@ -52,8 +80,9 @@ def boot_page_preflight_result(text, parent, range_proof, primary, flush):
     lines = text.splitlines()
     rows = [line for line in lines if line.startswith(prefix)]
     driver_rows = [line for line in lines if line.startswith(DRIVER_RANGE_PREFIX)]
+    traffic_rows = [line for line in lines if line.startswith(DRIVER_TRAFFIC_PREFIX)]
     if not rows:
-        if driver_rows:
+        if driver_rows or traffic_rows:
             raise ValueError('Driver range preflight lacks the boot-page record')
         return None
     if flush['summary']['v'] != 9 or range_proof['summary']['v'] != 8:
@@ -113,7 +142,11 @@ def boot_page_preflight_result(text, parent, range_proof, primary, flush):
                       cpd_go_locked_out=locked and not enabled if stable else None)
     if (summary['v'] == 3 and stage == 5 and not driver_rows) or (summary['v'] < 3 and driver_rows):
         raise ValueError('Driver range preflight version or missing record')
-    driver_range = driver_range_preflight_result(driver_rows, summary)
+    driver_range = driver_range_preflight_result(driver_rows, traffic_rows, summary)
+    if driver_range is not None and 'traffic' in driver_range:
+        pinned = range_proof.get('scanout_backing_guard', {}).get('physical')
+        pte = driver_range['pte']
+        driver_range['matches_pinned_framebuffer'] = pte == (pinned | 1) if pinned and pte is not None else None
     return dict(summary=summary, translation=translation, wireless=wireless, frame_delta=frame_delta, capture_complete=stage == 5,
                 widi_go=[bool(sample['win'] & 16) for sample in wireless],
                 win_clock_gated=[bool(sample['req'] & sample['ack'] & 32) for sample in wireless],

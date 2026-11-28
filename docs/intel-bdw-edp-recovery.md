@@ -700,6 +700,25 @@ translation invalidation and exact rollback under the same owner. The
 current post-reset trial still refuses occupied entries. [Air result](machines/macbookair7-2-current.md#current-air72-work-on-pr-301)
 · [i915 GGTT reservation and initialization](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c#L785-L849)
 
+The occupied driver-range transaction uses an exact loan at slot 16385.
+The checked original word must encode the pinned first framebuffer page.
+The boot provider identifies the current driver, CPU root and reset epoch,
+then keeps firmware, the display proxy and the engine ports excluded. The
+original Pipe A plane stays active. The transaction watches all five
+engine acknowledgements and the fresh L3 transition under one traffic
+ticket before calling the writer. Both translation invalidations and
+aperture reads run under that same hold. A clean return restores the
+exact inherited word and its original aperture contents, returns the
+loan and keeps the parent reservation. An uncertain write or retirement
+retains the backing and exclusion for recovery.
+[Boot drain and bind](../kernel/diagnostics/intel_bdw_boot_drain.c)
+
+The Air hardware checkpoint brackets the two read-only PTE samples with
+powered GAM, engine, WiDi and L3 observations before bus mastering reopens.
+The packet records raw acknowledgement bits. A live request ticket is
+required to establish freshness, and the current hardware checkpoint
+still has no provider for that request. It writes no GPU page-table entries.
+
 ### Full takeover with a boot blank
 
 The Air's PCI-hold diagnostic now scans the 56,832 CPU-visible GGTT entries

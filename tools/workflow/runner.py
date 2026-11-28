@@ -753,6 +753,10 @@ class Runner:
                 raise ValueError('Missing command-page reset handoff receipt')
             if 'slot_reopened_version' in manifest and native.get('range',{}).get('reopened_pte',{}).get('v') != manifest['slot_reopened_version']:
                 raise ValueError('Missing requester queue handoff receipt')
+            if 'driver_range_version' in manifest:
+                driver_range = native.get('flush', {}).get('boot_page_preflight', {}).get('driver_range', {})
+                if native.get('diagnostic_complete') and driver_range.get('summary', {}).get('v') != manifest['driver_range_version']:
+                    raise ValueError('Missing driver range traffic receipt')
             if 'owned_page_slot' in manifest and native.get('owned_page',{}).get('slot') != manifest['owned_page_slot']:
                 raise ValueError('Missing independent page receipt for this stage')
             if 'owned_page_version' in manifest and native.get('owned_page',{}).get('v') != manifest['owned_page_version']:
@@ -1018,6 +1022,8 @@ class Runner:
                 record['stop_messages']=observed['stop_messages']
             if 'media_outstanding' in observed:
                 record['media_outstanding_samples']=observed['media_outstanding']
+            if 'boot_page_preflight' in observed:
+                record['boot_page_preflight'] = observed['boot_page_preflight']
         if native.get('diagnostic_arena'):
             c=native['arena']['summary']
             record['cpu_arena_us']=dict(prepare=c['storage_end']-c['storage_begin'],held=c['end']-c['begin'],cleanup=c['close_end']-c['close_begin'])
