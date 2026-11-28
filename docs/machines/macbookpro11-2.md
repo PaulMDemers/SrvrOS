@@ -860,6 +860,19 @@ installed with verified Ubuntu default and recovery `74da74e0b57afbb8`.
 The unarmed run and automatic workspace and EFI evidence contract are
 under `build/bringup/pro112-rtl8822bu-rx-mac/`.
 
+Cold session `session-00066153b8b9c5df-00` verified all four MAC
+selector readbacks and restored the original value at both ends of the
+384 ms channel 10 window. The PHY counted 11 good CCK frames. MAC good
+and FCS-error counters for CCK and OFDM stayed at zero. RX DMA snapshots
+were static and no bulk-IN request completed. This points upstream of
+USB delivery, but a working receive-path reference for the MAC counters
+is still needed before assigning the loss to a particular MAC gate.
+MAC transmit stayed disabled and all four 32 KiB requests remained
+queued until verified retirement. All three hub devices were present.
+The exit snapshot matched the independent EFI journal, all seven
+checkpoints verified, and all 710 prior workspace files were preserved.
+The result and boot payload are archived as `evidence-4b5c976f8122b59b`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
