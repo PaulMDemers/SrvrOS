@@ -191,6 +191,21 @@ static bool hsw_access_entries(uint32_t pte) {
     return true;
 }
 
+static const struct pci_device *hsw_display_hda(void) {
+    const struct pci_device *hda = NULL;
+#ifdef SRVROS_PLATFORM_HOST_TEST
+    extern const struct pci_device *platform_test_candidate_hda(void);
+    hda = platform_test_candidate_hda();
+#else
+    for (uint64_t i = 0; i < pci_device_count(); i++) {
+        const struct pci_device *p = pci_device_at(i);
+        if (!p->bus && p->device == 3 && !p->function) hda = p;
+    }
+#endif
+    return hda && pci_read_config32(hda, 8) >> 8 == 0x040300 &&
+           pci_read_config32(hda, 0x2c) == 0x011a106b ? hda : NULL;
+}
+
 static bool hsw_candidate_sample(uint32_t *row) {
     if (!hsw_config_valid()) return false;
     uint32_t wells[4];
@@ -206,18 +221,8 @@ static bool hsw_candidate_sample(uint32_t *row) {
         !hsw_candidate_pci(gpu, 0x0a268086, &row[HC_IGD_CMD], af ? &af[0] : NULL) ||
         (row[HC_IGD_PM] & 3) || !(row[HC_IGD_CMD] & 2)) return false;
 
-    const struct pci_device *hda = NULL;
-#ifdef SRVROS_PLATFORM_HOST_TEST
-    extern const struct pci_device *platform_test_candidate_hda(void);
-    hda = platform_test_candidate_hda();
-#else
-    for (uint64_t i = 0; i < pci_device_count(); i++) {
-        const struct pci_device *p = pci_device_at(i);
-        if (!p->bus && p->device == 3 && !p->function) hda = p;
-    }
-#endif
-    if (!hda || pci_read_config32(hda, 8) >> 8 != 0x040300 ||
-        pci_read_config32(hda, 0x2c) != 0x011a106b ||
+    const struct pci_device *hda = hsw_display_hda();
+    if (!hda ||
         !hsw_candidate_pci(hda, 0x0a0c8086, &row[HC_HDA_CMD], af ? &af[1] : NULL)) return false;
 
     row[HC_FRAME] = resource_read(0x70040);

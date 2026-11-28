@@ -744,6 +744,41 @@ recovery and offline USB check verified after Ubuntu returned with the
 one-shot consumed. Requester hold, DMA drain and firmware exclusion
 remain unverified.
 
+#### Engine idle and requester status under forcewake
+
+The v12 Air6,1 recipe reuses the native-tested forcewake cycle. Before
+asserting the kernel bit it prepares four read-only aliases for render,
+video decode, blitter and video enhancement. Two passes sample only
+ring HEAD, TAIL, CTL, MI_MODE and ACTHD. Each pass checks ACK and GT
+thread C0 before and after its reads. The first pass and the second
+pass are separated by at least 250 µs, with both inside a 4 ms
+sampling budget and the existing 20 ms request-to-clear limit.
+[Haswell engine inventory](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/i915_pci.c#L364-L386)
+· [i915 ring-idle predicates](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_engine_cs.c#L1736-L1757)
+
+The decoder reports an engine idle at the samples when all five words
+match across the passes, masked HEAD and TAIL agree, the ring is free
+of wait flags and MI_MODE reports idle. It retains changed, running,
+and unavailable samples for diagnosis. Both passes also record PCI
+Command, PMCSR, PCIe Device Status and Advanced Features status where
+present for IGD and display HDA, plus CPU0's SMI count. Pending,
+clear, changed configuration and unavailable indications are reported
+per requester. Clear status or idle rings provide evidence at the
+sampled endpoints. A requester drain still needs proof of submission
+exclusion, completion of earlier transactions and translations, and
+firmware exclusion.
+
+The only hardware stores are the masked forcewake acquire and clear.
+On release failure all aliases remain reserved until reboot. A
+qualified receipt verifies release, retirement of all six aliases and
+Pipe A frame progress on the same inherited surface within 100 ms.
+Slots 4096 and 16385 stay protected.
+
+Stage with `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-engine-drain`.
+The unattended profile saves the result to USB and returns to Ubuntu.
+Decode the exit snapshot with `tools/hardware_haswell_forcewake.py`.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

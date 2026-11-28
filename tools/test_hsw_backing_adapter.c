@@ -256,6 +256,7 @@ static void engine_prereqs_tests(void) {
 static void forcewake_setup(void) {
  hsw_wake_ack_window=false;
  test_forcewake=false;
+ test_engine_drain=false;
  engine_prereqs_setup();
  memset(&hsw_forcewake,0,sizeof(hsw_forcewake));
  test_forcewake=true;
@@ -263,10 +264,11 @@ static void forcewake_setup(void) {
  forcewake_release_timeout=forcewake_held_drop=forcewake_unmap_fail=forcewake_clock_fault=false;
  forcewake_route_drop=false;
  forcewake_ack=forcewake_stores=0;
+ memset(&hsw_engine_drain,0,sizeof(hsw_engine_drain));
 }
 
 static void forcewake_cleanup_checked(const char *reason) {
- assert(!hsw_forcewake_run());
+ assert(!hsw_forcewake_run(false));
  assert(!strcmp(hsw_forcewake.failure,reason));
  assert(hsw_forcewake.stores==2 && forcewake_stores==2 && hsw_forcewake.released);
  assert(hsw_forcewake.retired==2 && !forcewake_mapped && !hsw_window_live && !candidate_ptes);
@@ -286,13 +288,13 @@ static void forcewake_tests(void) {
  hsw_candidate_window=0;
  hsw_forcewake_backing=false;
  forcewake_setup();forcewake_inactive_model=true;
- assert(!hsw_forcewake_run() && !hsw_forcewake.maps && !forcewake_stores && !wake_ack_reads);
+ assert(!hsw_forcewake_run(false) && !hsw_forcewake.maps && !forcewake_stores && !wake_ack_reads);
  forcewake_setup();pci_config[0x44/4]=3;
- assert(!hsw_forcewake_run() && !forcewake_stores && !wake_ack_reads && !hsw_forcewake.maps);
+ assert(!hsw_forcewake_run(false) && !forcewake_stores && !wake_ack_reads && !hsw_forcewake.maps);
  forcewake_setup();forcewake_ack=1;
- assert(!hsw_forcewake_run() && !forcewake_stores && wake_ack_reads==1 && hsw_forcewake.retired==2);
+ assert(!hsw_forcewake_run(false) && !forcewake_stores && wake_ack_reads==1 && hsw_forcewake.retired==2);
  forcewake_setup();forcewake_ack=2;
- assert(!hsw_forcewake_run() && !forcewake_stores && hsw_forcewake.retired==2);
+ assert(!hsw_forcewake_run(false) && !forcewake_stores && hsw_forcewake.retired==2);
  forcewake_setup();forcewake_acquire_timeout=true;
  forcewake_cleanup_checked("acquire-ack");
  assert(!thread_status_reads && wake_ack_reads<=HSW_WAKE_ACK_US+3);
@@ -310,24 +312,68 @@ static void forcewake_tests(void) {
  forcewake_cleanup_checked("display");
  assert(hsw_survey.status==HSW_SURVEY_DEADLINE);
  forcewake_setup();forcewake_release_timeout=true;
- assert(!hsw_forcewake_run() && hsw_survey.status==HSW_SURVEY_RETAINED &&
+ assert(!hsw_forcewake_run(false) && hsw_survey.status==HSW_SURVEY_RETAINED &&
         forcewake_stores==2 && !hsw_forcewake.retired && !hsw_forcewake.released &&
         forcewake_mapped && hsw_window_live);
  forcewake_setup();forcewake_clock_fault=true;
- assert(!hsw_forcewake_run() && hsw_survey.status==HSW_SURVEY_RETAINED &&
+ assert(!hsw_forcewake_run(false) && hsw_survey.status==HSW_SURVEY_RETAINED &&
         forcewake_stores==2 && !forcewake_ack && !hsw_forcewake.released && !hsw_forcewake.retired);
  forcewake_setup();forcewake_unmap_fail=true;
- assert(!hsw_forcewake_run() && hsw_survey.status==HSW_SURVEY_RETAINED &&
+ assert(!hsw_forcewake_run(false) && hsw_survey.status==HSW_SURVEY_RETAINED &&
         forcewake_stores==2 && hsw_forcewake.released && hsw_forcewake.retired==1 &&
         forcewake_mapped && !hsw_window_live);
 }
 
+static void drain_setup(void) {
+ forcewake_setup();
+ test_engine_drain=true;
+ pci_config[0x68/4]=0;
+ drain_late=drain_drop_ack=drain_unmap_fail=false;
+ drain_reads=drain_map_fail=drain_mapped=0;
+}
+
+static void drain_tests(void) {
+ drain_setup();forcewake_inactive_model=true;
+ assert(!hsw_forcewake_run(true) && !forcewake_stores && !drain_mapped && !drain_reads);
+ drain_setup();drain_map_fail=3;
+ assert(!hsw_forcewake_run(true) && !forcewake_stores && !drain_reads && !drain_mapped);
+ assert(hsw_engine_drain.maps==2 && hsw_engine_drain.retired==2 && hsw_survey.status==HSW_SURVEY_RETAINED);
+ drain_setup();forcewake_c0_timeout=true;
+ assert(!hsw_forcewake_run(true) && forcewake_stores==2 && !drain_reads && !drain_mapped);
+ drain_setup();drain_late=true;
+ assert(!hsw_forcewake_run(true) && forcewake_stores==2 && drain_reads==1 && !drain_mapped);
+ assert(hsw_forcewake.released && hsw_engine_drain.retired==4 && !hsw_engine_drain.samples);
+ drain_setup();drain_drop_ack=true;
+ assert(!hsw_forcewake_run(true) && forcewake_stores==2 && drain_reads==20 && !drain_mapped);
+ assert(hsw_forcewake.released && hsw_engine_drain.retired==4 && !hsw_engine_drain.samples);
+ drain_setup();forcewake_release_timeout=true;
+ assert(!hsw_forcewake_run(true) && forcewake_stores==2 && drain_reads==40 && drain_mapped==15);
+ assert(hsw_survey.status==HSW_SURVEY_RETAINED && !hsw_forcewake.released && !hsw_engine_drain.retired);
+ drain_setup();drain_unmap_fail=true;
+ assert(!hsw_forcewake_run(true) && forcewake_stores==2 && drain_reads==40 && drain_mapped==2);
+ assert(hsw_survey.status==HSW_SURVEY_RETAINED && hsw_forcewake.released && hsw_engine_drain.retired==3);
+}
+
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"engine-drain")) {
+  drain_tests();
+  drain_setup();
+  assert(hsw_forcewake_run(true) && drain_reads==40 && hsw_engine_drain.samples==2);
+  assert(forcewake_stores==2 && hsw_forcewake.released && !drain_mapped && hsw_engine_drain.retired==4);
+  assert(candidate_frames==2 && !candidate_ptes);
+  hsw_emit=1;hsw_report();hsw_forcewake_report();hsw_drain_report();
+  puts("laptop-capture: boot options=srvros.storage=ram srvros.workspace-volume=6ada85bb "
+       "srvros.desktop-release=1234567890abcdef srvros.capture=haswell-backing "
+       "srvros.hsw-cpu-control=read-only srvros.hsw-fences=linux-model-32 "
+       "srvros.hsw-forcewake=engine-drain srvros.capture-failure=reboot");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"forcewake")) {
   forcewake_tests();
   forcewake_setup();
-  assert(hsw_forcewake_run() && forcewake_stores==2 && wake_ack_reads==4 && thread_status_reads==1);
+  assert(hsw_forcewake_run(false) && forcewake_stores==2 && wake_ack_reads==4 && thread_status_reads==1);
   assert(hsw_forcewake.maps==2 && hsw_forcewake.retired==2 && hsw_forcewake.released &&
          candidate_frames==2 && !hsw_window_live && !forcewake_mapped && !candidate_ptes);
   hsw_emit=1;hsw_report();hsw_forcewake_report();

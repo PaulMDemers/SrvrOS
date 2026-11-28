@@ -199,9 +199,12 @@ static bool hsw_range_run(enum hsw_range_trial range, bool backing_captured) {
   hsw_engine_prereqs_report();
   return observed;
  }
- case HSW_RANGE_FORCEWAKE: {
-  bool verified=backing_captured && hsw_forcewake_run();
+ case HSW_RANGE_FORCEWAKE:
+ case HSW_RANGE_ENGINE_DRAIN: {
+  bool sample_engines=range==HSW_RANGE_ENGINE_DRAIN;
+  bool verified=backing_captured && hsw_forcewake_run(sample_engines);
   hsw_forcewake_report();
+  if(sample_engines)hsw_drain_report();
   return verified;
  }
  case HSW_RANGE_NONE:
@@ -220,7 +223,7 @@ static void hsw_backing_refusal(bool candidate_slot, bool access, bool boot_slot
 static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access,
                             bool boot_slot,enum hsw_range_trial range) {
  hsw_cpu_control=cpu_control;hsw_linux_fences=linux_fences;
- hsw_forcewake_backing=range==HSW_RANGE_FORCEWAKE;
+ hsw_forcewake_backing=range==HSW_RANGE_FORCEWAKE || range==HSW_RANGE_ENGINE_DRAIN;
  hsw_result=(struct hwb_result){.status=2,.version=linux_fences?3:cpu_control?2:1,.fences=linux_fences?32:HWB_FENCES};
  console_write("hsw-backing-progress: exact Air6,1 read-only identity/config preflight\n");
  const struct pci_device *candidate=NULL;

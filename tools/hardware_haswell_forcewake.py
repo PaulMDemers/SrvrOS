@@ -6,10 +6,11 @@ from pathlib import Path
 import re
 
 from hardware_haswell_backing import inherited_pipe_a_backing
+from hardware_haswell_engine_drain import ENGINE_DRAIN_TOKEN, engine_drain_result
 from hardware_haswell_survey import MASK32, MASK64, _record
 
 TOKEN = "srvros.hsw-forcewake=acquire-release"
-REQUIRED = {TOKEN, "srvros.storage=ram", "srvros.capture=haswell-backing",
+REQUIRED = {"srvros.storage=ram", "srvros.capture=haswell-backing",
             "srvros.hsw-cpu-control=read-only", "srvros.hsw-fences=linux-model-32",
             "srvros.capture-failure=reboot"}
 FAILURES = {"map", "preflight", "baseline-ack", "request", "acquire-ack", "thread-c0",
@@ -21,21 +22,25 @@ def _result(text):
     lines = text.splitlines()
     options = [line.partition("boot options=")[2].split() for line in lines
                if line.startswith("laptop-capture: boot options=")]
+    if not options:
+        raise ValueError("missing forcewake profile")
+    with_engines = ENGINE_DRAIN_TOKEN in options[0]
+    required = REQUIRED | {ENGINE_DRAIN_TOKEN if with_engines else TOKEN}
     for row in options:
-        identity = set(row) - REQUIRED
-        if (len(row) != 8 or not REQUIRED.issubset(row)
+        identity = set(row) - required
+        if (len(row) != 8 or not required.issubset(row)
                 or sum(bool(re.fullmatch(r"srvros.workspace-volume=[0-9a-f]{8}", t)) for t in identity) != 1
                 or sum(bool(re.fullmatch(r"srvros.desktop-release=[0-9a-f]{16}", t)) for t in identity) != 1):
             raise ValueError("isolated forcewake profile")
-    if not options:
-        raise ValueError("missing forcewake profile")
     summary, = [line for line in lines if line.startswith("hsw-forcewake:")]
     state, reason, *counts = _record(summary,
         r"hsw-forcewake: v=1 status=([0-5]) reason=([a-z-]+) maps=([0-2]) retired=([0-2]) "
-        r"stores=([0-2]) released=([01]) frames=(\d+),(\d+) ring_reads=0 protected_reads=0 "
+        r"stores=([0-2]) released=([01]) frames=(\d+),(\d+) ring_reads=(\d+) protected_reads=0 "
         r"requester_hold=unverified")
     state = int(state)
-    maps, retired, stores, released, first, last = map(int, counts)
+    maps, retired, stores, released, first, last, ring_reads = map(int, counts)
+    if not with_engines and (ring_reads or any(line.startswith("hsw-engine-drain") for line in lines)):
+        raise ValueError("wake-only profile issued ring reads")
     proof, = [line for line in lines if line.startswith("hsw-forcewake-proof:")]
     begin, request, ack, c0, clear, release, end, baseline, acquired, thread, held, final = map(int,
         _record(proof, r"hsw-forcewake-proof: begin=(\d+) request=(\d+) ack=(\d+) c0=(\d+) "
@@ -51,7 +56,9 @@ def _result(text):
                   stores=stores, released=bool(released), frames=[first, last],
                   clock_us=dict(begin=begin, request=request, ack=ack, c0=c0, clear=clear, release=release, end=end),
                   raw=dict(baseline=baseline, acquired=acquired, thread=thread, held=held, final=final),
-                  ring_reads=0, protected_reads=0, requester_hold="unverified")
+                  ring_reads=ring_reads, protected_reads=0, requester_hold="unverified")
+    if with_engines:
+        result["engine_drain"] = engine_drain_result(lines, result)
     complete = lines.count("laptop-capture: completed=yes")
     if complete and "laptop-capture: completed=NO" in lines:
         raise ValueError("conflicting completion markers")
@@ -61,7 +68,8 @@ def _result(text):
             raise ValueError("unavailable forcewake issued operations")
         return result
     if state != 1:
-        if reason not in FAILURES or complete or (state != 5 and (retired != maps or (stores and not released))):
+        reasons = FAILURES | {"engine-drain-map", "engine-drain-sample"} if with_engines else FAILURES
+        if reason not in reasons or complete or (state != 5 and (retired != maps or (stores and not released))):
             raise ValueError("failed forcewake cleanup")
         if reason == "release-unverified" and (state != 5 or retired or released or not stores):
             raise ValueError("unverified release altered mapping state")

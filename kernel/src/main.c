@@ -1545,7 +1545,8 @@ void kmain(void) {
     bool hsw_sweep = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-sweep=read-only");
     bool hsw_ownership = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-ownership=read-only");
     bool hsw_engine_prereqs = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-engine-prereqs=read-only");
-    bool hsw_forcewake_requested = cmdline_has_token(cmdline,"srvros.hsw-forcewake=acquire-release");
+    bool hsw_engine_drain = cmdline_has_token(cmdline,"srvros.hsw-forcewake=engine-drain");
+    bool hsw_forcewake_requested = hsw_engine_drain || cmdline_has_token(cmdline,"srvros.hsw-forcewake=acquire-release");
     bool hsw_forcewake = hsw_forcewake_requested && hsw_isolated && hsw_forcewake_identity(cmdline);
     bool hsw_preinit = hsw_candidate || hsw_survey || hsw_sweep || hsw_ownership ||
                        hsw_engine_prereqs || hsw_forcewake_requested;
@@ -1920,7 +1921,7 @@ void kmain(void) {
         }
         if(automatic_hsw && started && (init_ready || hsw_preinit) && timer_running) {
 #ifdef SRVROS_AP_PROBE
-            enum hsw_range_trial range=hsw_forcewake ? HSW_RANGE_FORCEWAKE :
+            enum hsw_range_trial range=hsw_forcewake ? (hsw_engine_drain ? HSW_RANGE_ENGINE_DRAIN : HSW_RANGE_FORCEWAKE) :
                                        hsw_engine_prereqs ? HSW_RANGE_ENGINE_PREREQS :
                                        hsw_ownership ? HSW_RANGE_OWNERSHIP : hsw_sweep ? HSW_RANGE_SWEEP :
                                        hsw_survey ? HSW_RANGE_SURVEY : HSW_RANGE_NONE;

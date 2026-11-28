@@ -86,7 +86,9 @@ static bool hsw_forcewake_wait_c0(void) {
     return false;
 }
 
-static bool hsw_forcewake_acquire(void) {
+#include "haswell_engine_drain.inc"
+
+static bool hsw_forcewake_acquire(bool sample_engines) {
     uint32_t pci[4];
     hsw_forcewake.failure = "preflight";
     if (!hsw_candidate_pci(gpu, 0x0a268086, pci, NULL) ||
@@ -106,6 +108,10 @@ static bool hsw_forcewake_acquire(void) {
                                &hsw_forcewake.ack, &hsw_forcewake.ack_us)) return false;
     hsw_forcewake.failure = "thread-c0";
     if (!hsw_forcewake_wait_c0()) return false;
+    if (sample_engines) {
+        hsw_forcewake.failure = "engine-drain-sample";
+        if (!hsw_drain_run()) return false;
+    }
     hsw_forcewake.failure = "held-display";
     if (!hsw_survey_display()) return false;
     hsw_forcewake.failure = "held-ack";
@@ -143,7 +149,7 @@ static bool hsw_forcewake_retire(void) {
     return !hsw_forcewake.request_poison && !hsw_window_poison;
 }
 
-static bool hsw_forcewake_run(void) {
+static bool hsw_forcewake_run(bool sample_engines) {
     uint32_t ignored;
     if (!display_profile_is_air61() ||
         !intel_hsw_ggtt_candidate(&hsw_result, HSW_OWNERSHIP_FIRST * 4096u, &ignored))
@@ -155,13 +161,19 @@ static bool hsw_forcewake_run(void) {
     hsw_wake_ack_window = true;
     bool ack_mapped = hsw_survey.begin && hsw_map(NULL, HSW_WAKE_ACK_PAGE);
     if (ack_mapped) hsw_forcewake.maps++;
-    bool acquired = ack_mapped && hsw_forcewake_map_request() && hsw_forcewake_acquire();
+    bool prepared = ack_mapped && hsw_forcewake_map_request();
+    if (prepared && sample_engines) {
+        hsw_forcewake.failure = "engine-drain-map";
+        prepared = hsw_drain_prepare();
+    }
+    bool acquired = prepared && hsw_forcewake_acquire(sample_engines);
     if (hsw_forcewake.stores && !hsw_forcewake_release()) {
         hsw_forcewake.failure = "release-unverified";
         hsw_survey.status = HSW_SURVEY_RETAINED;
         return false;
     }
-    if (!hsw_forcewake_retire()) {
+    bool engines_retired = !sample_engines || hsw_drain_retire();
+    if (!hsw_forcewake_retire() || !engines_retired) {
         hsw_forcewake.failure = "alias-retirement";
         hsw_survey.status = HSW_SURVEY_RETAINED;
         return false;
@@ -193,11 +205,11 @@ static bool hsw_forcewake_run(void) {
 }
 
 static void hsw_forcewake_report(void) {
-    console_printf("hsw-forcewake: v=1 status=%u reason=%s maps=%u retired=%u stores=%u released=%u frames=%u,%u ring_reads=0 protected_reads=0 requester_hold=unverified\n",
+    console_printf("hsw-forcewake: v=1 status=%u reason=%s maps=%u retired=%u stores=%u released=%u frames=%u,%u ring_reads=%u protected_reads=0 requester_hold=unverified\n",
                    (uint64_t)hsw_survey.status, hsw_forcewake.failure ? hsw_forcewake.failure : "none",
                    (uint64_t)hsw_forcewake.maps, (uint64_t)hsw_forcewake.retired,
                    (uint64_t)hsw_forcewake.stores, (uint64_t)hsw_forcewake.released,
-                   (uint64_t)hsw_survey.frames[0], (uint64_t)hsw_survey.frames[1]);
+                   (uint64_t)hsw_survey.frames[0], (uint64_t)hsw_survey.frames[1], (uint64_t)hsw_engine_drain.reads);
     console_printf("hsw-forcewake-proof: begin=%u request=%u ack=%u c0=%u clear=%u release=%u end=%u baseline=%u acquired=%u thread=%u held=%u final=%u\n",
                    hsw_survey.begin, hsw_forcewake.request_us, hsw_forcewake.ack_us, hsw_forcewake.c0_us,
                    hsw_forcewake.clear_us, hsw_forcewake.release_us, hsw_survey.end,
