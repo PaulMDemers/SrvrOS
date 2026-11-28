@@ -976,6 +976,14 @@ on this host. The current and recovery boot entries are still
 after the EFI mount is root-only across the cold trial and return to
 Ubuntu.
 
+Ubuntu now mounts `/boot/efi` with `umask=0077` in `/etc/fstab`.
+The mount was reapplied and checked from both root and the ordinary
+desktop account before installing `6805a2ba3db92ff7`. Ubuntu remains
+the default and `74da74e0b57afbb8` remains the verified recovery entry.
+The first cold station run uses the same three hub ports and the direct
+USB workspace. Its local run record binds the exact candidate, the
+fresh internal startup journal, and the one-shot GRUB state.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
