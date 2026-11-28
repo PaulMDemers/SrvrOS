@@ -4,6 +4,14 @@ Updated: 2026-11-13. State: **Native desktop/input, bounded concurrent USB file 
 
 ## Current tear-free display scope (2026-11-27)
 
+The firmware-exclusion investigation starts at `63ee3f2d` on PR567. It adds a
+Haswell-specific EFI handle audit ahead of the existing completion-page refusal
+trial. The selected GPU's firmware protocols and driver relationships are evidence
+for a possible handoff provider. The audit will leave Pipe A and slots 4096 and
+16385 alone, and will keep the completion-page exclusion gate closed. It depends
+on the existing Haswell kernel diagnostic and compares with the separate Air7,2
+GRUB/EFI inventory in PR301 at `24346ad0`.
+
 Branch `device/macbookair6-1/tearfree` starts at main `dc4a48d3`.
 The live Ubuntu inventory reports Haswell `8086:0a26` revision 09,
 Apple subsystem `106b:011a`, and one connected 1366×768 eDP panel under
