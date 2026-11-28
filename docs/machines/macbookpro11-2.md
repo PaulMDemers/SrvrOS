@@ -831,6 +831,20 @@ workspace files matched, and Ubuntu recovery was verified. This
 accepts the TX-pause fix and early queue on this unit. Netgear receive
 delivery and discovery remain open.
 
+#### RTL8822BU PHY-to-MAC receive counters
+
+Device scope from `becfaba9`, integration fork `50f1978a`, with main
+inspected at `117a0294`. The Linux USB reference had hundreds of
+successful bulk completions while snapshots of the RX DMA status
+and packet count still read zero. Those registers alone cannot place
+the loss. Sample the RTL8822B MAC receive report next to the existing
+PHY, DMA and xHCI measurements. This affects the passive Netgear xHCI
+diagnostic and its native fixture. Preserve the existing scan setup,
+MAC TX gate, four 32 KiB requests and all three adapters on the hub.
+Validate selection, readback and restoration in the native path before
+qualifying the next cold image. Compare both saved logs on return.
+[Realtek RTL8822B MAC counter routine](https://android.googlesource.com/kernel/amlogic-tv-modules/wifi_rtl8822BS/+/6d5c40773c4be0a5166ba438382f03c159fb41b5/hal/hal_com.c#11725).
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
