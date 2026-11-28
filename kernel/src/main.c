@@ -968,7 +968,9 @@ void kmain(void) {
     const char *netgear_firmware_token="srvros.capture=wifi-rtl8822bu-firmware";
     const char *netgear_board_token="srvros.capture=wifi-rtl8822bu-board";
     const char *netgear_phy_token="srvros.capture=wifi-rtl8822bu-phy";
-    bool netgear_phy=cmdline_has_token(cmdline,netgear_phy_token);
+    const char *netgear_rx_token="srvros.capture=wifi-rtl8822bu-passive";
+    bool netgear_rx=cmdline_has_token(cmdline,netgear_rx_token);
+    bool netgear_phy=netgear_rx || cmdline_has_token(cmdline,netgear_phy_token);
     bool netgear_board=netgear_phy || cmdline_has_token(cmdline,netgear_board_token);
     bool netgear_firmware=netgear_board || cmdline_has_token(cmdline,netgear_firmware_token);
     bool netgear_capture=netgear_firmware || cmdline_has_token(cmdline,netgear_identity_token);
@@ -984,7 +986,7 @@ void kmain(void) {
     bool rtl8188cu_passive=rtl8188cu_wpa2 || cmdline_has_token(cmdline,realtek_passive_token);
     bool rtl8188cu_firmware=rtl8188cu_passive || cmdline_has_token(cmdline,realtek_firmware_token);
     bool rtl8188cu_capture=rtl8188cu_firmware || cmdline_has_token(cmdline,realtek_identity_token);
-    if(netgear_capture && !journaled_usb_radio_recipe(cmdline,netgear_phy?netgear_phy_token:netgear_board?netgear_board_token:
+    if(netgear_capture && !journaled_usb_radio_recipe(cmdline,netgear_rx?netgear_rx_token:netgear_phy?netgear_phy_token:netgear_board?netgear_board_token:
         netgear_firmware?netgear_firmware_token:netgear_identity_token))halt_forever();
     if(rtl8188cu_capture && !journaled_usb_radio_recipe(cmdline,rtl8188cu_desktop?realtek_desktop_token:rtl8188cu_ip?realtek_ip_token:rtl8188cu_wpa2?realtek_wpa_token:rtl8188cu_passive?realtek_passive_token:
         rtl8188cu_firmware?realtek_firmware_token:realtek_identity_token))halt_forever();
@@ -1183,7 +1185,8 @@ void kmain(void) {
         bool safe;
         if(netgear_phy) {
             const struct initramfs_file *profile=initramfs_find("/rtl8822bu-phy.bin");
-            netgear_sampled=xhci_rtl8822bu_capture_phy(image?image->data:NULL,image?image->size:0,
+            netgear_sampled=(netgear_rx?xhci_rtl8822bu_capture_passive:xhci_rtl8822bu_capture_phy)
+                (image?image->data:NULL,image?image->size:0,
                 profile?profile->data:NULL,profile?profile->size:0,&safe);
         } else {
             netgear_sampled=(netgear_board?xhci_rtl8822bu_capture_board:xhci_rtl8822bu_capture_firmware)
@@ -1192,7 +1195,7 @@ void kmain(void) {
         startup_checkpoint(2,0);
         if(!safe) {
             if(startup_journal_admitted)
-                console_printf("Netgear firmware stopped. EFI failure record saved=%u\n",
+                console_printf("Netgear capture stopped. EFI failure record saved=%u\n",
                     (uint64_t)startup_journal_checkpoint_held(0));
             console_write("Hold Power OFF, then Power ON for Ubuntu.\n");
             console_sync();

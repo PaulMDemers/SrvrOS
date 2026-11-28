@@ -3729,6 +3729,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     xhci.last_slot_id = slot;
     if (dispatch_strict_control(event)) return;
     struct xhci_device *device = device_by_slot(slot);
+    if(bu_rx_event(device,dci,pointer,completion,remaining,(event->control&4)!=0))return;
     if(rtl8188cu_passive_event(device,dci,pointer,completion,remaining,(event->control&4)!=0))return;
     if(rtl_cu_station_event(device,dci,pointer,completion,remaining,(event->control&4)!=0))return;
     if(wifi_stream5_event(device,event)) return;

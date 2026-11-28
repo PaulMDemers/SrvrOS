@@ -52,6 +52,11 @@ class InstallTests(unittest.TestCase):
         phy = identity.replace("-v1-", "-v4-")
         self.assertEqual(boot.limine_config(release, phy), boot.limine_config(release, identity).replace(
             "srvros.capture=wifi-rtl8822bu ", "srvros.capture=wifi-rtl8822bu-phy "))
+        passive = identity.replace("-v1-", "-v5-")
+        self.assertEqual(boot.limine_config(release, passive), boot.limine_config(release, identity).replace(
+            "srvros.capture=wifi-rtl8822bu ", "srvros.capture=wifi-rtl8822bu-passive "))
+        with self.assertRaisesRegex(ValueError, "pinned PHY profile"):
+            boot.stage(rtl8822bu_passive=True)
         with self.assertRaisesRegex(ValueError, "pinned firmware and a separate profile"):
             boot.stage(rtl8822bu_phy=Path("fixture"))
         with self.assertRaisesRegex(ValueError, "pinned firmware and a separate profile"):
