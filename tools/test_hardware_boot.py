@@ -1020,6 +1020,16 @@ class InstallTests(unittest.TestCase):
         self.assertNotEqual(repeated, release)
         self.assertEqual(boot.verify(self.stage / repeated, repeated)["config_version"],
                          boot.EHCI_LID_VERSION + "0d9b53a0-run-0123456789abcdef")
+        with self.assertRaises(ValueError):
+            boot.stage(ehci_lid_s3=True)
+        with patch.object(boot, "ROOT", self.root), patch.object(boot.subprocess, "check_output",
+                side_effect=["test-revision\n", ""]):
+            preflight = boot.stage(ehci_lid_volume="0d9b53a0", ehci_lid_s3=True)
+        self.assertNotEqual(preflight, release)
+        self.assertEqual(boot.verify(self.stage / preflight, preflight)["config_version"],
+                         boot.EHCI_LID_VERSION + "0d9b53a0-s3")
+        self.assertIn(f"srvros.ehci=s3-preflight srvros.ehci-release={preflight}",
+                      (self.stage / preflight / "limine.conf").read_text())
 
     def test_ehci_bcm4331_probe_binds_release_and_workspace(self):
         for name in ("limine-binary/BOOTX64.EFI", "kernel/srvros.elf"):

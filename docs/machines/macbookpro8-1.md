@@ -888,6 +888,17 @@ allocation check passed, and Ubuntu recovery verified. Native sleep was
 disabled during the lid trial. The Ubuntu S3 baseline provides the
 reference for separate firmware wake testing.
 
+#### Native S3 qualification
+
+Work starts on `device/macbookpro8-1/bringup` at `53ad80a1`, over the
+integration baseline `b062ba18`. It depends on the lid sampler from PR
+#570. The first checkpoint exercises firmware wake and processor return in
+an isolated Q35 guest. The MacBook's sleep controls require a verified
+platform path for its `_PSW`, `_PTS` and `_WAK` methods, including EC and
+GPE handling. The native EHCI workspace must flush and retire before
+sleep, then be rediscovered and remounted after wake before saving the
+final report. The normal desktop stays outside the test path.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

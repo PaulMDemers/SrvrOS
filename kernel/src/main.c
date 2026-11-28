@@ -1153,21 +1153,23 @@ static void ehci_ethernet_trial(const char *release, const char *volume, bool pa
     halt_forever();
 }
 
-static void ehci_lid_trial(const char *release, const char *volume) {
+static void ehci_lid_trial(const char *release, const char *volume, bool s3_preflight) {
     boot_set_framebuffer_quiet(false);
     console_clear();
-    console_printf("MacBookPro8,1 lid trial. Release %s.\n", release);
-    console_write("Keep the USB flash drive and charger attached. Start with the lid open.\n");
+    console_printf("MacBookPro8,1 %s. Release %s.\n", s3_preflight ? "S3 preflight" : "lid trial", release);
+    console_write(s3_preflight ? "Keep the USB flash drive attached. No input needed.\n" :
+        "Keep the USB flash drive and charger attached. Start with the lid open.\n");
     console_sync();
 
     xhci_init(); /* Workspace fallback for the foreign-platform VM. */
     bool mounted = ehci_desktop_workspace_start(volume);
     bool model = display_profile_is_pro81();
     uint8_t closed = 0;
-    bool sampled = mounted && model && smc_lid_probe_start() && smc_lid_probe_read(&closed);
+    bool sampled = mounted && model && !s3_preflight && smc_lid_probe_start() && smc_lid_probe_read(&closed);
     console_printf("ehci-lidstate: release=%s phase=startup workspace=%u model=%u sample=%u raw=%u\n",
         release, (uint64_t)mounted, (uint64_t)model, (uint64_t)sampled, (uint64_t)closed);
     bool startup = mounted && ehci_lid_workspace_report(release, true);
+    bool preflight = s3_preflight && startup && s3_pro81_preflight(memmap_request.response);
     unsigned transitions = 0;
     unsigned samples = 0;
     uint64_t elapsed = 0;
@@ -1201,7 +1203,7 @@ static void ehci_lid_trial(const char *release, const char *volume) {
     }
     console_printf("ehci-lidstate: samples=%u elapsed_us=%u last_raw=%u\n",
         (uint64_t)samples, elapsed, (uint64_t)closed);
-    const char *result = !model ? "REFUSED" : transitions == 4 ? "PASS" : "INCOMPLETE";
+    const char *result = !model ? "REFUSED" : preflight ? "CAPTURED" : transitions == 4 ? "PASS" : "INCOMPLETE";
     console_printf("ehci-lidstate: release=%s phase=final result=%s edges=%u sleep=0\n",
         release, result, (uint64_t)transitions);
     bool final = mounted && ehci_lid_workspace_report(release, false);
@@ -1514,7 +1516,8 @@ void kmain(void) {
     bool ehci_ethernet_probe = cmdline_has_token(cmdline, "srvros.ehci=ethernet-probe");
     bool ehci_ethernet_dhcp = cmdline_has_token(cmdline, "srvros.ehci=ethernet-dhcp");
     bool ehci_ethernet = ehci_ethernet_probe || ehci_ethernet_dhcp;
-    bool ehci_lid = cmdline_has_token(cmdline, "srvros.ehci=lid-probe");
+    bool ehci_s3_preflight = cmdline_has_token(cmdline, "srvros.ehci=s3-preflight");
+    bool ehci_lid = ehci_s3_preflight || cmdline_has_token(cmdline, "srvros.ehci=lid-probe");
     bool ehci_wifi4331_firmware = cmdline_has_token(cmdline, "srvros.ehci=wifi4331-firmware");
     bool ehci_wifi4331_channel10 = cmdline_has_token(cmdline, "srvros.ehci=wifi4331-channel10");
     bool ehci_wifi4331_station = cmdline_has_token(cmdline, "srvros.ehci=wifi4331-station");
@@ -1572,7 +1575,8 @@ void kmain(void) {
         console_write("ehci-ethernet: invalid boot profile\n");
         halt_forever();
     }
-    if (ehci_lid && (!ehci_trial_release(cmdline, trial_release, "lid-probe", ehci_log_volume) ||
+    if (ehci_lid && (!ehci_trial_release(cmdline, trial_release,
+        ehci_s3_preflight ? "s3-preflight" : "lid-probe", ehci_log_volume) ||
         !ehci_log_volume[0])) {
         console_write("ehci-lidstate: invalid boot profile\n");
         halt_forever();
@@ -1730,9 +1734,13 @@ void kmain(void) {
 #endif
     }
     pci_init();
+    if (cmdline_has_token(cmdline, "srvros.s3=q35-fixture")) {
+        if (s3_q35_fixture(memmap_request.response)) arch_reboot_unattended();
+        halt_forever();
+    }
     if (ehci_wifi4331) ehci_bcm4331_trial(trial_release, ehci_log_volume, wifi4331_mode);
     if (ehci_ethernet) ehci_ethernet_trial(trial_release, ehci_log_volume, ehci_ethernet_dhcp);
-    if (ehci_lid) ehci_lid_trial(trial_release, ehci_log_volume);
+    if (ehci_lid) ehci_lid_trial(trial_release, ehci_log_volume, ehci_s3_preflight);
     bool ssd_work = cmdline_has_token(cmdline, "srvros.capture=air61-ssd-work");
     if (ssd_work || cmdline_has_token(cmdline, "srvros.capture=air61-ssd-scratch")) {
         air61_scratch_trial(cmdline, ssd_work);

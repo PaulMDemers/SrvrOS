@@ -1353,6 +1353,15 @@ and final reports, the four ordered edges, and clean flash retirement.
 The probe records lid state while the machine remains awake. Suspend to
 RAM requires separate qualification.
 
+For the S3 prerequisites, build the current kernel and run
+`python3 tools/s3_fixture_smoke.py`. The isolated Q35 guest proves a
+firmware S3 wake into the same kernel boot. Stage the read-only MacBook
+preflight with `--ehci-s3-preflight UUID` and rehearse it with the same EHCI
+smoke test. The native preflight records the S3 tables, FACS mapping,
+available low wake page, and lid wake GPE. Collect both `ehci-lidstate-*`
+reports. `CAPTURED` verifies the observations and `sleep=0` records that
+the test ran while awake.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal
