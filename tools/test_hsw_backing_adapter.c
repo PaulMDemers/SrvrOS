@@ -478,6 +478,18 @@ static void reset_free_tests(void) {
 
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"engine-hold")) {
+  handoff_setup();hsw_emit=1;hsw_report();
+  assert(hsw_range_run(HSW_RANGE_ENGINE_HOLD,true));
+  assert(hsw_forcewake.released && forcewake_stores==2 && !candidate_ptes && candidate_frames==2);
+  assert(hsw_engine_drain.instpm_reads==8 && hsw_engine_drain.retired==4 && hsw_forcewake.retired==2);
+  puts("laptop-capture: boot options=srvros.storage=ram srvros.workspace-volume=6ada85bb "
+       "srvros.desktop-release=1234567890abcdef srvros.capture=haswell-backing "
+       "srvros.hsw-cpu-control=read-only srvros.hsw-fences=linux-model-32 "
+       "srvros.hsw-forcewake=engine-hold srvros.capture-failure=reboot");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"reset-free-audit")) {
   reset_free_tests();
   handoff_setup();hsw_reset_free_audit=true;

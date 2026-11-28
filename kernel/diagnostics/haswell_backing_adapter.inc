@@ -4,6 +4,7 @@
  * through the global mapping registry. Uncertain retirement lasts until reset. */
 #include <srvros/haswell_backing.h>
 #include <srvros/haswell_firmware.h>
+#include <srvros/intel_hsw_engine_hold.h>
 #include <srvros/intel_hsw_ggtt.h>
 #define HWB_VA 0xffffc001f3240000ull
 static const struct pci_device *hsw_host;
@@ -221,14 +222,25 @@ static bool hsw_range_run(enum hsw_range_trial range, bool backing_captured) {
  case HSW_RANGE_ENGINE_DRAIN:
  case HSW_RANGE_EXCLUSION_AUDIT:
  case HSW_RANGE_HANDOFF_AUDIT:
- case HSW_RANGE_RESET_FREE_AUDIT: {
-  hsw_reset_free_audit=range==HSW_RANGE_RESET_FREE_AUDIT;
+ case HSW_RANGE_RESET_FREE_AUDIT:
+ case HSW_RANGE_ENGINE_HOLD: {
+  hsw_reset_free_audit=range==HSW_RANGE_RESET_FREE_AUDIT || range==HSW_RANGE_ENGINE_HOLD;
   hsw_handoff_audit=hsw_reset_free_audit || range==HSW_RANGE_HANDOFF_AUDIT;
   hsw_exclusion_audit=hsw_handoff_audit || range==HSW_RANGE_EXCLUSION_AUDIT;
   bool sample_engines=range!=HSW_RANGE_FORCEWAKE;
   bool verified=backing_captured && hsw_forcewake_run(sample_engines);
   hsw_forcewake_report();
   if(sample_engines)hsw_drain_report();
+  if(range==HSW_RANGE_ENGINE_HOLD) {
+   struct hsw_engine_hold hold={0};
+   /* No native firmware exclusion and completion-destination provider. */
+   if(verified)(void)intel_hsw_engine_hold(&hold,NULL,0);
+   console_printf("hsw-engine-hold: v=1 state=%s reason=%s polls=%u attempted=%u completion_us=%u authority=none\n",
+                  hold.state==HSW_ENGINE_HOLD_REFUSED?"refused":"unavailable",
+                  hold.reason?hold.reason:"baseline", (uint64_t)hold.polls,
+                  (uint64_t)hold.attempted,hold.completed_at);
+   return verified && hold.state==HSW_ENGINE_HOLD_REFUSED && !hold.attempted;
+  }
   return verified;
  }
  case HSW_RANGE_NONE:
@@ -249,7 +261,8 @@ static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_sl
  hsw_cpu_control=cpu_control;hsw_linux_fences=linux_fences;
  hsw_forcewake_backing=range==HSW_RANGE_FORCEWAKE || range==HSW_RANGE_ENGINE_DRAIN ||
                        range==HSW_RANGE_EXCLUSION_AUDIT || range==HSW_RANGE_HANDOFF_AUDIT ||
-                       range==HSW_RANGE_REQUESTER_HOLD || range==HSW_RANGE_RESET_FREE_AUDIT;
+                       range==HSW_RANGE_REQUESTER_HOLD || range==HSW_RANGE_RESET_FREE_AUDIT ||
+                       range==HSW_RANGE_ENGINE_HOLD;
  hsw_result=(struct hwb_result){.status=2,.version=linux_fences?3:cpu_control?2:1,.fences=linux_fences?32:HWB_FENCES};
  console_write("hsw-backing-progress: exact Air6,1 read-only identity/config preflight\n");
  const struct pci_device *candidate=NULL;

@@ -46,7 +46,7 @@ bool hwb_capture(struct hwb_result *,const struct hwb_io *);
 enum hsw_range_trial {HSW_RANGE_NONE, HSW_RANGE_SURVEY, HSW_RANGE_SWEEP, HSW_RANGE_OWNERSHIP,
                       HSW_RANGE_ENGINE_PREREQS, HSW_RANGE_FORCEWAKE, HSW_RANGE_ENGINE_DRAIN,
                       HSW_RANGE_EXCLUSION_AUDIT, HSW_RANGE_HANDOFF_AUDIT, HSW_RANGE_REQUESTER_HOLD,
-                      HSW_RANGE_RESET_FREE_AUDIT};
+                      HSW_RANGE_RESET_FREE_AUDIT, HSW_RANGE_ENGINE_HOLD};
 bool platform_haswell_backing_run(bool cpu_control,bool linux_fences,bool candidate_slot,bool access,
                                  bool boot_slot,enum hsw_range_trial range);
 /* Only the isolated VT-d audit calls these. No requester mutations. */

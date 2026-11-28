@@ -1082,6 +1082,39 @@ flush, or GPU reset requests. Forcewake ACK cleared in 8 µs after release,
 and all six aliases retired. The installed image, exit snapshot, archived
 replay, recovery and offline USB check verified after Ubuntu returned.
 
+#### Reset-free blitter hold prototype
+
+The prototype exercises the blitter only. An eventual native provider must
+hold a live ticket for the exact device and boot epoch, keep the original
+Pipe A surface and status destination pinned, and exclude firmware and prior
+or competing commands and their delayed completions. A ticket must remain
+valid through the final reopen read. The verifier checks this contract at
+the operation and sample boundaries.
+
+The verifier requires an idle, open parser with fence-write bypass disabled
+and both the flush request and sync completion clear. It stops the parser
+and checks the clear baseline again with Stop Ring and Ring Idle asserted.
+It then issues one modeled sync flush. The request must clear and the
+blitter sync completion bit must become set under the same ticket. An
+uncertain operation, lost ticket, stale completion or deadline after stop
+retains ownership. A verified completion permits one reopen and a final
+read confirming Stop Ring is clear. The whole verifier uses a 4 ms and
+65,536-sample bound. It has no reset, GGTT store, or range-grant operation.
+[Haswell command stream reference, blitter Sync Status](https://cdrdv2-public.intel.com/690970/intel-gfx-prm-osrc-hsw-command-stream-programming_1.pdf#page=25)
+
+The isolated v17 native boot runs the validated v16 observations and checks
+the same verifier's admission. The current Air6,1 firmware and completion
+destination lack a verified native provider. The receipt requires refusal
+with zero stop, flush and reopen attempts and no completion claimed. The
+only hardware stores are the qualified masked forcewake acquire and clear.
+Pipe A stays on the inherited surface and slots 4096 and 16385 stay outside
+the probe. This stages native refusal while the host fixture exercises the
+modeled hold, fresh completion, and verified reopen.
+
+Stage using `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-engine-hold`. Decode the
+matching `exit.log` with `tools/hardware_haswell_forcewake.py`.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

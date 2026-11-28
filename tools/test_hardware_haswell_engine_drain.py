@@ -6,7 +6,7 @@ import hardware_boot as boot
 from hardware_haswell_engine_drain import (
     ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN,
 )
-from hardware_haswell_forcewake import forcewake_result
+from hardware_haswell_forcewake import ENGINE_HOLD_TOKEN, forcewake_result
 
 
 class HaswellEngineDrainReceipt(unittest.TestCase):
@@ -16,6 +16,7 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
         cls.audit = Path("build/tests/hsw-exclusion-audit-receipt.log").read_text()
         cls.handoff = Path("build/tests/hsw-handoff-audit-receipt.log").read_text()
         cls.reset_free = Path("build/tests/hsw-reset-free-audit-receipt.log").read_text()
+        cls.hold = Path("build/tests/hsw-engine-hold-receipt.log").read_text()
 
     def result(self, text):
         wake = forcewake_result(text)
@@ -191,6 +192,29 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
         self.assertNotIn(HANDOFF_AUDIT_TOKEN, config)
         with self.assertRaisesRegex(ValueError, "isolated automatic return"):
             boot.stage(haswell_reset_free_audit=True, haswell_handoff_audit=True, haswell_linux_fences=True)
+
+    def test_engine_hold_native_receipt_proves_refusal_only(self):
+        wake = forcewake_result(self.hold)
+        self.assertEqual(wake["status"], "VERIFIED")
+        self.assertEqual(wake["engine_hold"], dict(state="refused", reason="no-provider", polls=0,
+                                                  attempted=0, completion_us=0))
+        self.assertEqual(wake["reset_free_audit"]["instpm_reads"], 8)
+        for old, new in (("state=refused", "state=returned"), ("reason=no-provider", "reason=baseline"),
+                         ("attempted=0", "attempted=1"), ("completion_us=0", "completion_us=1"),
+                         ("hsw-engine-hold:", "missing:"), (ENGINE_HOLD_TOKEN, RESET_FREE_AUDIT_TOKEN)):
+            with self.subTest(old=old):
+                self.assertIn(old, self.hold)
+                self.assertIsNone(forcewake_result(self.hold.replace(old, new, 1)))
+
+    def test_engine_hold_recipe(self):
+        version = "ram-usb-v17-hsw-laptop-probe-6ada85bb"
+        with self.assertRaisesRegex(ValueError, "automatic return"):
+            boot.limine_config("1234567890abcdef", version)
+        config = boot.limine_config("1234567890abcdef", version + "-auto-return")
+        self.assertIn(ENGINE_HOLD_TOKEN, config)
+        self.assertNotIn(RESET_FREE_AUDIT_TOKEN, config)
+        with self.assertRaisesRegex(ValueError, "isolated automatic return"):
+            boot.stage(haswell_engine_hold=True, haswell_reset_free_audit=True, haswell_linux_fences=True)
 
 
 if __name__ == "__main__":

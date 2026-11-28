@@ -13,6 +13,7 @@ from hardware_haswell_engine_drain import (
 from hardware_haswell_survey import MASK32, MASK64, _record
 
 TOKEN = "srvros.hsw-forcewake=acquire-release"
+ENGINE_HOLD_TOKEN = "srvros.hsw-forcewake=engine-hold"
 REQUIRED = {"srvros.storage=ram", "srvros.capture=haswell-backing",
             "srvros.hsw-cpu-control=read-only", "srvros.hsw-fences=linux-model-32",
             "srvros.capture-failure=reboot"}
@@ -27,7 +28,7 @@ def _result(text):
                if line.startswith("laptop-capture: boot options=")]
     if not options:
         raise ValueError("missing forcewake profile")
-    modes = (RESET_FREE_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, EXCLUSION_AUDIT_TOKEN, ENGINE_DRAIN_TOKEN)
+    modes = (ENGINE_HOLD_TOKEN, RESET_FREE_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, EXCLUSION_AUDIT_TOKEN, ENGINE_DRAIN_TOKEN)
     mode = next((token for token in modes if token in options[0]), TOKEN)
     with_engines = mode != TOKEN
     required = REQUIRED | {mode}
@@ -64,18 +65,31 @@ def _result(text):
                   ring_reads=ring_reads, protected_reads=0, requester_hold="unverified")
     if with_engines:
         result["engine_drain"] = engine_drain_result(lines, result)
-    if mode in (EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN):
+    if mode in (EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN, ENGINE_HOLD_TOKEN):
         result["exclusion_audit"] = exclusion_audit_result(lines, result["engine_drain"])
     elif any(line.startswith("hsw-exclusion-") for line in lines):
         raise ValueError("unexpected exclusion observation")
-    if mode in (HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN):
+    if mode in (HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN, ENGINE_HOLD_TOKEN):
         result["handoff_audit"] = handoff_audit_result(lines, result["engine_drain"])
     elif any(line.startswith("hsw-handoff-") for line in lines):
         raise ValueError("unexpected handoff observation")
-    if mode == RESET_FREE_AUDIT_TOKEN:
+    if mode in (RESET_FREE_AUDIT_TOKEN, ENGINE_HOLD_TOKEN):
         result["reset_free_audit"] = reset_free_audit_result(lines, result["engine_drain"])
     elif any(line.startswith("hsw-reset-free-") for line in lines):
         raise ValueError("unexpected reset-free observation")
+    hold_rows = [line for line in lines if line.startswith("hsw-engine-hold:")]
+    if mode == ENGINE_HOLD_TOKEN:
+        (hold_row,) = hold_rows
+        hold_state, hold_reason = _record(hold_row,
+            r"hsw-engine-hold: v=1 state=(refused|unavailable) reason=(no-provider|baseline) "
+            r"polls=0 attempted=0 completion_us=0 authority=none")
+        expected = ("refused", "no-provider") if state == 1 else ("unavailable", "baseline")
+        if (hold_state, hold_reason) != expected:
+            raise ValueError("unbound Haswell hold refusal")
+        result["engine_hold"] = dict(state=hold_state, reason=hold_reason, polls=0,
+                                     attempted=0, completion_us=0)
+    elif hold_rows:
+        raise ValueError("unexpected Haswell hold receipt")
     complete = lines.count("laptop-capture: completed=yes")
     if complete and "laptop-capture: completed=NO" in lines:
         raise ValueError("conflicting completion markers")

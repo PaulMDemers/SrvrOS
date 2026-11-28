@@ -308,7 +308,7 @@ def main():
         assert not any(t in config for t in ("srvros.wifi-join5=1","srvros.wifi-eapol5=1","srvros.wifi-wpa5=1","srvros.wifi-data5=1","srvros.wifi-provider5=1","srvros.wifi-reuse5=1"))
 
     hfw_capture=bool(probe and manifest["config_version"].startswith(HFW_PROFILES))
-    hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-","ram-usb-v4-hsw-","ram-usb-v5-hsw-","ram-usb-v6-hsw-","ram-usb-v7-hsw-","ram-usb-v8-hsw-","ram-usb-v9-hsw-","ram-usb-v10-hsw-","ram-usb-v11-hsw-","ram-usb-v12-hsw-","ram-usb-v13-hsw-","ram-usb-v14-hsw-","ram-usb-v15-hsw-","ram-usb-v16-hsw-")))
+    hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-","ram-usb-v4-hsw-","ram-usb-v5-hsw-","ram-usb-v6-hsw-","ram-usb-v7-hsw-","ram-usb-v8-hsw-","ram-usb-v9-hsw-","ram-usb-v10-hsw-","ram-usb-v11-hsw-","ram-usb-v12-hsw-","ram-usb-v13-hsw-","ram-usb-v14-hsw-","ram-usb-v15-hsw-","ram-usb-v16-hsw-","ram-usb-v17-hsw-")))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     if args.ap_c3_sim and not coord_capture: parser.error("C3 simulation requires coordinated diagnostic stage")
@@ -546,8 +546,10 @@ def main():
                         assert "laptop-capture: saved=NO unmounted=NO" in text
                         if manifest['config_version'].startswith('ram-usb-v15-hsw-'):
                             assert 'hsw-ownership-progress:' not in text and 'hsw-requester-hold:' not in text
-                        if manifest['config_version'].startswith('ram-usb-v16-hsw-'):
+                        if manifest['config_version'].startswith(('ram-usb-v16-hsw-', 'ram-usb-v17-hsw-')):
                             assert 'hsw-forcewake-progress:' not in text and 'hsw-reset-free-audit:' not in text
+                        if manifest['config_version'].startswith('ram-usb-v17-hsw-'):
+                            assert 'hsw-engine-hold:' not in text
                         if wifi_firmware and not auto_return:
                             assert "wifi-held: logging=0" in text
                             assert "Hold the power button until off" in text
@@ -736,7 +738,7 @@ def main():
                         result=backing_result(exit_log)
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         if manifest['config_version'].startswith('ram-usb-v2-hsw-'):assert result['source_version']==2
-                        if manifest['config_version'].startswith(('ram-usb-v3-hsw-', 'ram-usb-v4-hsw-', 'ram-usb-v5-hsw-', 'ram-usb-v6-hsw-', 'ram-usb-v7-hsw-', 'ram-usb-v8-hsw-', 'ram-usb-v9-hsw-', 'ram-usb-v10-hsw-', 'ram-usb-v11-hsw-', 'ram-usb-v12-hsw-', 'ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v15-hsw-', 'ram-usb-v16-hsw-')):
+                        if manifest['config_version'].startswith(('ram-usb-v3-hsw-', 'ram-usb-v4-hsw-', 'ram-usb-v5-hsw-', 'ram-usb-v6-hsw-', 'ram-usb-v7-hsw-', 'ram-usb-v8-hsw-', 'ram-usb-v9-hsw-', 'ram-usb-v10-hsw-', 'ram-usb-v11-hsw-', 'ram-usb-v12-hsw-', 'ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v15-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-')):
                             assert result['source_version']==3
                         if manifest['config_version'].startswith(('ram-usb-v4-hsw-', 'ram-usb-v5-hsw-', 'ram-usb-v6-hsw-')):
                             from hardware_haswell_candidate import candidate_result
@@ -775,27 +777,31 @@ def main():
                             assert prereqs and prereqs['status']=='UNAVAILABLE'
                             assert not prereqs['rows'] and not prereqs['maps']
                             assert 'hsw-engine-prereqs-progress:' not in text and 'init: started' not in text
-                        if manifest['config_version'].startswith(('ram-usb-v11-hsw-', 'ram-usb-v12-hsw-', 'ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v16-hsw-')):
+                        if manifest['config_version'].startswith(('ram-usb-v11-hsw-', 'ram-usb-v12-hsw-', 'ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-')):
                             from hardware_haswell_forcewake import forcewake_result
                             wake = forcewake_result(exit_log)
                             assert wake and wake['status'] == 'UNAVAILABLE'
                             assert not wake['maps'] and not wake['stores']
-                            if manifest['config_version'].startswith(('ram-usb-v12-hsw-', 'ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v16-hsw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v12-hsw-', 'ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-')):
                                 drain = wake['engine_drain']
                                 assert not drain['samples'] and not drain['maps'] and not drain['reads']
                                 if 'timing' in drain:
                                     assert not drain['timing']['entered'] and drain['timing']['stop'] == 'none'
-                            if manifest['config_version'].startswith(('ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v16-hsw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v13-hsw-', 'ram-usb-v14-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-')):
                                 assert 'timing' in drain
                                 audit = wake['exclusion_audit']
                                 assert not audit['samples'] and audit['pch_smi_route'] == 'unavailable'
-                            if manifest['config_version'].startswith(('ram-usb-v14-hsw-', 'ram-usb-v16-hsw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v14-hsw-', 'ram-usb-v16-hsw-', 'ram-usb-v17-hsw-')):
                                 handoff = wake['handoff_audit']
                                 assert not handoff['samples'] and handoff['firmware_handoff'] == 'unavailable'
-                            if manifest['config_version'].startswith('ram-usb-v16-hsw-'):
+                            if manifest['config_version'].startswith(('ram-usb-v16-hsw-', 'ram-usb-v17-hsw-')):
                                 reset_free = wake['reset_free_audit']
                                 assert not reset_free['samples'] and not reset_free['instpm_reads']
                                 assert not reset_free['ring_stop_stores'] and not reset_free['flush_stores'] and not reset_free['reset_stores']
+                            if manifest['config_version'].startswith('ram-usb-v17-hsw-'):
+                                hold = wake['engine_hold']
+                                assert hold['state'] == 'unavailable' and hold['reason'] == 'baseline'
+                                assert not hold['attempted'] and not hold['completion_us']
                             assert 'hsw-forcewake-progress:' not in text and 'init: started' not in text
                         assert 'hsw-backing-progress: exact Air6,1' in exit_log
                         assert 'laptop-capture: completed=NO' in exit_log

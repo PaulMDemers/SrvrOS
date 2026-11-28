@@ -4773,7 +4773,7 @@ build/tests/wifi-syscall-host$(HOST_EXE): tools/test_wifi_syscall.c kernel/src/a
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
-AP_PROBE_OBJ := build/ap-probe/intel-hsw-ggtt.o build/ap-probe/window-gate.o build/ap-probe/window-report.o build/ap-probe/ecam-report.o build/ap-probe/ecam-pci.o build/ap-probe/ecam-vmm.o build/ap-probe/ecam-gate.o build/ap-probe/haswell-alias-core.o build/ap-probe/haswell-cache-walk.o build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_OBJ := build/ap-probe/intel-hsw-engine-hold.o build/ap-probe/intel-hsw-ggtt.o build/ap-probe/window-gate.o build/ap-probe/window-report.o build/ap-probe/ecam-report.o build/ap-probe/ecam-pci.o build/ap-probe/ecam-vmm.o build/ap-probe/ecam-gate.o build/ap-probe/haswell-alias-core.o build/ap-probe/haswell-cache-walk.o build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
 AP_PROBE_BASE := $(filter-out build/kernel/src/arch/x86_64/pci.c.o build/kernel/src/memory/vmm.c.o build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
@@ -5445,7 +5445,8 @@ build/tests/guest-profile-host$(HOST_EXE): $(USER_PROFILE_C) userspace/lib/inclu
 
 .PHONY: test-haswell-backing
 test-core: test-haswell-backing
-test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing-adapter$(HOST_EXE)
+test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing-adapter$(HOST_EXE) build/tests/hsw-engine-hold$(HOST_EXE)
+	build/tests/hsw-engine-hold$(HOST_EXE)
 	build/tests/hsw-backing$(HOST_EXE)
 	build/tests/hsw-backing-adapter$(HOST_EXE) > build/tests/hsw-backing-producer.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) tilectl > build/tests/hsw-backing-producer-v2.log
@@ -5466,6 +5467,7 @@ test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing
 	build/tests/hsw-backing-adapter$(HOST_EXE) exclusion-audit > build/tests/hsw-exclusion-audit-receipt.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) handoff-audit > build/tests/hsw-handoff-audit-receipt.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) reset-free-audit > build/tests/hsw-reset-free-audit-receipt.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) engine-hold > build/tests/hsw-engine-hold-receipt.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) access > build/tests/hsw-access-receipt.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_access.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_live_vtd.py
@@ -5493,9 +5495,17 @@ build/ap-probe/intel-hsw-ggtt.o: kernel/diagnostics/intel_hsw_ggtt.c $(ZIG) $(KE
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -Wframe-larger-than=2048 -c $< -o $@
 
-build/tests/hsw-backing-adapter$(HOST_EXE): tools/test_hsw_backing_adapter.c tools/test_platform_sample.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/intel_hsw_ggtt.c kernel/diagnostics/haswell_candidate.inc kernel/diagnostics/haswell_survey.inc kernel/diagnostics/haswell_engine_prereqs.inc kernel/diagnostics/haswell_forcewake.inc kernel/diagnostics/haswell_engine_drain.inc kernel/diagnostics/haswell_backing_adapter.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/ap-probe/intel-hsw-engine-hold.o: kernel/diagnostics/intel_hsw_engine_hold.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_hsw_backing_adapter.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/intel_hsw_ggtt.c -Wl,--gc-sections -o $@
+	$(CC) $(CFLAGS) -Wframe-larger-than=2048 -c $< -o $@
+
+build/tests/hsw-engine-hold$(HOST_EXE): tools/test_hsw_engine_hold.c kernel/diagnostics/intel_hsw_engine_hold.c kernel/include/srvros/intel_hsw_engine_hold.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $(filter %.c,$^) -o $@
+
+build/tests/hsw-backing-adapter$(HOST_EXE): tools/test_hsw_backing_adapter.c tools/test_platform_sample.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/intel_hsw_ggtt.c kernel/diagnostics/intel_hsw_engine_hold.c kernel/diagnostics/haswell_candidate.inc kernel/diagnostics/haswell_survey.inc kernel/diagnostics/haswell_engine_prereqs.inc kernel/diagnostics/haswell_forcewake.inc kernel/diagnostics/haswell_engine_drain.inc kernel/diagnostics/haswell_backing_adapter.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_hsw_backing_adapter.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/intel_hsw_ggtt.c kernel/diagnostics/intel_hsw_engine_hold.c -Wl,--gc-sections -o $@
 .PHONY: test-profile-chooser
 test-profile-chooser: test-guest-profiles build/tests/profile-catalog-host$(HOST_EXE)
 	build/tests/profile-catalog-host$(HOST_EXE) $(CURDIR)/build/tests/guest-profile-host$(HOST_EXE)
