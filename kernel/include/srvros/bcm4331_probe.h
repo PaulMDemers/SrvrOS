@@ -24,7 +24,10 @@ enum bcm4331_probe_mode {
 enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode);
 
 bool bcm4331_desktop_configured(void);
-bool bcm4331_desktop_start(bool trial);
+enum bcm4331_desktop_trial {
+    BCM4331_DESKTOP_NORMAL, BCM4331_DESKTOP_SETTINGS, BCM4331_DESKTOP_SIGNAL_LOSS,
+};
+bool bcm4331_desktop_start(enum bcm4331_desktop_trial trial);
 bool bcm4331_desktop_finish(bool *retired);
 bool bcm4331_desktop_fence(void);
 

@@ -1302,6 +1302,15 @@ two WPA2 and DHCP lifetimes, gateway replies on both, and safe adapter
 retirement. Archive the reports and manifest, restore the credential-free
 boot entry, and remove the private stage and installed payload.
 
+Add `--ehci-desktop-wifi-loss` to qualify signal restoration. Connect once
+from Settings, let the link settle, turn the selected radio off for about
+15 seconds, then restore it. Keep the same channel and settings during the
+test. The driver records a gap in valid beacons from the associated BSSID
+and checks the gateway five times after that BSSID returns. Leave Settings
+alone during the outage and restoration so the report measures the original
+connection. Both reports use the release-matched Wi-Fi filenames and the
+same private-payload cleanup.
+
 ### Prompted Ethernet cable checks
 
 With `--desktop-network`, the hardware desktop opens the automated Terminal

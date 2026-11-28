@@ -14,8 +14,46 @@ static struct {
     uint64_t owner;
     unsigned connects, disconnects;
     volatile bool stop, done;
-    bool starting, published, trial, passed, unsafe;
+    enum bcm4331_desktop_trial trial;
+    bool starting, published, passed, unsafe;
 } bcm_desktop;
+
+struct bcm4331_signal_trial {
+    uint64_t before, lost, returned, next_echo;
+    unsigned issued, replies;
+};
+
+static void desktop_wifi_observe_signal(struct bcm4331_station *s, struct bcm4331_signal_trial *trial) {
+    enum { QUIET_US = 4000000, SETTLE_US = 2000000, ECHO_INTERVAL_US = 1500000, ECHOES = 5 };
+    uint64_t now = timer_monotonic_us();
+    uint64_t beacon = s->signal_beacon_at;
+    if (!beacon) return;
+    if (!trial->before) {
+        trial->before = beacon;
+        console_printf("bcm4331-signal: event=tracking epoch=%u at_us=%u\n", s->epoch, beacon);
+    }
+    if (!trial->lost && now >= beacon && now - beacon >= QUIET_US) {
+        trial->lost = beacon;
+        console_printf("bcm4331-signal: event=lost epoch=%u quiet_us=%u beacons=%u\n",
+            s->epoch, now - beacon, s->signal_beacons);
+    }
+    if (trial->lost && !trial->returned && beacon > trial->lost) {
+        trial->returned = beacon;
+        trial->next_echo = beacon + SETTLE_US;
+        console_printf("bcm4331-signal: event=returned epoch=%u gap_us=%u beacons=%u\n",
+            s->epoch, beacon - trial->lost, s->signal_beacons);
+    }
+    if (!trial->returned || now < trial->next_echo || now < beacon || now - beacon >= QUIET_US ||
+        trial->issued == ECHOES) return;
+    struct srv_net_status_info status;
+    bool worker = !net_status_info(&status) && status.worker_started && status.dhcp_configured && status.router_ip;
+    trial->issued++;
+    bool reply = worker && !net_ping(status.router_ip, (uint16_t)(0x4700 + trial->issued), 50, NULL);
+    if (reply) trial->replies++;
+    trial->next_echo = now + ECHO_INTERVAL_US;
+    console_printf("bcm4331-signal-echo: epoch=%u attempt=%u worker=%u reply=%u\n",
+        s->epoch, (uint64_t)trial->issued, (uint64_t)worker, (uint64_t)reply);
+}
 
 static bool desktop_wifi_present(void *context) {
     const struct bcm4331_station *s = context;
@@ -64,6 +102,7 @@ static bool desktop_wifi_gateway(struct bcm4331_station *s) {
 static bool desktop_wifi_connect(struct bcm4331_station *s, struct bcm4331_desktop_link *link,
         const struct net_device_ops *provider, const uint8_t *key) {
     s->epoch++;
+    s->signal_beacon_at = s->signal_beacons = 0;
     s->security = &link->security;
     s->deadline = timer_monotonic_us() + 15000000;
     s->peer = (struct wpa2_hs_peer){0};
@@ -102,7 +141,11 @@ static bool desktop_wifi_disconnect(struct bcm4331_station *s, struct bcm4331_de
         net_bounded_probe_finish(&link->scope);
     s->provider_live = false;
     bool erased = station_key_retire(s);
-    bool ack = !s->associated || station_disconnect(s);
+    uint64_t now = timer_monotonic_us();
+    bool absent = s->signal_trial && s->signal_beacon_at && now >= s->signal_beacon_at &&
+        now - s->signal_beacon_at >= 4000000;
+    bool ack = !s->associated || (!absent && station_disconnect(s));
+    if (absent) station_addresses(s, true);
     s->associated = false;
     struct srv_net_status_info status;
     bool cleared = net_status_info(&status) == 0 && !status.dhcp_configured && !status.local_ip &&
@@ -111,11 +154,13 @@ static bool desktop_wifi_disconnect(struct bcm4331_station *s, struct bcm4331_de
         s->epoch, (uint64_t)cleared, (uint64_t)erased, (uint64_t)ack);
     s->security = NULL;
     kfree(link);
-    return cleared && erased && ack;
+    return cleared && erased && (ack || absent);
 }
 
 static bool station_desktop(struct bcm4331_station *s, const uint8_t *key) {
     struct net_device_ops provider = station_provider(s);
+    struct bcm4331_signal_trial signal = {0};
+    s->signal_trial = bcm_desktop.trial == BCM4331_DESKTOP_SIGNAL_LOSS;
     uint8_t beacon[RX_BUFFER_BYTES];
     s->epoch = 1;
     s->deadline = timer_monotonic_us() + 3000000;
@@ -135,6 +180,8 @@ static bool station_desktop(struct bcm4331_station *s, const uint8_t *key) {
     while (healthy && !bcm_desktop.stop && !s->fault) {
         struct wifi_service_command command;
         if (!desktop_wifi_take(s, &command)) {
+            if (s->signal_trial && link && s->epoch == 1)
+                desktop_wifi_observe_signal(s, &signal);
             if (!link) for (unsigned i = 0; i < STATION_RX_SLOTS; i++) {
                 unsigned previous = s->rx_next;
                 station_rx(s, beacon, sizeof beacon);
@@ -170,7 +217,14 @@ static bool station_desktop(struct bcm4331_station *s, const uint8_t *key) {
     console_printf("bcm4331-desktop-final: connect=%u disconnect=%u sent=%u acked=%u provider_retired=%u\n",
         (uint64_t)bcm_desktop.connects, (uint64_t)bcm_desktop.disconnects, (uint64_t)s->sent,
         (uint64_t)s->acked, (uint64_t)!s->provider_pinned);
-    bcm_desktop.passed = healthy && !s->fault && !s->provider_pinned && bcm_desktop.connects == 2 && bcm_desktop.disconnects == 1;
+    if (s->signal_trial)
+        console_printf("bcm4331-signal-final: epoch=%u tracked=%u loss=%u restored=%u attempts=%u replies=%u\n",
+            s->epoch, (uint64_t)(signal.before != 0), (uint64_t)(signal.lost != 0),
+            (uint64_t)(signal.returned != 0), (uint64_t)signal.issued, (uint64_t)signal.replies);
+    bool goal = s->signal_trial ? bcm_desktop.connects == 1 && !bcm_desktop.disconnects &&
+        signal.issued == 5 && signal.replies == signal.issued :
+        bcm_desktop.connects == 2 && bcm_desktop.disconnects == 1;
+    bcm_desktop.passed = healthy && !s->fault && !s->provider_pinned && goal;
     return healthy && !s->fault && !s->provider_pinned;
 }
 
@@ -199,7 +253,7 @@ bool bcm4331_desktop_configured(void) {
     return display_profile_is_pro81() && station_key() != NULL;
 }
 
-bool bcm4331_desktop_start(bool trial) {
+bool bcm4331_desktop_start(enum bcm4331_desktop_trial trial) {
     if (bcm_desktop.starting || !bcm4331_desktop_configured()) return false;
     bcm_desktop.trial = trial;
     bcm_desktop.starting = scheduler_spawn("bcm4331-wifi", desktop_wifi_worker, NULL);

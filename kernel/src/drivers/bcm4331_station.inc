@@ -26,9 +26,10 @@ struct bcm4331_station {
     struct bcm4331_security *security;
     uint64_t tx_ring, tx_buffers;
     uint64_t deadline, tx_deadline, epoch;
+    uint64_t signal_beacon_at, signal_beacons;
     unsigned rx_next, sent, acked;
     uint32_t tx_status, tx_dma_status, tx_dma_error;
-    bool fault, tx_pending, secured, provider_live, provider_pinned, desktop;
+    bool fault, tx_pending, secured, provider_live, provider_pinned, desktop, signal_trial;
     uint8_t address[6], bssid[6], last_anonce_digest[32];
     struct wpa2_hs_peer peer;
     uint16_t aid, auth_status, assoc_status;

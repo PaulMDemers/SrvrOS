@@ -1254,7 +1254,7 @@ static bool ehci_saved_document(const char *path, const uint8_t *seed, uint64_t 
 
 enum ehci_workspace_trial {
     EHCI_WORKSPACE_FILE, EHCI_WORKSPACE_BRIGHTNESS, EHCI_WORKSPACE_AUDIO, EHCI_WORKSPACE_TELEMETRY,
-    EHCI_WORKSPACE_BATTERY, EHCI_WORKSPACE_ETHERNET, EHCI_WORKSPACE_WIFI
+    EHCI_WORKSPACE_BATTERY, EHCI_WORKSPACE_ETHERNET, EHCI_WORKSPACE_WIFI, EHCI_WORKSPACE_WIFI_LOSS
 };
 
 static bool ehci_battery_report(const char *phase) {
@@ -1303,7 +1303,8 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
     boot_set_framebuffer_quiet(false);
     bool file_trial=kind==EHCI_WORKSPACE_FILE, audio_trial=kind==EHCI_WORKSPACE_AUDIO;
     bool telemetry_trial=kind==EHCI_WORKSPACE_TELEMETRY,battery_trial=kind==EHCI_WORKSPACE_BATTERY;
-    bool ethernet_trial=kind==EHCI_WORKSPACE_ETHERNET, wifi_trial=kind==EHCI_WORKSPACE_WIFI;
+    bool ethernet_trial=kind==EHCI_WORKSPACE_ETHERNET, signal_trial=kind==EHCI_WORKSPACE_WIFI_LOSS;
+    bool wifi_trial=kind==EHCI_WORKSPACE_WIFI || signal_trial;
     if (!file_trial && !telemetry_trial && !battery_trial && !ethernet_trial && !wifi_trial) laptop_pro81_brightness_init();
     if (audio_trial) {
         audio_init_pro81();
@@ -1416,7 +1417,7 @@ static void ehci_desktop_workspace_trial(const char *release, const char *volume
     console_printf("ehci-desktop: release=%s result=%s desktop=%s retirement=%s\n", release,
         passed ? "PASS" : "INCOMPLETE", desktop_passed ? "passed" : "unverified", retired ? "safe" : "unverified");
     if (wifi_trial) console_printf("ehci-wifi4331: release=%s phase=final result=%s\n", release,
-        passed ? "DESKTOP_OK" : !network_retired ? "UNSAFE" : "INCOMPLETE");
+        passed ? (signal_trial ? "SIGNAL_OK" : "DESKTOP_OK") : !network_retired ? "UNSAFE" : "INCOMPLETE");
     ehci_desktop_trackpad_print_trace("final");
     bool saved = mounted && vmm_diagnostic_sole_kernel_root(vmm_kernel_address_space()) &&
         (wifi_trial ? ehci_bcm4331_workspace_report(release, false) : ethernet_trial ? ehci_ethernet_workspace_report(release, false) :
@@ -1454,14 +1455,15 @@ void kmain(void) {
     bool ehci_audio_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-audio");
     bool ehci_telemetry_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-telemetry");
     bool ehci_battery_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-battery");
-    bool ehci_wifi_desktop = cmdline_has_token(cmdline, "srvros.ehci=desktop-wifi");
+    bool ehci_wifi_loss = cmdline_has_token(cmdline, "srvros.ehci=desktop-wifi-loss");
+    bool ehci_wifi_desktop = ehci_wifi_loss || cmdline_has_token(cmdline, "srvros.ehci=desktop-wifi");
     enum bcm57765_wired_trial wired_trial = cmdline_has_token(cmdline, "srvros.ehci=desktop-ethernet-connected") ?
         BCM57765_WIRED_CONNECTED : cmdline_has_token(cmdline, "srvros.ehci=desktop-ethernet-disconnected") ?
         BCM57765_WIRED_DISCONNECTED : BCM57765_WIRED_NORMAL;
     bool ehci_ethernet_desktop = wired_trial || cmdline_has_token(cmdline, "srvros.ehci=desktop-ethernet");
     const char *ehci_workspace_mode = wired_trial == BCM57765_WIRED_CONNECTED ? "desktop-ethernet-connected" :
         wired_trial == BCM57765_WIRED_DISCONNECTED ? "desktop-ethernet-disconnected" :
-        ehci_ethernet_desktop ? "desktop-ethernet" : ehci_wifi_desktop ? "desktop-wifi" :
+        ehci_ethernet_desktop ? "desktop-ethernet" : ehci_wifi_loss ? "desktop-wifi-loss" : ehci_wifi_desktop ? "desktop-wifi" :
         ehci_battery_trial ? "desktop-battery" : ehci_telemetry_trial ? "desktop-telemetry" :
         ehci_audio_trial ? "desktop-audio" : ehci_brightness_trial ? "desktop-brightness" :
         ehci_file_trial ? "desktop-file" : NULL;
@@ -1904,7 +1906,9 @@ void kmain(void) {
         console_printf("timer: no ticks observed yet ticks=%u\n", timer_ticks());
     }
     if (bcm_wifi_desktop) {
-        bool ready = timer_running && bcm4331_desktop_start(ehci_wifi_desktop);
+        enum bcm4331_desktop_trial trial = ehci_wifi_loss ? BCM4331_DESKTOP_SIGNAL_LOSS :
+            ehci_wifi_desktop ? BCM4331_DESKTOP_SETTINGS : BCM4331_DESKTOP_NORMAL;
+        bool ready = timer_running && bcm4331_desktop_start(trial);
         console_printf("bcm4331-desktop: ready=%u\n", (uint64_t)ready);
         if (!ehci_wifi_desktop && !ready) {
             bool retired;
@@ -1948,7 +1952,8 @@ void kmain(void) {
     console_write("srvros: kernel bootstrap complete\n");
     if (ehci_workspace_mode)
         ehci_desktop_workspace_trial(trial_release, ehci_log_volume, ehci_trackpad_ready, timer_running,
-            ehci_wifi_desktop?EHCI_WORKSPACE_WIFI:ehci_ethernet_desktop?EHCI_WORKSPACE_ETHERNET:ehci_battery_trial?EHCI_WORKSPACE_BATTERY:
+            ehci_wifi_loss?EHCI_WORKSPACE_WIFI_LOSS:ehci_wifi_desktop?EHCI_WORKSPACE_WIFI:
+            ehci_ethernet_desktop?EHCI_WORKSPACE_ETHERNET:ehci_battery_trial?EHCI_WORKSPACE_BATTERY:
             ehci_telemetry_trial?EHCI_WORKSPACE_TELEMETRY:ehci_audio_trial?EHCI_WORKSPACE_AUDIO:
             ehci_brightness_trial?EHCI_WORKSPACE_BRIGHTNESS:EHCI_WORKSPACE_FILE, wired_trial);
     if (ehci_trackpad_desktop_trial)

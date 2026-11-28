@@ -138,6 +138,11 @@ static uint64_t station_net_poll_locked(void *context, uint64_t budget, bool ver
         unsigned n = station_rx(s, air, sizeof s->security->air);
         if (!n && s->rx_next == previous) break;
         if (n < 4) continue;
+        if (s->signal_trial && n >= 40 && air[0] == 0x80 &&
+            radio_equal(air + 16, s->bssid, 6) && target_beacon(air, n)) {
+            s->signal_beacon_at = timer_monotonic_us();
+            s->signal_beacons++;
+        }
         n = wpa2_ccmp_open(&s->security->keys, s->epoch, air, n - 4, plain, sizeof s->security->plaintext);
         if (n >= 8 && n <= NET_DEVICE_FRAME_MAX - 6 && radio_equal(plain, station_snap, sizeof station_snap) &&
             plain[6] == 8 && (plain[7] == 0 || plain[7] == 6)) {
