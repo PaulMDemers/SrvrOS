@@ -330,6 +330,18 @@ trial tests and five exact-image VM rehearsals passed. Channel 161 is a
 synthesizer check only.
 Run record `build/bringup/pro112-rtl8822bu-passive/run.json`.
 
+Physical session `session-0006614d0482ce11-00` confirmed RF18 readbacks
+on both paths (`0x50da1` at channel 161 and `0x0c0a` at channel 10).
+The channel 10 receive window posted one 32 KiB bulk IN transfer and
+observed zero completions. No frames reached the descriptor parser.
+SrvrOS gated MAC receive, verified the endpoint stop and parked the radio
+with all three adapters on the hub. The workspace log and EFI journal
+agree. All 686 prior files matched, and the laptop returned automatically
+to Ubuntu. The payload and logs are in `evidence-4c85dbab8fbdf291` in
+the recovery archive. USB receive and passive discovery remain open.
+Next compare PHY frame and RX FIFO counts across the receive window to
+locate the stall before changing the channel settings or parser.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
