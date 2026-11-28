@@ -21,6 +21,11 @@ advanced by one frame, both protected slots stayed untouched and all seven
 diagnostic aliases retired. Ubuntu returned with the one-shot consumed. The
 recovery release, archived kernel receipt and offline USB check verified.
 
+The EFI failure receipt retry starts at `9456ef50` with integration baseline
+`b062ba18`. Scope is the Air6,1 EFI producer, receipt decoder and GRUB/OVMF
+rehearsal on PR567. The kernel probe, Pipe A and protected-slot gates remain
+the v19 path. PR301 at `6eca24c2` owns the separate Broadwell WiDi hold.
+
 Branch `device/macbookair6-1/tearfree` starts at main `dc4a48d3`.
 The live Ubuntu inventory reports Haswell `8086:0a26` revision 09,
 Apple subsystem `106b:011a`, and one connected 1366×768 eDP panel under
