@@ -474,6 +474,14 @@ checkpoints. The MediaTek work from PR #19 supplies Wi-Fi service and IP
 stack references. The active Pro11,2 branch at `bf7a0112` covers external
 USB Realtek hardware. It does not share the BCM4331 PCIe transport.
 
+The first native release `867b4df92cd39cdc` read the expected ChipCommon
+ID `13924331`, capabilities `58500000` and EROM pointer `18107000`.
+Ubuntu left PCI bus mastering enabled across the warm reboot, so the
+probe skipped the movable BAR window. Both reports and Ubuntu return
+verified. The retry clears BME and checks PCIe transaction drain before
+switching the BAR window. It restores the original selector and memory
+decode, with DMA fenced through the return to Ubuntu.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

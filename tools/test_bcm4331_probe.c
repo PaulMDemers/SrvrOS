@@ -4,6 +4,7 @@
 #include "../kernel/src/drivers/bcm4331_probe.c"
 
 int main(void) {
+    assert(srom_crc_byte(0, 1) == 0xf7 && srom_crc_byte(0xff, 0xff) == 0);
     /* A 64-bit-form address and explicit size precede the next core tag. */
     const uint32_t erom[] = {
         0x4bf80001, 0x25080201, 0x18000005, 0x18100085,

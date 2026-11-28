@@ -2,14 +2,17 @@
 #include <srvros/console.h>
 #include <srvros/display_profile.h>
 #include <srvros/pci.h>
+#include <srvros/timer.h>
 #include <srvros/vmm.h>
 
 enum {
     PCI_COMMAND = 0x04, PCI_MEMORY = 2, PCI_BUS_MASTER = 4,
     PCI_SUBSYSTEM = 0x2c, PCI_PM_CAP = 0x40, PCI_PMCSR = 0x44,
     PCI_BAR0_WINDOW = 0x80,
+    PCI_EXP_CAP = 0xd0, PCI_EXP_STATUS = 0xda, PCI_EXP_PENDING = 0x20,
     PAGE_BYTES = 4096, BAR_BYTES = 4 * PAGE_BYTES, CHIPCOMMON_PAGE = 3 * PAGE_BYTES,
     CHIP_ID = 0x00, CHIP_CAP = 0x04, CHIP_EROM = 0xfc, CHIP_SROM_CONTROL = 0x190,
+    CHIP_SROM = 0x800, CHIP_CAP_SROM = 1u << 30,
     EROM_VALID = 1, EROM_ADDR_TAG = 0x06, EROM_END = 0x0f,
     EROM_MASTER_PORT = 3, EROM_ADDRESS = 5, EROM_ADDR_SIZE = 0x30,
     EROM_SIZE_DESCRIPTOR = 0x30, EROM_ADDR_64 = 8,
@@ -91,6 +94,42 @@ static const struct pci_device *bcm4331_controller(void) {
     return 0;
 }
 
+static bool pci_transactions_drained(const struct pci_device *p) {
+    for (unsigned attempt = 0; attempt < 1000; attempt++) {
+        uint16_t status = pci_read_config16(p, PCI_EXP_STATUS);
+        if (status == UINT16_MAX) return false;
+        if (!(status & PCI_EXP_PENDING)) return true;
+        if (!timer_delay_us(10)) return false;
+    }
+    return false;
+}
+
+static uint8_t srom_crc_byte(uint8_t crc, uint8_t byte) {
+    crc ^= byte;
+    for (unsigned bit = 0; bit < 8; bit++) crc = (crc >> 1) ^ ((crc & 1) ? 0xab : 0);
+    return crc;
+}
+
+static void inspect_srom(const volatile uint16_t *rom) {
+    static const unsigned lengths[] = {220, 230, 234};
+    for (unsigned i = 0; i < sizeof lengths / sizeof lengths[0]; i++) {
+        unsigned count = lengths[i];
+        uint8_t crc = 0xff;
+        for (unsigned word = 0; word + 1 < count; word++) {
+            uint16_t value = rom[word];
+            crc = srom_crc_byte(srom_crc_byte(crc, (uint8_t)value), (uint8_t)(value >> 8));
+        }
+        uint16_t footer = rom[count - 1];
+        uint8_t revision = (uint8_t)footer;
+        crc = srom_crc_byte(crc, revision) ^ 0xff;
+        if (crc == footer >> 8 && revision >= 8 && revision <= 11) {
+            console_printf("bcm4331: sprom words=%u revision=%u crc=valid\n", (uint64_t)count, (uint64_t)revision);
+            return;
+        }
+    }
+    console_write("bcm4331: SPROM shadow CRC unverified with current pin state\n");
+}
+
 enum bcm4331_probe_result bcm4331_probe(void) {
     if (!display_profile_is_pro81()) {
         console_write("bcm4331: refused platform identity\n");
@@ -99,7 +138,7 @@ enum bcm4331_probe_result bcm4331_probe(void) {
     const struct pci_device *p = bcm4331_controller();
     uint64_t root = vmm_kernel_address_space(), occupied;
     const uint64_t fixed = bcm4331_window + CHIPCOMMON_PAGE;
-    if (!p || !vmm_diagnostic_sole_kernel_root(root) ||
+    if (!p || !timer_reference_ready() || !vmm_diagnostic_sole_kernel_root(root) ||
         vmm_virt_to_phys_in_space(root, bcm4331_window, &occupied) || vmm_virt_to_phys_in_space(root, fixed, &occupied)) {
         console_write("bcm4331: refused PCI identity or mapping context\n");
         return BCM4331_REFUSED;
@@ -111,17 +150,27 @@ enum bcm4331_probe_result bcm4331_probe(void) {
     console_printf("bcm4331: pci=03:00.0 device=14e4:4331 rev=02 bar0=%x command=%x pm=%x window=%x\n",
         bar, (uint64_t)command, (uint64_t)pm, (uint64_t)window);
     if (!bar || p->bar[1] || (p->bar[0] & (BAR_BYTES - 1)) != 4 ||
-        pci_read_config8(p, PCI_PM_CAP) != 1 || pm == UINT16_MAX || (pm & 3) ||
+        pci_read_config8(p, PCI_PM_CAP) != 1 || pci_read_config8(p, PCI_EXP_CAP) != 0x10 ||
+        pm == UINT16_MAX || (pm & 3) ||
         command == UINT16_MAX || window == UINT32_MAX ||
         ((command & PCI_BUS_MASTER) && !(command & PCI_MEMORY))) {
         console_write("bcm4331: refused BAR layout or PCI power state\n");
         return BCM4331_REFUSED;
     }
 
+    /* A warm Ubuntu reboot can leave BME set. Keep the function fenced
+     * through the return so no previous DMA queue can resume. */
+    uint16_t fenced = command & ~PCI_BUS_MASTER;
+    if (fenced != command) pci_write_config16(p, PCI_COMMAND, fenced);
+    bool drained = pci_read_config16(p, PCI_COMMAND) == fenced && pci_transactions_drained(p);
+    console_printf("bcm4331: inherited_bus_master=%u transactions_drained=%u\n",
+        (uint64_t)(fenced != command), (uint64_t)drained);
+    if (!drained) return BCM4331_UNSAFE;
+
     const uint64_t flags = VMM_PAGE_CACHE_DISABLE | VMM_PAGE_NO_EXECUTE;
     if (!vmm_map_page_in_space(root, fixed, bar + CHIPCOMMON_PAGE, flags)) return BCM4331_INCOMPLETE;
-    uint16_t enabled = command | PCI_MEMORY;
-    if (enabled != command) pci_write_config16(p, PCI_COMMAND, enabled);
+    uint16_t enabled = fenced | PCI_MEMORY;
+    if (enabled != fenced) pci_write_config16(p, PCI_COMMAND, enabled);
     bool mapped = false, switched = false, matched = false;
     if (pci_read_config16(p, PCI_COMMAND) == enabled) {
         const volatile uint32_t *cc = (const volatile uint32_t *)fixed;
@@ -129,35 +178,41 @@ enum bcm4331_probe_result bcm4331_probe(void) {
         uint32_t srom = cc[CHIP_SROM_CONTROL / 4];
         console_printf("bcm4331: chip=%x capabilities=%x erom=%x srom_control=%x\n",
             (uint64_t)id, (uint64_t)cap, (uint64_t)erom, (uint64_t)srom);
-        if (id == 0x13924331 && erom == 0x18107000 && !(command & PCI_BUS_MASTER)) {
+        if (id == 0x13924331 && erom == 0x18107000) {
+            if ((cap & CHIP_CAP_SROM) && (srom & 1) && !(srom & (1u << 31)))
+                inspect_srom((const volatile uint16_t *)(fixed + CHIP_SROM));
             mapped = vmm_map_page_in_space(root, bcm4331_window, bar, flags);
             if (mapped) {
                 pci_write_config32(p, PCI_BAR0_WINDOW, erom);
                 switched = true;
                 struct bcma_core cores[3] = {0};
-                matched = pci_read_config32(p, PCI_BAR0_WINDOW) == erom &&
-                    read_erom((const volatile uint32_t *)bcm4331_window, PAGE_BYTES / 4, cores);
+                bool selected = pci_read_config32(p, PCI_BAR0_WINDOW) == erom;
+                const volatile uint32_t *words = (const volatile uint32_t *)bcm4331_window;
+                matched = selected && read_erom(words, PAGE_BYTES / 4, cores);
                 if (matched) {
                     for (unsigned i = 0; i < sizeof captured_cores / sizeof captured_cores[0]; i++)
                         console_printf("bcm4331: core=%x revision=%x address=%x wrapper=%x\n",
                             (uint64_t)captured_cores[i].id, (uint64_t)captured_cores[i].revision,
                             (uint64_t)cores[i].address, (uint64_t)cores[i].wrapper);
-                } else console_write("bcm4331: enumeration ROM did not match the captured topology\n");
+                } else if (selected) {
+                    console_write("bcm4331: enumeration ROM did not match the captured topology\n");
+                    for (unsigned i = 0; i < 24; i++)
+                        console_printf("bcm4331: erom[%u]=%x\n", (uint64_t)i, (uint64_t)words[i]);
+                }
             }
-        } else if (command & PCI_BUS_MASTER) {
-            console_write("bcm4331: PCI bus mastering was set; fixed-window reads only\n");
         }
     }
 
     if (switched) pci_write_config32(p, PCI_BAR0_WINDOW, window);
-    if (enabled != command) pci_write_config16(p, PCI_COMMAND, command);
-    bool restored = pci_read_config32(p, PCI_BAR0_WINDOW) == window &&
-        pci_read_config16(p, PCI_COMMAND) == command;
+    if (enabled != fenced) pci_write_config16(p, PCI_COMMAND, fenced);
+    uint16_t final_command = pci_read_config16(p, PCI_COMMAND);
+    bool bus_master_off = final_command != UINT16_MAX && !(final_command & PCI_BUS_MASTER);
+    bool restored = pci_read_config32(p, PCI_BAR0_WINDOW) == window && final_command == fenced;
     uint64_t physical;
     bool unmapped = vmm_unmap_page_in_space(root, fixed, &physical) && physical == bar + CHIPCOMMON_PAGE;
     if (mapped) unmapped = (vmm_unmap_page_in_space(root, bcm4331_window, &physical) && physical == bar) && unmapped;
-    console_printf("bcm4331: mapping=%s pci_restored=%u bus_master_changes=0 dma_pages=0 radio_writes=0\n",
-        unmapped ? "released" : "unverified", (uint64_t)restored);
+    console_printf("bcm4331: mapping=%s pci_windows_restored=%u bus_master_off=%u dma_pages=0 radio_writes=0\n",
+        unmapped ? "released" : "unverified", (uint64_t)restored, (uint64_t)bus_master_off);
     if (!restored || !unmapped) return BCM4331_UNSAFE;
     return matched ? BCM4331_TOPOLOGY_OK : BCM4331_INCOMPLETE;
 }

@@ -1236,8 +1236,9 @@ Use `tools/hardware_boot.py stage --ehci-bcm4331-probe UUID` and run
 checks that other machines refuse PCI access, save both reports, and return
 through GRUB. On the MacBook, keep the Ethernet cable and selected flash
 drive attached. The one-shot probe reads BCM4331 ChipCommon and enumeration
-ROM with temporary PCI access. It records the D11 core and verifies PCI
-restoration before rebooting. Check `ehci-wifi4331-RELEASE-startup.txt` and
+ROM with temporary PCI access. It fences inherited bus mastering before
+changing the selector and verifies PCI access restoration before rebooting.
+Check `ehci-wifi4331-RELEASE-startup.txt` and
 `ehci-wifi4331-RELEASE.txt` under `srvros-work`. The topology probe precedes
 firmware startup and requires no network credentials or operator input.
 
