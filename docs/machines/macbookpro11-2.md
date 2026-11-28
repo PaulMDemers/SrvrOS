@@ -352,6 +352,19 @@ the distinction between a transfer completed during the wait and one
 observed during the closing register sample. Keep existing stop and
 EFI journal recovery checks.
 
+Release `dcfa2ac84069edd9` on `0659f36e` adds two read-only samples to
+the same passive recipe. The logs record elapsed time, CCK and OFDM CCA,
+good and bad CRC counters, raw DMA state and queue values, and the xHCI
+dequeue pointer. The collector checks for agreement between the
+workspace and EFI copies and handles 16-bit counter wrap. Both
+the no-completion and closing-completion cases were exercised on the
+native path. Both sibling desktop regressions, 329 boot and trial tests
+and all five exact-image VM rehearsals passed. The archived Linux
+beacons provide a traffic reference. The counter comparison uses the
+two SrvrOS samples. Register definitions follow
+[Linux rtw88](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/reg.h).
+Run record `build/bringup/pro112-rtl8822bu-rx-counters/run.json`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
