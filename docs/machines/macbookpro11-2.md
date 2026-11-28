@@ -430,6 +430,18 @@ disabled, queues paused, and the 32 KiB request and PHY tune fixed.
 Record each window separately and exclude completions received during
 the switch from the scheduler window's frame counts.
 
+Release `4d207e420eb0e290` on `4f4773f7` repeats the reference receive
+window on channel 10. The second window requires the baseline IN
+to remain at the original dequeue with idle DMA at both samples and
+zero completions. It sets `CR` bit 5 and verifies `CR=0xba` and
+`TXPAUSE=0xff`. The native fixture covers a beacon arriving during the
+second window, both windows timing out, a completion during the switch
+and a scheduler readback refusal. Both sibling desktop regressions,
+329 boot and trial tests, and five exact-image VM rehearsals passed.
+Register definitions follow
+[Linux rtw88](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/realtek/rtw88/reg.h).
+Run record `build/bringup/pro112-rtl8822bu-rx-scheduler/run.json`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
