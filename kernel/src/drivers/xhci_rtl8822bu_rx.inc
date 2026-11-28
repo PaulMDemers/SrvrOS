@@ -12,6 +12,9 @@ enum {
     BU_RX_MAC_REPORT=0x664, BU_RX_MAC_SELECTOR=0xf4, BU_RX_MAC_RESET=1u<<3,
     BU_H2C_CR=BU_RX_CR|BU_RX_HOST_TXDMA|BU_RX_TXDMA,
     BU_RX_DMA_CR=BU_H2C_CR|BU_RX_SCHEDULE,
+    BU_RX_SCAN_CR=BU_RX_DMA_CR|(1u<<6),
+    BU_RX_COEX_CTRL=0x1700, BU_RX_COEX_WRITE=0x1704, BU_RX_COEX_READ=0x1708,
+    BU_RX_COEX_READY=1u<<29, BU_RX_RF_GRANT_MASK=0x300, BU_RX_RF_GRANT_LOW=0x100,
     BU_H2C_HEAD=0x244, BU_H2C_TAIL=0x248, BU_H2C_READ=0x24c,
     BU_H2C_INFO=0x254, BU_H2C_RP=0x10d0, BU_H2C_WP=0x10d4,
     BU_H2C_OFFSET=0x20d, BU_H2C_INFO_MODE=1, BU_H2C_INFO_INIT=4,
@@ -36,8 +39,9 @@ struct bu_rx {
     struct bu_rx_fifo fifo;
     uint8_t *buffer;
     uint64_t phys;
+    uint32_t rf_grant_saved;
     unsigned posted,completed,consumed,actual[BU_RX_DEPTH],records,beacons,target,bad;
-    bool configured,failed,stopping;
+    bool configured,failed,stopping,rf_grant_touched;
 };
 static struct bu_rx *bu_rx_owner;
 
@@ -221,6 +225,55 @@ static void bu_rx_parse(struct bu_rx *rx,unsigned slot) {
     }
 }
 
+static bool bu_rx_rf_grant_read(struct xhci_device *d,uint32_t *grant) {
+    uint32_t ctrl;
+    return bu_poll(d,BU_RX_COEX_CTRL,4,BU_RX_COEX_READY,BU_RX_COEX_READY,100,&ctrl) &&
+        bu_write(d,BU_RX_COEX_CTRL,4,0x800f0038u) &&
+        bu_poll(d,BU_RX_COEX_CTRL,4,BU_RX_COEX_READY,BU_RX_COEX_READY,100,&ctrl) &&
+        bu_read(d,BU_RX_COEX_READ,4,grant) && *grant!=0xeaeaeaeau && *grant!=UINT32_MAX;
+}
+
+static bool bu_rx_rf_grant_write(struct xhci_device *d,uint32_t grant) {
+    uint32_t ctrl,readback;
+    return bu_poll(d,BU_RX_COEX_CTRL,4,BU_RX_COEX_READY,BU_RX_COEX_READY,100,&ctrl) &&
+        bu_write(d,BU_RX_COEX_WRITE,4,grant) && bu_write(d,BU_RX_COEX_CTRL,4,0xc00f0038u) &&
+        bu_rx_rf_grant_read(d,&readback) && readback==grant;
+}
+
+static bool bu_rx_scan_guard(struct xhci_device *d) {
+    uint32_t cr,pause,grant;
+    return bu_read(d,BU_CR,1,&cr) && cr==BU_RX_SCAN_CR &&
+        bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff &&
+        bu_rx_rf_grant_read(d,&grant) && (grant&BU_RX_RF_GRANT_MASK)==BU_RX_RF_GRANT_LOW;
+}
+
+static bool bu_rx_scan_enable(struct bu_rx *rx) {
+    struct xhci_device *d=rx->device;
+    uint32_t cr,pause,requested=0;
+    bool ready=bu_read(d,BU_CR,1,&cr) && cr==BU_RX_DMA_CR &&
+        bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff && !rx->failed &&
+        bu_rx_rf_grant_read(d,&rx->rf_grant_saved);
+    if(ready) {
+        requested=(rx->rf_grant_saved&~BU_RX_RF_GRANT_MASK)|BU_RX_RF_GRANT_LOW;
+        rx->rf_grant_touched=requested!=rx->rf_grant_saved;
+        ready=(!rx->rf_grant_touched || bu_rx_rf_grant_write(d,requested)) && !rx->failed &&
+            bu_write(d,BU_CR,1,BU_RX_SCAN_CR) && bu_rx_scan_guard(d) && !rx->failed;
+    }
+    console_printf("rtl8822bu-rx-grant: phase=open saved=%x requested=%x verified=%u\n",
+        (uint64_t)rx->rf_grant_saved,(uint64_t)requested,(uint64_t)ready);
+    return ready;
+}
+
+static bool bu_rx_rf_grant_restore(struct bu_rx *rx) {
+    if(!rx->rf_grant_touched)return true;
+    struct xhci_device *d=rx->device;
+    uint32_t current;
+    bool restored=bu_rx_rf_grant_read(d,&current) &&
+        bu_rx_rf_grant_write(d,(current&~BU_RX_RF_GRANT_MASK)|(rx->rf_grant_saved&BU_RX_RF_GRANT_MASK));
+    console_printf("rtl8822bu-rx-grant: phase=restore verified=%u\n",(uint64_t)restored);
+    return restored;
+}
+
 static bool bu_rx_mac_sample(const struct bu_rx *rx,const char *sample) {
     struct xhci_device *d=rx->device;
     /* RTL8822B legacy MAC report selectors: CCK and OFDM good/FCS error.
@@ -228,7 +281,7 @@ static bool bu_rx_mac_sample(const struct bu_rx *rx,const char *sample) {
     static const uint8_t selector[]={0x30,0x00,0x40,0x10};
     uint32_t cr,pause,saved=0,readback=0,counters[4]={0};
     unsigned sampled=0;
-    bool gated=bu_read(d,BU_CR,1,&cr) && cr==BU_RX_DMA_CR &&
+    bool gated=bu_read(d,BU_CR,1,&cr) && cr==BU_RX_SCAN_CR &&
         bu_read(d,BU_TXPAUSE,1,&pause) && pause==0xff;
     bool selected=gated && bu_read(d,BU_RX_MAC_REPORT+3,1,&saved) && !(saved&BU_RX_MAC_RESET);
     bool restored=false;
@@ -286,6 +339,8 @@ static const char *bu_rx_window(struct bu_rx *rx) {
     if(rx->failed)return "rx-event";
     unsigned starting_completed=rx->completed;
     uint64_t start=timer_monotonic_us();
+    uint64_t next_check=start+50000u;
+    bool guarded=true;
     /* Exclude startup and opening completions. Keep still-owned TDs posted. */
     rx->consumed=rx->completed;
     bu_rx_fill(rx);
@@ -303,16 +358,26 @@ static const char *bu_rx_window(struct bu_rx *rx) {
             if(rx->target || rx->completed==BU_RX_TDS)break;
             bu_rx_fill(rx);
         }
-        if((spin&255u)==0 && (timer_monotonic_us()-start>=600000u || device_removed(rx->device)))break;
+        if((spin&255u)==0) {
+            uint64_t now=timer_monotonic_us();
+            if(now-start>=600000u || device_removed(rx->device))break;
+            if(now>=next_check) {
+                guarded=bu_rx_scan_guard(rx->device);
+                if(!guarded)break;
+                next_check=now+50000u;
+            }
+        }
         __asm__ volatile("pause");
     }
     uint64_t elapsed=timer_monotonic_us()-start;
     unsigned in_window=rx->completed;
-    bool observed=!device_removed(rx->device) && bu_rx_observe(rx,"after") && bu_rx_mac_sample(rx,"after");
+    guarded=guarded && !device_removed(rx->device) && bu_rx_scan_guard(rx->device);
+    console_printf("rtl8822bu-rx-grant: phase=close verified=%u\n",(uint64_t)guarded);
+    bool observed=guarded && bu_rx_observe(rx,"after") && bu_rx_mac_sample(rx,"after");
     console_printf("rtl8822bu-rx-window: elapsed_us=%u completed=%u closing=%u startup=%u observed=%u\n",
         elapsed,(uint64_t)(in_window-starting_completed),(uint64_t)(rx->completed-in_window),
         (uint64_t)starting_completed,(uint64_t)observed);
-    return rx->failed?"rx-event":!observed?"rx-observe":rx->target?NULL:"no-target";
+    return rx->failed?"rx-event":!guarded?"rx-transmit-inhibit":!observed?"rx-observe":rx->target?NULL:"no-target";
 }
 
 static bool bu_rx_enable_security(struct bu_upload *up,const struct bu_rx *rx,struct bu_rx_security *saved) {
@@ -579,6 +644,7 @@ static const char *bu_receive(struct bu_upload *up,struct bu_rx *rx) {
     if(!failure && !bu_rx_enable_security(up,rx,&rx->security))failure="rx-security";
     if(!failure && !bu_rx_prepare_dma(up,rx,&rx->security))failure="rx-dma-enable";
     if(!failure && !bu_rx_fifo_control(d,&rx->fifo))failure="rx-fifo-control";
+    if(!failure && !bu_rx_scan_enable(rx))failure="rx-transmit-inhibit";
     if(failure)return failure;
     console_write("rtl8822bu-rx-progress: sampling channel 10 with four prequeued bulk-IN requests\n");
     return bu_rx_window(rx);
@@ -589,11 +655,12 @@ static bool bu_rx_finish(struct bu_rx *rx,const char *failure) {
     struct xhci_device *d=rx->device;
     bool gated=bu_write(d,BU_CR,1,0) && bu_phy_reassert_tx_pause(d,"retire");
     bool stopped=bu_rx_stop(rx);
+    bool grant_restored=!rx->rf_grant_touched || (gated && stopped && bu_rx_rf_grant_restore(rx));
     bool fifo_restored=!rx->fifo.touched || (gated && stopped && bu_rx_fifo_restore(d,&rx->fifo));
     bool restored=bu_rx_restore_security(d,&rx->security);
     bu_rx_owner=NULL;
     console_printf("rtl8822bu-rx: result=%s posted=%u completed=%u records=%u beacons=%u target=%u bad=%u gated=%u stopped=%u\n",
         failure?failure:"ready",(uint64_t)rx->posted,(uint64_t)rx->completed,(uint64_t)rx->records,
         (uint64_t)rx->beacons,(uint64_t)rx->target,(uint64_t)rx->bad,(uint64_t)gated,(uint64_t)stopped);
-    return gated && stopped && fifo_restored && restored;
+    return gated && stopped && grant_restored && fifo_restored && restored;
 }

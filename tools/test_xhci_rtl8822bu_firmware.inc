@@ -11,6 +11,7 @@ enum bu_firmware_fault {
     BU_RX_FIFO_BOUNDARY_DRIFT,BU_RX_FIFO_RESTORE_DRIFT,BU_RX_EP_AVG_DRIFT,BU_RX_DEPTH_DUPLICATE,BU_RX_EARLY_STALE,BU_RX_EARLY_FW_SHORT,
     BU_RX_PAUSE_RESET,BU_RX_PAUSE_REFUSED,
     BU_RX_MAC_SELECTOR_DRIFT,BU_RX_MAC_RESET_BUSY,BU_RX_MAC_RESTORE_DRIFT,
+    BU_RX_GRANT_ADMIT_DRIFT,BU_RX_GRANT_LOST,BU_RX_GRANT_RESTORE_DRIFT,
     BU_H2C_BAD_LIMIT,BU_H2C_INIT_STUCK,BU_H2C_BAD_ENTRY,BU_H2C_OUT_SHORT,BU_H2C_OUT_MISSING,
     BU_H2C_OUT_WRONG_TRB,BU_H2C_UNDRAINED,BU_H2C_RESTORE_DRIFT,
 };
@@ -29,6 +30,8 @@ static struct {
     unsigned h2c_status_writes,h2c_status_reads;
     unsigned rx_security_policy_writes,rx_fifo_writes;
     unsigned rx_mac_writes,rx_mac_reads;
+    unsigned rf_grant_writes,rf_scan_enables;
+    uint32_t rf_grant;
     bool rx_security_rcr_reloaded,rx_security_cr_restored,rx_dma_written;
     bool rx_queue_mapped,rx_llt_requested,rx_filters_written,rx_security_written,rx_depth_event;
     enum bu_firmware_fault fault;
@@ -205,11 +208,11 @@ static void bu_model_control(void) {
             bu_model.h2c_status_reads++;
             bu_model_store(reg,width,0xeaeaeaea);
         }
-        if(bu_rx_owner && cr==0xbf && (reg==0xfcc || bu_model.rx_samples%10)) {
+        if(bu_rx_owner && cr==0xff && (reg==0xfcc || bu_model.rx_samples%10)) {
             static const unsigned registers[]={0xfcc,0xf08,0xf04,0xf14,0xf10,0xf0c,0x284,0x288,0x28c,0x2b0};
             unsigned i=bu_model.rx_samples++;
             assert(i<20 && reg==registers[i%10] && width==4 &&
-                bu_model_read(BU_CR,2)==0x06bf && bu_model_read(BU_RX_SECCFG,2)==0x31cf &&
+                bu_model_read(BU_CR,2)==0x06ff && bu_model_read(BU_RX_SECCFG,2)==0x31cf &&
                 bu_model_read(BU_TXPAUSE,1)==0xff && bu_model_read(0x11c,4)==0x5eff &&
                 bu_model_read(0x10c,2)==0xf5a1 && bu_model_read(0x280,4)==0x2003);
             assert(bu_model.rx_posts>=4);
@@ -223,7 +226,7 @@ static void bu_model_control(void) {
             bu_model_store(reg,width,0x6000);
         if(reg==BU_RX_MAC_REPORT) {
             unsigned count=bu_model.rx_mac_reads++;
-            assert(count<8 && width==4 && cr==0xbf && bu_model_read(BU_TXPAUSE,1)==0xff);
+            assert(count<8 && width==4 && cr==0xff && bu_model_read(BU_TXPAUSE,1)==0xff);
             if(bu_model.fault==BU_RX_MAC_SELECTOR_DRIFT)
                 assert(bu_model.rx_mac_writes==2*count+1);
             else
@@ -250,7 +253,7 @@ static void bu_model_control(void) {
         if(reg==BU_RX_MAC_REPORT+3) {
             static const uint8_t expected[]={0x32,0x02,0x42,0x12,0x56};
             unsigned count=bu_model.rx_mac_writes++;
-            assert(count<10 && width==1 && !(value&8) && bu_model_read(BU_CR,1)==0xbf &&
+            assert(count<10 && width==1 && !(value&8) && bu_model_read(BU_CR,1)==0xff &&
                    bu_model_read(BU_TXPAUSE,1)==0xff && bu_model.rx_posts>=4);
             unsigned step=count%5;
             if(bu_model.fault==BU_RX_MAC_SELECTOR_DRIFT)step=count%2?4:0;
@@ -285,6 +288,10 @@ static void bu_model_control(void) {
                     bu_model_read(BU_TXPAUSE,1)==0xff && !bu_model.rx_samples &&
                     bu_model.rx_posts==4 && bu_rx_owner);
                 bu_model.rx_dma_written=true;
+            } else if(value==0xff) {
+                assert(previous==0xbf && bu_model.rx_fifo_writes==3 && bu_model.rf_grant_writes==1 &&
+                    bu_model.rf_grant==0xdd03 && bu_model_read(BU_TXPAUSE,1)==0xff &&
+                    bu_model.rx_posts==4 && !bu_model.rf_scan_enables++);
             } else if(value==0x9f) {
                 assert(previous==0 && bu_model.rx_queue_mapped && !bu_model.rx_page_writes &&
                     bu_model_read(BU_TXPAUSE,1)==0xff && !bu_model.h2c_setup && bu_model.rx_posts==4);
@@ -418,8 +425,25 @@ static void bu_model_control(void) {
         if(reg==0x1103 && bu_model.fault==BU_FW_PLATFORM_MCU)bu_model_store(0x80,2,0xc078);
         if(reg==0x1103 && (bu_model_cold_board() || bu_model.fault==BU_FW_COLD_DMA_BUSY))
             bu_model_store(0x80,4,0x80600001);
-        if(reg==0x1700) {
-            if(value==0xc00f0038 && bu_model.fault!=BU_FW_NOT_READY) {
+        if(reg==BU_RX_COEX_CTRL) {
+            if(value==0x800f0038) {
+                if(bu_model.fault==BU_RX_GRANT_LOST && bu_model.rx_samples==10 &&
+                   bu_model_read(BU_CR,1)==0xff)bu_model.rf_grant=0xdf03;
+                bu_model_store(BU_RX_COEX_READ,4,bu_model.rf_grant);
+            }
+            if(value==0xc00f0038 && bu_model.rx_fifo_writes>=3) {
+                unsigned i=bu_model.rf_grant_writes++;
+                unsigned cr=bu_model_read(BU_CR,1);
+                uint32_t grant=bu_model_read(BU_RX_COEX_WRITE,4);
+                assert(i<2 && bu_model_read(BU_TXPAUSE,1)==0xff);
+                if(!i) {
+                    assert(cr==0xbf && grant==0xdd03 && !bu_model.rf_scan_enables && !bu_model.rx_samples);
+                    if(bu_model.fault!=BU_RX_GRANT_ADMIT_DRIFT)bu_model.rf_grant=grant;
+                } else {
+                    assert(!cr && bu_model.rx_stops==1 && grant==0xdf03);
+                    if(bu_model.fault!=BU_RX_GRANT_RESTORE_DRIFT)bu_model.rf_grant=grant;
+                }
+            } else if(value==0xc00f0038 && bu_model.fault!=BU_FW_NOT_READY) {
                 assert(bu_model.ddma==40 && bu_model.written==161176 && (bu_model_read(3,1)&4));
                 bu_model_store(0x80,2,0xc078);
                 bu_model_store(BU_CR+1,1,4);
@@ -459,7 +483,7 @@ static void bu_model_receive_event(bool closing,unsigned ahead) {
     struct bu_rx *rx=bu_rx_owner;
     unsigned n=(unsigned)((bu_model.rx_cursor-bu_model.rx_ring)/16);
     assert(rx && n<rx->posted && rx->completed<=n && rx->posted-rx->consumed<=4);
-    assert((bu_model_read(BU_CR,2)==0x06bf ||
+    assert((bu_model_read(BU_CR,2)==0x06ff ||
             (!bu_model.rx_samples && bu_model_read(BU_CR,1)==5)) && bu_model_read(BU_TXPAUSE,1)==0xff);
     uint64_t pointer=bu_model.rx_cursor&~1ull;
     const struct xhci_trb *trb=(const void *)(uintptr_t)pointer;
@@ -501,7 +525,7 @@ static void bu_model_receive(void) {
         assert(!bu_model.rx_samples && !bu_model.ddma && !bu_model.posted && !bu_model_read(BU_CR,1));
     } else {
         assert(bu_model.rx_samples==10 && bu_model.rx_filters_written &&
-               bu_model_read(BU_CR,2)==0x06bf && bu_model_read(0x608,4)==0xf410400e);
+               bu_model_read(BU_CR,2)==0x06ff && bu_model_read(0x608,4)==0xf410400e);
         assert(bu_model.h2c_posts==2 && bu_model_read(BU_H2C_WP,4)==BU_H2C_START+64 &&
                bu_model_read(BU_H2C_RP,4)==BU_H2C_START+64);
     }
@@ -584,7 +608,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
         bu_model_store(BU_RX_MAC_REPORT+3,1,fault==BU_RX_MAC_RESET_BUSY?0x5e:0x56);
         bu_model_store(0x280,4,0x80001234u);
         bu_model_store(0x1700,4,0x20000000);
-        bu_model_store(0x1708,4,0xdd03);
+        bu_model.rf_grant=0xdf03;
         bool board=fault>=BU_BOARD_OK;
         if(board) {
             bu_model_store(BU_EFUSE_CTRL,4,fault==BU_BOARD_BAD_MODE?0x906000ff:0xb163f0ff);
@@ -630,11 +654,18 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
             assert(bu_model.rx_filters_written==(queue_setup && fault!=BU_RX_LLT_STUCK &&
                 fault!=BU_H2C_BAD_LIMIT && fault!=BU_H2C_INIT_STUCK));
             assert(bu_model.rx_stops==1);
-            assert(bu_model.rx_samples==(admitted && fault!=BU_RX_MAC_RESTORE_DRIFT?20:0));
+            bool scan_enabled=admitted && fault!=BU_RX_GRANT_ADMIT_DRIFT;
+            assert(bu_model.rf_scan_enables==scan_enabled);
+            assert(bu_model.rf_grant_writes==(admitted?(fault==BU_RX_BAD_STOP?1u:2u):0u));
+            assert(bu_model.rf_grant==(fault==BU_RX_BAD_STOP || fault==BU_RX_GRANT_RESTORE_DRIFT?0xdd03u:0xdf03u));
+            assert(bu_model.rx_samples==(scan_enabled && fault!=BU_RX_MAC_RESTORE_DRIFT?
+                (fault==BU_RX_GRANT_LOST?10u:20u):0u));
             unsigned mac_writes=admitted?10u:0u,mac_reads=admitted?8u:0u;
             if(fault==BU_RX_MAC_SELECTOR_DRIFT){mac_writes=4;mac_reads=2;}
             if(fault==BU_RX_MAC_RESET_BUSY){mac_writes=0;mac_reads=0;}
             if(fault==BU_RX_MAC_RESTORE_DRIFT){mac_writes=5;mac_reads=4;}
+            if(fault==BU_RX_GRANT_ADMIT_DRIFT){mac_writes=0;mac_reads=0;}
+            if(fault==BU_RX_GRANT_LOST){mac_writes=5;mac_reads=4;}
             assert(bu_model.rx_mac_writes==mac_writes && bu_model.rx_mac_reads==mac_reads);
             unsigned mac_selector=fault==BU_RX_MAC_RESET_BUSY?0x5e:fault==BU_RX_MAC_RESTORE_DRIFT?0x46:0x56;
             assert(bu_model_read(BU_RX_MAC_REPORT+3,1)==mac_selector);
@@ -668,7 +699,8 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
         if(fault==BU_FW_IMAGE)image[0]^=1;
         assert(safe==(fault!=BU_FW_BAD_STOP && fault!=BU_BOARD_BAD_STOP && fault!=BU_FW_BUSY && fault!=BU_PHY_STUCK_RF &&
             fault!=BU_FW_PLATFORM_MCU && fault!=BU_FW_COLD_DMA_BUSY && fault!=BU_RX_BAD_STOP &&
-            fault!=BU_RX_SEC_RESTORE_DRIFT && fault!=BU_RX_FIFO_RESTORE_DRIFT && fault!=BU_RX_PAUSE_REFUSED));
+            fault!=BU_RX_SEC_RESTORE_DRIFT && fault!=BU_RX_FIFO_RESTORE_DRIFT &&
+            fault!=BU_RX_PAUSE_REFUSED && fault!=BU_RX_GRANT_RESTORE_DRIFT));
         assert(!bu_model.echo_expected && !rtl->control_success && !xhci.devices[2].control_success && !network_count);
         if(success)assert(bu_model.posted==40 && bu_model.ddma==40 && !d->bulk_pending && bu_model.stop);
         if(fault==BU_FW_IMAGE)assert(!bu_model.posted && !bu_model.configure && !bu_model.echoes);
@@ -707,6 +739,7 @@ static void test_rtl8822bu_firmware(const char *path,const char *phy_path,bool p
     if(passive)puts("rtl8822bu: PASS read-only pre/post PHY and DMA counters and closing completion excluded from discovery");
     if(passive)puts("rtl8822bu: PASS restoring TX pause after MCU startup and refusing unverified pause");
     if(passive)puts("rtl8822bu: PASS MAC counters, unavailable and mismatched samples, selector restoration and restore refusal");
+    if(passive)puts("rtl8822bu: PASS verified RF grant before scan, admission drift, loss of inhibit and guarded restoration");
     if(passive)puts("rtl8822bu: PASS Linux RX admission order, MAC TX disabled, LLT completion, and filter readback refusal");
     if(passive)puts("rtl8822bu: PASS Netgear four bulk-IN owners before firmware, startup discard, stale event refusal, and early cleanup");
     if(passive)puts("rtl8822bu: PASS native firmware commands, Linux USB bytes, queue entry/drain, short/missing OUT and RX-only restoration");
