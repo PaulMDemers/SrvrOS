@@ -3,6 +3,7 @@
 #include <srvros/display_profile.h>
 #include <srvros/initramfs.h>
 #include <srvros/pci.h>
+#include <srvros/pmm.h>
 #include <srvros/sha256.h>
 #include <srvros/timer.h>
 #include <srvros/vmm.h>
@@ -18,7 +19,7 @@ enum {
     CHIP_SROM = 0x800, CHIP_CAP_SROM = 1u << 30,
     CHIP_STATUS_SPROM = 1u << 1, CHIP_PA_PINS = (1u << 4) | (1u << 7) | (1u << 12),
     CORE_IO_CONTROL = 0x408, CORE_IO_STATUS = 0x500, CORE_RESET_CONTROL = 0x800, CORE_RESET_STATUS = 0x804,
-    CORE_CLOCK = 1, CORE_FORCE_CLOCK = 2, D11_PHY_CLOCK = 4, CORE_RESET = 1,
+    CORE_CLOCK = 1, CORE_FORCE_CLOCK = 2, D11_PHY_CLOCK = 4, CORE_RESET = 1, CORE_DMA64 = 0x1000,
     D11_MAC_CONTROL = 0x120, D11_PHY_VERSION = 0x3e0,
     D11_IRQ_REASON = 0x128, D11_IRQ_MASK = 0x12c, D11_MAC_SUSPENDED = 1,
     D11_SHM_CONTROL = 0x160, D11_SHM_DATA = 0x164, D11_SHM_DATA_ODD = 0x166,
@@ -213,7 +214,7 @@ static bool wait_d11_register(const volatile uint32_t *regs, unsigned offset, ui
 }
 
 /* Clear the device's retained DMA and PSM state before uploading. Reuse the
- * captured warm 20 MHz PHY/clock settings and never reenable host DMA. */
+ * captured warm 20 MHz PHY/clock settings with host DMA fenced. */
 static bool reset_d11(const struct pci_device *p, const struct bcma_core *core, volatile uint32_t *regs, bool *safe) {
     pci_write_config32(p, PCI_BAR0_WINDOW, core->wrapper);
     if (pci_read_config32(p, PCI_BAR0_WINDOW) != core->wrapper) return false;
@@ -232,7 +233,8 @@ static bool reset_d11(const struct pci_device *p, const struct bcma_core *core, 
         }
         if (released) {
             regs[CORE_IO_CONTROL / 4] = ioctl;
-            if (regs[CORE_IO_CONTROL / 4] == ioctl) {
+            if (regs[CORE_IO_CONTROL / 4] == ioctl &&
+                wait_d11_register(regs, CORE_IO_STATUS, CORE_DMA64, CORE_DMA64)) {
                 pci_write_config32(p, PCI_BAR0_WINDOW, core->address);
                 if (pci_read_config32(p, PCI_BAR0_WINDOW) == core->address) {
                     uint32_t clock = regs[D11_CLOCK_CONTROL / 4];
@@ -263,8 +265,8 @@ static bool reset_d11(const struct pci_device *p, const struct bcma_core *core, 
 
 /* Run the D11 PSM bootstrap. Keep the MAC disabled and mask device IRQs
  * while loading firmware. An explicit radio trial may enable receive. */
-static bool firmware_trial(volatile uint32_t *regs, const uint8_t *ucode, const struct radio_assets *radio,
-    bool *beacon, bool *retired) {
+static bool firmware_trial(const struct pci_device *p, volatile uint32_t *regs, const uint8_t *ucode,
+    const struct radio_assets *radio, bool *beacon, bool *retired, unsigned *dma_pages) {
     const uint32_t quiet = D11_GMODE | D11_SHM_ENABLED | D11_IHR_ENABLED | D11_INFRA;
     regs[D11_IRQ_MASK / 4] = 0;
     regs[D11_MAC_CONTROL / 4] = quiet | D11_PSM_JUMP_ZERO;
@@ -307,7 +309,7 @@ static bool firmware_trial(volatile uint32_t *regs, const uint8_t *ucode, const 
         }
     }
     bool radio_retired = true;
-    if (radio && revision == 784 && patch == 2) *beacon = passive_radio_trial(regs, radio, &radio_retired);
+    if (radio && revision == 784 && patch == 2) *beacon = passive_radio_trial(p, regs, radio, &radio_retired, dma_pages);
     regs[D11_MAC_CONTROL / 4] = quiet;
     uint32_t control = regs[D11_MAC_CONTROL / 4];
     *retired = radio_retired && control != UINT32_MAX && !(control & (D11_MAC_ENABLED | D11_PSM_RUN)) && !regs[D11_IRQ_MASK / 4];
@@ -380,6 +382,7 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
     bool mapped = false, switched = false, matched = false, pins_restored = true, srom_ready = false, phy_ready = false;
     bool firmware_attempted = false, firmware_ready = false, psm_retired = true;
     bool beacon = false;
+    unsigned dma_pages = 0;
     if (pci_read_config16(p, PCI_COMMAND) == enabled) {
         volatile uint32_t *cc = (volatile uint32_t *)fixed;
         uint32_t id = cc[CHIP_ID / 4], cap = cc[CHIP_CAP / 4], erom = cc[CHIP_EROM / 4];
@@ -407,8 +410,8 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
                     if (start_firmware && phy_ready && srom_ready && pins_restored) {
                         volatile uint32_t *regs = (volatile uint32_t *)bcm4331_window;
                         firmware_attempted = reset_d11(p, &cores[1], regs, &psm_retired);
-                        if (firmware_attempted) firmware_ready = firmware_trial(regs, ucode + UCODE_HEADER_BYTES,
-                            mode == BCM4331_CHANNEL10 ? &assets : 0, &beacon, &psm_retired);
+                        if (firmware_attempted) firmware_ready = firmware_trial(p, regs, ucode + UCODE_HEADER_BYTES,
+                            mode == BCM4331_CHANNEL10 ? &assets : 0, &beacon, &psm_retired, &dma_pages);
                     }
                 } else if (selected) {
                     console_write("bcm4331: enumeration ROM did not match the captured topology\n");
@@ -427,9 +430,9 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
     uint64_t physical;
     bool unmapped = vmm_unmap_page_in_space(root, fixed, &physical) && physical == bar + CHIPCOMMON_PAGE;
     if (mapped) unmapped = (vmm_unmap_page_in_space(root, bcm4331_window, &physical) && physical == bar) && unmapped;
-    console_printf("bcm4331: mapping=%s pci_windows_restored=%u bus_master_off=%u pins_restored=%u dma_pages=0 mac_writes=%u\n",
+    console_printf("bcm4331: mapping=%s pci_windows_restored=%u bus_master_off=%u pins_restored=%u dma_pages=%u mac_writes=%u\n",
         unmapped ? "released" : "unverified", (uint64_t)restored, (uint64_t)bus_master_off, (uint64_t)pins_restored,
-        (uint64_t)firmware_attempted);
+        (uint64_t)dma_pages, (uint64_t)firmware_attempted);
     if (!restored || !unmapped || !pins_restored || !psm_retired) return BCM4331_UNSAFE;
     if (matched) console_printf("bcm4331: board_data=%u phy_identified=%u\n", (uint64_t)srom_ready, (uint64_t)phy_ready);
     if (mode == BCM4331_CHANNEL10) return beacon ? BCM4331_BEACON_OK : BCM4331_INCOMPLETE;

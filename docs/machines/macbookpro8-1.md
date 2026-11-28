@@ -520,21 +520,17 @@ The channel 10 block starts from `fc1cb4f2` and fetched integration
 baseline `24feebdd`. It owns the BCM4331 HT PHY and radio initialization,
 passive receive, beacon matching, and release-specific EHCI receipts.
 Use Ubuntu's working channel 10 session to measure the radio sequence
-and check timing and receive format against the Linux driver. Keep host
-DMA fenced if the D11 programmed-I/O receive path works. The first
+and check timing and receive format against the Linux driver. The first
 native acceptance is a bounded receive window with a verified target
 beacon and safe retirement. The Pro11,2 USB work at `4226e6f2` and the
 open graphics and runtime PRs have separate hardware and paths.
 
 Ubuntu's driver trace recorded the radio power-up, HT table programming
 and channel 10 switch. The passive profile keeps the receive setup through
-the last HT table and omits the driver's later TX sample calibration. A
-separate Linux programmed-I/O monitor test received a beacon from the
-associated AP at 2457 MHz. Its advertised SSID is `Demers2.4`. Ubuntu's
-normal DMA driver and both connections were restored after capture. The
-SrvrOS trial checks the pinned local HT profile and firmware tables,
-requires fresh radio calibration status, and compares complete beacon
-frames from the PIO FIFO without enabling PCI bus mastering.
+the last HT table and omits the driver's later TX sample calibration.
+The associated AP advertises `Demers2.4` at 2457 MHz. The SrvrOS trial
+checks the pinned local HT profile and firmware tables, requires fresh
+radio calibration status, and validates complete beacon frames.
 
 Release `bfa0d0c0f1f159de` completed the pinned init writes, radio
 calibration, HT programming and channel 10 sequence. The receive gate
@@ -546,9 +542,20 @@ separately, and changes only the direct-FIFO control bits.
 Release `c062a4edf12fc2ab` verified the control register's reset default
 `0x40`, inactive RX DMA and PIO admission. It delivered one frame with
 channel word `0x57`, which identifies channel 10 and HT PHY. It did not
-match the target beacon. Both reports and safe return verified. The
-next trial acknowledges receive events during polling and distinguishes
-beacon headers from complete checksum-valid beacons in the report.
+match the target beacon. Both reports and safe return verified. Release
+`f3e4d76b26c3d17f` acknowledged 31 receive events and read one frame whose
+data repeated the channel word at the expected frame control offset.
+Both reports and safe retirement verified again.
+
+An Ubuntu monitor comparison on 2457 MHz reported zero target beacons
+with forced PIO and 58 with DMA over identical eight-second captures.
+The first PIO comparison had counted tcpdump's empty shutdown line as
+a frame. Ubuntu's default DMA driver and both connections were restored.
+The next trial uses a bounded DMA64 receive ring on the verified D11
+engine. It checks all DMA channels are idle before enabling bus mastering,
+posts a finite batch of receive buffers, and verifies the engine, PCI
+fence and ring are retired before releasing memory. The exact-profile
+trial leaves transmit queues disabled.
 
 ## Bring-up sequence
 
