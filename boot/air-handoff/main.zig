@@ -50,6 +50,50 @@ const Pci = extern struct {
         return value;
     }
 };
+
+fn bcsMarkerPte(p: *Pci) !u64 {
+    const offset = 0x800000 + 8 * (wire.AIR_BOOT_BCS_MARKER_VA / 4096);
+    const upper = try p.word(offset + 4);
+    const low = try p.word(offset);
+    if (upper != try p.word(offset + 4)) return error.TranslationChanged;
+    return (@as(u64, upper) << 32) | low;
+}
+
+const broadwell_eg2 = makeGuid(0x0cb4e51b, 0xa3ca, 0x4afe, .{ 0xb5, 0xb6, 0xcb, 0x38, 0x7e, 0xd1, 0xae, 0xe3 });
+
+// Fingerprint the exact file's position-independent sequence, marker setup
+// and poll code before reading its private data. No driver method is called.
+fn captureBcs(bs: *Services, p: *Pci, r: *const Record, agent: Handle) !wire.struct_air_boot_bcs {
+    const binding = (try bs.openProtocol(DriverBinding, agent, .{ .get_protocol = .{} })) orelse return error.NoBinding;
+    const image = (try bs.openProtocol(efi.protocol.LoadedImage, binding.image, .{ .get_protocol = .{} })) orelse return error.NoImage;
+    const base = @intFromPtr(image.image_base);
+    if (image.image_size < 0xb149 or image.image_size > 0x100000 or base > std.math.maxInt(usize) - image.image_size or
+        binding.stop != base + 0x18fe or r.aperture != 0xb0000000 or r.surface >= wire.AIR_BOOT_BCS_MARKER_VA or
+        r.framebuffer_bytes > wire.AIR_BOOT_BCS_MARKER_VA - r.surface)
+        return error.ForeignImage;
+    var hash = std.crypto.hash.sha2.Sha256.init(.{});
+    for ([_][2]usize{ .{ 0x6340, 0x63c1 }, .{ 0x66d5, 0x671f }, .{ 0x6804, 0x682d }, .{ 0x69da, 0x6a76 } }) |part|
+        hash.update(image.image_base[part[0]..part[1]]);
+    var expected_hash: [32]u8 = undefined;
+    _ = std.fmt.hexToBytes(&expected_hash, "b8dac77cd70d356288a11f7d21609f3dc7ed44ee8af1d1bf9dbc89e95c797efd") catch unreachable;
+    if (!std.mem.eql(u8, &hash.finalResult(), &expected_hash)) return error.ForeignImage;
+
+    const sequence: *volatile const u32 = @ptrFromInt(base + 0xb08c);
+    const offset: *volatile const u32 = @ptrFromInt(base + 0xb144);
+    const timeouts: *volatile const u8 = @ptrFromInt(base + 0xb148);
+    const expected = sequence.*;
+    const failed = timeouts.*;
+    if (offset.* != wire.AIR_BOOT_BCS_MARKER_VA or try bcsMarkerPte(p) != wire.AIR_BOOT_BCS_MARKER_PTE)
+        return error.ForeignMarker;
+    var first: u32 = 0;
+    var second: u32 = 0;
+    // Apple's producer uses the second PCI I/O resource for the aperture.
+    if (p.mem_read(p, 2, 1, wire.AIR_BOOT_BCS_MARKER_VA, 1, &first) != .success or
+        p.mem_read(p, 2, 1, wire.AIR_BOOT_BCS_MARKER_VA, 1, &second) != .success or
+        try bcsMarkerPte(p) != wire.AIR_BOOT_BCS_MARKER_PTE or offset.* != wire.AIR_BOOT_BCS_MARKER_VA or
+        sequence.* != expected or timeouts.* != failed) return error.MarkerChanged;
+    return .{ .pte = wire.AIR_BOOT_BCS_MARKER_PTE, .expected = expected, .first = first, .second = second, .timeouts = failed };
+}
 fn snapshot(p: *Pci, r: *Record) !void {
     const plane = try p.word(0x70180);
     const surface = try p.word(0x701ac);
@@ -487,6 +531,10 @@ fn capture(bs: *Services, r: *Record, clients: *?Eg2Clients) !void {
         }
         if (clients.*) |first| clients.* = try confirmBranch(bs, handle, r, first);
         if (clients.*) |c| captureBranchProtocols(bs, r, c, driver_agent);
+        if (clients.*) |c| if (c.branch != 0 and r.driver_opens == 1 and r.firmware_files == 1 and
+            std.mem.eql(u8, &r.driver_file_ids[0], std.mem.asBytes(&broadwell_eg2))) {
+            if (driver_agent) |agent| r.bcs = captureBcs(bs, p, r, agent) catch std.mem.zeroes(wire.struct_air_boot_bcs);
+        };
         try snapshot(p, r);
         r.step = 5;
         if (r.framebuffer < r.aperture or r.framebuffer - r.aperture != r.surface or r.framebuffer_bytes == 0 or
@@ -560,12 +608,13 @@ fn publish(bs: *Services, file: ?*File, comptime captureRecord: anytype) Status 
     r.revision = 1;
     r.oem = "SRVROS".*;
     r.table_id = "BDWBOOT1".*;
-    r.oem_revision = 3;
+    r.oem_revision = 4;
     r.first = wire.AIR_BOOT_SLOT;
     var clients: ?Eg2Clients = null;
     captureRecord(bs, &r, &clients) catch {
         r.state = wire.AIR_BOOT_PROBING;
         @memset(&r.protocol_counts, 0);
+        r.bcs = std.mem.zeroes(wire.struct_air_boot_bcs);
     };
     if (clients) |c| {
         if (r.state == wire.AIR_BOOT_CAPTURED) r.display_branch = c.branch;

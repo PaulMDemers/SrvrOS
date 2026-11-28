@@ -738,6 +738,29 @@ class FlushAcknowledgements(unittest.TestCase):
         self.assertEqual(inventory["branch"], 0x1234567800000201)
         self.assertEqual(inventory["handles"]["gop"], ["9042a9de-23dc-4a38-96fb-7aded080516a"])
         self.assertIsNone(inventory["handles"]["child"])
+        self.assertFalse(proof["efi_handoff"]["bcs_marker"]["matches_firmware_blit"])
+        empty_marker = next(line for line in text.splitlines() if line.startswith("intel-efi-bcs-marker:"))
+        marker = empty_marker.replace("pte=0 expected=0 first=0 second=0",
+                                      "pte=0x8feef001 expected=0x1007 first=0x1007 second=0x1007")
+        handoff = next(line for line in text.splitlines() if line.startswith("intel-efi-handoff:"))
+        marked = text.replace(handoff,
+                              handoff.replace("drivers=0", "drivers=1").replace("files=0", "files=1")
+                              + "\nintel-efi-guid: v=1 kind=1 index=0 low=0x4afea3ca0cb4e51b high=0xe3aed17e38cbb6b5")
+        marked = marked.replace(empty_marker, marker)
+        self.assertTrue(bootstrap_result(marked)["range"]["efi_handoff"]["bcs_marker"]["matches_firmware_blit"])
+        for field in ("expected=0x0", "second=0x1006", "timeouts=1"):
+            key = field.split("=")[0]
+            changed = re.sub(rf"{key}=\S+", field, marker)
+            self.assertFalse(bootstrap_result(marked.replace(marker, changed))
+                             ["range"]["efi_handoff"]["bcs_marker"]["matches_firmware_blit"])
+        seeded = marked.replace(marker, marker.replace("0x1007", "0x1000"))
+        self.assertFalse(bootstrap_result(seeded)["range"]["efi_handoff"]["bcs_marker"]["matches_firmware_blit"])
+        for changed in (marked.replace("pte=0x8feef001", "pte=0x8feee001"),
+                        marked.replace("low=0x4afea3ca0cb4e51b", "low=0x4afea3ca0cb4e51c"),
+                        marked.replace(marker, marker + "\n" + marker),
+                        text.replace(empty_marker, marker)):
+            with self.assertRaisesRegex(ValueError, "EFI blitter marker"):
+                bootstrap_result(changed)
         inventory_row = next(line for line in text.splitlines() if line.startswith("intel-efi-inventory:"))
         inventory_data = next(line for line in text.splitlines() if line.startswith("intel-efi-handle-guids:"))
         for changed in (text.replace(inventory_data, ""), text.replace(inventory_data, inventory_data.replace("role=0", "role=1")),

@@ -979,6 +979,16 @@ requester exclusion and completion with the inherited framebuffer pinned.
 [UEFI Driver Binding](https://uefi.org/specs/UEFI/2.10_A/11_Protocols_UEFI_Driver_Model.html)
 · [EDK II PCI I/O definitions](https://raw.githubusercontent.com/tianocore/edk2/master/MdePkg/Include/Protocol/PciIo.h)
 
+The EFI handoff now captures the exact Apple EG2 driver's existing
+GPU-written blitter marker using two aperture reads. It brackets those
+reads with the active plane, seven command translations and the marker
+translation, and verifies the selected firmware driver before decoding
+its sequence. The receipt is written to the same-boot workspace log before
+any GT reset can change the evidence. It can verify the last firmware
+blit observed in UEFI. The device-wide drain and continuing requester and
+WiDi exclusion remain open, so the driver-owned range stays write-refused.
+[Marker capture and limits](../intel-bdw-bcs-flush.md#efi-handoff-on-the-air72)
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

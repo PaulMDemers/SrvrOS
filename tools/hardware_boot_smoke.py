@@ -1516,6 +1516,11 @@ def main():
                                     or not all(gop in (inventory["handles"][name] or []) for name in ("gop", "child"))
                                     or inventory["handles"]["pci_driver"] or inventory["handles"]["eg2_driver"]):
                                 raise ValueError("Missing exact same-handle EFI protocol inventory")
+                        if manifest.get("efi_bcs_marker"):
+                            marker = (f"intel-efi-bcs-marker: v=1 branch={branch:#x} pte=0x8feef001 "
+                                      "expected=0x12345678 first=0x12345678 second=0x12345678 timeouts=0")
+                            if output.splitlines().count(marker) != 1:
+                                raise ValueError("Missing same-branch EFI blitter marker fixture")
                     if trace["grub"] != grub_state or trace["probe"] != checkpoints:
                         raise ValueError("Unexpected EFI progress on OVMF: " + str(trace))
                     if f"intel-efi-import: status={kernel} " not in serial.read_text(errors="replace"):

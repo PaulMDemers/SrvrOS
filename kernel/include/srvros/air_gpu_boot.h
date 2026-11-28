@@ -13,6 +13,12 @@
 #define AIR_BOOT_PAGES 7u
 #define AIR_BOOT_FRAMES 19u
 #define AIR_BOOT_PROTOCOL_LIMIT 16u
+#define AIR_BOOT_BCS_MARKER_VA 0x03eee000u
+#define AIR_BOOT_BCS_MARKER_PTE 0x8feef001ULL
+struct air_boot_bcs {
+    uint64_t pte;
+    uint32_t expected, first, second, timeouts;
+};
 enum air_boot_protocol_role {
     AIR_BOOT_GOP, AIR_BOOT_GOP_CHILD, AIR_BOOT_PCI_DRIVER, AIR_BOOT_EG2_DRIVER,
     AIR_BOOT_PROTOCOL_ROLES
@@ -37,6 +43,8 @@ struct air_gpu_boot {
     /* OEM revision 3. Zero counts indicate unavailable inventories. */
     uint8_t protocol_counts[AIR_BOOT_PROTOCOL_ROLES];
     uint8_t handle_protocol_ids[AIR_BOOT_PROTOCOL_ROLES][AIR_BOOT_PROTOCOL_LIMIT][16];
+    /* OEM revision 4. A zero PTE means no firmware marker observation. */
+    struct air_boot_bcs bcs;
 };
 #define AIR_BOOT_MARKER 0x53525652414d0000ULL
 #endif

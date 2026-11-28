@@ -85,8 +85,28 @@ def boot_handoff(text, slots):
     if inventory is not None and (not captured or not h["backing"]
                                   or (inventory["handles"]["pci_driver"] and h["drivers"] != 1)):
         raise ValueError("EFI protocol inventory lacks a verified boot record")
+    markers = rows("intel-efi-bcs-marker:", "v branch pte expected first second timeouts",
+                   ("branch", "pte", "expected", "first", "second"))
+    marker = markers[0] if markers else None
+    if marker is not None:
+        if len(markers) != 1 or inventory is None or marker["branch"] != inventory["branch"]:
+            raise ValueError("EFI blitter marker lacks a matching boot record")
+        if marker["pte"]:
+            display = surfaces[0]
+            if (marker["pte"] != 0x8feef001 or marker["timeouts"] > 255
+                    or any(marker[key] > 0xffffffff for key in ("expected", "first", "second"))
+                    or h["drivers"] != 1
+                    or [r["guid"] for r in ids if r["kind"] == 1] != ["0cb4e51b-a3ca-4afe-b5b6-cb387ed1aee3"]
+                    or display["aperture"] != 0xb0000000
+                    or display["surface"] + display["bytes"] > 0x03eee000):
+                raise ValueError("EFI blitter marker identity or bounds")
+        elif any(marker[key] for key in ("expected", "first", "second", "timeouts")):
+            raise ValueError("Unbacked EFI blitter marker")
+        marker["matches_firmware_blit"] = bool(marker["pte"] and marker["expected"] > 0x1000 and not marker["timeouts"]
+                                              and marker["first"] == marker["second"] == marker["expected"])
     return dict(summary=h, guids=ids, display=surfaces, entries=entries,
-                **({"protocol_inventory": inventory} if inventory is not None else {}))
+                **({"protocol_inventory": inventory} if inventory is not None else {}),
+                **({"bcs_marker": marker} if marker is not None else {}))
 
 
 def range_result(text, parent, reset, memory, retire, owner_complete, post):

@@ -1290,17 +1290,40 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
 }
 #endif
 #ifdef SRVROS_INTEL_GT_FLUSH
+static void test_efi_checksum(struct air_gpu_boot *record) {
+ uint8_t sum=0;
+ record->checksum=0;
+ for(unsigned i=0;i<record->length;i++)sum+=((uint8_t *)record)[i];
+ record->checksum=0-sum;
+}
+
 static int test_efi_import(void) {
  reset();
  test_prepare_boot();
  struct air_gpu_boot older=test_boot_record;
+ older.oem_revision=3;
+ older.length=__builtin_offsetof(struct air_gpu_boot,bcs);
+ test_efi_checksum(&older);
+ assert(air_valid_record(&older));
  older.oem_revision=2;
  older.length=__builtin_offsetof(struct air_gpu_boot,protocol_counts);
- older.checksum=0;
- uint8_t older_sum=0;
- for(unsigned i=0;i<older.length;i++)older_sum+=((uint8_t *)&older)[i];
- older.checksum=0-older_sum;
+ test_efi_checksum(&older);
  assert(air_valid_record(&older));
+ struct air_gpu_boot marked=test_boot_record;
+ const uint8_t eg2_file[16]={0x1b,0xe5,0xb4,0x0c,0xca,0xa3,0xfe,0x4a,0xb5,0xb6,0xcb,0x38,0x7e,0xd1,0xae,0xe3};
+ marked.bcs=(struct air_boot_bcs){.pte=AIR_BOOT_BCS_MARKER_PTE,.expected=0x1007,.first=0x1007,.second=0x1007};
+ marked.driver_opens=1;
+ marked.firmware_files=1;
+ memcpy(marked.driver_file_ids[0],eg2_file,sizeof(eg2_file));
+ test_efi_checksum(&marked);
+ assert(air_valid_record(&marked));
+ marked.bcs.pte=0;
+ test_efi_checksum(&marked);
+ assert(!air_valid_record(&marked));
+ marked.bcs.pte=AIR_BOOT_BCS_MARKER_PTE;
+ marked.driver_file_ids[0][0]^=1;
+ test_efi_checksum(&marked);
+ assert(!air_valid_record(&marked));
  air_boot_import();
  assert(!strcmp(air_import_status,"ready") && air_boot_buffer && air_boot.ram==TEST_COMMAND_PA);
  assert(air_boot.protocol_counts[AIR_BOOT_GOP]==1 &&

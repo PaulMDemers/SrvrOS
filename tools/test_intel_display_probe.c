@@ -621,7 +621,7 @@ static uint8_t test_metadata[4096] __attribute__((aligned(4096)));
 static uint8_t test_efi_directory[4096] __attribute__((aligned(4096)));
 static void test_prepare_boot(void) {
     test_boot_record=(struct air_gpu_boot){
-        .length=sizeof(test_boot_record),.revision=1,.oem_revision=3,.display_branch=0x1234567800000201ull,.pci_id=0x16268086,.subsystem=0x011b106b,
+        .length=sizeof(test_boot_record),.revision=1,.oem_revision=4,.display_branch=0x1234567800000201ull,.pci_id=0x16268086,.subsystem=0x011b106b,
         .state=AIR_BOOT_CAPTURED,.step=6,.first=AIR_BOOT_SLOT,.mmio=0xc0000000,.aperture=0xb0000000,
         .framebuffer=0xb0000000,.framebuffer_bytes=6144*900,.plane=0xd8000400,.ram=TEST_COMMAND_PA};
     test_boot_record.protocol_counts[AIR_BOOT_GOP]=1;

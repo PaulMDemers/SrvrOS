@@ -561,3 +561,25 @@ post-reopen checks matched the original mappings, and the reservation
 returned to its boot owner. Device-wide traffic exclusion, fresh engine and
 L3 acknowledgements, and continuous WiDi exclusion remain prerequisites
 for native submission.
+
+The captured Apple Broadwell EG2 image implements a legacy blitter
+completion word. It increments the expected DWORD at image RVA `0xb08c`,
+posts it with a MI_FLUSH_DW immediate-data command, then polls the existing
+aperture mapping. On an exhausted wait it increments the byte counter at
+`0xb148`. The image can clear that counter later. The captured ring starts
+at GPU address `0x03eef000`. The marker page is at `0x03eee000` with
+expected PTE `0x8feef001`, outside the active framebuffer.
+
+OEMG revision 4 verifies the selected GOP branch, firmware file GUID,
+binding entry point and instruction fingerprint before reading private
+image state. The helper brackets two marker reads with translation,
+sequence and timeout checks. The existing plane and seven-command-entry
+checks also bracket this observation. The helper uses only PCI reads
+and never calls firmware blit or teardown methods. The workspace capture
+exports the raw result under `intel-efi-bcs-marker` in a same-boot log.
+A sequence above the image's initial `0x1000` matching both aperture reads
+with zero current timeouts confirms the firmware's last recorded blitter
+marker at that point in UEFI.
+The report does not establish GPU completion after ExitBootServices,
+device-wide L3 and requester drain, or a driver-owned range grant.
+[Intel Broadwell instruction reference](https://cdrdv2-public.intel.com/v1/dl/getcontent/690783)
