@@ -781,6 +781,14 @@ fresh engine and L3 acknowledgements. Main `24feebdd` and the separate
 Haswell PR 567 at `91a11411` were reviewed for this checkpoint.
 [Takeover contract](../intel-bdw-edp-recovery.md#full-takeover-with-a-boot-blank)
 
+The occupied driver-range checkpoint starts at `2cbb749e` with main
+`24feebdd` and Haswell PR 567 `91a11411` reviewed. Scope is the Broadwell
+boot drain and one-page publisher, their host and Q35 fixtures, and the
+Air pre-reopen read-only receipt for slot 16385. The new driver loan will
+restore the exact inherited alias under the same traffic ticket while the
+protected scanout remains pinned. Native writes require a qualified ticket
+and proof of backing, firmware and proxy exclusion in the same boot.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
