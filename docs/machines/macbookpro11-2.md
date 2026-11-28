@@ -532,6 +532,20 @@ safe stopped ownership. Both sibling regressions, 329 boot and trial
 tests, and all five exact-image rehearsals passed. The one-shot run and
 automatic log collection use `build/bringup/pro112-rtl8822bu-h2c-out/run.json`.
 
+Physical session `session-0006615000026bc6-00` completed the final
+firmware OUT with a matching event and zero residue. Adding bulk IN
+preserved the sampled OUT configuration and running dequeue. The first
+General Info OUT used the same Normal TRB flags and max packet as Linux,
+but recorded no transfer event. Endpoint Stop showed dequeue
+`0x6c1281`, the pending TRB plus its cycle bit, rather than the next
+TRB at `0x6c1290`. The H2C pointers still read `0x3fa00` after the
+timeout. TXDMA status read zero. The queue status read `0xeaeaeaea`;
+this value needs validation before interpreting its full bit. The test
+did not reach PHYDM Info or USB IN. The endpoints and radio retired,
+all three adapters enumerated, all 696 workspace files matched, and all
+seven EFI journal phases agreed with the exit evidence. The verified
+payload and logs are under `evidence-6bdef8c70130ba12`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
