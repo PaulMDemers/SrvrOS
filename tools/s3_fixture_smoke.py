@@ -11,6 +11,7 @@ import time
 
 import hardware_boot as boot
 from desktop_foundation_smoke import QMP
+from ehci_trial_smoke import desktop_workspace_image, read_workspace
 from hardware_boot_smoke import make_disk, wait_for
 from uefi_usb_smoke import default_ovmf_path, has_fatal_exception
 
@@ -45,11 +46,14 @@ def main():
             (directory / "limine.conf").write_text(config)
         disk = work / "esp.img"
         make_disk(disk, loader, payload, release, {"limine.conf": config.encode()})
+        stick, volume = desktop_workspace_image(work, "53525733")
         qmp = work / "qmp.sock"
         command = [args.qemu, "-machine", "q35,accel=tcg", "-global", "ICH9-LPC.disable_s3=0",
                    "-smp", "1", "-m", "2G", "-nic", "none", "-display", "none", "-no-reboot",
                    "-drive", f"if=pflash,format=raw,readonly=on,file={args.ovmf}",
                    "-drive", f"format=raw,file={disk}", "-serial", f"file:{serial}",
+                   "-device", "qemu-xhci,id=xhci", "-drive", f"if=none,id=stick,format=raw,file={stick}",
+                   "-device", "usb-storage,drive=stick,bus=xhci.0",
                    "-qmp", f"unix:{qmp},server=on,wait=off", "-monitor", "none",
                    "-d", "cpu_reset", "-D", str(logs / "cpu-reset.log")]
         with (logs / "qemu.log").open("w") as diagnostics:
@@ -60,6 +64,7 @@ def main():
                     wait_for(serial, lambda log: "s3-fixture: " in log, vm, 45)
                     first = serial.read_text(errors="replace")
                     assert "s3-fixture: enter vector=" in first, first.splitlines()[-4:]
+                    assert "usb-storage:" not in first
                     for _ in range(100):
                         if monitor.call("query-status")["status"] == "suspended":
                             break
@@ -68,8 +73,9 @@ def main():
                         raise RuntimeError("QEMU did not enter suspended state")
                     print("s3-fixture: QMP observed suspended; triggering wake", flush=True)
                     monitor.call("system_wakeup")
-                    final = wait_for(serial, lambda log: "s3-fixture: resumed=" in log, vm, 30)
+                    final = wait_for(serial, lambda log: "q35-s3-usb: saved=" in log, vm, 30)
                     assert "s3-fixture: resumed=1 vector_restored=1 page_retired=1 result=PASS" in final
+                    assert "q35-s3-usb: saved=1 retired=1" in final
                     assert final.count("srvros: entering kernel") == 1 and not has_fatal_exception(final)
                     assert vm.wait(timeout=10) == 0
                 finally:
@@ -79,8 +85,14 @@ def main():
                 if vm.poll() is None:
                     vm.kill()
                     vm.wait()
+        image = read_workspace(stick, volume)
+        assert image.read("srvros-work/anchor.txt") == b"workspace anchor\n"
+        report = image.read("srvros-work/q35-s3-final.txt")
+        assert b"s3-fixture: resumed=1" in report and b"q35-s3-usb: mounted=1" in report
+        (logs / "q35-s3-final.txt").write_bytes(report)
     receipt = {"result": "PASS", "kernel_sha256": digest, "firmware": str(args.ovmf),
-               "suspend_observed": True, "resume_same_boot": True, "wake_page_retired": True}
+               "suspend_observed": True, "resume_same_boot": True, "wake_page_retired": True,
+               "post_wake_usb_report": "q35-s3-final.txt"}
     (logs / "result.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(f"s3-fixture: PASS, {logs / 'result.json'}")
 

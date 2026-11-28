@@ -175,11 +175,20 @@ bool s3_pro81_mode_roundtrip(void) {
     uint32_t final_low, final_high;
     bool route_restored = ioapic_read_gsi(gsi, &final_low, &final_high) &&
         route_low == final_low && route_high == final_high;
+    bool fixed_repaired = false;
+    /* The firmware sets PWRBTN_EN on entry and leaves it set on exit.
+     * Restore the captured enable halfword without writing PM1 status. */
+    if (entered && exited && final_control == control && final_gpe == gpe && route_restored &&
+        !fixed && final_fixed == (1u << 8)) {
+        outw(0x402, fixed);
+        final_fixed = inw(0x402);
+        fixed_repaired = final_fixed == fixed;
+    }
     bool restored = exited && final_control == control && final_fixed == fixed && final_gpe == gpe && route_restored;
     console_printf("pro81-s3-mode: entered=%u restored=%u active_control=%x active_fixed=%x active_gpe=%x initial_gpe=%x\n",
         (uint64_t)entered, (uint64_t)restored, (uint64_t)active_control, (uint64_t)active_fixed, active_gpe, gpe);
-    console_printf("pro81-s3-mode: final_control=%x final_fixed=%x final_gpe=%x route_restored=%u\n",
-        (uint64_t)final_control, (uint64_t)final_fixed, final_gpe, (uint64_t)route_restored);
+    console_printf("pro81-s3-mode: final_control=%x final_fixed=%x final_gpe=%x route_restored=%u fixed_repaired=%u\n",
+        (uint64_t)final_control, (uint64_t)final_fixed, final_gpe, (uint64_t)route_restored, (uint64_t)fixed_repaired);
     return entered && restored;
 }
 

@@ -936,6 +936,12 @@ firmware left GPE 6 enabled. Both flash reports and Ubuntu recovery
 verified. The bounded repeat preserves that observed enable bit, keeps
 SCI delivery masked, and requires the original register values on return.
 
+The repeat `6a2b8eeaae69f3ee` entered SCI mode and returned to legacy
+mode with the original GPE enable and masked APIC route. Firmware left
+the fixed power-button enable bit set. The next candidate restores only
+that observed enable halfword after mode exit. The repeat again
+rediscovered the workspace and saved both reports.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a

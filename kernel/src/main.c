@@ -1743,7 +1743,15 @@ void kmain(void) {
     }
     pci_init();
     if (cmdline_has_token(cmdline, "srvros.s3=q35-fixture")) {
-        if (s3_q35_fixture(memmap_request.response)) arch_reboot_unattended();
+        if (s3_q35_fixture(memmap_request.response) && timer_reference_init()) {
+            xhci_init();
+            bool mounted = workspace_mount("53525733");
+            console_printf("q35-s3-usb: mounted=%u\n", (uint64_t)mounted);
+            bool saved = mounted && bootlog_persist("/work/srvros-work/q35-s3-final.txt") && workspace_flush_committed();
+            bool retired = ehci_desktop_workspace_stop() && xhci_stop();
+            console_printf("q35-s3-usb: saved=%u retired=%u\n", (uint64_t)saved, (uint64_t)retired);
+            if (saved && retired) arch_reboot_unattended();
+        }
         halt_forever();
     }
     if (ehci_wifi4331) ehci_bcm4331_trial(trial_release, ehci_log_volume, wifi4331_mode);
