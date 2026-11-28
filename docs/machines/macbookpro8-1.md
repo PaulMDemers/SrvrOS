@@ -516,6 +516,16 @@ with both links up. The next native checkpoint is HT PHY and radio
 initialization and passive receive on channel 10. Association, WPA2 and
 interface-bound DHCP and gateway traffic remain to be verified in SrvrOS.
 
+The channel 10 block starts from `fc1cb4f2` and fetched integration
+baseline `24feebdd`. It owns the BCM4331 HT PHY and radio initialization,
+passive receive, beacon matching, and release-specific EHCI receipts.
+Use Ubuntu's working channel 10 session to measure the radio sequence
+and check timing and receive format against the Linux driver. Keep host
+DMA fenced if the D11 programmed-I/O receive path works. The first
+native acceptance is a bounded receive window with a verified target
+beacon and safe retirement. The Pro11,2 USB work at `4226e6f2` and the
+open graphics and runtime PRs have separate hardware and paths.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
