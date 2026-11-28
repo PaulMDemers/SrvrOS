@@ -836,6 +836,23 @@ reading the powered thread register. The retry measures each traffic packet,
 the PTE pair and closing separately within the same 10 ms phase. The
 Air's original scanout, PCI requester hold and read-only scope are required.
 
+Release `651b1269f6de3d14` at `a4caecc7` passed all 24 closing checks on
+the Air in USB session `session-000661537e1f2677-00`. The full phase took
+7.647 ms against 10 ms, down from 18.567 ms. Inside it, each traffic
+packet took 3.126 ms, the PTE reads took 384 µs and closing took 94 µs.
+The four wake censuses accounted for 5.444 ms of the two traffic packets.
+Both reads returned `0x8c001001`, matching the pinned framebuffer at
+`0x8c001000`. The panel registers held, all six temporary aliases retired,
+and PCI bus mastering was restored after the read-only checks. SrvrOS
+issued zero GPU PTE writes.
+
+Both traffic packets still showed open GAM and engine requests and WiDi
+GO, with zero engine and L3 flush acknowledgements. No device-wide drain
+or native write authority was established. Ubuntu collected and verified
+all four USB files, and the run closed as a diagnostic with a clean offline
+exFAT check. This qualifies one run under the unchanged 10 ms slot limit.
+The full sequence still used the wider diagnostic timing policy.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
