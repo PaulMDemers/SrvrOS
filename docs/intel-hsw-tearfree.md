@@ -1005,6 +1005,22 @@ Require a verified refusal, two retirement proofs, positive Pipe A frame
 advance, and two admission refusals bracketing the reads. The receipt must
 show `firmware_handoff=unavailable`, `hardware_hold=unverified` and no authority.
 
+#### Native requester admission hold result
+
+Air6,1 release `43a82a6c8897b493` from source `b65bfd4c` completed in
+session `session-000661587e4511c3-00`. The boot-local guard refused GGTT
+ownership before the first pass and again after the second alias retired.
+Both passes read the same 16 populated entries in slots 24576–24591.
+All 16 aliased the first page of the inherited framebuffer. Each pass
+retired its temporary mapping, and the guard retired after 21.782 ms.
+
+Pipe A stayed on the inherited surface and advanced from frame 920 to
+921. The probe left slots 4096 and 16385 untouched and issued zero GPU
+or PCI configuration stores. Firmware handoff remained unavailable and
+the hardware requester hold unverified. The installed release, final
+snapshot, archived replay, recovery and offline USB check verified after
+the one-shot returned to Ubuntu.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two
