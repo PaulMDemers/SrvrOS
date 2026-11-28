@@ -806,6 +806,19 @@ retirement. Log the actual values and keep all four IN owners through
 firmware startup. The failed image sampled the two gates as one
 boolean, so the cold trace does not establish which register differed.
 
+Retry release `6b7437a819dd3f4d` on `02434246` verifies CR is zero
+and reasserts TXPAUSE when needed before running any PHY table writes.
+The driver repeats the check during retirement and logs the register
+readbacks at both points. The native xHCI fixture reproduced a cleared
+pause on MCU startup and verified recovery with the four 32 KiB IN
+requests still owned. It also verified that a failed pause readback
+prevents PHY and receive setup and does not allow an unverified return.
+The xHCI lifecycle, both sibling adapters, 329 boot and trial tests and
+five exact-image VM rehearsals passed. The candidate is installed,
+with `74da74e0b57afbb8` verified as recovery. The run record is under
+`build/bringup/pro112-rtl8822bu-rx-prequeue-retry/`. Cold hardware
+validation remains pending.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
