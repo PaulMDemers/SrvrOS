@@ -12,6 +12,11 @@
 #define AIR_BOOT_SLOT 11744u
 #define AIR_BOOT_PAGES 7u
 #define AIR_BOOT_FRAMES 19u
+#define AIR_BOOT_PROTOCOL_LIMIT 16u
+enum air_boot_protocol_role {
+    AIR_BOOT_GOP, AIR_BOOT_GOP_CHILD, AIR_BOOT_PCI_DRIVER, AIR_BOOT_EG2_DRIVER,
+    AIR_BOOT_PROTOCOL_ROLES
+};
 enum air_boot_state { AIR_BOOT_NO_GPU, AIR_BOOT_PROBING, AIR_BOOT_CAPTURED };
 struct air_gpu_boot {
     char signature[4];
@@ -29,6 +34,9 @@ struct air_gpu_boot {
     /* OEM revision 2. Route CRC32 in bits 63:32 and one-based GOP and
      * EG2 child ordinals in bits 15:8 and 7:0. Zero withholds selection. */
     uint64_t display_branch;
+    /* OEM revision 3. Zero counts indicate unavailable inventories. */
+    uint8_t protocol_counts[AIR_BOOT_PROTOCOL_ROLES];
+    uint8_t handle_protocol_ids[AIR_BOOT_PROTOCOL_ROLES][AIR_BOOT_PROTOCOL_LIMIT][16];
 };
 #define AIR_BOOT_MARKER 0x53525652414d0000ULL
 #endif

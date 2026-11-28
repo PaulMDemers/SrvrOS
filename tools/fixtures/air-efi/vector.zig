@@ -43,7 +43,9 @@ fn vector(bs: *efi.tables.BootServices, r: anytype, clients: *?handoff.Eg2Client
         scanout.aperture = mode.frame_buffer_base;
         const active = try handoff.framebuffer(bs, &scanout);
         const first = try handoff.eg2Clients(bs, handle, mode.frame_buffer_base, mode.frame_buffer_size, active);
-        clients.* = try handoff.confirmBranch(bs, handle, &scanout, first);
+        const confirmed = try handoff.confirmBranch(bs, handle, &scanout, first);
+        handoff.captureBranchProtocols(bs, r, confirmed, null);
+        clients.* = confirmed;
         break;
     }
     if (clients.* == null) return error.NoFixtureDisplay;

@@ -796,6 +796,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             manifest["efi_eg2_panel"] = 1
             manifest["efi_gop_routes"] = 1
             manifest["efi_display_branch"] = 1
+            manifest["efi_protocol_inventory"] = 1
             manifest["bcs_stop_version"] = 1
             manifest["cold_rc6_version"] = 3
             manifest["idle_policy_version"] = 1

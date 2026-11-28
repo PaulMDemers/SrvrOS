@@ -1504,8 +1504,18 @@ def main():
                         elif routes is not None:
                             raise ValueError("Unexpected GOP route capture on unmatched hardware")
                     if manifest.get("efi_display_branch") and args.efi_probe_fault == "missing-acpi-vector":
-                        if not air_efi_trace.verify_branch(routes, blobs[1], serial.read_text(errors="replace")):
+                        output = serial.read_text(errors="replace")
+                        branch = air_efi_trace.verify_branch(routes, blobs[1], output)
+                        if not branch:
                             raise ValueError("VM did not preserve its selected display branch")
+                        if manifest.get("efi_protocol_inventory"):
+                            from intel_gt_range import efi_protocol_inventory
+                            inventory = efi_protocol_inventory(output)
+                            gop = "9042a9de-23dc-4a38-96fb-7aded080516a"
+                            if (not inventory or inventory["branch"] != branch
+                                    or not all(gop in (inventory["handles"][name] or []) for name in ("gop", "child"))
+                                    or inventory["handles"]["pci_driver"] or inventory["handles"]["eg2_driver"]):
+                                raise ValueError("Missing exact same-handle EFI protocol inventory")
                     if trace["grub"] != grub_state or trace["probe"] != checkpoints:
                         raise ValueError("Unexpected EFI progress on OVMF: " + str(trace))
                     if f"intel-efi-import: status={kernel} " not in serial.read_text(errors="replace"):

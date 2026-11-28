@@ -125,6 +125,7 @@ void intel_display_probe_boot(struct limine_framebuffer *fb) {
     console_printf("intel-efi-transport: via=%s verified_pages=%u\n",air_transport,(uint64_t)(air_boot_buffer?AIR_BOOT_FRAMES:0));
     console_printf("intel-efi-display-branch: selected=%u token=%x\n",(uint64_t)air_branch_selected(),
         air_branch_selected()?air_boot.display_branch:0);
+    air_boot_inventory_report();
     if (air_boot_buffer && air_boot.state==AIR_BOOT_CAPTURED)
         for (unsigned i=0;i<AIR_BOOT_PAGES;i++)
             console_printf("intel-efi-imported-slot: slot=%u word=%x\n",(uint64_t)air_boot.first+i,air_boot.entries[i]);

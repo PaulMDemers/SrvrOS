@@ -18,6 +18,8 @@ struct air_efi_system {
 };
 struct air_efi_entry { uint64_t guid_lo,guid_hi,address; };
 _Static_assert(__builtin_offsetof(struct air_efi_system,count)==104,"EFI x64 layout");
+_Static_assert(sizeof(struct air_gpu_boot)<=4096,"EFI configuration record fits in its NVS page");
+static void entry_requester_base64(const uint8_t *,unsigned,char *);
 
 static bool air_span(uint64_t base,uint64_t bytes,uint64_t type)
 {
@@ -93,8 +95,17 @@ static bool air_valid_record(const struct air_gpu_boot *r)
 {
     uint8_t sum=0;
     const size_t legacy=__builtin_offsetof(struct air_gpu_boot,display_branch);
-    if (!((r->oem_revision==2 && r->length==sizeof(*r)) ||
+    const size_t routes=__builtin_offsetof(struct air_gpu_boot,protocol_counts);
+    if (!((r->oem_revision==3 && r->length==sizeof(*r)) ||
+          (r->oem_revision==2 && r->length==routes) ||
           (r->oem_revision==1 && r->length==legacy))) return false;
+    if (r->oem_revision==3) {
+        for (unsigned role=0;role<AIR_BOOT_PROTOCOL_ROLES;role++) {
+            if (r->protocol_counts[role]>AIR_BOOT_PROTOCOL_LIMIT ||
+                (r->protocol_counts[role] && (!r->display_branch || r->state!=AIR_BOOT_CAPTURED)))
+                return false;
+        }
+    }
     for (unsigned j=0;j<r->length;j++) sum+=((const uint8_t *)r)[j];
     return !sum && !__builtin_memcmp(r->signature,"OEMG",4) &&
         !__builtin_memcmp(r->oem,"SRVROS",6) && !__builtin_memcmp(r->table_id,"BDWBOOT1",8) &&
@@ -128,7 +139,8 @@ static void air_boot_import(void)
         const struct acpi_table_info *t=acpi_table_at(i);
         if (!t || __builtin_memcmp(t->signature,"OEMG",4)) continue;
         ++air_oem_tables;
-        if (t->length!=sizeof(air_boot) && t->length!=__builtin_offsetof(struct air_gpu_boot,display_branch)) continue;
+        if (t->length!=sizeof(air_boot) && t->length!=__builtin_offsetof(struct air_gpu_boot,display_branch) &&
+            t->length!=__builtin_offsetof(struct air_gpu_boot,protocol_counts)) continue;
         struct air_gpu_boot record={0};
         __builtin_memcpy(&record,pmm_phys_to_virt(t->physical_address),t->length);
         if (record.length!=t->length) continue;
@@ -151,7 +163,7 @@ static bool air_branch_selected(void)
 {
     uint32_t selected=(uint32_t)air_boot.display_branch;
     unsigned child=selected&255, gop=selected>>8;
-    return air_boot_buffer && air_boot.oem_revision==2 && air_boot.state==AIR_BOOT_CAPTURED &&
+    return air_boot_buffer && air_boot.oem_revision>=2 && air_boot.state==AIR_BOOT_CAPTURED &&
         child>=1 && child<=16 && gop>=1 && gop<=16;
 }
 static bool air_boot_display(uint64_t mmio,uint64_t aperture)
@@ -176,6 +188,23 @@ static bool air_boot_matches(uint64_t mmio,uint64_t aperture,const uint64_t *wor
     for (unsigned i=0;i<AIR_BOOT_PAGES;i++)
         if (!(words[i]&1) || air_boot.entries[i]!=words[i]) return false;
     return true;
+}
+
+static void air_boot_inventory_report(void)
+{
+    if (air_boot.oem_revision!=3 || !air_branch_selected()) return;
+    console_printf("intel-efi-inventory: v=1 branch=%x gop=%u child=%u pci_driver=%u eg2_driver=%u\n",
+        air_boot.display_branch,(uint64_t)air_boot.protocol_counts[AIR_BOOT_GOP],
+        (uint64_t)air_boot.protocol_counts[AIR_BOOT_GOP_CHILD],
+        (uint64_t)air_boot.protocol_counts[AIR_BOOT_PCI_DRIVER],
+        (uint64_t)air_boot.protocol_counts[AIR_BOOT_EG2_DRIVER]);
+    for (unsigned role=0;role<AIR_BOOT_PROTOCOL_ROLES;role++) {
+        unsigned n=air_boot.protocol_counts[role];
+        if (!n) continue;
+        char encoded[4*((AIR_BOOT_PROTOCOL_LIMIT*16+2)/3)+1];
+        entry_requester_base64(air_boot.handle_protocol_ids[role][0],n*16,encoded);
+        console_printf("intel-efi-handle-guids: v=1 role=%u data=%s\n",(uint64_t)role,encoded);
+    }
 }
 
 static void air_boot_report(void)

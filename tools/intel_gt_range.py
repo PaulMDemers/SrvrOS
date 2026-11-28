@@ -7,6 +7,44 @@ import uuid
 from intel_gt_bootstrap import fields
 
 
+EFI_PROTOCOL_ROLES = ("gop", "child", "pci_driver", "eg2_driver")
+
+
+def efi_protocol_inventory(text):
+    headers = [line for line in text.splitlines() if line.startswith("intel-efi-inventory:")]
+    vectors = [line for line in text.splitlines() if line.startswith("intel-efi-handle-guids:")]
+    if not headers and not vectors:
+        return None
+    if len(headers) != 1:
+        raise ValueError("EFI protocol inventory coverage")
+    header = fields(headers[0], "intel-efi-inventory:", ("v", "branch", *EFI_PROTOCOL_ROLES), ("branch",))
+    branch = header["branch"]
+    selected = re.findall(r"^intel-efi-display-branch: selected=1 token=(0x[0-9a-fA-F]{1,16})$", text, re.M)
+    if (len(selected) != 1 or int(selected[0], 16) != branch or not 1 <= (branch & 255) <= 16
+            or not 1 <= ((branch >> 8) & 0xffffff) <= 16):
+        raise ValueError("EFI protocol inventory differs from selected branch")
+    counts = [header[role] for role in EFI_PROTOCOL_ROLES]
+    if any(count > 16 for count in counts) or len(vectors) != sum(bool(count) for count in counts):
+        raise ValueError("EFI protocol inventory count")
+    result = {}
+    packets = iter(vectors)
+    for index, (role, count) in enumerate(zip(EFI_PROTOCOL_ROLES, counts)):
+        if not count:
+            result[role] = None
+            continue
+        record = re.fullmatch(r"intel-efi-handle-guids: v=1 role=([0-3]) data=([A-Za-z0-9+/=]+)", next(packets))
+        if not record or int(record[1]) != index or len(record[2]) != 4 * ((16 * count + 2) // 3):
+            raise ValueError("EFI protocol inventory vector")
+        raw = base64.b64decode(record[2], validate=True)
+        if len(raw) != 16 * count or base64.b64encode(raw).decode() != record[2]:
+            raise ValueError("EFI protocol inventory encoding")
+        ids = [str(uuid.UUID(bytes_le=raw[i:i + 16])) for i in range(0, len(raw), 16)]
+        if len(set(ids)) != count or str(uuid.UUID(int=0)) in ids:
+            raise ValueError("EFI protocol inventory GUIDs")
+        result[role] = ids
+    return dict(branch=branch, handles=result)
+
+
 def boot_handoff(text, slots):
     def rows(prefix, keys, hexkeys=()):
         return [fields(line, prefix, keys.split(), hexkeys) for line in text.splitlines() if line.startswith(prefix)]
@@ -43,7 +81,12 @@ def boot_handoff(text, slots):
     if slots["samples"] and (not captured or not h["backing"] or h["ram"]!=slots["ram"]
                              or any(row["pte"]!=0x8ede1001+i*4096 for i,row in enumerate(entries))):
         raise ValueError("Kernel command reservation disagrees with its boot producer")
-    return dict(summary=h, guids=ids, display=surfaces, entries=entries)
+    inventory = efi_protocol_inventory(text)
+    if inventory is not None and (not captured or not h["backing"]
+                                  or (inventory["handles"]["pci_driver"] and h["drivers"] != 1)):
+        raise ValueError("EFI protocol inventory lacks a verified boot record")
+    return dict(summary=h, guids=ids, display=surfaces, entries=entries,
+                **({"protocol_inventory": inventory} if inventory is not None else {}))
 
 
 def range_result(text, parent, reset, memory, retire, owner_complete, post):

@@ -48,6 +48,13 @@ Version 4 also records both traffic packet durations, the PTE read duration,
 the closing duration and the number and combined cost of full wake checks.
 A complete pair takes four full wake checks and retains all raw observations.
 
+The Air UEFI handoff also records protocol GUIDs from the selected GOP
+handle, its matched child and the bound PCI and CoreEG2 driver handles.
+The kernel saves these inventories alongside the verified branch token
+in the USB capture. The collector checks it against the same boot's ESP
+trace. The record gives handle identities and advertised interfaces.
+It grants no control over firmware or GPU traffic.
+
 The Air7,2 `intel-private-range-v1` profile selects `--intel-private-range`.
 It uses the range probe's two existing deadlines and the common display and
 CPU guards. Its version 13 result records the aperture searched, allocation,

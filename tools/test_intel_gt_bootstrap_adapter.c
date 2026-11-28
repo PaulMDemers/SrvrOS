@@ -1293,8 +1293,19 @@ static bool intel_display_test_primary_read(uint32_t offset,uint32_t *out) {
 static int test_efi_import(void) {
  reset();
  test_prepare_boot();
+ struct air_gpu_boot older=test_boot_record;
+ older.oem_revision=2;
+ older.length=__builtin_offsetof(struct air_gpu_boot,protocol_counts);
+ older.checksum=0;
+ uint8_t older_sum=0;
+ for(unsigned i=0;i<older.length;i++)older_sum+=((uint8_t *)&older)[i];
+ older.checksum=0-older_sum;
+ assert(air_valid_record(&older));
  air_boot_import();
  assert(!strcmp(air_import_status,"ready") && air_boot_buffer && air_boot.ram==TEST_COMMAND_PA);
+ assert(air_boot.protocol_counts[AIR_BOOT_GOP]==1 &&
+        !memcmp(air_boot.handle_protocol_ids,test_boot_record.handle_protocol_ids,
+                sizeof(air_boot.handle_protocol_ids)));
  test_command_ram[GT_COMMAND_FRAMES*1024-1]=1;
  assert(!air_boot_pristine());
  air_boot_buffer=false;

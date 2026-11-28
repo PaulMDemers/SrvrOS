@@ -621,9 +621,12 @@ static uint8_t test_metadata[4096] __attribute__((aligned(4096)));
 static uint8_t test_efi_directory[4096] __attribute__((aligned(4096)));
 static void test_prepare_boot(void) {
     test_boot_record=(struct air_gpu_boot){
-        .length=sizeof(test_boot_record),.revision=1,.oem_revision=2,.display_branch=0x1234567800000201ull,.pci_id=0x16268086,.subsystem=0x011b106b,
+        .length=sizeof(test_boot_record),.revision=1,.oem_revision=3,.display_branch=0x1234567800000201ull,.pci_id=0x16268086,.subsystem=0x011b106b,
         .state=AIR_BOOT_CAPTURED,.step=6,.first=AIR_BOOT_SLOT,.mmio=0xc0000000,.aperture=0xb0000000,
         .framebuffer=0xb0000000,.framebuffer_bytes=6144*900,.plane=0xd8000400,.ram=TEST_COMMAND_PA};
+    test_boot_record.protocol_counts[AIR_BOOT_GOP]=1;
+    const uint8_t gop_guid[16]={0xde,0xa9,0x42,0x90,0xdc,0x23,0x38,0x4a,0x96,0xfb,0x7a,0xde,0xd0,0x80,0x51,0x6a};
+    memcpy(test_boot_record.handle_protocol_ids[AIR_BOOT_GOP][0],gop_guid,sizeof(gop_guid));
     memcpy(test_boot_record.signature,"OEMG",4);
     memcpy(test_boot_record.oem,"SRVROS",6);
     memcpy(test_boot_record.table_id,"BDWBOOT1",8);

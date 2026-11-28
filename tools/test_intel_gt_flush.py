@@ -734,6 +734,17 @@ class FlushAcknowledgements(unittest.TestCase):
         text = observe("pass")
         proof = bootstrap_result(text)["range"]
         self.assertEqual(proof["efi_handoff"]["summary"]["ram"], proof["command_slots"]["ram"])
+        inventory = proof["efi_handoff"]["protocol_inventory"]
+        self.assertEqual(inventory["branch"], 0x1234567800000201)
+        self.assertEqual(inventory["handles"]["gop"], ["9042a9de-23dc-4a38-96fb-7aded080516a"])
+        self.assertIsNone(inventory["handles"]["child"])
+        inventory_row = next(line for line in text.splitlines() if line.startswith("intel-efi-inventory:"))
+        inventory_data = next(line for line in text.splitlines() if line.startswith("intel-efi-handle-guids:"))
+        for changed in (text.replace(inventory_data, ""), text.replace(inventory_data, inventory_data.replace("role=0", "role=1")),
+                        text.replace(inventory_row, inventory_row.replace("gop=1", "gop=17")),
+                        text.replace(inventory_row, inventory_row.replace("0201", "0202"))):
+            with self.assertRaisesRegex(ValueError, "EFI protocol inventory"):
+                bootstrap_result(changed)
         for old, new in (("table=1 state=2", "table=0 state=2"),
                          ("protocols=0 files=0", "protocols=1 files=0"),
                          ("slot=11750 pte=", "slot=11751 pte="),

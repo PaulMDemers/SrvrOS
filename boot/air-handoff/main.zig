@@ -354,6 +354,7 @@ pub const Eg2Clients = struct {
     branch: u64 = 0,
     selected_gop: ?Handle = null,
     selected_child: ?Handle = null,
+    core_agent: ?Handle = null,
 };
 pub fn eg2Clients(bs: *Services, handle: Handle, base: u64, size: u64, active: ?Handles) !Eg2Clients {
     var children = Handles{};
@@ -367,7 +368,10 @@ pub fn eg2Clients(bs: *Services, handle: Handle, base: u64, size: u64, active: ?
             result.drivers += 1;
             if (op.agent_handle) |agent| {
                 if (driverFile(bs, agent)) |id| {
-                    if (core_eg2.eql(@bitCast(id))) result.core_drivers += 1;
+                    if (core_eg2.eql(@bitCast(id))) {
+                        result.core_drivers += 1;
+                        result.core_agent = agent;
+                    }
                 }
             }
         }
@@ -402,10 +406,31 @@ pub fn confirmBranch(bs: *Services, controller: Handle, r: *Record, first: Eg2Cl
     const active = try framebuffer(bs, r);
     const checked = try eg2Clients(bs, controller, r.framebuffer, r.framebuffer_bytes, active);
     if (checked.branch != first.branch or checked.selected_gop != first.selected_gop or
-        checked.selected_child != first.selected_child or
+        checked.selected_child != first.selected_child or checked.core_agent != first.core_agent or
+        checked.core_drivers != first.core_drivers or
         !std.mem.eql(u8, saved, checked.paths orelse return error.NoClosingRoutes)) return error.DisplayBranchChanged;
     return checked;
 }
+
+fn handleProtocols(bs: *Services, r: *Record, role: usize, handle: ?Handle) void {
+    const h = handle orelse return;
+    const ids = bs.protocolsPerHandle(h) catch return;
+    defer bs.freePool(@ptrCast(ids.ptr)) catch {};
+    if (ids.len == 0 or ids.len > r.handle_protocol_ids[role].len) return;
+    for (ids, 0..) |id, i|
+        for (ids[0..i]) |other| if (id.eql(other.*)) return;
+    for (ids, 0..) |id, i| r.handle_protocol_ids[role][i] = @bitCast(id.*);
+    r.protocol_counts[role] = @intCast(ids.len);
+}
+
+pub fn captureBranchProtocols(bs: *Services, r: *Record, c: Eg2Clients, pci_agent: ?Handle) void {
+    if (c.branch == 0) return;
+    handleProtocols(bs, r, wire.AIR_BOOT_GOP, c.selected_gop);
+    handleProtocols(bs, r, wire.AIR_BOOT_GOP_CHILD, c.selected_child);
+    if (r.driver_opens == 1) handleProtocols(bs, r, wire.AIR_BOOT_PCI_DRIVER, pci_agent);
+    if (c.core_drivers == 1) handleProtocols(bs, r, wire.AIR_BOOT_EG2_DRIVER, c.core_agent);
+}
+
 fn capture(bs: *Services, r: *Record, clients: *?Eg2Clients) !void {
     const handles = (try bs.locateHandleBuffer(.{ .by_protocol = &Pci.guid })) orelse return;
     defer bs.freePool(@ptrCast(handles.ptr)) catch {};
@@ -428,6 +453,7 @@ fn capture(bs: *Services, r: *Record, clients: *?Eg2Clients) !void {
         r.mmio = (@as(u64, try p.cfg(0x14)) << 32) | (bar & 0xfffffff0);
         r.aperture = (@as(u64, try p.cfg(0x1c)) << 32) | (ap & 0xfffffff0);
         r.step = 2;
+        var driver_agent: ?Handle = null;
         if (try bs.openProtocolInformation(handle, Pci)) |opens| {
             defer bs.freePool(@ptrCast(opens.ptr)) catch {};
             for (opens) |op| {
@@ -435,6 +461,7 @@ fn capture(bs: *Services, r: *Record, clients: *?Eg2Clients) !void {
                 if (bits & 16 != 0) {
                     r.driver_opens += 1;
                     if (op.agent_handle) |agent| {
+                        driver_agent = agent;
                         if (driverFile(bs, agent)) |id| {
                             if (r.firmware_files == r.driver_file_ids.len) return error.TooManyDrivers;
                             r.driver_file_ids[r.firmware_files] = id;
@@ -459,6 +486,7 @@ fn capture(bs: *Services, r: *Record, clients: *?Eg2Clients) !void {
             if (Eg2Device.guid.eql(id.*)) clients.* = eg2Clients(bs, handle, r.framebuffer, r.framebuffer_bytes, active) catch .{ .state = .unavailable };
         }
         if (clients.*) |first| clients.* = try confirmBranch(bs, handle, r, first);
+        if (clients.*) |c| captureBranchProtocols(bs, r, c, driver_agent);
         try snapshot(p, r);
         r.step = 5;
         if (r.framebuffer < r.aperture or r.framebuffer - r.aperture != r.surface or r.framebuffer_bytes == 0 or
@@ -532,11 +560,12 @@ fn publish(bs: *Services, file: ?*File, comptime captureRecord: anytype) Status 
     r.revision = 1;
     r.oem = "SRVROS".*;
     r.table_id = "BDWBOOT1".*;
-    r.oem_revision = 2;
+    r.oem_revision = 3;
     r.first = wire.AIR_BOOT_SLOT;
     var clients: ?Eg2Clients = null;
     captureRecord(bs, &r, &clients) catch {
         r.state = wire.AIR_BOOT_PROBING;
+        @memset(&r.protocol_counts, 0);
     };
     if (clients) |c| {
         if (r.state == wire.AIR_BOOT_CAPTURED) r.display_branch = c.branch;

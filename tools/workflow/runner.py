@@ -542,6 +542,8 @@ class Runner:
                 state['efi_gop_routes'] = True
             if payload.get('efi_display_branch') == 1:
                 state['efi_display_branch'] = True
+            if payload.get('efi_protocol_inventory') == 1:
+                state['efi_protocol_inventory'] = True
             if payload.get('bcs_stop_version') == 1:
                 state['bcs_stop_version'] = 1
             if payload.get('software_park_version') in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
@@ -777,6 +779,15 @@ class Runner:
                 diagnostic_complete = diagnostic_complete and routes is not None
             if state.get('efi_display_branch'):
                 diagnostic_complete = diagnostic_complete and bool(trace.get('display_branch')) and len(native['flush'].get('prepare_messages', [])) == 5
+            if state.get('efi_protocol_inventory'):
+                inventory = native.get('range', {}).get('efi_handoff', {}).get('protocol_inventory')
+                if inventory is not None:
+                    if inventory['branch'] != trace.get('display_branch'):
+                        raise ValueError('USB firmware protocol inventory differs from the ESP branch')
+                    if (inventory['handles']['eg2_driver'] and
+                            trace.get('eg2_clients', {}).get('core_drivers') != 1):
+                        raise ValueError('CoreEG2 protocol inventory lacks a uniquely bound driver')
+                diagnostic_complete = diagnostic_complete and inventory is not None
             if state.get('bcs_stop_version'):
                 stop = native['flush'].get('bcs_stop', {})
                 diagnostic_complete = diagnostic_complete and stop.get('v') == 1 and stop.get('verified') == 1 and bool(native['flush'].get('stop_messages'))
