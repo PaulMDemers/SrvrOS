@@ -1066,6 +1066,28 @@ handshakes for the GT boot controller and clocking unit. The samples
 establish no native WiDi hold or host acquire/release sequence.
 [Broadwell register reference, pp. 544–546 and 1337–1338](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
 
+The WiDi control review started at `219802b5` with main `b062ba18` and
+the separate Haswell work in Air6,1 PR 567 reviewed. PCI enumeration and
+individual disassembly of this Air's DSDT and eight SSDTs exposed the
+integrated GPU and a separate display-audio function. The IGPU `_DSM`
+returns the audio association. None of the nine tables describes a
+separate WiDi device or power resource. No firmware methods were run.
+
+Five stable Ubuntu/i915 comparisons each retired a fresh blitter fence,
+verified 4,096 result bytes and observed the same primary surface on both
+sides. All ten register samples reported WiDi GO open with `MSG_IDLE_WIN=0x1f`
+and zero `MSG_RESET_GCP`, `GDRST` and WiDi reset acknowledgement.
+Two observations were discarded after the desktop switched surfaces or
+changed state within a sample. The comparisons supply no SrvrOS ownership
+or native WiDi exclusion.
+
+The command path now rejects raw WiDi or FLR prepare requests and WiDi or
+full-GT reset activity before trusting the clock and GO observations. The
+49 Q35 cases cover a fresh fence and seven-entry rollback, with four new
+faults covering the execution transition, final trigger, completion and
+mid-rollback. A fault keeps the framebuffer pinned. The Air remains at the
+last saved read-only result pending a sustained device-side WiDi hold.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired

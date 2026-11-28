@@ -3,6 +3,8 @@
 #include <srvros/intel_bdw_traffic.h>
 
 enum { WIN_CLOCK = 1u << 5, MSG_IDLE_WIN = 0x8014, WIN_GO_OR_IDLE = 0x11,
+       MSG_RESET_GCP = 0x8030, PREPARE_WIN_OR_FLR = (1u << 5) | (1u << 7),
+       GDRST = 0x941c, RESET_WIN_OR_GT = (1u << 6) | 1u,
        WTCR = 0x4278,
        BWDTLB_VLD_0 = 0x4dc0, BWDTLB_VLD_1 = 0x4dc4 };
 
@@ -62,13 +64,22 @@ static bool widi_clock_gated(struct bdw_command_hold *h)
         (ack&WIN_CLOCK)==WIN_CLOCK && (closing&WIN_CLOCK)==WIN_CLOCK;
 }
 
+static bool widi_reset_clear(struct bdw_command_hold *h)
+{
+    uint32_t word;
+    /* A prepare request or reset can arrive before RSTFCTLMSG changes. */
+    return sample_read(h,GDRST,&word) && !(word&RESET_WIN_OR_GT) &&
+        sample_read(h,MSG_RESET_GCP,&word) && !(word&PREPARE_WIN_OR_FLR) &&
+        sample_read(h,BDW_RSTFCTLMSG,&word) && !(word&BDW_PREP_RST_WIDI_ACK);
+}
+
 static bool widi_excluded(struct bdw_command_hold *h)
 {
     uint32_t word;
     /* Global GAM reopens while BCS runs. Require the independent WIN
      * response to stay closed and busy across its clock acknowledgement. */
-    return h->widi_epoch && sample_read(h,MSG_IDLE_WIN,&word) &&
-        widi_clock_gated(h) && sample_read(h,MSG_IDLE_WIN,&word);
+    return h->widi_epoch && widi_reset_clear(h) && sample_read(h,MSG_IDLE_WIN,&word) &&
+        widi_clock_gated(h) && sample_read(h,MSG_IDLE_WIN,&word) && widi_reset_clear(h);
 }
 
 bool intel_bdw_command_submission_owned(struct bdw_command_hold *h)
@@ -113,7 +124,8 @@ static bool finish_drain(struct bdw_command_hold *h,uint64_t begin,bool after_ex
     if (after_execution && !widi_excluded(h)) goto retained;
     for (unsigned i=0;i<GT_ACCESS_POLL_CAP;i++) {
         bool drained=false;
-        if (!clock_ok(h,begin) || !intel_bdw_traffic_poll(&s,&drained)) break;
+        if (!clock_ok(h,begin) || (after_execution && !widi_reset_clear(h)) ||
+            !intel_bdw_traffic_poll(&s,&drained)) break;
         if (!drained) continue;
         if (!intel_bdw_traffic_still_blocked(h,sample_read) || !plane_held(h) ||
             !clock_ok(h,begin) || h->last==begin || (after_execution && !widi_excluded(h))) break;
@@ -169,8 +181,9 @@ bool intel_bdw_command_held(struct bdw_blitter_mapping *m)
     struct bdw_command_hold *h=&m->traffic;
     if (h->owner!=m || !h->epoch || !h->drains ||
         (h->phase!=BDW_CMD_BLOCKED && h->phase!=BDW_CMD_EXECUTING)) return false;
-    if (clock_ok(h,0) && intel_bdw_routes_held(&h->routes,h->transfer) && plane_held(h) && (!h->widi_epoch || widi_clock_gated(h)) &&
-        (h->phase==BDW_CMD_BLOCKED ? intel_bdw_traffic_still_blocked(h,sample_read) : executing(h)))
+    if (clock_ok(h,0) && intel_bdw_routes_held(&h->routes,h->transfer) && plane_held(h) &&
+        (h->phase==BDW_CMD_BLOCKED ? intel_bdw_traffic_still_blocked(h,sample_read) &&
+                                   (!h->widi_epoch || widi_excluded(h)) : executing(h)))
         return true;
     h->phase=BDW_CMD_RETAINED;
     return false;

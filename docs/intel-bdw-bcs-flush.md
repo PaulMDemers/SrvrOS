@@ -496,6 +496,16 @@ packet. Other engines can still take time to acknowledge the reclose.
 The existing deadline stays in force. A failed reclose retains the
 publication before any original PTE is restored.
 
+The lease also rejects a WiDi or FLR prepare request in `MSG_RESET_GCP`,
+a WiDi or full-GT reset in `GDRST`, and a WiDi reset-prepare acknowledgement
+in `RSTFCTLMSG`. The raw request checks catch a reset before its acknowledgement.
+They bracket the WIN and clock samples and run during the rollback drain,
+including the check before each remaining PTE store. The same lease check
+guards the fourth descriptor word and acceptance of the completed fence.
+The native owner needs read access to BAR0 page `0x9000` for `GDRST`.
+An observed reset leaves the framebuffer and any live publication pinned.
+[Broadwell register reference, pp. 609–610 and 1334–1338](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+
 The fourth descriptor store also requires the original CSB cursors and
 zero data and completion words in the private result page. The completion
 check verifies both CSB events and the complete result page, then rechecks
@@ -547,6 +557,17 @@ non-GT writes. The WiDi reset request in `GDRST[6]` self-clears when the
 reset completes. These descriptions establish a reset sequence. The
 command path needs a WiDi hold that stays active when global traffic
 reopens for the blitter. [Intel Broadwell register reference, pp. 609 and 1337–1338](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
+
+`MFCR[2]` blocks the read/write port for a memory-fence query until the
+fence completes. The documented fuse overrides in the same register
+cover video boxes, subslices and slices. The display's wireless-video
+fuse controls the display-pipe feature. The Air's DSDT and eight SSDTs
+expose the integrated GPU, its display outputs and a separate audio PCI
+function. The graphics `_DSM` supplies the `hda-gfx` association, and
+the tables expose no separate WiDi device or power resource. The examined
+reset, memory-fence, clock and firmware controls leave the sustained
+device hold unproven.
+[Intel Broadwell register reference](https://cdrdv2-public.intel.com/690789/intel-gfx-prm-osrc-bdw-vol-02c-commandreference-registers.pdf)
 
 Run the host comparison with the render user's marker binary. The observer
 uses i915 forcewake and read-only BAR mappings. A pending primary flip rejects

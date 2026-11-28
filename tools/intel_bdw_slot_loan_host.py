@@ -100,8 +100,8 @@ def observe_hold(stack, client, console, power, messages, footprint):
 
 
 def command_traffic_reader(mmio_page):
-    # Map just three read-only BAR pages under the existing i915 forcewake.
-    power, messages, plane = (mmio_page(off) for off in (0x4000, 0x8000, 0x70000))
+    # Map read-only BAR pages under the existing i915 forcewake.
+    power, messages, reset, plane = (mmio_page(off) for off in (0x4000, 0x8000, 0x9000, 0x70000))
 
     def sample():
         def read(page, offset):
@@ -117,7 +117,7 @@ def command_traffic_reader(mmio_page):
         original = panel()
         values = {'gam_req': read(power, 0xd0), 'gam_reply': read(messages, 0x28),
                   'garb_mbc': read(messages, 0x1c), 'garb_gcp': read(messages, 0x24),
-                  'reset_prepare': read(messages, 0x30),
+                  'reset_prepare': read(messages, 0x30), 'gdrst': read(reset, 0x41c),
                   'clk_req': read(messages, 0x104), 'clk_reply': read(messages, 0x2c),
                   'widi': read(messages, 0x14), 'l3': read(messages, 0x38),
                   'rcs': read(messages, 0), 'vcs0': read(messages, 4), 'vcs1': read(messages, 8),
