@@ -1082,6 +1082,23 @@ files. The return collector checks the first Auth USB completion and
 the AP's authentication reply separately, and compares workspace and
 journal evidence. The hardware result is pending.
 
+Cold session `session-0006615ca796d092-00` verified that both OUT pipes
+were configured before firmware. The two successful H2C OUTs and the
+first Auth shared the same 12-entry slot context. The first Auth again
+stayed pending on DCI 10, this time for 250,001 µs. Endpoint Stop returned
+completion 26 with all 78 bytes remaining, and the stopped cursor,
+device queue readbacks, and Auth submission records matched the prior
+run. Late EAPOL endpoint configuration is ruled out as a prerequisite
+for the stall. The saved evidence still leaves scheduling and adapter
+backpressure unresolved. No authentication reply or association followed.
+
+All three adapters enumerated on the hub and four 32 KiB receive requests
+were pending before firmware, after firmware and at scan entry. SrvrOS
+decoded the Demers2.4 beacon and verified endpoint retirement. The
+verified workspace exit log and all seven independent journal checkpoints
+survived the automatic return to Ubuntu. All 718 previous workspace
+files matched. The private archive is `evidence-aa87147f444c7fae`.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
