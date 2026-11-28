@@ -223,15 +223,17 @@ static bool hsw_range_run(enum hsw_range_trial range, bool backing_captured) {
  case HSW_RANGE_EXCLUSION_AUDIT:
  case HSW_RANGE_HANDOFF_AUDIT:
  case HSW_RANGE_RESET_FREE_AUDIT:
- case HSW_RANGE_ENGINE_HOLD: {
-  hsw_reset_free_audit=range==HSW_RANGE_RESET_FREE_AUDIT || range==HSW_RANGE_ENGINE_HOLD;
+ case HSW_RANGE_ENGINE_HOLD:
+ case HSW_RANGE_BLITTER_PROVIDER: {
+  hsw_blitter_provider=range==HSW_RANGE_BLITTER_PROVIDER;
+  hsw_reset_free_audit=hsw_blitter_provider || range==HSW_RANGE_RESET_FREE_AUDIT || range==HSW_RANGE_ENGINE_HOLD;
   hsw_handoff_audit=hsw_reset_free_audit || range==HSW_RANGE_HANDOFF_AUDIT;
   hsw_exclusion_audit=hsw_handoff_audit || range==HSW_RANGE_EXCLUSION_AUDIT;
   bool sample_engines=range!=HSW_RANGE_FORCEWAKE;
   bool verified=backing_captured && hsw_forcewake_run(sample_engines);
   hsw_forcewake_report();
   if(sample_engines)hsw_drain_report();
-  if(range==HSW_RANGE_ENGINE_HOLD) {
+  if(range==HSW_RANGE_ENGINE_HOLD || hsw_blitter_provider) {
    struct hsw_engine_hold hold={0};
    /* No native firmware exclusion and completion-destination provider. */
    if(verified)(void)intel_hsw_engine_hold(&hold,NULL,0);
@@ -262,7 +264,7 @@ static bool hsw_backing_run(bool cpu_control,bool linux_fences,bool candidate_sl
  hsw_forcewake_backing=range==HSW_RANGE_FORCEWAKE || range==HSW_RANGE_ENGINE_DRAIN ||
                        range==HSW_RANGE_EXCLUSION_AUDIT || range==HSW_RANGE_HANDOFF_AUDIT ||
                        range==HSW_RANGE_REQUESTER_HOLD || range==HSW_RANGE_RESET_FREE_AUDIT ||
-                       range==HSW_RANGE_ENGINE_HOLD;
+                       range==HSW_RANGE_ENGINE_HOLD || range==HSW_RANGE_BLITTER_PROVIDER;
  hsw_result=(struct hwb_result){.status=2,.version=linux_fences?3:cpu_control?2:1,.fences=linux_fences?32:HWB_FENCES};
  console_write("hsw-backing-progress: exact Air6,1 read-only identity/config preflight\n");
  const struct pci_device *candidate=NULL;

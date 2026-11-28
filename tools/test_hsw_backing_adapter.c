@@ -287,6 +287,7 @@ static void forcewake_setup(void) {
  hsw_exclusion_audit=false;
  hsw_handoff_audit=false;
  hsw_reset_free_audit=false;
+ hsw_blitter_provider=blitter_unmap_fail=false;
  instpm_inaccessible=instpm_slow=false;
  engine_prereqs_setup();
  memset(&hsw_forcewake,0,sizeof(hsw_forcewake));
@@ -478,6 +479,24 @@ static void reset_free_tests(void) {
 
 int main(int argc,char **argv) {
 
+ if(argc==2 && !strcmp(argv[1],"blitter-provider")) {
+  handoff_setup();drain_map_fail=5;
+  assert(!hsw_range_run(HSW_RANGE_BLITTER_PROVIDER,true) && !forcewake_stores && !drain_mapped);
+  assert(!hsw_engine_drain.provider_mapped && !hsw_engine_drain.provider_reads && hsw_engine_drain.retired==4);
+  handoff_setup();blitter_unmap_fail=true;
+  assert(!hsw_range_run(HSW_RANGE_BLITTER_PROVIDER,true) && hsw_survey.status==HSW_SURVEY_RETAINED);
+  assert(hsw_forcewake.released && drain_mapped==16 && !hsw_engine_drain.provider_retired);
+  handoff_setup();hsw_emit=1;hsw_report();
+  assert(hsw_range_run(HSW_RANGE_BLITTER_PROVIDER,true));
+  assert(forcewake_stores==2 && !candidate_ptes && candidate_frames==2 && !drain_mapped);
+  assert(hsw_engine_drain.provider_reads==6 && hsw_engine_drain.provider_retired);
+  puts("laptop-capture: boot options=srvros.storage=ram srvros.workspace-volume=6ada85bb "
+       "srvros.desktop-release=1234567890abcdef srvros.capture=haswell-backing "
+       "srvros.hsw-cpu-control=read-only srvros.hsw-fences=linux-model-32 "
+       "srvros.hsw-forcewake=blitter-provider srvros.capture-failure=reboot");
+  puts("laptop-capture: completed=yes");
+  return 0;
+ }
  if(argc==2 && !strcmp(argv[1],"engine-hold")) {
   handoff_setup();hsw_emit=1;hsw_report();
   assert(hsw_range_run(HSW_RANGE_ENGINE_HOLD,true));

@@ -7,8 +7,8 @@ import re
 
 from hardware_haswell_backing import inherited_pipe_a_backing
 from hardware_haswell_engine_drain import (
-    ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN,
-    engine_drain_result, exclusion_audit_result, handoff_audit_result, reset_free_audit_result,
+    BLITTER_PROVIDER_TOKEN, ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN,
+    blitter_provider_result, engine_drain_result, exclusion_audit_result, handoff_audit_result, reset_free_audit_result,
 )
 from hardware_haswell_survey import MASK32, MASK64, _record
 
@@ -28,7 +28,11 @@ def _result(text):
                if line.startswith("laptop-capture: boot options=")]
     if not options:
         raise ValueError("missing forcewake profile")
-    modes = (ENGINE_HOLD_TOKEN, RESET_FREE_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, EXCLUSION_AUDIT_TOKEN, ENGINE_DRAIN_TOKEN)
+    hold_modes = (ENGINE_HOLD_TOKEN, BLITTER_PROVIDER_TOKEN)
+    reset_free_modes = (*hold_modes, RESET_FREE_AUDIT_TOKEN)
+    handoff_modes = (*reset_free_modes, HANDOFF_AUDIT_TOKEN)
+    exclusion_modes = (*handoff_modes, EXCLUSION_AUDIT_TOKEN)
+    modes = (*exclusion_modes, ENGINE_DRAIN_TOKEN)
     mode = next((token for token in modes if token in options[0]), TOKEN)
     with_engines = mode != TOKEN
     required = REQUIRED | {mode}
@@ -65,20 +69,20 @@ def _result(text):
                   ring_reads=ring_reads, protected_reads=0, requester_hold="unverified")
     if with_engines:
         result["engine_drain"] = engine_drain_result(lines, result)
-    if mode in (EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN, ENGINE_HOLD_TOKEN):
+    if mode in exclusion_modes:
         result["exclusion_audit"] = exclusion_audit_result(lines, result["engine_drain"])
     elif any(line.startswith("hsw-exclusion-") for line in lines):
         raise ValueError("unexpected exclusion observation")
-    if mode in (HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN, ENGINE_HOLD_TOKEN):
+    if mode in handoff_modes:
         result["handoff_audit"] = handoff_audit_result(lines, result["engine_drain"])
     elif any(line.startswith("hsw-handoff-") for line in lines):
         raise ValueError("unexpected handoff observation")
-    if mode in (RESET_FREE_AUDIT_TOKEN, ENGINE_HOLD_TOKEN):
+    if mode in reset_free_modes:
         result["reset_free_audit"] = reset_free_audit_result(lines, result["engine_drain"])
     elif any(line.startswith("hsw-reset-free-") for line in lines):
         raise ValueError("unexpected reset-free observation")
     hold_rows = [line for line in lines if line.startswith("hsw-engine-hold:")]
-    if mode == ENGINE_HOLD_TOKEN:
+    if mode in hold_modes:
         (hold_row,) = hold_rows
         hold_state, hold_reason = _record(hold_row,
             r"hsw-engine-hold: v=1 state=(refused|unavailable) reason=(no-provider|baseline) "
@@ -90,6 +94,10 @@ def _result(text):
                                      attempted=0, completion_us=0)
     elif hold_rows:
         raise ValueError("unexpected Haswell hold receipt")
+    if mode == BLITTER_PROVIDER_TOKEN:
+        result["blitter_provider"] = blitter_provider_result(lines, result)
+    elif any(line.startswith(("hsw-blitter-provider:", "hsw-blitter-status-route:")) for line in lines):
+        raise ValueError("unexpected blitter provider observation")
     complete = lines.count("laptop-capture: completed=yes")
     if complete and "laptop-capture: completed=NO" in lines:
         raise ValueError("conflicting completion markers")

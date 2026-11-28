@@ -1546,7 +1546,8 @@ void kmain(void) {
     bool hsw_ownership = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-ownership=read-only");
     bool hsw_requester_hold = cmdline_has_token(cmdline,"srvros.hsw-ownership=requester-hold");
     bool hsw_engine_prereqs = hsw_isolated && cmdline_has_token(cmdline,"srvros.hsw-engine-prereqs=read-only");
-    bool hsw_engine_hold = cmdline_has_token(cmdline,"srvros.hsw-forcewake=engine-hold");
+    bool hsw_blitter_provider = cmdline_has_token(cmdline,"srvros.hsw-forcewake=blitter-provider");
+    bool hsw_engine_hold = hsw_blitter_provider || cmdline_has_token(cmdline,"srvros.hsw-forcewake=engine-hold");
     bool hsw_reset_free_audit = hsw_engine_hold || cmdline_has_token(cmdline,"srvros.hsw-forcewake=reset-free-audit");
     bool hsw_handoff_audit = hsw_reset_free_audit || cmdline_has_token(cmdline,"srvros.hsw-forcewake=handoff-audit");
     bool hsw_exclusion_audit = hsw_handoff_audit || cmdline_has_token(cmdline,"srvros.hsw-forcewake=exclusion-audit");
@@ -1926,7 +1927,8 @@ void kmain(void) {
         }
         if(automatic_hsw && started && (init_ready || hsw_preinit) && timer_running) {
 #ifdef SRVROS_AP_PROBE
-            enum hsw_range_trial range=hsw_forcewake ? (hsw_engine_hold ? HSW_RANGE_ENGINE_HOLD :
+            enum hsw_range_trial range=hsw_forcewake ? (hsw_blitter_provider ? HSW_RANGE_BLITTER_PROVIDER :
+                                       hsw_engine_hold ? HSW_RANGE_ENGINE_HOLD :
                                        hsw_reset_free_audit ? HSW_RANGE_RESET_FREE_AUDIT :
                                        hsw_handoff_audit ? HSW_RANGE_HANDOFF_AUDIT :
                                        hsw_exclusion_audit ? HSW_RANGE_EXCLUSION_AUDIT :

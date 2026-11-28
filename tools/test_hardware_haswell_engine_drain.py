@@ -4,7 +4,7 @@ from pathlib import Path
 
 import hardware_boot as boot
 from hardware_haswell_engine_drain import (
-    ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN,
+    BLITTER_PROVIDER_TOKEN, ENGINE_DRAIN_TOKEN, EXCLUSION_AUDIT_TOKEN, HANDOFF_AUDIT_TOKEN, RESET_FREE_AUDIT_TOKEN,
 )
 from hardware_haswell_forcewake import ENGINE_HOLD_TOKEN, forcewake_result
 
@@ -17,6 +17,7 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
         cls.handoff = Path("build/tests/hsw-handoff-audit-receipt.log").read_text()
         cls.reset_free = Path("build/tests/hsw-reset-free-audit-receipt.log").read_text()
         cls.hold = Path("build/tests/hsw-engine-hold-receipt.log").read_text()
+        cls.provider = Path("build/tests/hsw-blitter-provider-receipt.log").read_text()
 
     def result(self, text):
         wake = forcewake_result(text)
@@ -215,6 +216,45 @@ class HaswellEngineDrainReceipt(unittest.TestCase):
         self.assertNotIn(RESET_FREE_AUDIT_TOKEN, config)
         with self.assertRaisesRegex(ValueError, "isolated automatic return"):
             boot.stage(haswell_engine_hold=True, haswell_reset_free_audit=True, haswell_linux_fences=True)
+
+    def test_provider_classifies_the_register_without_granting_access(self):
+        provider = forcewake_result(self.provider)["blitter_provider"]
+        self.assertEqual((provider["reads"], provider["status_page_reads"], provider["status_stores"]), (6, 0, 0))
+        self.assertTrue(provider["retired"] and provider["route_stable"])
+        self.assertTrue(all(row["scope"] == "outside-inherited-fence" and row["sync_masked"]
+                            for row in provider["samples"]))
+        for address, scope in ((0, "zero-register"), (4096, "inherited-scanout"),
+                               (2000 * 4096, "inherited-fence"), (4096 * 4096, "protected-slot"),
+                               (16385 * 4096, "protected-slot"), (0xffffffff, "unavailable"),
+                               (0x10000000, "outside-aperture-or-unaligned")):
+            with self.subTest(address=address):
+                text = self.provider.replace("pga=100663296", f"pga={address}", 1)
+                route = forcewake_result(text)["blitter_provider"]
+                self.assertEqual(route["samples"][0]["scope"], scope)
+                self.assertFalse(route["route_stable"])
+                self.assertEqual(route["authority"], "none")
+        text = self.provider.replace("hwstam=4294967295 imr=4294967295", "hwstam=0 imr=0", 1)
+        self.assertFalse(forcewake_result(text)["blitter_provider"]["samples"][0]["sync_masked"])
+
+    def test_provider_rejects_unbound_or_authorizing_evidence(self):
+        for old, new in (("rows=2 reads=6 map=1 retired=1", "rows=2 reads=6 map=1 retired=0"),
+                         ("rows=2 reads=6 map=1 retired=1", "rows=2 reads=5 map=1 retired=1"),
+                         ("status_page_reads=0", "status_page_reads=1"), ("status_stores=0", "status_stores=1"),
+                         ("hsw-blitter-status-route: phase=1", "hsw-blitter-status-route: phase=0"),
+                         (BLITTER_PROVIDER_TOKEN, ENGINE_HOLD_TOKEN)):
+            with self.subTest(old=old):
+                self.assertIn(old, self.provider)
+                self.assertIsNone(forcewake_result(self.provider.replace(old, new, 1)))
+
+    def test_blitter_provider_recipe(self):
+        version = "ram-usb-v18-hsw-laptop-probe-6ada85bb"
+        with self.assertRaisesRegex(ValueError, "automatic return"):
+            boot.limine_config("1234567890abcdef", version)
+        config = boot.limine_config("1234567890abcdef", version + "-auto-return")
+        self.assertIn(BLITTER_PROVIDER_TOKEN, config)
+        self.assertNotIn(ENGINE_HOLD_TOKEN, config)
+        with self.assertRaisesRegex(ValueError, "isolated automatic return"):
+            boot.stage(haswell_blitter_provider=True, haswell_engine_hold=True, haswell_linux_fences=True)
 
 
 if __name__ == "__main__":

@@ -1130,6 +1130,42 @@ probe left GGTT slots 4096 and 16385 untouched. Forcewake ACK cleared in
 snapshot, archived replay, recovery and offline USB check verified after
 the one-shot returned to Ubuntu.
 
+#### Native blitter completion provider audit
+
+Haswell uses the Gen7 blitter status page address register at `0x4280`.
+i915 programs it with a pinned GGTT status-page address. Intel documents
+blitter Sync Status at bit 24 and requires the corresponding HWSTAM and
+IMR bits to permit hardware status-page writes. This makes the inherited
+address and masks useful evidence for selecting a completion source. The
+address can name a protected or inherited slot, and a zero register is
+ambiguous. A permissive mask still leaves the destination, DMA mapping and
+prior completion state to be proven.
+[i915 Gen7 register definitions](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_gt_regs.h#L2711-L2738)
+· [i915 status-page setup](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ring_submission.c#L2283-L2398)
+· [Haswell blitter interrupt definition](https://cdrdv2-public.intel.com/690970/intel-gfx-prm-osrc-hsw-command-stream-programming_1.pdf#page=25)
+· [Haswell register reference](https://cdrdv2-public.intel.com/690873/intel-gfx-prm-osrc-hsw-commandreference-registers_0.pdf#page=424)
+
+A future provider needs enforceable exclusion of firmware and competing
+blitter commands, ownership of the exact completion page and translation,
+and a way to establish a fresh, unambiguous completion with the same ticket.
+It must keep Pipe A's framebuffer pinned and independently verify restoration
+of the owned completion route. The original Apple boot path has no verified
+handoff for those rights. The independent Broadwell work cannot issue a
+Haswell ticket. [Air7,2 ownership work](https://github.com/PaulMDemers/SrvrOS/pull/301)
+
+The isolated v18 boot records the blitter PGA, HWSTAM and IMR in both held
+passes and retires the extra read-only PGA register alias. The verifier
+classifies the raw address against the inherited image, fence and protected
+slots without reading its GGTT entry or mapping the status page. It preserves
+the raw masks, including all-ones values. The same native engine hold refusal
+remains required. The only stores are the established forcewake acquire and
+clear. Pipe A stays active, slots 4096 and 16385 stay untouched, and the 4 ms,
+20 ms and 100 ms bounds carry forward.
+
+Stage using `--laptop-probe-volume UUID --haswell-backing-capture
+--haswell-tilectl --haswell-linux-fences --haswell-blitter-provider`. Decode
+the matching `exit.log` with `tools/hardware_haswell_forcewake.py`.
+
 After the private bind, qualify complete pinned scanout buffers, confirm
 synchronous primary-plane latch at vblank and independently retire readers
 before reusing the old front buffer. CPU rendering can supply the first two

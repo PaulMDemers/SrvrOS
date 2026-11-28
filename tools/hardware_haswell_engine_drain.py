@@ -7,6 +7,7 @@ ENGINE_DRAIN_TOKEN = "srvros.hsw-forcewake=engine-drain"
 EXCLUSION_AUDIT_TOKEN = "srvros.hsw-forcewake=exclusion-audit"
 HANDOFF_AUDIT_TOKEN = "srvros.hsw-forcewake=handoff-audit"
 RESET_FREE_AUDIT_TOKEN = "srvros.hsw-forcewake=reset-free-audit"
+BLITTER_PROVIDER_TOKEN = "srvros.hsw-forcewake=blitter-provider"
 ENGINES = ("render", "video-decode", "blitter", "video-enhancement")
 REQUESTERS = ("igd", "display-hda")
 
@@ -226,3 +227,41 @@ def reset_free_audit_result(lines, drain):
                             fence_write_bypassed=bool(mode & 2) if engine == 2 and mode != MASK32 else None))
     return dict(instpm_reads=reads, samples=samples, ring_stop_stores=0, flush_stores=0,
                 reset_stores=0, requester_drain="unverified")
+
+
+def blitter_provider_result(lines, wake):
+    (count, reads, mapped, retired), = _records(lines, "hsw-blitter-provider:",
+        r"hsw-blitter-provider: v=1 rows=([0-2]) reads=([0-6]) map=([01]) retired=([01]) "
+        r"status_page_reads=0 status_stores=0 authority=none", 1)
+    drain = wake["engine_drain"]
+    if (count != len(drain["samples"]) or not 3 * count <= reads <= min(6, 3 * (count + 1))
+            or retired > mapped or mapped and drain["maps"] != 4 or reads and (not mapped or not wake["stores"])
+            or wake["status"] == "UNAVAILABLE" and any((mapped, reads))
+            or wake["status"] == "VERIFIED" and (count, reads, mapped, retired) != (2, 6, 1, 1)
+            or wake["source_status"] != 5 and mapped != retired
+            or wake["reason"] == "release-unverified" and retired):
+        raise ValueError("unbound blitter provider sample or alias")
+    rows = _records(lines, "hsw-blitter-status-route:",
+        r"hsw-blitter-status-route: phase=([01]) pga=(\d+) hwstam=(\d+) imr=(\d+)", count)
+    samples = []
+    for index, (phase, pga, hwstam, imr) in enumerate(rows):
+        if phase != index or max(pga, hwstam, imr) > MASK32:
+            raise ValueError("invalid blitter status route")
+        slot = pga >> 12 if pga < 0x10000000 and not pga & 4095 else None
+        if slot is None:
+            scope = "unavailable" if pga == MASK32 else "outside-aperture-or-unaligned"
+        elif slot == 0:
+            scope = "zero-register"
+        elif slot in (4096, 16385):
+            scope = "protected-slot"
+        elif slot < 1056:
+            scope = "inherited-scanout"
+        elif slot < 4096:
+            scope = "inherited-fence"
+        else:
+            scope = "outside-inherited-fence"
+        samples.append(dict(pga=pga, hwstam=hwstam, imr=imr, slot=slot, scope=scope,
+                            sync_masked=bool((hwstam | imr) & (1 << 24))))
+    return dict(samples=samples, reads=reads, mapped=bool(mapped), retired=bool(retired),
+                route_stable=(samples[0] == samples[1] if count == 2 else None),
+                status_page_reads=0, status_stores=0, authority="none")

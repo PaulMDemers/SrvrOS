@@ -115,12 +115,19 @@ volatile struct limine_framebuffer_request framebuffer_request;
 volatile struct limine_memmap_request memmap_request;
 static unsigned mapping_hole,mapping_disjoint,map_walks;
 static bool test_hsw_translate(uint64_t,uint64_t *);
+static bool test_drain_alias(uint64_t va) {
+    return test_engine_drain && va >= HSW_DRAIN_VA &&
+           (va < HSW_BLITTER_HWS_VA || (hsw_blitter_provider && va == HSW_BLITTER_HWS_VA));
+}
+static uint32_t test_drain_page(unsigned i) {
+    return i == HSW_DRAIN_RINGS ? HSW_BLITTER_HWS_PAGE : hsw_drain_pages[i];
+}
 uint64_t vmm_kernel_address_space(void) {return 0x1000;}
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
-    if(test_engine_drain && va>=HSW_DRAIN_VA && va<HSW_DRAIN_VA+HSW_DRAIN_RINGS*4096u) {
+    if(test_drain_alias(va)) {
         unsigned i=(va-HSW_DRAIN_VA)/4096u;
         assert(space==0x1000);
-        *pa=gpu_base+hsw_drain_pages[i];
+        *pa=gpu_base+test_drain_page(i);
         return (drain_mapped & (1u << i)) != 0;
     }
     if(test_forcewake && va==HSW_WAKE_REQUEST_VA) {
@@ -213,10 +220,10 @@ uint64_t pci_device_count(void) {return 0;}
 const struct pci_device *pci_device_at(uint64_t i) {(void)i;return NULL;}
 uint64_t vmm_current_address_space(void) {return hsw_test_space;}
 bool vmm_map_page_in_space(uint64_t space,uint64_t va,uint64_t pa,uint64_t flags) {
-    if(test_engine_drain && va>=HSW_DRAIN_VA && va<HSW_DRAIN_VA+HSW_DRAIN_RINGS*4096u) {
+    if(test_drain_alias(va)) {
         unsigned i=(va-HSW_DRAIN_VA)/4096u;
         assert(space==0x1000 && !(drain_mapped & (1u<<i)) && !forcewake_stores);
-        assert(pa==gpu_base+hsw_drain_pages[i] && flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE));
+        assert(pa==gpu_base+test_drain_page(i) && flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE));
         if(drain_map_fail==i+1)return false;
         drain_mapped |= 1u << i;
         return true;
@@ -233,12 +240,13 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t va,uint64_t pa,uint64_t flags
     hsw_vmm_maps++;if(hsw_vmm_map_fail)return false;
     assert(!hsw_vmm_live);hsw_vmm_live=true;hsw_vmm_pa=pa;return true;
 }
+static bool blitter_unmap_fail;
 bool vmm_unmap_page_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
-    if(test_engine_drain && va>=HSW_DRAIN_VA && va<HSW_DRAIN_VA+HSW_DRAIN_RINGS*4096u) {
+    if(test_drain_alias(va)) {
         unsigned i=(va-HSW_DRAIN_VA)/4096u;
         assert(space==0x1000 && (drain_mapped & (1u<<i)) && (!forcewake_stores || forcewake_stores==2));
-        if(drain_unmap_fail && i==1)return false;
-        *pa=gpu_base+hsw_drain_pages[i];
+        if((drain_unmap_fail && i==1) || (blitter_unmap_fail && i==HSW_DRAIN_RINGS))return false;
+        *pa=gpu_base+test_drain_page(i);
         drain_mapped &= ~(1u << i);
         return true;
     }
@@ -270,8 +278,15 @@ uint32_t platform_test_hsw_drain_read(unsigned off) {
     static const unsigned bases[] = {0x2000,0x12000,0x22000,0x1a000};
     static const unsigned offsets[] = {0x34,0x30,0x3c,0x9c,0x74};
     static const uint32_t values[] = {256,256,1,512,4096};
-    assert(test_engine_drain && drain_mapped==15 && forcewake_stores==1 && forcewake_ack==1);
+    assert(test_engine_drain && drain_mapped==(hsw_blitter_provider?31u:15u) && forcewake_stores==1 && forcewake_ack==1);
     assert(!drain_irq_enabled && drain_irq_saves==1 && !drain_irq_restores);
+    if (off == 0x4280 || off == 0x22098 || off == 0x220a8) {
+        static const unsigned expected[] = {0x4280, 0x22098, 0x220a8};
+        unsigned i = hsw_engine_drain.provider_reads;
+        assert(hsw_blitter_provider && i < 6 && drain_reads == 20 * (i / 3 + 1));
+        assert(off == expected[i % 3]);
+        return i % 3 == 0 ? 0x6000000 : UINT32_MAX;
+    }
     if ((off & 4095u) == 0xc0) {
         unsigned index = hsw_engine_drain.instpm_reads;
         assert(hsw_reset_free_audit && index < 8 && drain_reads == 5 * (index + 1));
@@ -366,7 +381,7 @@ void console_printf(const char *fmt,...) {
        !strncmp(fmt,"hsw-engine-prereqs",18) ||
        !strncmp(fmt,"hsw-forcewake",13) || !strncmp(fmt,"hsw-engine-drain",16) ||
        !strncmp(fmt,"hsw-exclusion-",14) || !strncmp(fmt,"hsw-handoff-",12) || !strncmp(fmt,"hsw-reset-free-",15) ||
-       !strncmp(fmt,"hsw-engine-hold:",16)) {
+       !strncmp(fmt,"hsw-engine-hold:",16) || !strncmp(fmt,"hsw-blitter-",12)) {
         if(!hsw_emit)return;
         va_list ap;va_start(ap,fmt);
         for(const char *p=fmt;*p;p++) {

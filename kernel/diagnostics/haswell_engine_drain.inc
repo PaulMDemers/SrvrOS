@@ -1,5 +1,5 @@
 /* The Haswell 0a26 render, video decode, blitter and video enhancement
- * rings. Only HEAD, TAIL, CTL, MI_MODE, ACTHD and the audit's INSTPM are read. */
+ * rings. The provider audit also reads the blitter status-page registers. */
 #define HSW_DRAIN_VA (HWB_VA + 8192u)
 #define HSW_DRAIN_GAP_US 250u
 #define HSW_DRAIN_LIMIT_US 4000u
@@ -7,6 +7,12 @@
 static const uint32_t hsw_drain_pages[] = {0x02000, 0x12000, 0x22000, 0x1a000};
 static const uint32_t hsw_drain_offsets[] = {0x34, 0x30, 0x3c, 0x9c, 0x74};
 enum { HSW_DRAIN_RINGS = 4, HSW_DRAIN_WORDS = 5 };
+#define HSW_BLITTER_HWS_PGA 0x4280u /* Gen7 separate status-page register. */
+#define HSW_BLITTER_HWS_PAGE (HSW_BLITTER_HWS_PGA & ~4095u)
+#define HSW_BLITTER_HWS_VA (HSW_DRAIN_VA + HSW_DRAIN_RINGS * 4096u)
+#define HSW_BLITTER_CS 2u
+#define HSW_BLITTER_HWSTAM 0x98u
+#define HSW_BLITTER_IMR 0xa8u
 #define HSW_OPREGION_BYTES 8192u
 enum hsw_opregion_carrier {
     HSW_OPREGION_UNOBSERVED, HSW_OPREGION_NVS, HSW_OPREGION_RESERVED,
@@ -30,17 +36,18 @@ struct hsw_drain_sample {
     uint32_t ack[2], thread[2], smi;
     uint32_t ring[HSW_DRAIN_RINGS][HSW_DRAIN_WORDS];
     uint32_t instpm[HSW_DRAIN_RINGS];
+    uint32_t blitter_hws_pga, blitter_hwstam, blitter_imr;
     uint32_t pci[2][4];
     struct package_pci_af af[2];
     struct hsw_smi_route smi_route;
     struct hsw_handoff_sample handoff;
 };
 
-static bool hsw_exclusion_audit, hsw_handoff_audit, hsw_reset_free_audit;
+static bool hsw_exclusion_audit, hsw_handoff_audit, hsw_reset_free_audit, hsw_blitter_provider;
 
 static struct {
-    unsigned maps, retired, reads, instpm_reads, samples;
-    bool poisoned;
+    unsigned maps, retired, reads, instpm_reads, provider_reads, samples;
+    bool poisoned, provider_mapped, provider_retired;
     uint64_t begin, end;
     struct {
         bool entered, irq_before, smi_valid;
@@ -78,38 +85,51 @@ static void hsw_sample_smi_route(struct hsw_smi_route *route) {
                    pci_read_config16(pch_device, 0xa0) == route->pmcon;
 }
 
+static bool hsw_drain_map_page(uint64_t kernel, uint64_t va, uint32_t off) {
+    uint64_t pa;
+    if (vmm_virt_to_phys_in_space(kernel, va, &pa)) return false;
+    if (!vmm_map_page_in_space(kernel, va, gpu_base + off,
+                               VMM_PAGE_NO_EXECUTE | VMM_PAGE_CACHE_DISABLE)) {
+        hsw_engine_drain.poisoned = true;
+        return false;
+    }
+    return true;
+}
+
 static bool hsw_drain_prepare(void) {
-    uint64_t kernel = vmm_kernel_address_space(), pa;
+    uint64_t kernel = vmm_kernel_address_space();
     if (!kernel || vmm_current_address_space() != kernel || !hsw_config_valid() ||
         !hsw_safe_range(gpu_base, 0x400000, false)) return false;
     hsw_engine_drain.hda = hsw_display_hda();
     if (!hsw_engine_drain.hda) return false;
     for (unsigned i = 0; i < HSW_DRAIN_RINGS; i++) {
         uint64_t va = HSW_DRAIN_VA + 4096ull * i;
-        if (vmm_virt_to_phys_in_space(kernel, va, &pa)) return false;
-        if (!vmm_map_page_in_space(kernel, va, gpu_base + hsw_drain_pages[i],
-                                  VMM_PAGE_NO_EXECUTE | VMM_PAGE_CACHE_DISABLE)) {
-            hsw_engine_drain.poisoned = true;
-            return false;
-        }
+        if (!hsw_drain_map_page(kernel, va, hsw_drain_pages[i])) return false;
         hsw_engine_drain.maps++;
+    }
+    if (hsw_blitter_provider) {
+        hsw_engine_drain.provider_mapped = hsw_drain_map_page(kernel, HSW_BLITTER_HWS_VA, HSW_BLITTER_HWS_PAGE);
+        if (!hsw_engine_drain.provider_mapped) return false;
     }
     return true;
 }
 
+static bool hsw_drain_retire_page(uint64_t kernel, uint64_t va, uint32_t off) {
+    uint64_t pa;
+    if (vmm_current_address_space() == kernel && vmm_unmap_page_in_space(kernel, va, &pa) &&
+        pa == gpu_base + off && !vmm_virt_to_phys_in_space(kernel, va, &pa)) return true;
+    hsw_engine_drain.poisoned = true;
+    return false;
+}
+
 static bool hsw_drain_retire(void) {
-    uint64_t kernel = vmm_kernel_address_space(), pa;
+    uint64_t kernel = vmm_kernel_address_space();
     for (unsigned i = 0; i < hsw_engine_drain.maps; i++) {
         uint64_t va = HSW_DRAIN_VA + 4096ull * i;
-        if (vmm_current_address_space() != kernel ||
-            !vmm_unmap_page_in_space(kernel, va, &pa) ||
-            pa != gpu_base + hsw_drain_pages[i] ||
-            vmm_virt_to_phys_in_space(kernel, va, &pa)) {
-            hsw_engine_drain.poisoned = true;
-        } else {
-            hsw_engine_drain.retired++;
-        }
+        if (hsw_drain_retire_page(kernel, va, hsw_drain_pages[i])) hsw_engine_drain.retired++;
     }
+    if (hsw_engine_drain.provider_mapped)
+        hsw_engine_drain.provider_retired = hsw_drain_retire_page(kernel, HSW_BLITTER_HWS_VA, HSW_BLITTER_HWS_PAGE);
     return !hsw_engine_drain.poisoned;
 }
 
@@ -195,6 +215,28 @@ static uint32_t hsw_drain_read(unsigned engine, uint64_t va, uint32_t offset) {
 #endif
 }
 
+static bool hsw_sample_blitter_provider(struct hsw_drain_sample *sample, uint64_t kernel) {
+    uint64_t blitter_va = HSW_DRAIN_VA + HSW_BLITTER_CS * 4096u, pa;
+    if (!hsw_engine_drain.provider_mapped || vmm_current_address_space() != kernel ||
+        !vmm_virt_to_phys_in_space(kernel, HSW_BLITTER_HWS_VA, &pa) || pa != gpu_base + HSW_BLITTER_HWS_PAGE ||
+        !vmm_virt_to_phys_in_space(kernel, blitter_va, &pa) || pa != gpu_base + hsw_drain_pages[HSW_BLITTER_CS] ||
+        !hsw_drain_tick()) return false;
+#ifdef SRVROS_PLATFORM_HOST_TEST
+    extern uint32_t platform_test_hsw_drain_read(unsigned);
+    sample->blitter_hws_pga = platform_test_hsw_drain_read(HSW_BLITTER_HWS_PGA);
+#else
+    sample->blitter_hws_pga = *(volatile const uint32_t *)(HSW_BLITTER_HWS_VA + (HSW_BLITTER_HWS_PGA & 4095u));
+#endif
+    hsw_engine_drain.provider_reads++;
+    if (!hsw_drain_tick()) return false;
+    sample->blitter_hwstam = hsw_drain_read(HSW_BLITTER_CS, blitter_va, HSW_BLITTER_HWSTAM);
+    hsw_engine_drain.provider_reads++;
+    if (!hsw_drain_tick()) return false;
+    sample->blitter_imr = hsw_drain_read(HSW_BLITTER_CS, blitter_va, HSW_BLITTER_IMR);
+    hsw_engine_drain.provider_reads++;
+    return true;
+}
+
 static bool hsw_drain_sample(unsigned phase) {
     struct hsw_drain_sample *sample = &hsw_engine_drain.sample[phase];
     if (!hsw_drain_tick()) return false;
@@ -226,7 +268,8 @@ static bool hsw_drain_sample(unsigned phase) {
             hsw_engine_drain.instpm_reads++;
         }
     }
-    if (!hsw_drain_wake(&sample->ack[1], &sample->thread[1])) return false;
+    if ((hsw_blitter_provider && !hsw_sample_blitter_provider(sample, kernel)) ||
+        !hsw_drain_wake(&sample->ack[1], &sample->thread[1])) return false;
     sample->end = hsw_engine_drain.end;
     hsw_engine_drain.samples++;
     return true;
@@ -312,8 +355,16 @@ static void hsw_drain_report(void) {
     if (hsw_reset_free_audit)
         console_printf("hsw-reset-free-audit: v=1 rows=%u instpm_reads=%u ring_stop_stores=0 flush_stores=0 reset_stores=0 requester_drain=unverified authority=none\n",
                        (uint64_t)hsw_engine_drain.samples, (uint64_t)hsw_engine_drain.instpm_reads);
+    if (hsw_blitter_provider)
+        console_printf("hsw-blitter-provider: v=1 rows=%u reads=%u map=%u retired=%u status_page_reads=0 status_stores=0 authority=none\n",
+                       (uint64_t)hsw_engine_drain.samples, (uint64_t)hsw_engine_drain.provider_reads,
+                       (uint64_t)hsw_engine_drain.provider_mapped, (uint64_t)hsw_engine_drain.provider_retired);
     for (unsigned phase = 0; phase < hsw_engine_drain.samples; phase++) {
         const struct hsw_drain_sample *s = &hsw_engine_drain.sample[phase];
+        if (hsw_blitter_provider)
+            console_printf("hsw-blitter-status-route: phase=%u pga=%u hwstam=%u imr=%u\n",
+                           (uint64_t)phase, (uint64_t)s->blitter_hws_pga,
+                           (uint64_t)s->blitter_hwstam, (uint64_t)s->blitter_imr);
         if (hsw_exclusion_audit) {
             const struct hsw_smi_route *r = &s->smi_route;
             console_printf("hsw-exclusion-smi: phase=%u read=%u valid=%u pmbase=%u acpi=%u pmcon=%u en=%u sts=%u\n",
