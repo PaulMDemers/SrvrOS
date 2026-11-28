@@ -702,6 +702,17 @@ The next retry masks local interrupts for each sole-root page-table walk
 and restores the prior interrupt state before the census reads. It retains
 the exact alias attribute checks, 500 ms budget and zero PTE writes.
 
+Release `c8e7e1b94465f1aa` saved `session-0006614f0bd9ad6f-00` to USB
+and returned automatically. Both restored CRCs and all three framebuffer
+digests matched, slot 12292 stayed unchanged, and offline filesystem and
+allocation checks passed. Even with local interrupts masked, the census
+stopped at the first alias check after 6 µs. It retired the mapping, read
+zero entries and made zero GGTT PTE writes. The log shows PID 1 started
+before the census. System init stays resident, and its registered address
+space conflicts with the verifier's sole-kernel-root requirement. The next
+checkpoint is to defer user init only for this terminal capture and record
+the VMM refusal reason or verified alias attributes in the USB receipt.
+
 Release `7508b67b55c47747` returned to GRUB on the Air. The offline USB
 check passed and found zero new sessions. The same release failed to reach
 SrvrOS in OVMF using this Air's installed Ubuntu shim and GRUB. The repaired
