@@ -676,6 +676,17 @@ with its default intact, and the collector restored the credential-free
 entry and removed the temporary private payload. The native run record is
 `build/review/macbookpro8-1-ehci-trial-d6defd5b7a97090b/run.json`.
 
+The signal-loss qualification starts from device commit `4f044783` with
+integration baseline `24feebdd`. PR #568 carries the work. The scope is
+passive observation of the associated BCM4331 access point and a bounded
+gateway check when the signal returns. The instrumented desktop trial
+retains the behavior of the previously accepted connection owner so it
+can establish whether recovery already works. The trial depends on an
+attended interruption of `Demers2.4`, the existing private station profile
+and matching EHCI workspace. Next checkpoint is the exact-stage VM boot,
+followed by the native signal-loss and restoration capture. The Pro11,2
+USB Wi-Fi transport has a separate acceptance record.
+
 ## Bring-up sequence
 
 1. **Qualify a console-only candidate.** Rehearse the exact EFI payload in a
