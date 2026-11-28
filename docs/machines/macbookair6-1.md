@@ -196,6 +196,13 @@ for slots 4096 and 16385 while surveying their neighbors. The Haswell
 backing adapter keeps the same per-batch timing and Pipe A checks.
 Air7,2 PR301 at `b189f81a` retains its independent boot-owner scope.
 
+The [native remainder sweep](../intel-hsw-tearfree.md#native-remainder-sweep-result)
+passed on `458ccd16` / `9d79622438a1cd2b`. All fourteen batches
+completed in 310.308 ms, with Pipe A frame progress in each batch,
+112 verified mapping retirements and zero writes. All 57,342 entries
+were present, leaving no exact-zero candidate. The exit snapshot,
+installed recovery and offline USB check verified on return.
+
 The [read-only internal SSD discovery trial](#native-cold-and-warm-discovery-return)
 passed after a cold power-on and a warm reboot on 2026-11-27. Both GPT regions,
 the complete EFI boot sector, and three EFI partition ranges matched cleanly

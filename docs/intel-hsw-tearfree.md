@@ -496,6 +496,23 @@ Stage with `--laptop-probe-volume UUID --haswell-backing-capture
 --haswell-tilectl --haswell-linux-fences --haswell-sweep`. Decode the
 matched `exit.log` with `tools/hardware_haswell_sweep.py`.
 
+##### Native remainder sweep result
+
+Source `458ccd16` / release `9d79622438a1cd2b` saved session
+`session-0006614ee4e3dac3-00`. All fourteen batches completed in
+310.308 ms. Individual batches took 22.129–22.154 ms. Pipe A advanced
+one or two frames in every batch while the inherited surface stayed
+active. The two passes agreed in each batch, all 112 temporary mappings
+retired, and the receipt records zero writes.
+
+Every one of the remaining 57,342 entries was present. Of these,
+53,245 matched the first inherited framebuffer page and 57,340
+pointed into the captured stolen-memory range. Across this sweep and
+the four earlier rows, all 61,438 eligible entries were present.
+The exact-zero shortlist was empty. Ubuntu returned with the one-shot
+consumed, and the exit snapshot, installed recovery and offline USB
+check verified.
+
 ### Private bind prerequisites
 
 A later write trial requires an owner that maintains exclusion from
