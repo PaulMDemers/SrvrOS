@@ -984,6 +984,16 @@ The first cold station run uses the same three hub ports and the direct
 USB workspace. Its local run record binds the exact candidate, the
 fresh internal startup journal, and the one-shot GRUB state.
 
+The cold return for `6805a2ba3db92ff7`, session
+`session-0006615a974ebf53-00`, captured the target beacon and verified
+station setup. The first authentication frame on DCI 10 remained pending
+without a USB completion. Authentication, association and the WPA2 exchange
+did not complete. The workspace and independent journal agree. The driver
+erased key material and retired reception. Ubuntu returned with the one-shot
+entry consumed, the exit log verified, all 714 prior workspace files intact,
+and recovery verified. The private archive is `evidence-6805a2ba3db92ff7`.
+The next diagnostic is the first management OUT completion on DCI 10.
+
 #### RTL8188CUS identity checkpoint
 
 The Demers2.4 bring-up starts with the exact `0bda:8176` rev `0200` on port
