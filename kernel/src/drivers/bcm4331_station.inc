@@ -28,7 +28,7 @@ struct bcm4331_station {
     uint64_t deadline, tx_deadline, epoch;
     unsigned rx_next, sent, acked;
     uint32_t tx_status, tx_dma_status, tx_dma_error;
-    bool fault, tx_pending, secured, provider_live, provider_pinned;
+    bool fault, tx_pending, secured, provider_live, provider_pinned, desktop;
     uint8_t address[6], bssid[6], last_anonce_digest[32];
     struct wpa2_hs_peer peer;
     uint16_t aid, auth_status, assoc_status;
@@ -48,6 +48,16 @@ static void radio_put32(uint8_t *out, uint32_t value) {
 static bool radio_equal(const uint8_t *a, const uint8_t *b, unsigned length) {
     for (unsigned i = 0; i < length; i++) if (a[i] != b[i]) return false;
     return true;
+}
+
+static uint64_t station_irq_save(void) {
+    uint64_t flags;
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) :: "memory");
+    return flags;
+}
+
+static void station_irq_restore(uint64_t flags) {
+    if (flags & (1u << 9)) __asm__ volatile ("sti" ::: "memory");
 }
 
 static bool station_peer(const uint8_t *p, unsigned n, struct wpa2_hs_peer *peer) {
@@ -105,11 +115,12 @@ static bool station_tx_prepare(struct bcm4331_station *s) {
 }
 
 static bool station_tx_post(struct bcm4331_station *s, const uint8_t *frame, unsigned length) {
-    if (s->fault || s->tx_pending || s->sent >= STATION_TX_LIMIT || length < 24 || length > STATION_TX_STRIDE - STATION_TX_HEADER) return false;
+    if (s->fault || s->tx_pending || s->sent == UINT32_MAX || (!s->desktop && s->sent >= STATION_TX_LIMIT) ||
+        length < 24 || length > STATION_TX_STRIDE - STATION_TX_HEADER) return false;
     volatile uint32_t *r = s->regs + STATION_TX_CHANNEL * DMA_CHANNEL_STRIDE / 4;
-    unsigned slot = s->sent * 2;
-    unsigned cookie = ((STATION_TX_CHANNEL + 1) << 12) | slot;
-    uint64_t phys = s->tx_buffers + s->sent * STATION_TX_STRIDE;
+    unsigned slot = (s->sent % STATION_TX_LIMIT) * 2;
+    unsigned cookie = ((STATION_TX_CHANNEL + 1) << 12) | ((s->sent * 2) & 0xfff);
+    uint64_t phys = s->tx_buffers + (slot / 2) * STATION_TX_STRIDE;
     uint8_t *buffer = pmm_phys_to_virt(phys);
     struct bcm4331_rx_descriptor *desc = pmm_phys_to_virt(s->tx_ring);
     for (unsigned i = 0; i < STATION_TX_HEADER; i++) buffer[i] = 0;
@@ -132,13 +143,15 @@ static bool station_tx_post(struct bcm4331_station *s, const uint8_t *frame, uns
     desc[slot] = (struct bcm4331_rx_descriptor){DMA_FRAME_START, STATION_TX_HEADER,
         (uint32_t)phys, DMA64_PCIE | (uint32_t)(phys >> 32)};
     phys += STATION_TX_HEADER;
-    desc[slot + 1] = (struct bcm4331_rx_descriptor){DMA_FRAME_END | DMA_TX_INTERRUPT, length,
+    uint32_t flags = DMA_FRAME_END | DMA_TX_INTERRUPT;
+    if (s->desktop && slot + 2 == STATION_TX_LIMIT * 2) flags |= DMA_TABLE_END;
+    desc[slot + 1] = (struct bcm4331_rx_descriptor){flags, length,
         (uint32_t)phys, DMA64_PCIE | (uint32_t)(phys >> 32)};
     __asm__ volatile ("mfence" ::: "memory");
     s->sent++;
     s->tx_pending = true;
     s->tx_deadline = timer_monotonic_us() + 500000;
-    r[TX_DMA_INDEX / 4] = (slot + 2) * sizeof *desc;
+    r[TX_DMA_INDEX / 4] = (s->desktop ? s->sent % STATION_TX_LIMIT * 2 : slot + 2) * sizeof *desc;
     return true;
 }
 
@@ -156,10 +169,10 @@ static void station_tx_reap(struct bcm4331_station *s) {
     if (!(status & 1)) return;
     (void)s->regs[D11_TX_STATUS_NEXT / 4];
     s->tx_status = status & 0xffff;
-    unsigned cookie = ((STATION_TX_CHANNEL + 1) << 12) | (s->sent * 2 - 2);
+    unsigned cookie = ((STATION_TX_CHANNEL + 1) << 12) | (((s->sent - 1) * 2) & 0xfff);
     if (status >> 16 != cookie) s->fault = true;
     if (status & 0x40) return;
-    unsigned end = s->sent * 2 * sizeof(struct bcm4331_rx_descriptor);
+    unsigned end = (s->desktop ? s->sent % STATION_TX_LIMIT : s->sent) * 2 * sizeof(struct bcm4331_rx_descriptor);
     s->tx_pending = false;
     if (s->fault || (s->tx_dma_status & RX_DMA_POINTER) != end || (status & 0x3e) != 2 || !(status & 0xf000))
         s->fault = true;
@@ -170,6 +183,7 @@ static bool station_tx(struct bcm4331_station *s, const uint8_t *frame, unsigned
     if (!station_tx_post(s, frame, length)) return false;
     for (unsigned i = 0; s->tx_pending && !s->fault && i < 5000; i++) {
         station_tx_reap(s);
+        if (s->desktop && s->tx_pending) scheduler_yield();
         if (s->tx_pending && !timer_delay_us(100)) break;
     }
     if (s->tx_pending) s->fault = true;
@@ -227,6 +241,7 @@ static unsigned station_management(struct bcm4331_station *s, uint8_t *out, unsi
         } else if (n >= 34 && out[0] == subtype && !(out[1] & 0xc7) && !(out[22] & 15) &&
                 radio_equal(out + 4, s->address, 6) && radio_equal(out + 10, s->bssid, 6) &&
                 radio_equal(out + 16, s->bssid, 6)) return n;
+        if (!n && s->desktop) scheduler_yield();
         if (!n && !timer_delay_us(100)) break;
     }
     return 0;

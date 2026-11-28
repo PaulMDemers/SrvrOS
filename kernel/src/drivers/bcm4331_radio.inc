@@ -22,7 +22,7 @@ enum {
 
 struct radio_assets {
     const uint8_t *initial, *band, *profile, *key;
-    bool station, reconnect;
+    bool station, reconnect, desktop;
     uint8_t address[6];
 };
 
@@ -140,6 +140,7 @@ struct bcm4331_rx_descriptor {
 };
 
 #include "bcm4331_station.inc"
+#include "bcm4331_desktop.inc"
 
 static unsigned listen_for_beacons(volatile uint32_t *regs, const uint8_t *buffers) {
     unsigned frames = 0, valid = 0, target = 0, timeouts = 0, last_rx_channel = 0;
@@ -237,7 +238,8 @@ static unsigned radio_receive(const struct pci_device *p, volatile uint32_t *reg
         };
     }
     static struct bcm4331_station station;
-    station = (struct bcm4331_station){.regs = regs, .rx = data, .auth_status = UINT16_MAX, .assoc_status = UINT16_MAX};
+    station = (struct bcm4331_station){.regs = regs, .rx = data, .auth_status = UINT16_MAX, .assoc_status = UINT16_MAX,
+        .desktop = assets->desktop};
     volatile uint32_t *tx = regs + STATION_TX_CHANNEL * DMA_CHANNEL_STRIDE / 4;
     if (assets->station) {
         station.tx_ring = (buffers + STATION_TX_RING + RX_RING_ALIGNMENT - 1) & ~(uint64_t)(RX_RING_ALIGNMENT - 1);
@@ -245,7 +247,7 @@ static unsigned radio_receive(const struct pci_device *p, volatile uint32_t *reg
         for (unsigned i = 0; i < 6; i++) station.address[i] = assets->address[i];
         struct bcm4331_rx_descriptor *tx_desc = pmm_phys_to_virt(station.tx_ring);
         for (unsigned i = 0; i <= STATION_TX_LIMIT * 2; i++) tx_desc[i] = (struct bcm4331_rx_descriptor){0};
-        tx_desc[STATION_TX_LIMIT * 2].control = DMA_TABLE_END;
+        tx_desc[STATION_TX_LIMIT * 2 - (assets->desktop ? 1 : 0)].control = DMA_TABLE_END;
     }
     __asm__ volatile ("mfence" ::: "memory");
     uint32_t control = DMA_ENABLE | RX_DMA_NO_PARITY | (RX_FRAME_OFFSET << 1);
@@ -272,7 +274,11 @@ static unsigned radio_receive(const struct pci_device *p, volatile uint32_t *reg
             MAC_AWAKE | MAC_DISCARD_PMQ | D11_MAC_ENABLED;
         regs[D11_IRQ_REASON / 4] = D11_MAC_SUSPENDED;
         if (regs[D11_MAC_CONTROL / 4] & D11_MAC_ENABLED) {
-            if (assets->reconnect) matches = station_reconnect(&station, assets->key);
+            if (assets->desktop) {
+                __asm__ volatile ("sti" ::: "memory");
+                matches = station_desktop(&station, assets->key);
+                __asm__ volatile ("cli" ::: "memory");
+            } else if (assets->reconnect) matches = station_reconnect(&station, assets->key);
             else if (assets->station) matches = station_exchange(&station, assets->key);
             else matches = listen_for_beacons(regs, data);
             dma->provider_pinned = station.provider_pinned;

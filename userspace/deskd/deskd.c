@@ -2427,7 +2427,8 @@ int main(int argc,char **argv) {
     int ehci_ethernet_trial=wired_trial || (argc==2 && !strcmp(argv[1],"--ehci-ethernet-trial"));
     int ehci_telemetry_trial=argc==2 && !strcmp(argv[1],"--ehci-telemetry-trial");
     int ehci_settings_trial=argc==2 && (!strcmp(argv[1],"--ehci-brightness-trial") || !strcmp(argv[1],"--ehci-audio-trial"));
-    int ehci_topcase_trial=ehci_file_trial || ehci_settings_trial || ehci_telemetry_trial || ehci_battery_trial || ehci_ethernet_trial ||
+    int ehci_wifi_trial=argc==2 && !strcmp(argv[1],"--ehci-wifi-trial");
+    int ehci_topcase_trial=ehci_wifi_trial || ehci_file_trial || ehci_settings_trial || ehci_telemetry_trial || ehci_battery_trial || ehci_ethernet_trial ||
         (argc==2 && !strcmp(argv[1],"--ehci-topcase-trial"));
     int ehci_trial=ehci_topcase_trial || (argc==2 && !strcmp(argv[1],"--ehci-trackpad-trial"));
     int hardware_trial=retina_trial || wifi_trial || wifi_managed_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
@@ -2526,6 +2527,7 @@ int main(int argc,char **argv) {
     else if(navigation_trial) spawn_app(&s,DESK_APP_HELP,"window-navigation-trial");
     else if(lifecycle_trial) spawn_app(&s,DESK_APP_HELP,"lifecycle-trial");
     else if(ehci_telemetry_trial || ehci_battery_trial) spawn_app(&s,DESK_APP_SYSTEM,"--sensors");
+    else if(ehci_wifi_trial) spawn_app(&s,DESK_APP_TEXT,"/fat/share/Wi-Fi trial.txt");
     else if(ehci_ethernet_trial) spawn_app(&s,DESK_APP_TEXT,"/fat/share/Ethernet trial.txt");
     else if(ehci_trial) spawn_app(&s,DESK_APP_TEXT,ehci_file_trial?argv[2]:"/fat/share/Trackpad trial.txt");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
@@ -2603,11 +2605,12 @@ int main(int argc,char **argv) {
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     uint64_t ehci_deadline=ehci_trial?(uint64_t)srv_monotonic_us()+
-        (wired_disconnected?240000000u:ehci_telemetry_trial?25000000u:ehci_settings_trial?150000000u:90000000u):0;
+        (wired_disconnected?240000000u:ehci_wifi_trial?180000000u:ehci_telemetry_trial?25000000u:ehci_settings_trial?150000000u:90000000u):0;
     unsigned telemetry_seconds=0;
     unsigned ehci_axes=0,ehci_zoom_clicks=0,ehci_pointer_exit=0,ehci_timeout=0;
     const char ehci_expected[]="Ehci-42";
     unsigned ehci_typed=0,ehci_find_open=0,ehci_keyboard=0;
+    bool ehci_wifi_exit=false;
     uint64_t drag_identity=0,resize_identity=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
     unsigned resize_edges=0;struct desk_rect resize_start={0},resize_last={0},drag_last={0},drag_restore={0};int resize_x=0,resize_y=0,drag_x=0,drag_y=0,drag_placed=0,drag_moved=0;
@@ -2986,6 +2989,7 @@ int main(int argc,char **argv) {
             if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_CTRL) &&
                 (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_ESCAPE) {
                 if(ehci_topcase_trial) desk_log("ehci-desktop-ui: keyboard-exit=1\n");
+                ehci_wifi_exit=ehci_wifi_trial;
                 if(s.session_child)global_menu_action(&s,GLOBAL_EXIT);else quit=1;
                 break;
             }
@@ -3844,6 +3848,9 @@ int main(int argc,char **argv) {
     } else if(ehci_telemetry_trial) {
         if(!ehci_timeout || s.child_errors)failed=1;
         desk_log("ehci-desktop-telemetry-ui: result=%s planned-exit=%u\n",failed?"INCOMPLETE":"PASS",ehci_timeout);
+    } else if(ehci_wifi_trial) {
+        if(!ehci_wifi_exit || ehci_timeout || s.child_errors)failed=1;
+        desk_log("ehci-desktop-wifi-ui: result=%s checklist-exit=%u\n",failed?"INCOMPLETE":"PASS",ehci_wifi_exit);
     } else if(ehci_trial) {
         if(ehci_axes!=3 || ehci_zoom_clicks<2 || !ehci_pointer_exit || (!ehci_file_trial && !ehci_keyboard) || ehci_timeout || s.child_errors)failed=1;
         desk_log("ehci-desktop-ui: result=%s axes=%u checklist-zoom-clicks=%u pointer-exit=%u timeout=%u\n",

@@ -39,6 +39,7 @@ static const uint8_t *station_eapol(struct bcm4331_station *s, unsigned type, un
                 return packet;
             }
         }
+        if (!n && s->desktop) scheduler_yield();
         if (!n && !timer_delay_us(100)) break;
     }
     return 0;
@@ -105,7 +106,7 @@ static bool station_wpa(struct bcm4331_station *s, const uint8_t *key) {
     return s->secured;
 }
 
-static bool station_net_send(void *context, const uint8_t *frame, uint16_t length) {
+static bool station_net_send_locked(void *context, const uint8_t *frame, uint16_t length) {
     struct bcm4331_station *s = context;
     station_tx_reap(s);
     if (!s->provider_live || !s->secured || s->fault || s->tx_pending || length < 14 || length > NET_DEVICE_FRAME_MAX ||
@@ -125,7 +126,7 @@ static bool station_net_send(void *context, const uint8_t *frame, uint16_t lengt
     return n && station_tx_post(s, s->security->output, n);
 }
 
-static uint64_t station_net_poll(void *context, uint64_t budget, bool verbose) {
+static uint64_t station_net_poll_locked(void *context, uint64_t budget, bool verbose) {
     (void)verbose;
     struct bcm4331_station *s = context;
     if (!s->provider_live || !s->secured || s->fault) return 0;
@@ -151,6 +152,20 @@ static uint64_t station_net_poll(void *context, uint64_t budget, bool verbose) {
             received++;
         } else station_scrub(plain, n);
     }
+    return received;
+}
+
+static bool station_net_send(void *context, const uint8_t *frame, uint16_t length) {
+    uint64_t flags = station_irq_save();
+    bool sent = station_net_send_locked(context, frame, length);
+    station_irq_restore(flags);
+    return sent;
+}
+
+static uint64_t station_net_poll(void *context, uint64_t budget, bool verbose) {
+    uint64_t flags = station_irq_save();
+    uint64_t received = station_net_poll_locked(context, budget, verbose);
+    station_irq_restore(flags);
     return received;
 }
 

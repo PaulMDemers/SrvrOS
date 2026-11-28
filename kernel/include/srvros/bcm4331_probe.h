@@ -1,6 +1,8 @@
 #ifndef SRVROS_BCM4331_PROBE_H
 #define SRVROS_BCM4331_PROBE_H
 
+#include <stdbool.h>
+
 enum bcm4331_probe_result {
     BCM4331_REFUSED,
     BCM4331_INCOMPLETE,
@@ -15,10 +17,15 @@ enum bcm4331_probe_result {
 
 enum bcm4331_probe_mode {
     BCM4331_TOPOLOGY, BCM4331_FIRMWARE, BCM4331_CHANNEL10, BCM4331_STATION, BCM4331_STATION_DHCP,
-    BCM4331_STATION_RECONNECT,
+    BCM4331_STATION_RECONNECT, BCM4331_STATION_DESKTOP,
 };
 
 /* Isolated boot only, with IRQs masked and the sole kernel address space. */
 enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode);
+
+bool bcm4331_desktop_configured(void);
+bool bcm4331_desktop_start(bool trial);
+bool bcm4331_desktop_finish(bool *retired);
+bool bcm4331_desktop_fence(void);
 
 #endif

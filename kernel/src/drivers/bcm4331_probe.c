@@ -1,15 +1,18 @@
 #include <srvros/bcm4331_probe.h>
 #include <srvros/console.h>
 #include <srvros/display_profile.h>
+#include <srvros/heap.h>
 #include <srvros/initramfs.h>
 #include <srvros/mt76_rsn.h>
 #include <srvros/net.h>
 #include <srvros/net_device.h>
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
+#include <srvros/scheduler.h>
 #include <srvros/sha256.h>
 #include <srvros/timer.h>
 #include <srvros/vmm.h>
+#include <srvros/wifi_service.h>
 #include <srvros/wpa2_ccmp.h>
 
 enum {
@@ -365,9 +368,10 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
         return BCM4331_REFUSED;
     }
     bool reconnect_mode = mode == BCM4331_STATION_RECONNECT;
-    bool station_mode = mode == BCM4331_STATION || mode == BCM4331_STATION_DHCP || reconnect_mode;
+    bool desktop_mode = mode == BCM4331_STATION_DESKTOP;
+    bool station_mode = mode == BCM4331_STATION || mode == BCM4331_STATION_DHCP || reconnect_mode || desktop_mode;
     bool radio_trial_mode = mode == BCM4331_CHANNEL10 || station_mode;
-    struct radio_assets assets = {.station = station_mode, .reconnect = reconnect_mode};
+    struct radio_assets assets = {.station = station_mode, .reconnect = reconnect_mode, .desktop = desktop_mode};
     if (radio_trial_mode) {
         assets.initial = pinned_asset("/firmware/bcm4331-ht-init.fw", 2830,
             "1ee846e61c27505bc55d68bd1ff8155affc2771eb8244d935d329ed8c08ad764");
@@ -382,7 +386,7 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
             console_write("bcm4331: refused missing or mismatched channel 10 assets\n");
             return BCM4331_REFUSED;
         }
-        if (mode == BCM4331_STATION_DHCP || reconnect_mode) {
+        if (mode == BCM4331_STATION_DHCP || reconnect_mode || desktop_mode) {
             assets.key = station_key();
             if (!assets.key) {
                 console_write("bcm4331: refused missing or invalid station key record\n");
@@ -421,6 +425,7 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
     console_printf("bcm4331: inherited_bus_master=%u transactions_drained=%u\n",
         (uint64_t)(fenced != command), (uint64_t)drained);
     if (!drained) return BCM4331_UNSAFE;
+    if (desktop_mode) bcm_desktop.pci = p;
 
     const uint64_t flags = VMM_PAGE_CACHE_DISABLE | VMM_PAGE_NO_EXECUTE;
     if (!vmm_map_page_in_space(root, fixed, bar + CHIPCOMMON_PAGE, flags | VMM_PAGE_WRITABLE)) return BCM4331_INCOMPLETE;
@@ -483,7 +488,7 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
         (uint64_t)(dma.memory ? RX_DMA_PAGES : 0), (uint64_t)firmware_attempted);
     if (!restored || !unmapped || !pins_restored || !psm_retired) return BCM4331_UNSAFE;
     if (matched) console_printf("bcm4331: board_data=%u phy_identified=%u\n", (uint64_t)srom_ready, (uint64_t)phy_ready);
-    if (reconnect_mode) return completed ? BCM4331_RECONNECT_OK : BCM4331_INCOMPLETE;
+    if (reconnect_mode || desktop_mode) return completed ? BCM4331_RECONNECT_OK : BCM4331_INCOMPLETE;
     if (mode == BCM4331_STATION_DHCP) return completed ? BCM4331_DHCP_OK : BCM4331_INCOMPLETE;
     if (mode == BCM4331_STATION) return completed ? BCM4331_ASSOCIATED : BCM4331_INCOMPLETE;
     if (mode == BCM4331_CHANNEL10) return completed ? BCM4331_BEACON_OK : BCM4331_INCOMPLETE;
