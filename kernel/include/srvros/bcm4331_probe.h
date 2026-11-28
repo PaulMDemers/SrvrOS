@@ -9,10 +9,14 @@ enum bcm4331_probe_result {
     BCM4331_BEACON_OK,
     BCM4331_ASSOCIATED,
     BCM4331_DHCP_OK,
+    BCM4331_RECONNECT_OK,
     BCM4331_UNSAFE,
 };
 
-enum bcm4331_probe_mode { BCM4331_TOPOLOGY, BCM4331_FIRMWARE, BCM4331_CHANNEL10, BCM4331_STATION, BCM4331_STATION_DHCP };
+enum bcm4331_probe_mode {
+    BCM4331_TOPOLOGY, BCM4331_FIRMWARE, BCM4331_CHANNEL10, BCM4331_STATION, BCM4331_STATION_DHCP,
+    BCM4331_STATION_RECONNECT,
+};
 
 /* Isolated boot only, with IRQs masked and the sole kernel address space. */
 enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode);

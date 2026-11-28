@@ -1,6 +1,6 @@
 /* Firmware 784.2 station management on the qualified HT PHY and channel. */
 enum {
-    STATION_RX_SLOTS = 64, STATION_TX_LIMIT = 16, STATION_TX_HEADER = 118,
+    STATION_RX_SLOTS = 64, STATION_TX_LIMIT = 32, STATION_TX_HEADER = 118,
     STATION_TX_CHANNEL = 1, STATION_TX_STRIDE = 2048, STATION_TX_BUFFER = 67 * PAGE_BYTES,
     STATION_TX_RING = 64 * PAGE_BYTES, DMA_TABLE_END = 0x10000000, DMA_TX_INTERRUPT = 0x20000000,
     DMA_FRAME_END = 0x40000000, DMA_FRAME_START = 0x80000000u,
@@ -10,6 +10,12 @@ enum {
     D11_TEMPLATE_DATA = 0x134,
 };
 
+struct bcm4331_security {
+    struct wpa2_handshake handshake;
+    struct wpa2_ccmp keys;
+    uint8_t air[RX_BUFFER_BYTES], plaintext[NET_DEVICE_FRAME_MAX], output[STATION_TX_STRIDE - STATION_TX_HEADER];
+};
+
 static const uint8_t station_ssid[] = "Demers2.4";
 static const uint8_t station_rsn[] = {48, 20, 1, 0, 0, 15, 172, 4, 1, 0, 0, 15, 172, 4,
     1, 0, 0, 15, 172, 2, 0, 0};
@@ -17,12 +23,13 @@ static const uint8_t station_rsn[] = {48, 20, 1, 0, 0, 15, 172, 4, 1, 0, 0, 15, 
 struct bcm4331_station {
     volatile uint32_t *regs;
     uint8_t *rx;
+    struct bcm4331_security *security;
     uint64_t tx_ring, tx_buffers;
-    uint64_t deadline, tx_deadline;
+    uint64_t deadline, tx_deadline, epoch;
     unsigned rx_next, sent, acked;
     uint32_t tx_status, tx_dma_status, tx_dma_error;
     bool fault, tx_pending, secured, provider_live, provider_pinned;
-    uint8_t address[6], bssid[6];
+    uint8_t address[6], bssid[6], last_anonce_digest[32];
     struct wpa2_hs_peer peer;
     uint16_t aid, auth_status, assoc_status;
     bool beacon, authenticated, associated;
@@ -215,7 +222,8 @@ static unsigned station_management(struct bcm4331_station *s, uint8_t *out, unsi
         if (now < start || now >= s->deadline || now - start >= 2500000) break;
         unsigned n = station_rx(s, out, capacity);
         if (subtype == 0x80) {
-            if (station_peer(out, n, &s->peer)) return n;
+            if (n >= 24 && (s->epoch == 1 || radio_equal(out + 16, s->bssid, 6)) &&
+                station_peer(out, n, &s->peer)) return n;
         } else if (n >= 34 && out[0] == subtype && !(out[1] & 0xc7) && !(out[22] & 15) &&
                 radio_equal(out + 4, s->address, 6) && radio_equal(out + 10, s->bssid, 6) &&
                 radio_equal(out + 16, s->bssid, 6)) return n;
@@ -277,19 +285,74 @@ static bool station_join(struct bcm4331_station *s) {
 
 #include "bcm4331_wpa.inc"
 
+static bool station_disconnect(struct bcm4331_station *s) {
+    uint8_t frame[26];
+    station_header(s, frame, 0xa0);
+    radio_put16(frame + 24, 3);
+    bool ack = station_tx(s, frame, sizeof frame);
+    station_addresses(s, true);
+    return ack;
+}
+
+static bool station_offline(struct bcm4331_station *s, bool wait) {
+    struct net_device_link link;
+    if (!net_device_link(&link) || link.up) return false;
+    if (!wait) return true;
+    uint64_t start = timer_monotonic_us();
+    for (unsigned i = 0; i < 6000 && !s->fault; i++) {
+        uint64_t now = timer_monotonic_us();
+        if (now < start) break;
+        if (now - start >= 500000) {
+            station_scrub(s->security->air, sizeof s->security->air);
+            return true;
+        }
+        station_rx(s, s->security->air, sizeof s->security->air);
+        if (!timer_delay_us(100)) break;
+    }
+    return false;
+}
+
+static bool station_reconnect(struct bcm4331_station *s, const uint8_t *key) {
+    struct net_device_ops provider = station_provider(s);
+    struct net_bounded_probe scopes[2] = {0};
+    if (!net_device_registry_empty() || !net_device_register(&provider)) return false;
+    bool complete = false;
+    for (unsigned i = 0; i < 2; i++) {
+        s->epoch = i + 1;
+        s->security = &station_security[i];
+        s->deadline = timer_monotonic_us() + 15000000;
+        s->peer = (struct wpa2_hs_peer){0};
+        s->beacon = s->authenticated = s->associated = false;
+        s->aid = 0;
+        s->auth_status = s->assoc_status = UINT16_MAX;
+        bool joined = station_join(s);
+        bool secured = joined && station_wpa(s, key);
+        bool network = secured && station_gateway(s, &provider, &scopes[i]);
+        bool erased = station_key_retire(s);
+        bool disassociated = joined && station_disconnect(s);
+        bool gap = network && erased && disassociated && station_offline(s, i == 0);
+        console_printf("bcm4331-lifetime: epoch=%u beacon=%u authenticated=%u associated=%u auth_status=%u assoc_status=%u secured=%u network=%u keys_erased=%u disassoc_ack=%u offline=%u\n",
+            s->epoch, (uint64_t)s->beacon, (uint64_t)s->authenticated, (uint64_t)joined,
+            (uint64_t)s->auth_status, (uint64_t)s->assoc_status, (uint64_t)secured, (uint64_t)network,
+            (uint64_t)erased, (uint64_t)disassociated, (uint64_t)gap);
+        if (!gap) break;
+        complete = i == 1;
+    }
+    s->provider_pinned = !net_device_retire(&provider);
+    console_printf("bcm4331-reconnect: complete=%u provider_retired=%u sent=%u acknowledged=%u\n",
+        (uint64_t)complete, (uint64_t)!s->provider_pinned, (uint64_t)s->sent, (uint64_t)s->acked);
+    return complete && !s->provider_pinned && s->sent == s->acked && !s->tx_pending && !s->fault;
+}
+
 static bool station_exchange(struct bcm4331_station *s, const uint8_t *key) {
+    s->epoch = 1;
+    s->security = &station_security[0];
     s->deadline = timer_monotonic_us() + 15000000;
     bool joined = station_join(s);
     unsigned sent = s->sent, acked = s->acked;
     bool configured = key && joined && station_wpa(s, key) && station_dhcp(s);
     bool keys_closed = !key || station_key_retire(s);
-    bool disassociated = false;
-    if (joined) {
-        uint8_t frame[26];
-        station_header(s, frame, 0xa0);
-        radio_put16(frame + 24, 3);
-        disassociated = station_tx(s, frame, sizeof frame);
-    }
+    bool disassociated = joined && station_disconnect(s);
     console_printf("bcm4331-station: beacon=%u authenticated=%u associated=%u auth_status=%u assoc_status=%u tx=%u ack=%u disassociated=%u status=%x dma_status=%x dma_error=%x\n",
         (uint64_t)s->beacon, (uint64_t)s->authenticated, (uint64_t)s->associated, (uint64_t)s->auth_status,
         (uint64_t)s->assoc_status, (uint64_t)sent, (uint64_t)acked, (uint64_t)disassociated,

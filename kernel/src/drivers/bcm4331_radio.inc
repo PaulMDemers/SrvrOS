@@ -22,7 +22,7 @@ enum {
 
 struct radio_assets {
     const uint8_t *initial, *band, *profile, *key;
-    bool station;
+    bool station, reconnect;
     uint8_t address[6];
 };
 
@@ -272,7 +272,9 @@ static unsigned radio_receive(const struct pci_device *p, volatile uint32_t *reg
             MAC_AWAKE | MAC_DISCARD_PMQ | D11_MAC_ENABLED;
         regs[D11_IRQ_REASON / 4] = D11_MAC_SUSPENDED;
         if (regs[D11_MAC_CONTROL / 4] & D11_MAC_ENABLED) {
-            matches = assets->station ? station_exchange(&station, assets->key) : listen_for_beacons(regs, data);
+            if (assets->reconnect) matches = station_reconnect(&station, assets->key);
+            else if (assets->station) matches = station_exchange(&station, assets->key);
+            else matches = listen_for_beacons(regs, data);
             dma->provider_pinned = station.provider_pinned;
             console_printf("bcm4331-radio: running_ucode_state=%u\n", (uint64_t)*radio_shm(regs, SHM_UCODE_STATE));
         }

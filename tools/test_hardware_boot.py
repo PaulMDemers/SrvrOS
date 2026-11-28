@@ -1041,7 +1041,7 @@ class InstallTests(unittest.TestCase):
         assets = {"firmware/bcm4331-station.bin": (profile.stat().st_size, boot.digest(profile), None)}
         with patch.object(boot, "ROOT", self.root), patch.object(boot, "BCM4331_UCODE_SOURCE", firmware), \
                 patch.object(boot, "BCM4331_UCODE_SHA256", boot.digest(firmware)), patch.object(boot, "BCM4331_STATION_ASSETS", assets), \
-                patch.object(boot.subprocess, "check_output", side_effect=["fixture-revision\n", ""]):
+                patch.object(boot.subprocess, "check_output", side_effect=["fixture-revision\n", ""] * 2):
             release = boot.stage(ehci_bcm4331_volume="0d9b53a0", ehci_bcm4331_firmware=True,
                                  ehci_bcm4331_profile=profile, ehci_bcm4331_station=True, ehci_bcm4331_station_key=key)
             payload = self.stage / release
@@ -1050,6 +1050,12 @@ class InstallTests(unittest.TestCase):
             with tarfile.open(payload / "initramfs.tar") as archive:
                 self.assertEqual(archive.getmember(ARCHIVE_NAME).mode, 0o600)
             self.assertEqual((payload / "initramfs.tar").stat().st_mode & 0o777, 0o600)
+            reconnect = boot.stage(ehci_bcm4331_volume="0d9b53a0", ehci_bcm4331_firmware=True,
+                                   ehci_bcm4331_profile=profile, ehci_bcm4331_station=True,
+                                   ehci_bcm4331_station_key=key, ehci_bcm4331_reconnect=True)
+            self.assertNotEqual(reconnect, release)
+            self.assertIn("srvros.ehci=wifi4331-reconnect", (self.stage / reconnect / "limine.conf").read_text())
+            self.assertTrue(boot.verify(self.stage / reconnect, reconnect)["config_version"].startswith(boot.EHCI_BCM4331_RECONNECT))
         with self.assertRaisesRegex(ValueError, "station key requires the station trial"):
             boot.stage(ehci_bcm4331_station_key=key)
 

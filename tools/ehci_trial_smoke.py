@@ -358,7 +358,8 @@ def exercise_network_probe(command, temp, logs, release, log_volume, packets, wi
                 "-device", "usb-storage,drive=stick,bus=xhci.0"]
     serial = logs / "trial-serial.log"
     wifi4331 = wifi4331_mode is not None
-    finished = {"station-dhcp": "Wi-Fi WPA2 and DHCP trial finished", "station": "Wi-Fi station trial finished",
+    finished = {"station-reconnect": "Wi-Fi gateway and reconnect trial finished",
+                "station-dhcp": "Wi-Fi WPA2 and DHCP trial finished", "station": "Wi-Fi station trial finished",
                 "channel10": "Wi-Fi channel 10 trial finished", "firmware": "Wi-Fi firmware trial finished",
                 "topology": "Wi-Fi topology probe finished", None: "Ethernet probe finished"}[wifi4331_mode]
     report = "ehci-wifi4331" if wifi4331 else "ehci-ethernet"
@@ -403,7 +404,8 @@ def main():
     desktop_match = boot.EHCI_DESKTOP_RE.fullmatch(version)
     ethernet_match = boot.EHCI_ETHERNET_RE.fullmatch(version)
     wifi4331 = boot.EHCI_BCM4331_RE.fullmatch(version)
-    wifi4331_mode = ("station-dhcp" if version.startswith(boot.EHCI_BCM4331_DHCP) else
+    wifi4331_mode = ("station-reconnect" if version.startswith(boot.EHCI_BCM4331_RECONNECT) else
+                     "station-dhcp" if version.startswith(boot.EHCI_BCM4331_DHCP) else
                      "station" if version.startswith(boot.EHCI_BCM4331_STATION) else
                      "channel10" if version.startswith(boot.EHCI_BCM4331_CHANNEL10) else
                      "firmware" if version.startswith(boot.EHCI_BCM4331_FIRMWARE) else "topology" if wifi4331 else None)

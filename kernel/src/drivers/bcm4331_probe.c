@@ -364,9 +364,10 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
         console_write("bcm4331: refused missing or mismatched firmware image\n");
         return BCM4331_REFUSED;
     }
-    bool station_mode = mode == BCM4331_STATION || mode == BCM4331_STATION_DHCP;
+    bool reconnect_mode = mode == BCM4331_STATION_RECONNECT;
+    bool station_mode = mode == BCM4331_STATION || mode == BCM4331_STATION_DHCP || reconnect_mode;
     bool radio_trial_mode = mode == BCM4331_CHANNEL10 || station_mode;
-    struct radio_assets assets = {.station = station_mode};
+    struct radio_assets assets = {.station = station_mode, .reconnect = reconnect_mode};
     if (radio_trial_mode) {
         assets.initial = pinned_asset("/firmware/bcm4331-ht-init.fw", 2830,
             "1ee846e61c27505bc55d68bd1ff8155affc2771eb8244d935d329ed8c08ad764");
@@ -381,7 +382,7 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
             console_write("bcm4331: refused missing or mismatched channel 10 assets\n");
             return BCM4331_REFUSED;
         }
-        if (mode == BCM4331_STATION_DHCP) {
+        if (mode == BCM4331_STATION_DHCP || reconnect_mode) {
             assets.key = station_key();
             if (!assets.key) {
                 console_write("bcm4331: refused missing or invalid station key record\n");
@@ -482,6 +483,7 @@ enum bcm4331_probe_result bcm4331_probe(enum bcm4331_probe_mode mode) {
         (uint64_t)(dma.memory ? RX_DMA_PAGES : 0), (uint64_t)firmware_attempted);
     if (!restored || !unmapped || !pins_restored || !psm_retired) return BCM4331_UNSAFE;
     if (matched) console_printf("bcm4331: board_data=%u phy_identified=%u\n", (uint64_t)srom_ready, (uint64_t)phy_ready);
+    if (reconnect_mode) return completed ? BCM4331_RECONNECT_OK : BCM4331_INCOMPLETE;
     if (mode == BCM4331_STATION_DHCP) return completed ? BCM4331_DHCP_OK : BCM4331_INCOMPLETE;
     if (mode == BCM4331_STATION) return completed ? BCM4331_ASSOCIATED : BCM4331_INCOMPLETE;
     if (mode == BCM4331_CHANNEL10) return completed ? BCM4331_BEACON_OK : BCM4331_INCOMPLETE;
